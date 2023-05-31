@@ -1,0 +1,18 @@
+/*! \page __tt Doxeeeeeeeeeeeeeee
+ * \section _tt_sec1 Description
+*
+* \tableofcontents
+* \section __quick Quick started
+*
+* \subsection _main_sec0 Installation
+* \subsubsection __main_sub0 MFEM
+* \subsubsection __main_sub1 Post-processing tools
+*
+* \subsection _main_sec1 Development of a phase-field application?
+* A phase-field application is roughly a C++ main program composed of four parts:
+* \arg \ref __spatial "Spatial discretization"
+* \arg \ref __physical "Physical modeling"
+* \arg \ref __postprocessing "Post-processing directives"
+* \arg \ref __time "Time integration"
+
+*/

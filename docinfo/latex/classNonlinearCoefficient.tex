@@ -1,0 +1,57 @@
+\hypertarget{classNonlinearCoefficient}{}\section{Nonlinear\+Coefficient Class Reference}
+\label{classNonlinearCoefficient}\index{Nonlinear\+Coefficient@{Nonlinear\+Coefficient}}
+
+
+{\ttfamily \#include $<$/home/ci230846/home-\/local/\+My\+Git\+Projects/\+C\+O\+M\+P\+O\+N\+E\+N\+T/\+P\+F-\/\+M\+F\+E\+M/\+Integrators/\+Diffusion\+N\+L\+F\+Integrator.\+hpp$>$}
+
+
+
+Inheritance diagram for Nonlinear\+Coefficient\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=258pt]{classNonlinearCoefficient__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Nonlinear\+Coefficient\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=258pt]{classNonlinearCoefficient__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classNonlinearCoefficient_af9d31aa89191469de92d80e48637c64f}\label{classNonlinearCoefficient_af9d31aa89191469de92d80e48637c64f}} 
+{\bfseries Nonlinear\+Coefficient} (double rho\+\_\+, double bt\+\_\+, double p0)
+\item 
+\mbox{\Hypertarget{classNonlinearCoefficient_a41db0c64a3dfcf1dbbea6630bd2ee193}\label{classNonlinearCoefficient_a41db0c64a3dfcf1dbbea6630bd2ee193}} 
+{\bfseries Nonlinear\+Coefficient} (mfem\+::\+Grid\+Function $\ast$u\+\_\+, double rho\+\_\+, double bt\+\_\+, double p0)
+\item 
+\mbox{\Hypertarget{classNonlinearCoefficient_aa979c936709c19e3089aa9f60354225b}\label{classNonlinearCoefficient_aa979c936709c19e3089aa9f60354225b}} 
+virtual double {\bfseries Eval} (mfem\+::\+Element\+Transformation \&T, const mfem\+::\+Integration\+Point \&ip)
+\item 
+\mbox{\Hypertarget{classNonlinearCoefficient_a1ea6e8519bc3eac3c0976f077596b71b}\label{classNonlinearCoefficient_a1ea6e8519bc3eac3c0976f077596b71b}} 
+virtual double {\bfseries Eval} (mfem\+::\+Element\+Transformation \&T, const mfem\+::\+Integration\+Point \&ip, const double \&u)
+\item 
+\mbox{\Hypertarget{classNonlinearCoefficient_a55197365c8257b2cd5a75b87bbb8a36e}\label{classNonlinearCoefficient_a55197365c8257b2cd5a75b87bbb8a36e}} 
+virtual double {\bfseries Eval\+Grad} (mfem\+::\+Element\+Transformation \&T, const mfem\+::\+Integration\+Point \&ip, const double \&u)
+\item 
+\mbox{\Hypertarget{classNonlinearCoefficient_abc449e82f5d99e5dbd9fcc128880bda0}\label{classNonlinearCoefficient_abc449e82f5d99e5dbd9fcc128880bda0}} 
+virtual void {\bfseries Read} (std\+::istream \&in)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Function representing a nonlinear coefficient (density) for the given state (pressure). Used in \hyperlink{classDiffusionNLFIntegrator_ac7b70b5cee3c880d52b03a87706ae8e3}{Diffusion\+N\+L\+F\+Integrator\+::\+Assemble\+Element\+Grad}. 
+
+Definition at line 13 of file Diffusion\+N\+L\+F\+Integrator.\+hpp.
+
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Diffusion\+N\+L\+F\+Integrator.\+hpp\end{DoxyCompactItemize}

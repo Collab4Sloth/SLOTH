@@ -1,0 +1,39 @@
+/*! \mainpage  
+*
+* \tableofcontents
+* \section __quick Getting Started
+
+Welcome to the documentation of the Phase-Field Solver based on MFEM
+
+* \subsection _start Installation guide
+1. [__Prerequisites__](__install.html)
+2. [__Installation of the code__](__install.html)
+
+* \subsection _use Basics features for building phase-field applications
+1. [__Code overview__](__overview.html)
+2. [__How to build of a phase-field application?__](__howto.html)
+
+* \subsection _user User examples
+1. [__Diffusion problems__](__diffusion.html)
+2. [__Allen-Cahn problems__](__allencahn.html)
+3. [__Cahn-Hilliard problems__](__cahnhilliard.html)
+
+* \subsection _doxygen Doxygen documentation
+1. [List of namespaces](namespaces.html)
+2. [Data structures](classes.html)
+3. [Files](files.html)
+4. [TODO list](__todo.html)
+
+* \subsection _licence Licence
+
+(to be defined)
+
+* \subsection _contact Contact
+
+Please use the [GitLab issue tracker](https://www-git-cad.intra.cea.fr/DEC/collaboratif/ci230846/diffusion/pf-mfem) to report bugs or post questions or comments. 
+
+
+* \subsection _contributors Contributors
+- [Clément Introïni](https://www.researchgate.net/profile/Clement-Introini)
+
+*/

@@ -1,0 +1,381 @@
+\hypertarget{classSpatialDiscretization}{}\section{Spatial\+Discretization$<$ T, D\+IM $>$ Class Template Reference}
+\label{classSpatialDiscretization}\index{Spatial\+Discretization$<$ T, D\+I\+M $>$@{Spatial\+Discretization$<$ T, D\+I\+M $>$}}
+
+
+Class for defining the spatial discretization with a mesh coming from a G\+M\+SH file or built by using dedicated M\+F\+EM methods.  
+
+
+
+
+{\ttfamily \#include $<$/home/ci230846/home-\/local/\+My\+Git\+Projects/\+C\+O\+M\+P\+O\+N\+E\+N\+T/\+P\+F-\/\+M\+F\+E\+M/\+Spatial/\+Spatial.\+hpp$>$}
+
+
+
+Collaboration diagram for Spatial\+Discretization$<$ T, D\+IM $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=253pt]{classSpatialDiscretization__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSpatialDiscretization_ac8fffd5a45a9689bb0d8e7a649e9da07}\label{classSpatialDiscretization_ac8fffd5a45a9689bb0d8e7a649e9da07}} 
+{\bfseries Spatial\+Discretization} (const std\+::string \&mesh\+\_\+type, const int \&fe\+\_\+order, const std\+::string \&mesh\+\_\+file)
+\item 
+\mbox{\Hypertarget{classSpatialDiscretization_a8998de1f4f8abfe4ce43135a5a1fc70d}\label{classSpatialDiscretization_a8998de1f4f8abfe4ce43135a5a1fc70d}} 
+{\footnotesize template$<$class... Args$>$ }\\{\bfseries Spatial\+Discretization} (const std\+::string \&mesh\+\_\+type, const int \&fe\+\_\+order, std\+::tuple$<$ Args... $>$ tup\+\_\+args)
+\item 
+void \hyperlink{classSpatialDiscretization_a8400a265a094312b4d57708d44f9d627}{set\+\_\+finite\+\_\+element\+\_\+space} ()
+\begin{DoxyCompactList}\small\item\em Set the F\+E\+\_\+\+Collection, the F\+E\+\_\+\+Space and associated size. \end{DoxyCompactList}\item 
+mfem\+::\+Mesh \& \hyperlink{classSpatialDiscretization_ae83ff765cb60c2805cd2f4c00e85b6b2}{get\+\_\+mesh} ()
+\begin{DoxyCompactList}\small\item\em return a pointer of Mesh \end{DoxyCompactList}\item 
+mfem\+::\+Finite\+Element\+Space $\ast$ \hyperlink{classSpatialDiscretization_ac001fc2ff356fe8c0c2b49618e594a03}{get\+\_\+finite\+\_\+element\+\_\+space} ()
+\begin{DoxyCompactList}\small\item\em return a pointer toward the finite element space \end{DoxyCompactList}\item 
+std\+::size\+\_\+t \hyperlink{classSpatialDiscretization_a2f23ae965741d678ef45c6a545ce9a9d}{get\+Size} ()
+\begin{DoxyCompactList}\small\item\em get the size of the Finite Element Space \end{DoxyCompactList}\item 
+std\+::size\+\_\+t \hyperlink{classSpatialDiscretization_aa6fe6ae45f18daf5a20fbc8b49b2ef05}{get\+\_\+max\+\_\+bdr\+\_\+attributes} ()
+\begin{DoxyCompactList}\small\item\em get the maximum number of boundaries \end{DoxyCompactList}\item 
+int \hyperlink{classSpatialDiscretization_a8d69dd3c7e36327396e626b27d98f96f}{get\+\_\+dimension} ()
+\begin{DoxyCompactList}\small\item\em get the dimension of the problem \end{DoxyCompactList}\item 
+void \hyperlink{classSpatialDiscretization_a3463c09a77a0c6563a353d97cf56dfa4}{apply\+\_\+uniform\+\_\+refinement} (const int \&level)
+\begin{DoxyCompactList}\small\item\em Apply nb\+\_\+ref uniform refinement. \end{DoxyCompactList}\item 
+void \hyperlink{classSpatialDiscretization_a4b88c0c7dbdb10a8d1442e599ac9a831}{make\+\_\+periodic\+\_\+mesh} (std\+::vector$<$ mfem\+::\+Vector $>$)
+\begin{DoxyCompactList}\small\item\em Create the periodic mesh using the vertex mapping defined by the translations vector. \end{DoxyCompactList}\item 
+\hyperlink{classSpatialDiscretization_a67d6d572cea0c15e063386b7bf0e8149}{$\sim$\+Spatial\+Discretization} ()
+\begin{DoxyCompactList}\small\item\em Destroy the Spatial Discretization$<$ T$>$\+:\+: Spatial Discretization object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Data Fields}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSpatialDiscretization_a66ab29632eebb06fb2948c86a218e5cf}\label{classSpatialDiscretization_a66ab29632eebb06fb2948c86a218e5cf}} 
+int {\bfseries fe\+\_\+order\+\_\+}
+\item 
+\mbox{\Hypertarget{classSpatialDiscretization_a0e7531dafb21802dae022cbb71533ecd}\label{classSpatialDiscretization_a0e7531dafb21802dae022cbb71533ecd}} 
+int {\bfseries dimension\+\_\+}
+\item 
+\mbox{\Hypertarget{classSpatialDiscretization_add1c5e5e4ff23e7d62f0e7fc7c6fd85c}\label{classSpatialDiscretization_add1c5e5e4ff23e7d62f0e7fc7c6fd85c}} 
+mfem\+::\+Mesh {\bfseries mesh\+\_\+}
+\item 
+\mbox{\Hypertarget{classSpatialDiscretization_af206f17ba4eae7d9eb056183130a01b7}\label{classSpatialDiscretization_af206f17ba4eae7d9eb056183130a01b7}} 
+int {\bfseries mesh\+\_\+max\+\_\+bdr\+\_\+attributes\+\_\+}
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$class T, int D\+IM$>$\newline
+class Spatial\+Discretization$<$ T, D\+I\+M $>$}
+
+Class for defining the spatial discretization with a mesh coming from a G\+M\+SH file or built by using dedicated M\+F\+EM methods. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+{\em D\+IM} & \\
+\hline
+\end{DoxyTemplParams}
+
+
+Definition at line 44 of file Spatial.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classSpatialDiscretization_a67d6d572cea0c15e063386b7bf0e8149}\label{classSpatialDiscretization_a67d6d572cea0c15e063386b7bf0e8149}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!````~Spatial\+Discretization@{$\sim$\+Spatial\+Discretization}}
+\index{````~Spatial\+Discretization@{$\sim$\+Spatial\+Discretization}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{$\sim$\+Spatial\+Discretization()}{~SpatialDiscretization()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::$\sim$\hyperlink{classSpatialDiscretization}{Spatial\+Discretization} (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Destroy the Spatial Discretization$<$ T$>$\+:\+: Spatial Discretization object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+
+
+Definition at line 504 of file Spatial.\+hpp.
+
+
+\begin{DoxyCode}
+504 \{\}
+\end{DoxyCode}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classSpatialDiscretization_a3463c09a77a0c6563a353d97cf56dfa4}\label{classSpatialDiscretization_a3463c09a77a0c6563a353d97cf56dfa4}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!apply\+\_\+uniform\+\_\+refinement@{apply\+\_\+uniform\+\_\+refinement}}
+\index{apply\+\_\+uniform\+\_\+refinement@{apply\+\_\+uniform\+\_\+refinement}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{apply\+\_\+uniform\+\_\+refinement()}{apply\_uniform\_refinement()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+void \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::apply\+\_\+uniform\+\_\+refinement (\begin{DoxyParamCaption}\item[{const int \&}]{nb\+\_\+ref }\end{DoxyParamCaption})}
+
+
+
+Apply nb\+\_\+ref uniform refinement. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em nb\+\_\+ref} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 477 of file Spatial.\+hpp.
+
+
+\begin{DoxyCode}
+477                                                                               \{
+478   \textcolor{keywordflow}{for} (\textcolor{keyword}{auto} l = 0; l < nb\_ref; l++) \{
+479     this->mesh\_.UniformRefinement();
+480   \}
+481 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_a8d69dd3c7e36327396e626b27d98f96f}\label{classSpatialDiscretization_a8d69dd3c7e36327396e626b27d98f96f}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!get\+\_\+dimension@{get\+\_\+dimension}}
+\index{get\+\_\+dimension@{get\+\_\+dimension}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{get\+\_\+dimension()}{get\_dimension()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+int \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::get\+\_\+dimension (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+get the dimension of the problem 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+
+
+Definition at line 466 of file Spatial.\+hpp.
+
+
+
+Referenced by Variable$<$ T, D\+I\+M $>$\+::\+Variable().
+
+
+\begin{DoxyCode}
+466                                                  \{
+467   \textcolor{keywordflow}{return} this->dimension\_;
+468 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_ac001fc2ff356fe8c0c2b49618e594a03}\label{classSpatialDiscretization_ac001fc2ff356fe8c0c2b49618e594a03}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!get\+\_\+finite\+\_\+element\+\_\+space@{get\+\_\+finite\+\_\+element\+\_\+space}}
+\index{get\+\_\+finite\+\_\+element\+\_\+space@{get\+\_\+finite\+\_\+element\+\_\+space}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{get\+\_\+finite\+\_\+element\+\_\+space()}{get\_finite\_element\_space()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+mfem\+::\+Finite\+Element\+Space $\ast$ \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::get\+\_\+finite\+\_\+element\+\_\+space (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+return a pointer toward the finite element space 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+mfem\+::\+Finite\+Element\+Space$\ast$ 
+\end{DoxyReturn}
+
+
+Definition at line 433 of file Spatial.\+hpp.
+
+
+
+Referenced by Boundary\+Conditions$<$ T, D\+I\+M $>$\+::\+Boundary\+Conditions(), Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Phase\+Field\+Operator\+Base(), and Variable$<$ T, D\+I\+M $>$\+::\+Variable().
+
+
+\begin{DoxyCode}
+433                                                                                 \{
+434   \textcolor{keywordflow}{return} this->fespace\_;
+435 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_aa6fe6ae45f18daf5a20fbc8b49b2ef05}\label{classSpatialDiscretization_aa6fe6ae45f18daf5a20fbc8b49b2ef05}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!get\+\_\+max\+\_\+bdr\+\_\+attributes@{get\+\_\+max\+\_\+bdr\+\_\+attributes}}
+\index{get\+\_\+max\+\_\+bdr\+\_\+attributes@{get\+\_\+max\+\_\+bdr\+\_\+attributes}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{get\+\_\+max\+\_\+bdr\+\_\+attributes()}{get\_max\_bdr\_attributes()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+std\+::size\+\_\+t \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::get\+\_\+max\+\_\+bdr\+\_\+attributes (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+get the maximum number of boundaries 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+
+
+Definition at line 455 of file Spatial.\+hpp.
+
+
+
+Referenced by Boundary\+Conditions$<$ T, D\+I\+M $>$\+::\+Boundary\+Conditions().
+
+
+\begin{DoxyCode}
+455                                                                 \{
+456   \textcolor{keywordflow}{return} this->mesh\_max\_bdr\_attributes\_;
+457 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_ae83ff765cb60c2805cd2f4c00e85b6b2}\label{classSpatialDiscretization_ae83ff765cb60c2805cd2f4c00e85b6b2}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!get\+\_\+mesh@{get\+\_\+mesh}}
+\index{get\+\_\+mesh@{get\+\_\+mesh}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{get\+\_\+mesh()}{get\_mesh()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+mfem\+::\+Mesh \& \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::get\+\_\+mesh (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+return a pointer of Mesh 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+mfem\+::\+Mesh\& 
+\end{DoxyReturn}
+
+
+Definition at line 409 of file Spatial.\+hpp.
+
+
+\begin{DoxyCode}
+409                                                   \{
+410   \textcolor{keywordflow}{return} this->mesh\_;
+411 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_a2f23ae965741d678ef45c6a545ce9a9d}\label{classSpatialDiscretization_a2f23ae965741d678ef45c6a545ce9a9d}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!get\+Size@{get\+Size}}
+\index{get\+Size@{get\+Size}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{get\+Size()}{getSize()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+std\+::size\+\_\+t \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::get\+Size (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+get the size of the Finite Element Space 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+
+
+Definition at line 444 of file Spatial.\+hpp.
+
+
+\begin{DoxyCode}
+444                                                  \{
+445   \textcolor{keywordflow}{return} this->size\_;
+446 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_a4b88c0c7dbdb10a8d1442e599ac9a831}\label{classSpatialDiscretization_a4b88c0c7dbdb10a8d1442e599ac9a831}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!make\+\_\+periodic\+\_\+mesh@{make\+\_\+periodic\+\_\+mesh}}
+\index{make\+\_\+periodic\+\_\+mesh@{make\+\_\+periodic\+\_\+mesh}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{make\+\_\+periodic\+\_\+mesh()}{make\_periodic\_mesh()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+void \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::make\+\_\+periodic\+\_\+mesh (\begin{DoxyParamCaption}\item[{std\+::vector$<$ mfem\+::\+Vector $>$}]{translations }\end{DoxyParamCaption})}
+
+
+
+Create the periodic mesh using the vertex mapping defined by the translations vector. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+{\em D\+IM} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em translations} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 491 of file Spatial.\+hpp.
+
+
+
+Referenced by specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$\+::operator()().
+
+
+\begin{DoxyCode}
+491                                                                                          \{
+492   \textcolor{keyword}{const} \textcolor{keyword}{auto} tol = 1.e-6;
+493   std::vector<int> periodicMap = this->mesh\_.CreatePeriodicVertexMapping(translations, tol);
+494   \textcolor{keyword}{auto} periodic\_mesh = mfem::Mesh::MakePeriodic(this->mesh\_, periodicMap);
+495   this->mesh\_ = mfem::Mesh(periodic\_mesh, \textcolor{keyword}{true});  \textcolor{comment}{// replace the input mesh with the periodic one}
+496 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classSpatialDiscretization_a8400a265a094312b4d57708d44f9d627}\label{classSpatialDiscretization_a8400a265a094312b4d57708d44f9d627}} 
+\index{Spatial\+Discretization@{Spatial\+Discretization}!set\+\_\+finite\+\_\+element\+\_\+space@{set\+\_\+finite\+\_\+element\+\_\+space}}
+\index{set\+\_\+finite\+\_\+element\+\_\+space@{set\+\_\+finite\+\_\+element\+\_\+space}!Spatial\+Discretization@{Spatial\+Discretization}}
+\subsubsection{\texorpdfstring{set\+\_\+finite\+\_\+element\+\_\+space()}{set\_finite\_element\_space()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+void \hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$\+::set\+\_\+finite\+\_\+element\+\_\+space (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Set the F\+E\+\_\+\+Collection, the F\+E\+\_\+\+Space and associated size. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+mfem\+::\+Finite\+Element\+Space$\ast$ 
+\end{DoxyReturn}
+
+
+Definition at line 420 of file Spatial.\+hpp.
+
+
+
+Referenced by specialized\+\_\+spatial\+\_\+constructor$<$ T, 1 $>$\+::operator()(), specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$\+::operator()(), and specialized\+\_\+spatial\+\_\+constructor$<$ T, 3 $>$\+::operator()().
+
+
+\begin{DoxyCode}
+420                                                              \{
+421   this->fecollection\_ = \textcolor{keyword}{new} T(this->fe\_order\_, this->dimension\_);
+422   this->fespace\_ = \textcolor{keyword}{new} mfem::FiniteElementSpace(&this->mesh\_, this->fecollection\_);
+423   this->size\_ = this->fespace\_->GetTrueVSize();
+424 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Spatial.\+hpp\end{DoxyCompactItemize}

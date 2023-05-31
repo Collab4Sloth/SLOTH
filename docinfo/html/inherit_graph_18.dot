@@ -1,0 +1,10 @@
+digraph "Graphical Class Hierarchy"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  rankdir="LR";
+  Node54 [label="Operator",height=0.2,width=0.4,color="grey75"];
+  Node54 -> Node0 [dir="back",color="midnightblue",fontsize="12",style="solid",fontname="Helvetica"];
+  Node0 [label="PhaseFieldReducedOperator",height=0.2,width=0.4,color="black",URL="$classPhaseFieldReducedOperator.html"];
+}

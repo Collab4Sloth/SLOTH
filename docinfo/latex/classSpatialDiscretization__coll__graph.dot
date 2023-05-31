@@ -1,0 +1,7 @@
+digraph "SpatialDiscretization&lt; T, DIM &gt;"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  Node1 [label="{SpatialDiscretization\l\< T, DIM \>\n|+ fe_order_\l+ dimension_\l+ mesh_\l+ mesh_max_bdr_attributes_\l|+ SpatialDiscretization()\l+ SpatialDiscretization()\l+ set_finite_element\l_space()\l+ get_mesh()\l+ get_finite_element\l_space()\l+ getSize()\l+ get_max_bdr_attributes()\l+ get_dimension()\l+ apply_uniform_refinement()\l+ make_periodic_mesh()\l+ ~SpatialDiscretization()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+}

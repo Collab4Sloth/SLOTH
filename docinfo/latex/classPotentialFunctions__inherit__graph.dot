@@ -1,0 +1,15 @@
+digraph "PotentialFunctions&lt; ORDER, SCHEME, POTENTIAL &gt;"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  Node0 [label="{PotentialFunctions\l\< ORDER, SCHEME, POTENTIAL \>\n||+ PotentialFunctions()\l+ getPotentialFunction()\l+ ~PotentialFunctions()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+  Node0 -> Node1 [dir="back",color="orange",fontsize="12",style="solid",label=" \< 1, SCHEME, ENERGY \>" ];
+  Node1 [label="{PotentialFunctions\l\< 1, SCHEME, ENERGY \>\n||+ PotentialFunctions()\l+ getPotentialFunction()\l+ ~PotentialFunctions()\l}",height=0.2,width=0.4,color="black",URL="$classPotentialFunctions.html"];
+  Node0 -> Node2 [dir="back",color="orange",fontsize="12",style="solid",label=" \< 2, SCHEME, ENERGY \>" ];
+  Node2 [label="{PotentialFunctions\l\< 2, SCHEME, ENERGY \>\n||+ PotentialFunctions()\l+ getPotentialFunction()\l+ ~PotentialFunctions()\l}",height=0.2,width=0.4,color="black",URL="$classPotentialFunctions.html"];
+  Node0 -> Node3 [dir="back",color="orange",fontsize="12",style="solid",label=" \< 2, SCHEME, INTERPOLATION \>" ];
+  Node3 [label="{PotentialFunctions\l\< 2, SCHEME, INTERPOLATION \>\n||+ PotentialFunctions()\l+ getPotentialFunction()\l+ ~PotentialFunctions()\l}",height=0.2,width=0.4,color="black",URL="$classPotentialFunctions.html"];
+  Node0 -> Node4 [dir="back",color="orange",fontsize="12",style="solid",label=" \< 1, SCHEME, INTERPOLATION \>" ];
+  Node4 [label="{PotentialFunctions\l\< 1, SCHEME, INTERPOLATION \>\n||+ PotentialFunctions()\l+ getPotentialFunction()\l+ ~PotentialFunctions()\l}",height=0.2,width=0.4,color="black",URL="$classPotentialFunctions.html"];
+}

@@ -1,0 +1,197 @@
+\hypertarget{classBoundaryConditions}{}\section{Boundary\+Conditions$<$ T, D\+IM $>$ Class Template Reference}
+\label{classBoundaryConditions}\index{Boundary\+Conditions$<$ T, D\+I\+M $>$@{Boundary\+Conditions$<$ T, D\+I\+M $>$}}
+
+
+Class used to manage boundary conditions.  
+
+
+
+
+{\ttfamily \#include $<$/home/ci230846/home-\/local/\+My\+Git\+Projects/\+C\+O\+M\+P\+O\+N\+E\+N\+T/\+P\+F-\/\+M\+F\+E\+M/\+B\+Cs/\+Boundary\+Conditions.\+hpp$>$}
+
+
+
+Collaboration diagram for Boundary\+Conditions$<$ T, D\+IM $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=241pt]{classBoundaryConditions__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$class... Args$>$ }\\\hyperlink{classBoundaryConditions_ae9bad35a04c1ef84eb7aa38425d6b044}{Boundary\+Conditions} (\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$ $\ast$spatial, const Args \&...boundaries)
+\begin{DoxyCompactList}\small\item\em Construct a new \hyperlink{classBoundary}{Boundary} Conditions\+:\+: \hyperlink{classBoundary}{Boundary} Conditions object. \end{DoxyCompactList}\item 
+void \hyperlink{classBoundaryConditions_a23f5cf33a22290a61bb2dcba457f086d}{Set\+Boundary\+Conditions} (mfem\+::\+Vector \&u)
+\begin{DoxyCompactList}\small\item\em Set boundary conditions. \end{DoxyCompactList}\item 
+mfem\+::\+Array$<$ int $>$ \hyperlink{classBoundaryConditions_a3dcecb34a6ac7a00e6f110677145f7c8}{Get\+Essential\+Dofs} ()
+\begin{DoxyCompactList}\small\item\em return the list of essential dofs \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classBoundaryConditions_a50d3971dff965883752e17c05b468756}\label{classBoundaryConditions_a50d3971dff965883752e17c05b468756}} 
+\hyperlink{classBoundaryConditions_a50d3971dff965883752e17c05b468756}{$\sim$\+Boundary\+Conditions} ()
+\begin{DoxyCompactList}\small\item\em Destroy the \hyperlink{classBoundary}{Boundary} Conditions\+:\+: \hyperlink{classBoundary}{Boundary} Conditions object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$class T, int D\+IM$>$\newline
+class Boundary\+Conditions$<$ T, D\+I\+M $>$}
+
+Class used to manage boundary conditions. 
+
+Definition at line 25 of file Boundary\+Conditions.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classBoundaryConditions_ae9bad35a04c1ef84eb7aa38425d6b044}\label{classBoundaryConditions_ae9bad35a04c1ef84eb7aa38425d6b044}} 
+\index{Boundary\+Conditions@{Boundary\+Conditions}!Boundary\+Conditions@{Boundary\+Conditions}}
+\index{Boundary\+Conditions@{Boundary\+Conditions}!Boundary\+Conditions@{Boundary\+Conditions}}
+\subsubsection{\texorpdfstring{Boundary\+Conditions()}{BoundaryConditions()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+template$<$class... Args$>$ \\
+\hyperlink{classBoundaryConditions}{Boundary\+Conditions}$<$ T, D\+IM $>$\+::\hyperlink{classBoundaryConditions}{Boundary\+Conditions} (\begin{DoxyParamCaption}\item[{\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, D\+IM $>$ $\ast$}]{spatial,  }\item[{const Args \&...}]{boundaries }\end{DoxyParamCaption})}
+
+
+
+Construct a new \hyperlink{classBoundary}{Boundary} Conditions\+:\+: \hyperlink{classBoundary}{Boundary} Conditions object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em fespace} & \\
+\hline
+{\em mesh\+\_\+max\+\_\+bdr\+\_\+attributes} & \\
+\hline
+{\em boundaries} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 52 of file Boundary\+Conditions.\+hpp.
+
+
+
+References Spatial\+Discretization$<$ T, D\+I\+M $>$\+::get\+\_\+finite\+\_\+element\+\_\+space(), and Spatial\+Discretization$<$ T, D\+I\+M $>$\+::get\+\_\+max\+\_\+bdr\+\_\+attributes().
+
+
+\begin{DoxyCode}
+53                                                                           \{
+54   this->fespace\_ = spatial->\hyperlink{classSpatialDiscretization_ac001fc2ff356fe8c0c2b49618e594a03}{get\_finite\_element\_space}();
+55   \textcolor{keyword}{const} \textcolor{keyword}{auto} &mesh\_max\_bdr\_attributes = spatial->\hyperlink{classSpatialDiscretization_aa6fe6ae45f18daf5a20fbc8b49b2ef05}{get\_max\_bdr\_attributes}();
+56 
+57   \textcolor{keyword}{auto} bdrs = std::vector<Boundary>\{boundaries...\};
+58 
+59   Dirichlet\_bdr\_.SetSize(mesh\_max\_bdr\_attributes);
+60   Dirichlet\_value\_.SetSize(mesh\_max\_bdr\_attributes);
+61   \textcolor{keywordtype}{bool} exist\_periodic\_bdr = \{\textcolor{keyword}{false}\};
+62   [bdrs, &exist\_periodic\_bdr]() \{
+63     \textcolor{keywordtype}{bool} is\_periodic = \textcolor{keyword}{false};
+64     \textcolor{keywordflow}{for} (\textcolor{keyword}{const} \textcolor{keyword}{auto} &bdr : bdrs) \{
+65       \textcolor{keywordflow}{if} (bdr.is\_essential\_boundary()) \{
+66         is\_periodic = \textcolor{keyword}{true};
+67         \textcolor{keywordflow}{break};
+68       \}
+69     \}
+70     \textcolor{keywordflow}{return} is\_periodic;
+71   \};
+72   \textcolor{keywordtype}{bool} test\_periodic\_bdr = (mesh\_max\_bdr\_attributes != bdrs.size()) && exist\_periodic\_bdr;
+73   \textcolor{keywordtype}{bool} test\_standard\_bdr = mesh\_max\_bdr\_attributes == bdrs.size();
+74   \textcolor{keywordflow}{if} (test\_periodic\_bdr || test\_standard\_bdr) \{
+75     \textcolor{keywordflow}{for} (\textcolor{keyword}{const} \textcolor{keyword}{auto} &bdr : bdrs) \{
+76       \textcolor{keyword}{const} \textcolor{keyword}{auto} &\textcolor{keywordtype}{id} = bdr.get\_boundary\_index();
+77       \textcolor{keywordflow}{if} (bdr.is\_essential\_boundary()) \{
+78         Dirichlet\_bdr\_[id] = 1;
+79       \} \textcolor{keywordflow}{else} \{
+80         Dirichlet\_bdr\_[id] = 0;
+81       \}
+82       Dirichlet\_value\_[id] = bdr.get\_boundary\_value();
+83     \}
+84     this->fespace\_->GetEssentialTrueDofs(this->Dirichlet\_bdr\_, this->ess\_tdof\_list\_);
+85   \} \textcolor{keywordflow}{else} \{
+86     \textcolor{keywordflow}{throw} std::runtime\_error(
+87         \textcolor{stringliteral}{"BoundaryConditions::BoundaryConditions(): user-defined boundaries  "} +
+88         std::to\_string(bdrs.size()) +
+89         \textcolor{stringliteral}{" are unconsistent with the total number of boundaries associated to the mesh "} +
+90         std::to\_string(mesh\_max\_bdr\_attributes));
+91   \}
+92 \}
+\end{DoxyCode}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classBoundaryConditions_a3dcecb34a6ac7a00e6f110677145f7c8}\label{classBoundaryConditions_a3dcecb34a6ac7a00e6f110677145f7c8}} 
+\index{Boundary\+Conditions@{Boundary\+Conditions}!Get\+Essential\+Dofs@{Get\+Essential\+Dofs}}
+\index{Get\+Essential\+Dofs@{Get\+Essential\+Dofs}!Boundary\+Conditions@{Boundary\+Conditions}}
+\subsubsection{\texorpdfstring{Get\+Essential\+Dofs()}{GetEssentialDofs()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+mfem\+::\+Array$<$ int $>$ \hyperlink{classBoundaryConditions}{Boundary\+Conditions}$<$ T, D\+IM $>$\+::Get\+Essential\+Dofs (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+return the list of essential dofs 
+
+\begin{DoxyReturn}{Returns}
+mfem\+::\+Array$<$int$>$ array of essential dofs 
+\end{DoxyReturn}
+
+
+Definition at line 100 of file Boundary\+Conditions.\+hpp.
+
+
+
+Referenced by Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::initialize().
+
+
+\begin{DoxyCode}
+100                                                             \{
+101   \textcolor{keywordflow}{return} this->ess\_tdof\_list\_;
+102 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classBoundaryConditions_a23f5cf33a22290a61bb2dcba457f086d}\label{classBoundaryConditions_a23f5cf33a22290a61bb2dcba457f086d}} 
+\index{Boundary\+Conditions@{Boundary\+Conditions}!Set\+Boundary\+Conditions@{Set\+Boundary\+Conditions}}
+\index{Set\+Boundary\+Conditions@{Set\+Boundary\+Conditions}!Boundary\+Conditions@{Boundary\+Conditions}}
+\subsubsection{\texorpdfstring{Set\+Boundary\+Conditions()}{SetBoundaryConditions()}}
+{\footnotesize\ttfamily template$<$class T , int D\+IM$>$ \\
+void \hyperlink{classBoundaryConditions}{Boundary\+Conditions}$<$ T, D\+IM $>$\+::Set\+Boundary\+Conditions (\begin{DoxyParamCaption}\item[{mfem\+::\+Vector \&}]{u }\end{DoxyParamCaption})}
+
+
+
+Set boundary conditions. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em u} & unknown vector \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 110 of file Boundary\+Conditions.\+hpp.
+
+
+
+Referenced by Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Implicit\+Solve(), and Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::initialize().
+
+
+\begin{DoxyCode}
+110                                                                     \{
+111   mfem::Array<int> tmp\_array\_bdr(this->Dirichlet\_bdr\_.Size());
+112   \textcolor{keywordflow}{for} (\textcolor{keyword}{auto} i = 0; i < this->Dirichlet\_bdr\_.Size(); i++) \{
+113     tmp\_array\_bdr = 0;
+114     mfem::Array<int> dof;
+115     \textcolor{keywordflow}{if} (this->Dirichlet\_bdr\_[i] > 0) \{
+116       tmp\_array\_bdr[i] = 1;
+117       this->fespace\_->GetEssentialTrueDofs(tmp\_array\_bdr, dof);
+118       u.SetSubVector(dof, this->Dirichlet\_value\_[i]);
+119     \}
+120   \}
+121 \}  \textcolor{comment}{// end of SetBoundaryConditions}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Boundary\+Conditions.\+hpp\end{DoxyCompactItemize}

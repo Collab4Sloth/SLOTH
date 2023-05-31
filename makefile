@@ -10,19 +10,40 @@
 # CONTRIBUTING.md for details.
 
 # Use the MFEM build directory
-MFEM_DIR = /home/ci230846/home-local/MyGitProjects/MFEM-MGIS/mfem/
-MFEM_BUILD_DIR = /home/ci230846/home-local/MyGitProjects/MFEM-MGIS/mfem/build
-SRC = $($(MFEM_DIR,$(MFEM_DIR)/examples/,)
-CONFIG_MK = $(MFEM_BUILD_DIR)/config/config.mk
+# MFEM_DIR = /home/ci230846/home-local/MyGitProjects/MFEM-MGIS/mfem/
+# MFEM_BUILD_DIR = /home/ci230846/home-local/MyGitProjects/MFEM-MGIS/mfem/build
+# SRC = $($(MFEM_DIR,$(MFEM_DIR)/examples/,)
+# CONFIG_MK = $(MFEM_BUILD_DIR)/config/config.mk
 # Use the MFEM install directory
-# MFEM_INSTALL_DIR = ../mfem
+# MFEM_INSTALL_DIR = `spack location -i mfem`
 # CONFIG_MK = $(MFEM_INSTALL_DIR)/share/mfem/config.mk
+CONFIG_MK = $(SRC_DIR)/config.mk
 
 MFEM_LIB_FILE = mfem_is_not_built
 -include $(CONFIG_MK)
 
-SEQ_EXAMPLES = main
-PAR_EXAMPLES = main
+###################
+# List of test
+###################
+## ALLEN-CAHN
+ALLENCAHN_TESTS_1D= Tests/AllenCahn/1D/test1/main
+ALLENCAHN_TESTS_2D= Tests/AllenCahn/2D/test1/main
+ALLENCAHN_TESTS_2D_PERIODIC= Tests/AllenCahn/2D_periodic/test1/main\
+							Tests/AllenCahn/2D_periodic/test2/main
+ALLENCAHN_TESTS_3D= Tests/AllenCahn/3D/test1/main
+ALLENCAHN_TESTS = $(ALLENCAHN_TESTS_1D) $(ALLENCAHN_TESTS_2D) $(ALLENCAHN_TESTS_2D_PERIODIC) $(ALLENCAHN_TESTS_3D) 
+# ## CAHN-HILLIARD
+# CAHNHILLIARD_TESTS_2D= Tests/CahnHilliard/2D/main
+# CAHNHILLIARD_TESTS = $(CAHNHILLIARD_TESTS_2D) 
+
+PF_TESTS = $(ALLENCAHN_TESTS) 
+# $(CAHNHILLIARD)
+
+###################
+###################
+
+SEQ_EXAMPLES = $(PF_TESTS)
+PAR_EXAMPLES = $(PF_TESTS)
 
 ifeq ($(MFEM_USE_MPI),NO)
    EXAMPLES = $(SEQ_EXAMPLES)
@@ -74,6 +95,14 @@ MFEM_TESTS = EXAMPLES
 include $(MFEM_TEST_MK)
 test: $(SUBDIRS_TEST)
 test-print: $(SUBDIRS_TPRINT)
+
+
+doc: 
+	doxygen PhaseFieldDoxyfile
+
+clean-doc:
+	rm -fr docinfo latex html Doxyfile.bak doxygen.log 
+
 
 # Testing: Parallel vs. serial runs
 RUN_MPI = $(MFEM_MPIEXEC) $(MFEM_MPIEXEC_NP) $(MFEM_MPI_NP)

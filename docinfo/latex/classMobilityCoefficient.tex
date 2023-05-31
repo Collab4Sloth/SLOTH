@@ -1,0 +1,162 @@
+\hypertarget{classMobilityCoefficient}{}\section{Mobility\+Coefficient$<$ M\+O\+BI $>$ Class Template Reference}
+\label{classMobilityCoefficient}\index{Mobility\+Coefficient$<$ M\+O\+B\+I $>$@{Mobility\+Coefficient$<$ M\+O\+B\+I $>$}}
+
+
+Inheritance diagram for Mobility\+Coefficient$<$ M\+O\+BI $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=212pt]{classMobilityCoefficient__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Mobility\+Coefficient$<$ M\+O\+BI $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=212pt]{classMobilityCoefficient__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\hyperlink{classMobilityCoefficient_a9c91c5b213b6a7c15977fd6d660cb7ed}{Mobility\+Coefficient} (const double \&mob\+\_\+c)
+\begin{DoxyCompactList}\small\item\em Construct a new Mobility Coefficient$<$ M\+O\+B\+I$>$\+:\+: Mobility Coefficient object. \end{DoxyCompactList}\item 
+\hyperlink{classMobilityCoefficient_a12dab2f5b95a5ab5f6cb01c2d2b5c65c}{Mobility\+Coefficient} (const double \&mob\+\_\+c, mfem\+::\+Grid\+Function mob\+\_\+gf, const int \&order)
+\begin{DoxyCompactList}\small\item\em Construct a new Mobility Coefficient$<$ M\+O\+B\+I$>$\+:\+: Mobility Coefficient object. \end{DoxyCompactList}\item 
+double \hyperlink{classMobilityCoefficient_a114ed4ca6b17eb4c23c572d6f802c7b2}{Eval} (mfem\+::\+Element\+Transformation \&T, const mfem\+::\+Integration\+Point \&ip)
+\begin{DoxyCompactList}\small\item\em Evaluation of the mobility coefficient at integration point. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$Mobility M\+O\+BI$>$\newline
+class Mobility\+Coefficient$<$ M\+O\+B\+I $>$}
+
+
+
+Definition at line 15 of file Mobility\+Coefficient.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classMobilityCoefficient_a9c91c5b213b6a7c15977fd6d660cb7ed}\label{classMobilityCoefficient_a9c91c5b213b6a7c15977fd6d660cb7ed}} 
+\index{Mobility\+Coefficient@{Mobility\+Coefficient}!Mobility\+Coefficient@{Mobility\+Coefficient}}
+\index{Mobility\+Coefficient@{Mobility\+Coefficient}!Mobility\+Coefficient@{Mobility\+Coefficient}}
+\subsubsection{\texorpdfstring{Mobility\+Coefficient()}{MobilityCoefficient()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily template$<$Mobility M\+O\+BI$>$ \\
+\hyperlink{classMobilityCoefficient}{Mobility\+Coefficient}$<$ M\+O\+BI $>$\+::\hyperlink{classMobilityCoefficient}{Mobility\+Coefficient} (\begin{DoxyParamCaption}\item[{const double \&}]{mob\+\_\+c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [explicit]}}
+
+
+
+Construct a new Mobility Coefficient$<$ M\+O\+B\+I$>$\+:\+: Mobility Coefficient object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em M\+O\+BI} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em mob\+\_\+c} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 35 of file Mobility\+Coefficient.\+hpp.
+
+
+\begin{DoxyCode}
+35 : mobility\_(mob\_c) \{\}
+\end{DoxyCode}
+\mbox{\Hypertarget{classMobilityCoefficient_a12dab2f5b95a5ab5f6cb01c2d2b5c65c}\label{classMobilityCoefficient_a12dab2f5b95a5ab5f6cb01c2d2b5c65c}} 
+\index{Mobility\+Coefficient@{Mobility\+Coefficient}!Mobility\+Coefficient@{Mobility\+Coefficient}}
+\index{Mobility\+Coefficient@{Mobility\+Coefficient}!Mobility\+Coefficient@{Mobility\+Coefficient}}
+\subsubsection{\texorpdfstring{Mobility\+Coefficient()}{MobilityCoefficient()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily template$<$Mobility M\+O\+BI$>$ \\
+\hyperlink{classMobilityCoefficient}{Mobility\+Coefficient}$<$ M\+O\+BI $>$\+::\hyperlink{classMobilityCoefficient}{Mobility\+Coefficient} (\begin{DoxyParamCaption}\item[{const double \&}]{mob\+\_\+c,  }\item[{mfem\+::\+Grid\+Function}]{mob\+\_\+gf,  }\item[{const int \&}]{order }\end{DoxyParamCaption})}
+
+
+
+Construct a new Mobility Coefficient$<$ M\+O\+B\+I$>$\+:\+: Mobility Coefficient object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em M\+O\+BI} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em mob\+\_\+c} & \\
+\hline
+{\em mob\+\_\+gf} & \\
+\hline
+{\em order} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 46 of file Mobility\+Coefficient.\+hpp.
+
+
+\begin{DoxyCode}
+48     : mobility\_(mob\_c), gf(mob\_gf), degenerate\_order\_(order) \{\}
+\end{DoxyCode}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classMobilityCoefficient_a114ed4ca6b17eb4c23c572d6f802c7b2}\label{classMobilityCoefficient_a114ed4ca6b17eb4c23c572d6f802c7b2}} 
+\index{Mobility\+Coefficient@{Mobility\+Coefficient}!Eval@{Eval}}
+\index{Eval@{Eval}!Mobility\+Coefficient@{Mobility\+Coefficient}}
+\subsubsection{\texorpdfstring{Eval()}{Eval()}}
+{\footnotesize\ttfamily template$<$Mobility M\+O\+BI$>$ \\
+double \hyperlink{classMobilityCoefficient}{Mobility\+Coefficient}$<$ M\+O\+BI $>$\+::Eval (\begin{DoxyParamCaption}\item[{mfem\+::\+Element\+Transformation \&}]{T,  }\item[{const mfem\+::\+Integration\+Point \&}]{ip }\end{DoxyParamCaption})}
+
+
+
+Evaluation of the mobility coefficient at integration point. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em M\+O\+BI} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em T} & \\
+\hline
+{\em ip} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double 
+\end{DoxyReturn}
+
+
+Definition at line 59 of file Mobility\+Coefficient.\+hpp.
+
+
+\begin{DoxyCode}
+60                                                                        \{
+61   \textcolor{keywordflow}{switch} (MOBI) \{
+62     \textcolor{keywordflow}{case} Mobility::Constant:
+63       \textcolor{keywordflow}{return} this->mobility\_;
+64     \textcolor{keywordflow}{case} Mobility::Degenerated:
+65       \textcolor{keyword}{const} \textcolor{keyword}{auto} xx = gf.GetValue(T.ElementNo, ip);
+66       \textcolor{keyword}{const} \textcolor{keyword}{auto} a\_xx = std::max(std::min(xx, 1.), 0.);
+67       \textcolor{keyword}{const} \textcolor{keyword}{auto} degenerated\_mob\_func = this->mobility\_ *
+68                                         std::pow(1. - a\_xx, this->degenerate\_order\_) *
+69                                         std::pow(a\_xx, this->degenerate\_order\_);
+70       \textcolor{keywordflow}{return} degenerated\_mob\_func;
+71     \textcolor{keywordflow}{default}:
+72       \textcolor{keywordflow}{throw} std::runtime\_error(
+73           \textcolor{stringliteral}{"MobilityCoefficient::Eval: only constant and degenerated mobilities  are available"});
+74       \textcolor{keywordflow}{break};
+75   \}
+76 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Mobility\+Coefficient.\+hpp\end{DoxyCompactItemize}

@@ -1,0 +1,16 @@
+digraph "PhaseFieldOperatorBase&lt; T, DIM, NLFI &gt;"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  Node0 [label="{PhaseFieldOperatorBase\l\< T, DIM, NLFI \>\n|# fespace_\l# ess_tdof_list_\l# M\l# M_solver\l# M_prec\l# Mmat\l# RHS\l# N\l# J_solver\l# J_prec\land 11 more...\l|+ PhaseFieldOperatorBase()\l+ PhaseFieldOperatorBase()\l+ Mult()\l+ ImplicitSolve()\l+ SetConstantParameters()\l+ SetTransientParameters()\l+ initialize()\l+ ComputeEnergies()\l+ ComputeError()\l+ get_source_term()\l+ get_l2_error()\l+ get_energy_density()\l+ get_energy_interface()\l+ ~PhaseFieldOperatorBase()\l+ set_nlfi_ptr()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+  Node1 -> Node0 [dir="back",color="midnightblue",fontsize="12",style="solid",arrowtail="onormal",fontname="Helvetica"];
+  Node1 [label="{TimeDependentOperator\n||}",height=0.2,width=0.4,color="grey75"];
+  Node0 -> Node2 [dir="back",color="midnightblue",fontsize="12",style="solid",arrowtail="onormal",fontname="Helvetica"];
+  Node2 [label="{PhaseFieldOperator\l\< T, DIM, NLFI \>\n||+ PhaseFieldOperator()\l+ PhaseFieldOperator()\l+ set_nlfi_ptr()\l+ ~PhaseFieldOperator()\l}",height=0.2,width=0.4,color="black",URL="$classPhaseFieldOperator.html",tooltip="PhaseFieldOperator class. "];
+  Node2 -> Node3 [dir="back",color="orange",fontsize="12",style="solid",label=" \< T, DIM \>" ,fontname="Helvetica"];
+  Node3 [label="{PhaseFieldOperator\l\< T, DIM \>\n||+ PhaseFieldOperator()\l+ PhaseFieldOperator()\l+ set_nlfi_ptr()\l+ ~PhaseFieldOperator()\l}",height=0.2,width=0.4,color="black",URL="$classPhaseFieldOperator.html"];
+  Node0 -> Node3 [dir="back",color="midnightblue",fontsize="12",style="solid",arrowtail="onormal",fontname="Helvetica"];
+  Node0 -> Node4 [dir="back",color="midnightblue",fontsize="12",style="solid",arrowtail="onormal",fontname="Helvetica"];
+  Node4 [label="{PhaseFieldOperatorMelting\l\< T, DIM, NLFI \>\n||+ PhaseFieldOperatorMelting()\l+ set_nlfi_ptr()\l+ ~PhaseFieldOperatorMelting()\l}",height=0.2,width=0.4,color="black",URL="$classPhaseFieldOperatorMelting.html",tooltip="PhaseFieldOperatorMelting class. "];
+}

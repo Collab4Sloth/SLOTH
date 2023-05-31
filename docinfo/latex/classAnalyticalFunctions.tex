@@ -1,0 +1,91 @@
+\hypertarget{classAnalyticalFunctions}{}\section{Analytical\+Functions$<$ D\+IM $>$ Class Template Reference}
+\label{classAnalyticalFunctions}\index{Analytical\+Functions$<$ D\+I\+M $>$@{Analytical\+Functions$<$ D\+I\+M $>$}}
+
+
+Collaboration diagram for Analytical\+Functions$<$ D\+IM $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=235pt]{classAnalyticalFunctions__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classAnalyticalFunctions_a6474690b4e60e8d3e55fc12d46752144}\label{classAnalyticalFunctions_a6474690b4e60e8d3e55fc12d46752144}} 
+\hyperlink{classAnalyticalFunctions_a6474690b4e60e8d3e55fc12d46752144}{Analytical\+Functions} ()
+\begin{DoxyCompactList}\small\item\em Construct a new analytical function\+:\+: analytical function object. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const mfem\+::\+Vector \&, double)$>$ \hyperlink{classAnalyticalFunctions_a88a27c868b872e12d16f1097779fd3f8}{get\+Analytical\+Functions} (const std\+::string \&analytical\+\_\+function\+\_\+name, Args... args)
+\begin{DoxyCompactList}\small\item\em return the function associated with the analytical\+\_\+function\+\_\+name \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classAnalyticalFunctions_a937c9536543c324e57dfab404846d55b}\label{classAnalyticalFunctions_a937c9536543c324e57dfab404846d55b}} 
+\hyperlink{classAnalyticalFunctions_a937c9536543c324e57dfab404846d55b}{$\sim$\+Analytical\+Functions} ()
+\begin{DoxyCompactList}\small\item\em Destroy the analytical function \+:\+: analytical function object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$int D\+IM$>$\newline
+class Analytical\+Functions$<$ D\+I\+M $>$}
+
+
+
+Definition at line 24 of file Utils/\+Analytical\+Functions.\+hpp.
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classAnalyticalFunctions_a88a27c868b872e12d16f1097779fd3f8}\label{classAnalyticalFunctions_a88a27c868b872e12d16f1097779fd3f8}} 
+\index{Analytical\+Functions@{Analytical\+Functions}!get\+Analytical\+Functions@{get\+Analytical\+Functions}}
+\index{get\+Analytical\+Functions@{get\+Analytical\+Functions}!Analytical\+Functions@{Analytical\+Functions}}
+\subsubsection{\texorpdfstring{get\+Analytical\+Functions()}{getAnalyticalFunctions()}}
+{\footnotesize\ttfamily template$<$int D\+IM$>$ \\
+template$<$class... Args$>$ \\
+std\+::function$<$ double(const mfem\+::\+Vector \&, double)$>$ \hyperlink{classAnalyticalFunctions}{Analytical\+Functions}$<$ D\+IM $>$\+::get\+Analytical\+Functions (\begin{DoxyParamCaption}\item[{const std\+::string \&}]{analytical\+\_\+function\+\_\+name,  }\item[{Args...}]{args }\end{DoxyParamCaption})}
+
+
+
+return the function associated with the analytical\+\_\+function\+\_\+name 
+
+
+\begin{DoxyParams}{Parameters}
+{\em analytical\+\_\+function\+\_\+name} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+const double 
+\end{DoxyReturn}
+
+
+Definition at line 307 of file Utils/\+Analytical\+Functions.\+hpp.
+
+
+
+Referenced by Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Phase\+Field\+Operator\+Base().
+
+
+\begin{DoxyCode}
+308                                                                \{
+309   \textcolor{keywordflow}{switch} (AnalyticalFunctionsType::from(analytical\_function\_name)) \{
+310     \textcolor{keywordflow}{case} AnalyticalFunctionsType::Heaviside:
+311       \textcolor{keywordflow}{return} this->getHeaviside(args...);
+312     \textcolor{keywordflow}{case} AnalyticalFunctionsType::Sinusoide:
+313       \textcolor{keywordflow}{return} this->getSinusoide(args...);
+314     \textcolor{keywordflow}{case} AnalyticalFunctionsType::Sinusoide2:
+315       \textcolor{keywordflow}{return} this->getSinusoide2(args...);
+316     \textcolor{keywordflow}{case} AnalyticalFunctionsType::HyperbolicTangent:
+317       \textcolor{keywordflow}{return} this->getHyperbolicTangent(args...);
+318     \textcolor{keywordflow}{case} AnalyticalFunctionsType::Uniform:
+319       \textcolor{keywordflow}{return} this->getUniform(args...);
+320     \textcolor{keywordflow}{default}:
+321       \textcolor{keywordflow}{throw} std::runtime\_error(
+322           \textcolor{stringliteral}{"AnalyticalFunctions::getAnalyticalFunctions: Heaviside, Sinusoide, HyperbolicTangent "}
+323           \textcolor{stringliteral}{"and Uniform "}
+324           \textcolor{stringliteral}{"analytical function  are available"});
+325       \textcolor{keywordflow}{break};
+326   \}
+327 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Utils/\+Analytical\+Functions.\+hpp\end{DoxyCompactItemize}

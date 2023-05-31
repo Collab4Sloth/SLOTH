@@ -1,0 +1,391 @@
+\begin{theindex}
+
+  \item {$\sim$\+Spatial\+Discretization}
+    \subitem {Spatial\+Discretization}, \hyperpage{121}
+
+  \indexspace
+
+  \item {add}
+    \subitem {Parameters}, \hyperpage{72}
+    \subitem {Variables}, \hyperpage{153}
+  \item {Allen\+Cahn\+Specialized\+N\+L\+Form\+Integrator}
+    \subitem {Allen\+Cahn\+Specialized\+N\+L\+Form\+Integrator}, 
+		\hyperpage{28}
+    \subitem {Assemble\+Element\+Grad}, \hyperpage{29}
+    \subitem {Assemble\+Element\+Vector}, \hyperpage{30}
+  \item {Allen\+Cahn\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+M\+E $>$}, 
+		\hyperpage{27}
+  \item {Analytical\+Functions}
+    \subitem {get\+Analytical\+Functions}, \hyperpage{32}
+  \item {Analytical\+Functions$<$ D\+I\+M $>$}, \hyperpage{32}
+  \item {Analytical\+Functions\+Type}, \hyperpage{33}
+  \item {apply\+\_\+uniform\+\_\+refinement}
+    \subitem {Spatial\+Discretization}, \hyperpage{121}
+  \item {Assemble\+Element\+Grad}
+    \subitem {Allen\+Cahn\+Specialized\+N\+L\+Form\+Integrator}, 
+		\hyperpage{29}
+    \subitem {Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}, 
+		\hyperpage{43}
+  \item {Assemble\+Element\+Vector}
+    \subitem {Allen\+Cahn\+Specialized\+N\+L\+Form\+Integrator}, 
+		\hyperpage{30}
+    \subitem {Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}, 
+		\hyperpage{44}
+
+  \indexspace
+
+  \item {Boundaries}, \hyperpage{34}
+  \item {Boundary}, \hyperpage{35}
+    \subitem {Boundary}, \hyperpage{35}
+    \subitem {get\+\_\+boundary\+\_\+index}, \hyperpage{36}
+    \subitem {get\+\_\+boundary\+\_\+value}, \hyperpage{36}
+    \subitem {is\+\_\+essential\+\_\+boundary}, \hyperpage{37}
+  \item {Boundary\+Condition\+Type}, \hyperpage{40}
+  \item {Boundary\+Conditions}
+    \subitem {Boundary\+Conditions}, \hyperpage{38}
+    \subitem {Get\+Essential\+Dofs}, \hyperpage{39}
+    \subitem {Set\+Boundary\+Conditions}, \hyperpage{39}
+  \item {Boundary\+Conditions$<$ T, D\+I\+M $>$}, \hyperpage{37}
+  \item {Build\+Solver}
+    \subitem {Utils\+For\+Solvers}, \hyperpage{139}
+
+  \indexspace
+
+  \item {Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}
+    \subitem {Assemble\+Element\+Grad}, \hyperpage{43}
+    \subitem {Assemble\+Element\+Vector}, \hyperpage{44}
+    \subitem {Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}, 
+		\hyperpage{42}
+  \item {Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+M\+E $>$}, 
+		\hyperpage{41}
+  \item {Conduction\+Operator}, \hyperpage{47}
+    \subitem {Implicit\+Solve}, \hyperpage{49}
+
+  \indexspace
+
+  \item {Diffusion\+N\+L\+F\+Integrator}, \hyperpage{50}
+    \subitem {Diffusion\+N\+L\+F\+Integrator}, \hyperpage{52, 53}
+
+  \indexspace
+
+  \item {Energy\+Coefficient}, \hyperpage{54}
+
+  \indexspace
+
+  \item {get\+\_\+analytical\+\_\+solution}
+    \subitem {Variable}, \hyperpage{149}
+  \item {get\+\_\+boundary\+\_\+conditions}
+    \subitem {Variable}, \hyperpage{149}
+  \item {get\+\_\+boundary\+\_\+index}
+    \subitem {Boundary}, \hyperpage{36}
+  \item {get\+\_\+boundary\+\_\+value}
+    \subitem {Boundary}, \hyperpage{36}
+  \item {get\+\_\+dimension}
+    \subitem {Spatial\+Discretization}, \hyperpage{122}
+  \item {get\+\_\+finite\+\_\+element\+\_\+space}
+    \subitem {Spatial\+Discretization}, \hyperpage{122}
+  \item {get\+\_\+frequency}
+    \subitem {Post\+Processing}, \hyperpage{88}
+  \item {get\+\_\+gf}
+    \subitem {Variable}, \hyperpage{150}
+  \item {get\+\_\+map\+\_\+gridfunction}
+    \subitem {Variables}, \hyperpage{154}
+  \item {get\+\_\+map\+\_\+variable}
+    \subitem {Variables}, \hyperpage{154}
+  \item {get\+\_\+max\+\_\+bdr\+\_\+attributes}
+    \subitem {Spatial\+Discretization}, \hyperpage{123}
+  \item {get\+\_\+mesh}
+    \subitem {Spatial\+Discretization}, \hyperpage{123}
+  \item {get\+\_\+parameter\+\_\+value}
+    \subitem {Parameters}, \hyperpage{73}
+  \item {get\+\_\+unknown}
+    \subitem {Variable}, \hyperpage{150}
+  \item {get\+\_\+variable}
+    \subitem {Variables}, \hyperpage{154}
+  \item {get\+Analytical\+Functions}
+    \subitem {Analytical\+Functions}, \hyperpage{32}
+  \item {Get\+Essential\+Dofs}
+    \subitem {Boundary\+Conditions}, \hyperpage{39}
+  \item {get\+I\+Variable}
+    \subitem {Variables}, \hyperpage{155}
+  \item {get\+Map\+Parameters}
+    \subitem {Parameters}, \hyperpage{73}
+  \item {get\+Name}
+    \subitem {Parameter}, \hyperpage{70}
+  \item {get\+Potential\+Function}
+    \subitem {Potential\+Functions}, \hyperpage{117}
+  \item {get\+Size}
+    \subitem {Spatial\+Discretization}, \hyperpage{124}
+  \item {get\+Value}
+    \subitem {Parameter}, \hyperpage{70}
+  \item {get\+Variable\+Name}
+    \subitem {Variable}, \hyperpage{150}
+  \item {get\+Variable\+Type}
+    \subitem {Variable}, \hyperpage{151}
+  \item {get\+Variables}
+    \subitem {Variables}, \hyperpage{156}
+  \item {getH}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{91}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{94}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{97}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{99}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{102}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{105}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{108}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{111}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{113}
+  \item {getW}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{92}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{95}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{97}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{100}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{103}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{106}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{109}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{111}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{114}
+  \item {getX}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{92}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{95}
+    \subitem {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{98}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{101}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{103}
+    \subitem {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{106}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{109}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{112}
+    \subitem {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{115}
+
+  \indexspace
+
+  \item {Implicit\+Solve}
+    \subitem {Conduction\+Operator}, \hyperpage{49}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{78}
+  \item {initialize}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{79}
+  \item {Interfacial\+Coefficient}, \hyperpage{55}
+  \item {is\+\_\+essential\+\_\+boundary}
+    \subitem {Boundary}, \hyperpage{37}
+
+  \indexspace
+
+  \item {make\+\_\+periodic\+\_\+mesh}
+    \subitem {Spatial\+Discretization}, \hyperpage{124}
+  \item {Mass\+Default\+Constant}, \hyperpage{25}
+  \item {Melting\+Coefficient}, \hyperpage{57}
+  \item {Meshes}, \hyperpage{58}
+  \item {Mobility\+Coefficient}, \hyperpage{60}
+  \item {Mult}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{79}
+  \item {multidimension\+\_\+function$<$ 1 $>$}, \hyperpage{62}
+  \item {multidimension\+\_\+function$<$ 2 $>$}, \hyperpage{63}
+  \item {multidimension\+\_\+function$<$ 3 $>$}, \hyperpage{64}
+  \item {multidimension\+\_\+function$<$ D\+I\+M $>$}, \hyperpage{61}
+  \item {my\+\_\+best\+\_\+constructor$<$ T, 1 $>$}, \hyperpage{65}
+  \item {my\+\_\+best\+\_\+constructor$<$ T, 2 $>$}, \hyperpage{66}
+  \item {my\+\_\+best\+\_\+constructor$<$ T, 3 $>$}, \hyperpage{67}
+  \item {my\+\_\+best\+\_\+constructor$<$ T, D\+I\+M $>$}, 
+		\hyperpage{65}
+
+  \indexspace
+
+  \item {need\+\_\+to\+\_\+be\+\_\+saved}
+    \subitem {Post\+Processing}, \hyperpage{88}
+  \item {Newton\+Default\+Constant}, \hyperpage{25}
+  \item {Nonlinear\+Coefficient}, \hyperpage{68}
+
+  \indexspace
+
+  \item {Parameter}, \hyperpage{70}
+    \subitem {get\+Name}, \hyperpage{70}
+    \subitem {get\+Value}, \hyperpage{70}
+  \item {Parameters}, \hyperpage{71}
+    \subitem {add}, \hyperpage{72}
+    \subitem {get\+\_\+parameter\+\_\+value}, \hyperpage{73}
+    \subitem {get\+Map\+Parameters}, \hyperpage{73}
+    \subitem {Parameters}, \hyperpage{72}
+  \item {Phase\+Field\+Energy}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{80}
+  \item {Phase\+Field\+Operator}
+    \subitem {Implicit\+Solve}, \hyperpage{78}
+    \subitem {initialize}, \hyperpage{79}
+    \subitem {Mult}, \hyperpage{79}
+    \subitem {Phase\+Field\+Energy}, \hyperpage{80}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{77}
+    \subitem {reduced\+\_\+oper}, \hyperpage{82}
+    \subitem {Set\+Constant\+Parameters}, \hyperpage{81}
+    \subitem {Set\+Transient\+Parameters}, \hyperpage{81}
+  \item {Phase\+Field\+Operator$<$ T, D\+I\+M, N\+L\+F\+I $>$}, 
+		\hyperpage{74}
+  \item {Phase\+Field\+Private\+::mmap$<$ E\+Type $>$}, \hyperpage{59}
+  \item {Phase\+Field\+Reduced\+Operator}, \hyperpage{83}
+  \item {Poisson\+N\+L\+F\+Integrator}, \hyperpage{84}
+  \item {Post\+Processing}
+    \subitem {get\+\_\+frequency}, \hyperpage{88}
+    \subitem {need\+\_\+to\+\_\+be\+\_\+saved}, \hyperpage{88}
+    \subitem {Post\+Processing}, \hyperpage{88}
+    \subitem {save\+\_\+variables}, \hyperpage{89}
+  \item {Post\+Processing$<$ T, D\+C, D\+I\+M $>$}, \hyperpage{86}
+  \item {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{91}
+    \subitem {getH}, \hyperpage{91}
+    \subitem {getW}, \hyperpage{92}
+    \subitem {getX}, \hyperpage{92}
+  \item {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{93}
+    \subitem {getH}, \hyperpage{94}
+    \subitem {getW}, \hyperpage{95}
+    \subitem {getX}, \hyperpage{95}
+  \item {potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{96}
+    \subitem {getH}, \hyperpage{97}
+    \subitem {getW}, \hyperpage{97}
+    \subitem {getX}, \hyperpage{98}
+  \item {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{99}
+    \subitem {getH}, \hyperpage{99}
+    \subitem {getW}, \hyperpage{100}
+    \subitem {getX}, \hyperpage{101}
+  \item {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{102}
+    \subitem {getH}, \hyperpage{102}
+    \subitem {getW}, \hyperpage{103}
+    \subitem {getX}, \hyperpage{103}
+  \item {potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{104}
+    \subitem {getH}, \hyperpage{105}
+    \subitem {getW}, \hyperpage{106}
+    \subitem {getX}, \hyperpage{106}
+  \item {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}, 
+		\hyperpage{107}
+    \subitem {getH}, \hyperpage{108}
+    \subitem {getW}, \hyperpage{109}
+    \subitem {getX}, \hyperpage{109}
+  \item {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}, 
+		\hyperpage{110}
+    \subitem {getH}, \hyperpage{111}
+    \subitem {getW}, \hyperpage{111}
+    \subitem {getX}, \hyperpage{112}
+  \item {potential\+\_\+function$<$ 2, Thermodynamics\+Potential\+Discretization\+::\+Semi\+Implicit $>$}, 
+		\hyperpage{113}
+    \subitem {getH}, \hyperpage{113}
+    \subitem {getW}, \hyperpage{114}
+    \subitem {getX}, \hyperpage{115}
+  \item {potential\+\_\+function$<$ O\+R\+D\+E\+R, S\+C\+H\+E\+M\+E $>$}, 
+		\hyperpage{90}
+  \item {Potential\+Functions}
+    \subitem {get\+Potential\+Function}, \hyperpage{117}
+  \item {Potential\+Functions$<$ O\+R\+D\+E\+R, S\+C\+H\+E\+M\+E $>$}, 
+		\hyperpage{116}
+  \item {Problem}, \hyperpage{118}
+  \item {Problems}, \hyperpage{119}
+
+  \indexspace
+
+  \item {reduced\+\_\+oper}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{82}
+
+  \indexspace
+
+  \item {save\+\_\+variables}
+    \subitem {Post\+Processing}, \hyperpage{89}
+  \item {set\+\_\+finite\+\_\+element\+\_\+space}
+    \subitem {Spatial\+Discretization}, \hyperpage{125}
+  \item {Set\+Boundary\+Conditions}
+    \subitem {Boundary\+Conditions}, \hyperpage{39}
+  \item {Set\+Constant\+Parameters}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{81}
+  \item {Set\+Solver\+Parameters}
+    \subitem {Utils\+For\+Solvers}, \hyperpage{140}
+  \item {Set\+Transient\+Parameters}
+    \subitem {Phase\+Field\+Operator}, \hyperpage{81}
+  \item {Spatial\+Discretization}
+    \subitem {$\sim$\+Spatial\+Discretization}, \hyperpage{121}
+    \subitem {apply\+\_\+uniform\+\_\+refinement}, \hyperpage{121}
+    \subitem {get\+\_\+dimension}, \hyperpage{122}
+    \subitem {get\+\_\+finite\+\_\+element\+\_\+space}, \hyperpage{122}
+    \subitem {get\+\_\+max\+\_\+bdr\+\_\+attributes}, \hyperpage{123}
+    \subitem {get\+\_\+mesh}, \hyperpage{123}
+    \subitem {get\+Size}, \hyperpage{124}
+    \subitem {make\+\_\+periodic\+\_\+mesh}, \hyperpage{124}
+    \subitem {set\+\_\+finite\+\_\+element\+\_\+space}, \hyperpage{125}
+  \item {Spatial\+Discretization$<$ T, D\+I\+M $>$}, \hyperpage{120}
+
+  \indexspace
+
+  \item {Thermodynamic\+Root\+Finding\+Algorithm}, \hyperpage{126}
+  \item {Thermodynamic\+Sub\+Models}, \hyperpage{133}
+  \item {Thermodynamic\+Systems\+For\+Mobilities}, \hyperpage{135}
+  \item {Thermodynamics\+Allen\+Cahn\+Mobility}, \hyperpage{126}
+  \item {Thermodynamics\+F\+GR}, \hyperpage{127}
+  \item {Thermodynamics\+Initialization}, \hyperpage{128}
+  \item {Thermodynamics\+Linear\+Power\+Source\+Term}, \hyperpage{128}
+  \item {Thermodynamics\+Model}, \hyperpage{129}
+  \item {Thermodynamics\+Molar\+Volume\+Type}, \hyperpage{130}
+  \item {Thermodynamics\+Potentials}, \hyperpage{131}
+  \item {Thermodynamics\+Properties}, \hyperpage{132}
+  \item {Thermodynamics\+Stabilization\+Scheme}, \hyperpage{132}
+  \item {Thermodynamics\+Unit\+For\+Setting\+Conditions}, 
+		\hyperpage{134}
+  \item {Thermodynamics\+Update\+Quantities\+Method}, \hyperpage{135}
+  \item {Time\+Discretization}
+    \subitem {Time\+Discretization}, \hyperpage{137}
+  \item {Time\+Discretization$<$ T, D\+C, D\+I\+M, N\+L\+F\+I $>$}, 
+		\hyperpage{136}
+  \item {Time\+Scheme}, \hyperpage{138}
+
+  \indexspace
+
+  \item {Utils\+For\+Solvers}, \hyperpage{139}
+    \subitem {Build\+Solver}, \hyperpage{139}
+    \subitem {Set\+Solver\+Parameters}, \hyperpage{140}
+
+  \indexspace
+
+  \item {Variable}
+    \subitem {get\+\_\+analytical\+\_\+solution}, \hyperpage{149}
+    \subitem {get\+\_\+boundary\+\_\+conditions}, \hyperpage{149}
+    \subitem {get\+\_\+gf}, \hyperpage{150}
+    \subitem {get\+\_\+unknown}, \hyperpage{150}
+    \subitem {get\+Variable\+Name}, \hyperpage{150}
+    \subitem {get\+Variable\+Type}, \hyperpage{151}
+    \subitem {Variable}, \hyperpage{142--148}
+  \item {Variable$<$ T, D\+I\+M $>$}, \hyperpage{141}
+  \item {Variable\+Type}, \hyperpage{156}
+  \item {Variables}
+    \subitem {add}, \hyperpage{153}
+    \subitem {get\+\_\+map\+\_\+gridfunction}, \hyperpage{154}
+    \subitem {get\+\_\+map\+\_\+variable}, \hyperpage{154}
+    \subitem {get\+\_\+variable}, \hyperpage{154}
+    \subitem {get\+I\+Variable}, \hyperpage{155}
+    \subitem {get\+Variables}, \hyperpage{156}
+    \subitem {Variables}, \hyperpage{153}
+  \item {Variables$<$ T, D\+I\+M $>$}, \hyperpage{152}
+
+\end{theindex}

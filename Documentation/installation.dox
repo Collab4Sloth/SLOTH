@@ -1,0 +1,23 @@
+/*! 
+ * \page __install Installation guide
+ * \section __prerequis Prerequisites
+
+
+ * \section __code Installation of the code
+
+A straightforward way to install MFEM is to use [spack](https://spack.readthedocs.io/en/latest/getting_started.html)
+
+- First, clone spack and install it (see [spack](https://spack.readthedocs.io/en/latest/getting_started.html))
+- Second, run the following command to install mfem with right additional packages
+
+```
+./bin/spack install mfem +mpi  +debug +openmp +petsc +strumpack +suite-sparse +sundials +superlu-dist
+```
+- Third, apply the following changes in the config.mk file 
+   - remove the C++14 standard to C++17 in order to avoid compilation errors (MFEM_CXXFLAGS)
+   - check if external packages are well set to YES before compiling
+- compile mfem application (main.cpp) (pb avec petsc sundials )
+
+* \tableofcontents
+[<= back to main page](index.html)
+*/

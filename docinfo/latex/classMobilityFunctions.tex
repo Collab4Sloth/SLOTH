@@ -1,0 +1,80 @@
+\hypertarget{classMobilityFunctions}{}\section{Mobility\+Functions$<$ M\+O\+BI $>$ Class Template Reference}
+\label{classMobilityFunctions}\index{Mobility\+Functions$<$ M\+O\+B\+I $>$@{Mobility\+Functions$<$ M\+O\+B\+I $>$}}
+
+
+Collaboration diagram for Mobility\+Functions$<$ M\+O\+BI $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=218pt]{classMobilityFunctions__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classMobilityFunctions_add3cbc5101d579b77a2c2963e8008101}\label{classMobilityFunctions_add3cbc5101d579b77a2c2963e8008101}} 
+\hyperlink{classMobilityFunctions_add3cbc5101d579b77a2c2963e8008101}{Mobility\+Functions} ()
+\begin{DoxyCompactList}\small\item\em Construct a new potential function\+:\+: potential function object. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{classMobilityFunctions_a25741d28fd09272b2647f5af944aa748}{get\+Mobility\+Function} (Args... args)
+\begin{DoxyCompactList}\small\item\em return the function associated with the potential\+\_\+name and its O\+R\+D\+ER of derivative \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classMobilityFunctions_aef50ad1966cd9afc7b61ab5eb25df771}\label{classMobilityFunctions_aef50ad1966cd9afc7b61ab5eb25df771}} 
+\hyperlink{classMobilityFunctions_aef50ad1966cd9afc7b61ab5eb25df771}{$\sim$\+Mobility\+Functions} ()
+\begin{DoxyCompactList}\small\item\em Destroy the potential function \+:\+: potential function object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$Mobility M\+O\+BI$>$\newline
+class Mobility\+Functions$<$ M\+O\+B\+I $>$}
+
+
+
+Definition at line 21 of file Phase\+Field\+Mobilities.\+hpp.
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classMobilityFunctions_a25741d28fd09272b2647f5af944aa748}\label{classMobilityFunctions_a25741d28fd09272b2647f5af944aa748}} 
+\index{Mobility\+Functions@{Mobility\+Functions}!get\+Mobility\+Function@{get\+Mobility\+Function}}
+\index{get\+Mobility\+Function@{get\+Mobility\+Function}!Mobility\+Functions@{Mobility\+Functions}}
+\subsubsection{\texorpdfstring{get\+Mobility\+Function()}{getMobilityFunction()}}
+{\footnotesize\ttfamily template$<$Mobility M\+O\+BI$>$ \\
+template$<$class... Args$>$ \\
+std\+::function$<$ double(const double \&)$>$ \hyperlink{classMobilityFunctions}{Mobility\+Functions}$<$ M\+O\+BI $>$\+::get\+Mobility\+Function (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})}
+
+
+
+return the function associated with the potential\+\_\+name and its O\+R\+D\+ER of derivative 
+
+
+\begin{DoxyParams}{Parameters}
+{\em potential\+\_\+name} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+const double 
+\end{DoxyReturn}
+
+
+Definition at line 99 of file Phase\+Field\+Mobilities.\+hpp.
+
+
+\begin{DoxyCode}
+99                                                                                             \{
+100   \textcolor{keywordflow}{switch} (MOBI) \{
+101     \textcolor{keywordflow}{case} Mobility::Constant:
+102       \textcolor{keywordflow}{return} this->getConstant(args...);
+103     \textcolor{keywordflow}{case} Mobility::Degenerated:
+104       \textcolor{keywordflow}{return} this->getDegenerated(args...);
+105     \textcolor{keywordflow}{default}:
+106       \textcolor{keywordflow}{throw} std::runtime\_error(
+107           \textcolor{stringliteral}{"MobilityFunctions::getMobilityFunctions: only constant and degenerated mobilities  are "}
+108           \textcolor{stringliteral}{"available"});
+109       \textcolor{keywordflow}{break};
+110   \}
+111 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Phase\+Field\+Mobilities.\+hpp\end{DoxyCompactItemize}

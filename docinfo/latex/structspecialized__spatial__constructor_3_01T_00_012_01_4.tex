@@ -1,0 +1,199 @@
+\hypertarget{structspecialized__spatial__constructor_3_01T_00_012_01_4}{}\section{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$ Struct Template Reference}
+\label{structspecialized__spatial__constructor_3_01T_00_012_01_4}\index{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$@{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$}}
+
+
+Specialization for dimension two.  
+
+
+
+
+{\ttfamily \#include $<$/home/ci230846/home-\/local/\+My\+Git\+Projects/\+C\+O\+M\+P\+O\+N\+E\+N\+T/\+P\+F-\/\+M\+F\+E\+M/\+Spatial/\+Spatial.\+hpp$>$}
+
+
+
+Collaboration diagram for specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=202pt]{structspecialized__spatial__constructor_3_01T_00_012_01_4__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename... Args$>$ }\\void \hyperlink{structspecialized__spatial__constructor_3_01T_00_012_01_4_a73c0c12c16ce0c3fb7fb13050e3b7037}{operator()} (\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, 2 $>$ \&a\+\_\+my\+\_\+class, const std\+::string \&mesh\+\_\+type, const int \&fe\+\_\+order, const std\+::string \&file)
+\begin{DoxyCompactList}\small\item\em operator() specialized for a mesh built from G\+M\+SH file \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\void \hyperlink{structspecialized__spatial__constructor_3_01T_00_012_01_4_a042d171694bc56092b0473257797a730}{operator()} (\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, 2 $>$ \&a\+\_\+my\+\_\+class, const std\+::string \&mesh\+\_\+type, const int \&fe\+\_\+order, std\+::tuple$<$ Args... $>$ tup\+\_\+args)
+\begin{DoxyCompactList}\small\item\em operator() specialized for a mesh built from M\+F\+EM methods \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$typename T$>$\newline
+struct specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$}
+
+Specialization for dimension two. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & \\
+\hline
+\end{DoxyTemplParams}
+
+
+Definition at line 188 of file Spatial.\+hpp.
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{structspecialized__spatial__constructor_3_01T_00_012_01_4_a73c0c12c16ce0c3fb7fb13050e3b7037}\label{structspecialized__spatial__constructor_3_01T_00_012_01_4_a73c0c12c16ce0c3fb7fb13050e3b7037}} 
+\index{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$@{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$}!operator()@{operator()}}
+\index{operator()@{operator()}!specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$@{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$}}
+\subsubsection{\texorpdfstring{operator()()}{operator()()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+template$<$typename... Args$>$ \\
+void \hyperlink{structspecialized__spatial__constructor}{specialized\+\_\+spatial\+\_\+constructor}$<$ T, 2 $>$\+::operator() (\begin{DoxyParamCaption}\item[{\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, 2 $>$ \&}]{a\+\_\+my\+\_\+class,  }\item[{const std\+::string \&}]{mesh\+\_\+type,  }\item[{const int \&}]{fe\+\_\+order,  }\item[{const std\+::string \&}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+operator() specialized for a mesh built from G\+M\+SH file 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em a\+\_\+my\+\_\+class} & \\
+\hline
+{\em mesh\+\_\+type} & \\
+\hline
+{\em fe\+\_\+order} & \\
+\hline
+{\em file} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 199 of file Spatial.\+hpp.
+
+
+
+References Spatial\+Discretization$<$ T, D\+I\+M $>$\+::set\+\_\+finite\+\_\+element\+\_\+space().
+
+
+\begin{DoxyCode}
+200                                                               \{
+201     a\_my\_class.fe\_order\_ = fe\_order;
+202     a\_my\_class.dimension\_ = 2;
+203 
+204     \textcolor{keywordflow}{switch} (Meshes::from(mesh\_type)) \{
+205       \textcolor{keywordflow}{case} Meshes::GMSH: \{
+206         \textcolor{keywordflow}{if} (std::filesystem::exists(file)) \{
+207           \textcolor{keyword}{const} \textcolor{keywordtype}{char} *mesh\_file = file.c\_str();
+208           a\_my\_class.mesh\_ = mfem::Mesh::LoadFromFile(mesh\_file, 2, 1);
+209           \textcolor{keywordflow}{break};
+210         \} \textcolor{keywordflow}{else} \{
+211           \textcolor{keywordflow}{throw} std::runtime\_error(\textcolor{stringliteral}{"SpatialDiscretization::SpatialDiscretization: "} + file +
+212                                    \textcolor{stringliteral}{" doesn't exist. Please check your data."});
+213         \}
+214       \}
+215       \textcolor{keywordflow}{default}:
+216         \textcolor{keywordflow}{throw} std::runtime\_error(
+217             \textcolor{stringliteral}{"SpatialDiscretization::SpatialDiscretization: here, only GMSH mesh type is "}
+218             \textcolor{stringliteral}{"allowed"});
+219         \textcolor{keywordflow}{break};
+220     \}
+221     std::cout << \textcolor{stringliteral}{"CCI 0"} << std::endl;
+222     a\_my\_class.mesh\_max\_bdr\_attributes\_ = a\_my\_class.mesh\_.bdr\_attributes.Max();
+223     std::cout << \textcolor{stringliteral}{"CCI 1"} << std::endl;
+224     a\_my\_class.mesh\_.Save(\textcolor{stringliteral}{"FromGMSH"});
+225 
+226     a\_my\_class.\hyperlink{classSpatialDiscretization_a8400a265a094312b4d57708d44f9d627}{set\_finite\_element\_space}();
+227   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structspecialized__spatial__constructor_3_01T_00_012_01_4_a042d171694bc56092b0473257797a730}\label{structspecialized__spatial__constructor_3_01T_00_012_01_4_a042d171694bc56092b0473257797a730}} 
+\index{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$@{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$}!operator()@{operator()}}
+\index{operator()@{operator()}!specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$@{specialized\+\_\+spatial\+\_\+constructor$<$ T, 2 $>$}}
+\subsubsection{\texorpdfstring{operator()()}{operator()()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+template$<$typename... Args$>$ \\
+void \hyperlink{structspecialized__spatial__constructor}{specialized\+\_\+spatial\+\_\+constructor}$<$ T, 2 $>$\+::operator() (\begin{DoxyParamCaption}\item[{\hyperlink{classSpatialDiscretization}{Spatial\+Discretization}$<$ T, 2 $>$ \&}]{a\+\_\+my\+\_\+class,  }\item[{const std\+::string \&}]{mesh\+\_\+type,  }\item[{const int \&}]{fe\+\_\+order,  }\item[{std\+::tuple$<$ Args... $>$}]{tup\+\_\+args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+operator() specialized for a mesh built from M\+F\+EM methods 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em a\+\_\+my\+\_\+class} & \\
+\hline
+{\em mesh\+\_\+type} & \\
+\hline
+{\em fe\+\_\+order} & \\
+\hline
+{\em tup\+\_\+args} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 239 of file Spatial.\+hpp.
+
+
+
+References Spatial\+Discretization$<$ T, D\+I\+M $>$\+::make\+\_\+periodic\+\_\+mesh(), and Spatial\+Discretization$<$ T, D\+I\+M $>$\+::set\+\_\+finite\+\_\+element\+\_\+space().
+
+
+\begin{DoxyCode}
+240                                                                    \{
+241     a\_my\_class.fe\_order\_ = fe\_order;
+242     \textcolor{keyword}{auto} tup\_size = std::tuple\_size<decltype(tup\_args)>::value;
+243     a\_my\_class.dimension\_ = 2;
+244 
+245     \textcolor{keywordflow}{switch} (Meshes::from(mesh\_type)) \{
+246       \textcolor{keywordflow}{case} Meshes::InlineSquareWithQuadrangles: \{
+247         \textcolor{keywordflow}{if} (tup\_size == 4) \{
+248           \textcolor{keyword}{const} \textcolor{keyword}{auto} nx = std::get<0>(tup\_args);
+249           \textcolor{keyword}{const} \textcolor{keyword}{auto} ny = std::get<1>(tup\_args);
+250           \textcolor{keyword}{const} \textcolor{keyword}{auto} sx = std::get<2>(tup\_args);
+251           \textcolor{keyword}{const} \textcolor{keyword}{auto} sy = std::get<3>(tup\_args);
+252           a\_my\_class.mesh\_ = mfem::Mesh::MakeCartesian2D(nx, ny, mfem::Element::QUADRILATERAL,
+253                                                          \textcolor{keyword}{false}, sx, sy, \textcolor{keyword}{false});
+254 
+255           \textcolor{keyword}{auto} L = 2. * M\_PI;
+256           \textcolor{comment}{// Create translation vectors defining the periodicity}
+257           mfem::Vector x\_translation(\{L, 0.0\});
+258           mfem::Vector y\_translation(\{0.0, L\});
+259           std::vector<mfem::Vector> translations = \{x\_translation, y\_translation\};
+260 
+261           a\_my\_class.\hyperlink{classSpatialDiscretization_a4b88c0c7dbdb10a8d1442e599ac9a831}{make\_periodic\_mesh}(translations);
+262 
+263         \} \textcolor{keywordflow}{else} \{
+264           \textcolor{keywordflow}{throw} std::runtime\_error(
+265               \textcolor{stringliteral}{"SpatialDiscretization::SpatialDiscretization: InlineSquareWithQuadrangles "}
+266               \textcolor{stringliteral}{"requires "}
+267               \textcolor{stringliteral}{"four arguments, the number of nodes and the length along each direction"});
+268         \}
+269         \textcolor{keywordflow}{break};
+270       \}
+271       \textcolor{keywordflow}{default}:
+272         \textcolor{keywordflow}{throw} std::runtime\_error(
+273             \textcolor{stringliteral}{"SpatialDiscretization::SpatialDiscretization: here, only "}
+274             \textcolor{stringliteral}{"InlineLineWithSegments, "}
+275             \textcolor{stringliteral}{"InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed"});
+276         \textcolor{keywordflow}{break};
+277     \}
+278     a\_my\_class.mesh\_max\_bdr\_attributes\_ = a\_my\_class.mesh\_.bdr\_attributes.Max();
+279     a\_my\_class.\hyperlink{classSpatialDiscretization_a8400a265a094312b4d57708d44f9d627}{set\_finite\_element\_space}();
+280   \}
+\end{DoxyCode}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Spatial.\+hpp\end{DoxyCompactItemize}

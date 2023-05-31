@@ -1,0 +1,231 @@
+\hypertarget{classParameters}{}\section{Parameters Class Reference}
+\label{classParameters}\index{Parameters@{Parameters}}
+
+
+Class used to manage a list of \hyperlink{classParameter}{Parameter}.  
+
+
+
+
+{\ttfamily \#include $<$/home/ci230846/home-\/local/\+My\+Git\+Projects/\+C\+O\+M\+P\+O\+N\+E\+N\+T/\+P\+F-\/\+M\+F\+E\+M/\+Parameters/\+Parameters.\+hpp$>$}
+
+
+
+Collaboration diagram for Parameters\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=227pt]{classParameters__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classParameters_af4d94ee360ac0157d9065f78797fe9a1}\label{classParameters_af4d94ee360ac0157d9065f78797fe9a1}} 
+\hyperlink{classParameters_af4d94ee360ac0157d9065f78797fe9a1}{Parameters} ()
+\begin{DoxyCompactList}\small\item\em Construct a new \hyperlink{classParameters}{Parameters}\+:\+: \hyperlink{classParameters}{Parameters} object. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class... Args$>$ }\\\hyperlink{classParameters_ad6dd615ae7b15ad277796f0ea5d15442}{Parameters} (const Args \&... args)
+\begin{DoxyCompactList}\small\item\em Construct a new \hyperlink{classParameters}{Parameters}\+:\+: \hyperlink{classParameters}{Parameters} object. \end{DoxyCompactList}\item 
+void \hyperlink{classParameters_a0e846d18b12895afa22311f4b597ff90}{add} (const \hyperlink{classParameter}{Parameter} \&param)
+\begin{DoxyCompactList}\small\item\em add a new parameters \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classParameters_a54c52e1c269e995779f16f33f4c68db0}\label{classParameters_a54c52e1c269e995779f16f33f4c68db0}} 
+void {\bfseries List\+Param\+By\+Name} ()
+\item 
+double \hyperlink{classParameters_ab1bac6bf07b9698c850542b68e143ef3}{get\+\_\+parameter\+\_\+value} (const std\+::string \&name) const
+\begin{DoxyCompactList}\small\item\em get double value of a parameter by name \end{DoxyCompactList}\item 
+bool \hyperlink{classParameters_a33402b196d17c9f3816f9c889b87c540}{get\+\_\+option\+\_\+value} (const std\+::string \&name) const
+\begin{DoxyCompactList}\small\item\em get boolean option of a parameter by name \end{DoxyCompactList}\item 
+std\+::map$<$ std\+::string, double $>$ \hyperlink{classParameters_a3951bee7d4347d18d528cd0f5c3a2e67}{get\+Map\+Parameters} () const
+\begin{DoxyCompactList}\small\item\em transform list of parameters into a map$<$string,double$>$ \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classParameters_a640a1a349975a8cb023696f25e563a5c}\label{classParameters_a640a1a349975a8cb023696f25e563a5c}} 
+\hyperlink{classParameters_a640a1a349975a8cb023696f25e563a5c}{$\sim$\+Parameters} ()
+\begin{DoxyCompactList}\small\item\em Destroy the \hyperlink{classParameters}{Parameters}\+:\+: \hyperlink{classParameters}{Parameters} object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Class used to manage a list of \hyperlink{classParameter}{Parameter}. 
+
+Definition at line 23 of file Parameters.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classParameters_ad6dd615ae7b15ad277796f0ea5d15442}\label{classParameters_ad6dd615ae7b15ad277796f0ea5d15442}} 
+\index{Parameters@{Parameters}!Parameters@{Parameters}}
+\index{Parameters@{Parameters}!Parameters@{Parameters}}
+\subsubsection{\texorpdfstring{Parameters()}{Parameters()}}
+{\footnotesize\ttfamily template$<$class... Args$>$ \\
+Parameters\+::\+Parameters (\begin{DoxyParamCaption}\item[{const Args \&...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [explicit]}}
+
+
+
+Construct a new \hyperlink{classParameters}{Parameters}\+:\+: \hyperlink{classParameters}{Parameters} object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 53 of file Parameters.\+hpp.
+
+
+\begin{DoxyCode}
+53                                           \{
+54   this->vect\_params\_ = std::vector<Parameter>\{args...\};
+55 \}
+\end{DoxyCode}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classParameters_a0e846d18b12895afa22311f4b597ff90}\label{classParameters_a0e846d18b12895afa22311f4b597ff90}} 
+\index{Parameters@{Parameters}!add@{add}}
+\index{add@{add}!Parameters@{Parameters}}
+\subsubsection{\texorpdfstring{add()}{add()}}
+{\footnotesize\ttfamily void Parameters\+::add (\begin{DoxyParamCaption}\item[{const \hyperlink{classParameter}{Parameter} \&}]{param }\end{DoxyParamCaption})}
+
+
+
+add a new parameters 
+
+
+\begin{DoxyParams}{Parameters}
+{\em param} & parameter to add \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 62 of file Parameters.\+hpp.
+
+
+\begin{DoxyCode}
+62 \{ this->vect\_params\_.emplace\_back(param); \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classParameters_a33402b196d17c9f3816f9c889b87c540}\label{classParameters_a33402b196d17c9f3816f9c889b87c540}} 
+\index{Parameters@{Parameters}!get\+\_\+option\+\_\+value@{get\+\_\+option\+\_\+value}}
+\index{get\+\_\+option\+\_\+value@{get\+\_\+option\+\_\+value}!Parameters@{Parameters}}
+\subsubsection{\texorpdfstring{get\+\_\+option\+\_\+value()}{get\_option\_value()}}
+{\footnotesize\ttfamily bool Parameters\+::get\+\_\+option\+\_\+value (\begin{DoxyParamCaption}\item[{const std\+::string \&}]{name }\end{DoxyParamCaption}) const}
+
+
+
+get boolean option of a parameter by name 
+
+
+\begin{DoxyParams}{Parameters}
+{\em name} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+
+
+Definition at line 94 of file Parameters.\+hpp.
+
+
+
+Referenced by Time\+Discretization$<$ T, D\+C, D\+I\+M $>$\+::\+Time\+Discretization().
+
+
+\begin{DoxyCode}
+94                                                              \{
+95   \textcolor{keywordtype}{bool} active\_option = \textcolor{keyword}{false};
+96 
+97   \textcolor{keywordflow}{for} (\textcolor{keyword}{const} \textcolor{keyword}{auto}& p : this->vect\_params\_) \{
+98     \textcolor{keyword}{auto} pn = p.getName();
+99     \textcolor{keywordflow}{if} (pn == name) \{
+100       active\_option = std::get<bool>(p.getValue());
+101     \}
+102   \}
+103 
+104   \textcolor{keywordflow}{return} active\_option;
+105 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classParameters_ab1bac6bf07b9698c850542b68e143ef3}\label{classParameters_ab1bac6bf07b9698c850542b68e143ef3}} 
+\index{Parameters@{Parameters}!get\+\_\+parameter\+\_\+value@{get\+\_\+parameter\+\_\+value}}
+\index{get\+\_\+parameter\+\_\+value@{get\+\_\+parameter\+\_\+value}!Parameters@{Parameters}}
+\subsubsection{\texorpdfstring{get\+\_\+parameter\+\_\+value()}{get\_parameter\_value()}}
+{\footnotesize\ttfamily double Parameters\+::get\+\_\+parameter\+\_\+value (\begin{DoxyParamCaption}\item[{const std\+::string \&}]{name }\end{DoxyParamCaption}) const}
+
+
+
+get double value of a parameter by name 
+
+
+\begin{DoxyParams}{Parameters}
+{\em name} & name of the parameter \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double double value of the parameter 
+\end{DoxyReturn}
+
+
+Definition at line 70 of file Parameters.\+hpp.
+
+
+
+Referenced by Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Phase\+Field\+Operator\+Base(), and Time\+Discretization$<$ T, D\+C, D\+I\+M $>$\+::\+Time\+Discretization().
+
+
+\begin{DoxyCode}
+70                                                                   \{
+71   \textcolor{keyword}{const} \textcolor{keyword}{auto} lowest\_float = std::numeric\_limits<float>::lowest();
+72   \textcolor{keyword}{auto} value = std::numeric\_limits<double>::lowest();
+73 
+74   \textcolor{keywordflow}{for} (\textcolor{keyword}{const} \textcolor{keyword}{auto}& p : this->vect\_params\_) \{
+75     \textcolor{keyword}{auto} pn = p.getName();
+76     \textcolor{keywordflow}{if} (pn == name) \{
+77       value = std::get<double>(p.getValue());
+78     \}
+79   \}
+80   \textcolor{keywordflow}{if} (value > lowest\_float) \{
+81     \textcolor{keywordflow}{return} value;
+82   \} \textcolor{keywordflow}{else} \{
+83     \textcolor{keywordflow}{throw} std::runtime\_error(\textcolor{stringliteral}{"Parameter "} + name + \textcolor{stringliteral}{" not found"});
+84   \}
+85 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classParameters_a3951bee7d4347d18d528cd0f5c3a2e67}\label{classParameters_a3951bee7d4347d18d528cd0f5c3a2e67}} 
+\index{Parameters@{Parameters}!get\+Map\+Parameters@{get\+Map\+Parameters}}
+\index{get\+Map\+Parameters@{get\+Map\+Parameters}!Parameters@{Parameters}}
+\subsubsection{\texorpdfstring{get\+Map\+Parameters()}{getMapParameters()}}
+{\footnotesize\ttfamily std\+::map$<$ std\+::string, double $>$ Parameters\+::get\+Map\+Parameters (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const}
+
+
+
+transform list of parameters into a map$<$string,double$>$ 
+
+\begin{DoxyReturn}{Returns}
+std\+::map$<$std\+::string, double$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 112 of file Parameters.\+hpp.
+
+
+\begin{DoxyCode}
+112                                                              \{
+113   std::map<std::string, double> map\_par;
+114   \textcolor{keywordflow}{for} (\textcolor{keyword}{auto} p : this->vect\_params\_) \{
+115     \textcolor{keyword}{auto} name = p.getName();
+116     \textcolor{keyword}{auto} value = std::get<double>(p.getValue());
+117     map\_par.try\_emplace(name, value);
+118   \}
+119   \textcolor{keywordflow}{return} map\_par;
+120 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Parameters.\+hpp\end{DoxyCompactItemize}

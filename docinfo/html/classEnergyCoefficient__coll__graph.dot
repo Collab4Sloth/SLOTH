@@ -1,0 +1,9 @@
+digraph "EnergyCoefficient"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  Node2 [label="{EnergyCoefficient\n||+ EnergyCoefficient()\l+ Eval()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+  Node3 -> Node2 [dir="back",color="midnightblue",fontsize="12",style="solid",arrowtail="onormal",fontname="Helvetica"];
+  Node3 [label="{Coefficient\n||}",height=0.2,width=0.4,color="grey75"];
+}

@@ -1,0 +1,115 @@
+\hypertarget{classSourceTermCoefficient}{}\section{Source\+Term\+Coefficient Class Reference}
+\label{classSourceTermCoefficient}\index{Source\+Term\+Coefficient@{Source\+Term\+Coefficient}}
+
+
+Inheritance diagram for Source\+Term\+Coefficient\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=244pt]{classSourceTermCoefficient__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Source\+Term\+Coefficient\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=244pt]{classSourceTermCoefficient__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSourceTermCoefficient_ac186818e550416624ef7acb98c2d622a}\label{classSourceTermCoefficient_ac186818e550416624ef7acb98c2d622a}} 
+\hyperlink{classSourceTermCoefficient_ac186818e550416624ef7acb98c2d622a}{Source\+Term\+Coefficient} (const std\+::string \&source\+\_\+term\+\_\+name)
+\begin{DoxyCompactList}\small\item\em Construct a new Source Term Coefficient$<$ S\+R\+C$>$\+:\+: Source Term Coefficient object. \end{DoxyCompactList}\item 
+double \hyperlink{classSourceTermCoefficient_a194d078c44616aff71a9266dfe988efc}{Eval} (mfem\+::\+Element\+Transformation \&T, const mfem\+::\+Integration\+Point \&ip)
+\begin{DoxyCompactList}\small\item\em Evaluation of the source term coefficient. \end{DoxyCompactList}\item 
+\hyperlink{classSourceTermCoefficient_a600201256c7b7358651c38cd08fd24c2}{$\sim$\+Source\+Term\+Coefficient} ()
+\begin{DoxyCompactList}\small\item\em Destroy the Source Term Coefficient$<$ S\+R\+C$>$\+:\+: Source Term Coefficient object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+
+
+Definition at line 14 of file Source\+Term\+Coefficient.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classSourceTermCoefficient_a600201256c7b7358651c38cd08fd24c2}\label{classSourceTermCoefficient_a600201256c7b7358651c38cd08fd24c2}} 
+\index{Source\+Term\+Coefficient@{Source\+Term\+Coefficient}!````~Source\+Term\+Coefficient@{$\sim$\+Source\+Term\+Coefficient}}
+\index{````~Source\+Term\+Coefficient@{$\sim$\+Source\+Term\+Coefficient}!Source\+Term\+Coefficient@{Source\+Term\+Coefficient}}
+\subsubsection{\texorpdfstring{$\sim$\+Source\+Term\+Coefficient()}{~SourceTermCoefficient()}}
+{\footnotesize\ttfamily Source\+Term\+Coefficient\+::$\sim$\+Source\+Term\+Coefficient (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Destroy the Source Term Coefficient$<$ S\+R\+C$>$\+:\+: Source Term Coefficient object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em S\+RC} & \\
+\hline
+\end{DoxyTemplParams}
+
+
+Definition at line 64 of file Source\+Term\+Coefficient.\+hpp.
+
+
+\begin{DoxyCode}
+64 \{\}
+\end{DoxyCode}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classSourceTermCoefficient_a194d078c44616aff71a9266dfe988efc}\label{classSourceTermCoefficient_a194d078c44616aff71a9266dfe988efc}} 
+\index{Source\+Term\+Coefficient@{Source\+Term\+Coefficient}!Eval@{Eval}}
+\index{Eval@{Eval}!Source\+Term\+Coefficient@{Source\+Term\+Coefficient}}
+\subsubsection{\texorpdfstring{Eval()}{Eval()}}
+{\footnotesize\ttfamily double Source\+Term\+Coefficient\+::\+Eval (\begin{DoxyParamCaption}\item[{mfem\+::\+Element\+Transformation \&}]{T,  }\item[{const mfem\+::\+Integration\+Point \&}]{ip }\end{DoxyParamCaption})}
+
+
+
+Evaluation of the source term coefficient. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ip} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double 
+\end{DoxyReturn}
+
+
+Definition at line 38 of file Source\+Term\+Coefficient.\+hpp.
+
+
+\begin{DoxyCode}
+39                                                                    \{
+40   \textcolor{keywordflow}{switch} (SourceTerm::from(this->source\_term\_name\_)) \{
+41     \textcolor{keywordflow}{case} SourceTerm::Null: \{
+42       \textcolor{keyword}{const} \textcolor{keyword}{auto} src\_value = 0.;
+43       \textcolor{keywordflow}{return} src\_value;
+44     \}
+45 
+46     \textcolor{keywordflow}{case} SourceTerm::Sinusoide2D: \{
+47       \textcolor{keyword}{const} \textcolor{keyword}{auto} time = this->GetTime();
+48       \textcolor{keyword}{const} \textcolor{keyword}{auto} u = std::exp(-2. * time) * std::sin(ip.x + ip.y);
+49       \textcolor{keyword}{const} \textcolor{keyword}{auto} src\_value = u * u * u - u;
+50       \textcolor{keywordflow}{return} -1. * src\_value / (0.09);
+51     \}
+52     \textcolor{keywordflow}{default}:
+53       \textcolor{keywordflow}{throw} std::runtime\_error(
+54           \textcolor{stringliteral}{"SourceTermCoefficient::Eval: only Null, Sinusoide2D source term are available"});
+55       \textcolor{keywordflow}{break};
+56   \}
+57 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Source\+Term\+Coefficient.\+hpp\end{DoxyCompactItemize}

@@ -1,0 +1,119 @@
+\hypertarget{classUtilsForSolvers}{}\section{Utils\+For\+Solvers Class Reference}
+\label{classUtilsForSolvers}\index{Utils\+For\+Solvers@{Utils\+For\+Solvers}}
+
+
+Useful methods for managing solvers.  
+
+
+
+
+{\ttfamily \#include $<$/home/ci230846/home-\/local/\+My\+Git\+Projects/\+C\+O\+M\+P\+O\+N\+E\+N\+T/\+P\+F-\/\+M\+F\+E\+M/\+Utils/\+Utils\+For\+Solvers.\+hpp$>$}
+
+
+
+Collaboration diagram for Utils\+For\+Solvers\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=228pt]{classUtilsForSolvers__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \hyperlink{classUtilsForSolvers_a5c76f7ef4f28a5e22f6d07666134aa4d}{Build\+Solver} (mfem\+::\+Iterative\+Solver \&solver, mfem\+::\+Solver \&solv\+\_\+method, mfem\+::\+Operator \&ope)
+\begin{DoxyCompactList}\small\item\em Build solver depending on given preconditionner and operator. \end{DoxyCompactList}\item 
+void \hyperlink{classUtilsForSolvers_a5e352c96817ea210dcf3e080c13d4b1d}{Set\+Solver\+Parameters} (mfem\+::\+Iterative\+Solver \&solver, const int \&\+\_\+print\+\_\+level, const bool \+\_\+iterative\+\_\+mode, const int \&\+\_\+n\+\_\+iter\+\_\+max, const double \&\+\_\+n\+\_\+rel\+\_\+tol, const double \&\+\_\+n\+\_\+abs\+\_\+tol)
+\begin{DoxyCompactList}\small\item\em Set all parameters used by the solver. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Useful methods for managing solvers. 
+
+Definition at line 17 of file Utils\+For\+Solvers.\+hpp.
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classUtilsForSolvers_a5c76f7ef4f28a5e22f6d07666134aa4d}\label{classUtilsForSolvers_a5c76f7ef4f28a5e22f6d07666134aa4d}} 
+\index{Utils\+For\+Solvers@{Utils\+For\+Solvers}!Build\+Solver@{Build\+Solver}}
+\index{Build\+Solver@{Build\+Solver}!Utils\+For\+Solvers@{Utils\+For\+Solvers}}
+\subsubsection{\texorpdfstring{Build\+Solver()}{BuildSolver()}}
+{\footnotesize\ttfamily void Utils\+For\+Solvers\+::\+Build\+Solver (\begin{DoxyParamCaption}\item[{mfem\+::\+Iterative\+Solver \&}]{solver,  }\item[{mfem\+::\+Solver \&}]{preconditionner,  }\item[{mfem\+::\+Operator \&}]{ope }\end{DoxyParamCaption})}
+
+
+
+Build solver depending on given preconditionner and operator. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em solver} & Iterative\+Solver \\
+\hline
+{\em preconditionner} & Preconditionner \\
+\hline
+{\em ope} & Operator \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 32 of file Utils\+For\+Solvers.\+hpp.
+
+
+
+Referenced by Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Set\+Constant\+Parameters(), and Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Set\+Transient\+Parameters().
+
+
+\begin{DoxyCode}
+33                                                      \{
+34   solver.SetPreconditioner(preconditionner);
+35   solver.SetOperator(ope);
+36 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classUtilsForSolvers_a5e352c96817ea210dcf3e080c13d4b1d}\label{classUtilsForSolvers_a5e352c96817ea210dcf3e080c13d4b1d}} 
+\index{Utils\+For\+Solvers@{Utils\+For\+Solvers}!Set\+Solver\+Parameters@{Set\+Solver\+Parameters}}
+\index{Set\+Solver\+Parameters@{Set\+Solver\+Parameters}!Utils\+For\+Solvers@{Utils\+For\+Solvers}}
+\subsubsection{\texorpdfstring{Set\+Solver\+Parameters()}{SetSolverParameters()}}
+{\footnotesize\ttfamily void Utils\+For\+Solvers\+::\+Set\+Solver\+Parameters (\begin{DoxyParamCaption}\item[{mfem\+::\+Iterative\+Solver \&}]{solver,  }\item[{const int \&}]{\+\_\+print\+\_\+level,  }\item[{const bool}]{\+\_\+iterative\+\_\+mode,  }\item[{const int \&}]{\+\_\+n\+\_\+iter\+\_\+max,  }\item[{const double \&}]{\+\_\+n\+\_\+rel\+\_\+tol,  }\item[{const double \&}]{\+\_\+n\+\_\+abs\+\_\+tol }\end{DoxyParamCaption})}
+
+
+
+Set all parameters used by the solver. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em solver} & Iterative\+Solver \\
+\hline
+{\em \+\_\+print\+\_\+level} & printing level \\
+\hline
+{\em \+\_\+iterative\+\_\+mode} & flag to activate the iterative mode (initialization of the Iterative Solver, False by default) \\
+\hline
+{\em \+\_\+n\+\_\+iter\+\_\+max} & maximum number of iterations used by the Iterative\+Solver \\
+\hline
+{\em \+\_\+n\+\_\+rel\+\_\+tol} & relative tolerance used by the Iterative\+Solver convergence test \\
+\hline
+{\em \+\_\+n\+\_\+abs\+\_\+tol} & absolute tolerance used by the Iterative\+Solver convergence test \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 48 of file Utils\+For\+Solvers.\+hpp.
+
+
+
+Referenced by Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Set\+Constant\+Parameters(), and Phase\+Field\+Operator\+Base$<$ T, D\+I\+M, N\+L\+F\+I $>$\+::\+Set\+Transient\+Parameters().
+
+
+\begin{DoxyCode}
+50                                                                                               \{
+51   solver.SetPrintLevel(\_print\_level);
+52   solver.iterative\_mode = \_iterative\_mode;
+53   solver.SetMaxIter(\_n\_iter\_max);
+54   solver.SetRelTol(\_n\_rel\_tol);
+55   solver.SetAbsTol(\_n\_abs\_tol);
+56 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Utils\+For\+Solvers.\+hpp\end{DoxyCompactItemize}

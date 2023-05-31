@@ -1,0 +1,268 @@
+\hypertarget{classCahnHilliardSpecializedNLFormIntegrator}{}\section{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+ME $>$ Class Template Reference}
+\label{classCahnHilliardSpecializedNLFormIntegrator}\index{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+M\+E $>$@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+M\+E $>$}}
+
+
+Inheritance diagram for Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+ME $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=280pt]{classCahnHilliardSpecializedNLFormIntegrator__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+ME $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=280pt]{classCahnHilliardSpecializedNLFormIntegrator__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\hyperlink{classCahnHilliardSpecializedNLFormIntegrator_ae3a67d5fc74eecc6f587ea9b1a84c984}{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator} (const mfem\+::\+Grid\+Function \&\+\_\+u\+\_\+old, const double \&\+\_\+omega, const double \&\+\_\+lambda, const double \&\+\_\+alpha, \hyperlink{classMobilityCoefficient}{Mobility\+Coefficient} \+\_\+mob)
+\begin{DoxyCompactList}\small\item\em Construct a new Cahn Hilliard Specialized N L Form Integrator$<$ S C H E M E$>$\+:\+: Cahn Hilliard Specialized N L Form Integrator object. \end{DoxyCompactList}\item 
+virtual void \hyperlink{classCahnHilliardSpecializedNLFormIntegrator_a929a71732c32b00c962903af70a303fb}{Assemble\+Element\+Vector} (const mfem\+::\+Finite\+Element \&el, mfem\+::\+Element\+Transformation \&Tr, const mfem\+::\+Vector \&elfun, mfem\+::\+Vector \&elvect)
+\begin{DoxyCompactList}\small\item\em Residual part of the non linear problem. \end{DoxyCompactList}\item 
+virtual void \hyperlink{classCahnHilliardSpecializedNLFormIntegrator_af34af4d67caac9f0d5d2f77260988763}{Assemble\+Element\+Grad} (const mfem\+::\+Finite\+Element \&el, mfem\+::\+Element\+Transformation \&Tr, const mfem\+::\+Vector \&elfun, mfem\+::\+Dense\+Matrix \&elmat)
+\begin{DoxyCompactList}\small\item\em Jacobian part of the non linear problem. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$Thermodynamics\+Potential\+Discretization S\+C\+H\+E\+ME$>$\newline
+class Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator$<$ S\+C\+H\+E\+M\+E $>$}
+
+
+
+Definition at line 18 of file Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classCahnHilliardSpecializedNLFormIntegrator_ae3a67d5fc74eecc6f587ea9b1a84c984}\label{classCahnHilliardSpecializedNLFormIntegrator_ae3a67d5fc74eecc6f587ea9b1a84c984}} 
+\index{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}!Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}}
+\index{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}!Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}}
+\subsubsection{\texorpdfstring{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator()}{CahnHilliardSpecializedNLFormIntegrator()}}
+{\footnotesize\ttfamily template$<$Thermodynamics\+Potential\+Discretization S\+C\+H\+E\+ME$>$ \\
+\hyperlink{classCahnHilliardSpecializedNLFormIntegrator}{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}$<$ S\+C\+H\+E\+ME $>$\+::\hyperlink{classCahnHilliardSpecializedNLFormIntegrator}{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator} (\begin{DoxyParamCaption}\item[{const mfem\+::\+Grid\+Function \&}]{\+\_\+u\+\_\+old,  }\item[{const double \&}]{\+\_\+omega,  }\item[{const double \&}]{\+\_\+lambda,  }\item[{const double \&}]{\+\_\+alpha,  }\item[{\hyperlink{classMobilityCoefficient}{Mobility\+Coefficient}}]{\+\_\+mob }\end{DoxyParamCaption})}
+
+
+
+Construct a new Cahn Hilliard Specialized N L Form Integrator$<$ S C H E M E$>$\+:\+: Cahn Hilliard Specialized N L Form Integrator object. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em S\+C\+H\+E\+ME} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em \+\_\+u\+\_\+old} & \\
+\hline
+{\em \+\_\+omega} & \\
+\hline
+{\em \+\_\+lambda} & \\
+\hline
+{\em \+\_\+alpha} & \\
+\hline
+{\em \+\_\+mob} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 63 of file Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator.\+hpp.
+
+
+\begin{DoxyCode}
+66     : u\_old(\_u\_old), omega(\_omega), lambda(\_lambda), alpha(\_alpha), mob(\_mob) \{\}
+\end{DoxyCode}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classCahnHilliardSpecializedNLFormIntegrator_af34af4d67caac9f0d5d2f77260988763}\label{classCahnHilliardSpecializedNLFormIntegrator_af34af4d67caac9f0d5d2f77260988763}} 
+\index{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}!Assemble\+Element\+Grad@{Assemble\+Element\+Grad}}
+\index{Assemble\+Element\+Grad@{Assemble\+Element\+Grad}!Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}}
+\subsubsection{\texorpdfstring{Assemble\+Element\+Grad()}{AssembleElementGrad()}}
+{\footnotesize\ttfamily template$<$Thermodynamics\+Potential\+Discretization S\+C\+H\+E\+ME$>$ \\
+void \hyperlink{classCahnHilliardSpecializedNLFormIntegrator}{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}$<$ S\+C\+H\+E\+ME $>$\+::Assemble\+Element\+Grad (\begin{DoxyParamCaption}\item[{const mfem\+::\+Finite\+Element \&}]{el,  }\item[{mfem\+::\+Element\+Transformation \&}]{Tr,  }\item[{const mfem\+::\+Vector \&}]{elfun,  }\item[{mfem\+::\+Dense\+Matrix \&}]{elmat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Jacobian part of the non linear problem. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em S\+C\+H\+E\+ME} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em el} & \\
+\hline
+{\em Tr} & \\
+\hline
+{\em elfun} & \\
+\hline
+{\em elmat} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 143 of file Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator.\+hpp.
+
+
+
+References Potential\+Functions$<$ O\+R\+D\+E\+R, S\+C\+H\+E\+M\+E $>$\+::get\+Potential\+Function().
+
+
+\begin{DoxyCode}
+145                             \{
+146   \textcolor{keywordtype}{int} nd = el.GetDof();
+147   \textcolor{keywordtype}{int} dim = el.GetDim();
+148   \textcolor{keywordtype}{int} spaceDim = Tr.GetSpaceDim();
+149   \textcolor{keywordtype}{bool} square = (dim == spaceDim);
+150   \textcolor{keywordtype}{double} w;
+151 
+152   shape.SetSize(nd);
+153   dshape.SetSize(nd, dim);
+154   dshapedxt.SetSize(nd, spaceDim);
+155   elmat.SetSize(nd);
+156 
+157   \textcolor{keyword}{const} mfem::IntegrationRule* ir =
+158       &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
+159 
+160   elmat = 0.0;
+161   \textcolor{keywordflow}{for} (\textcolor{keywordtype}{int} i = 0; i < ir->GetNPoints(); i++) \{
+162     \textcolor{keyword}{const} mfem::IntegrationPoint& ip = ir->IntPoint(i);
+163     el.CalcDShape(ip, dshape);  \textcolor{comment}{// dphi}
+164     \textcolor{keyword}{const} \textcolor{keyword}{auto} u = elfun * shape;
+165     \textcolor{keyword}{const} \textcolor{keyword}{auto} un = u\_old.GetValue(Tr, ip);
+166     \textcolor{keyword}{const} \textcolor{keyword}{auto} W = this->second\_derivative\_potential\_.\hyperlink{classPotentialFunctions_a63a86cbadc57d531e0c0fa987ac9fea6}{getPotentialFunction}(\textcolor{stringliteral}{"W"}, un);
+167     \textcolor{keyword}{const} \textcolor{keyword}{auto} H = this->second\_derivative\_potential\_.\hyperlink{classPotentialFunctions_a63a86cbadc57d531e0c0fa987ac9fea6}{getPotentialFunction}(\textcolor{stringliteral}{"X"}, un);
+168     \textcolor{keyword}{const} \textcolor{keyword}{auto} Wsecond = W(u);
+169     \textcolor{keyword}{const} \textcolor{keyword}{auto} Hsecond = H(u);
+170     \textcolor{keyword}{const} \textcolor{keyword}{auto} Mphi = mob.Eval(Tr, ip);
+171 
+172     Tr.SetIntPoint(&ip);
+173     w = Tr.Weight();  \textcolor{comment}{// det(J)}
+174     \textcolor{comment}{// std::cout << " SQUARE  ? " << square << std::endl;}
+175     w = ip.weight / (square ? w : w * w * w);
+176     \textcolor{comment}{// AdjugateJacobian = / adj(J),         if J is square}
+177     \textcolor{comment}{//                    \(\backslash\) adj(J^t.J).J^t, otherwise}
+178 
+179     \textcolor{comment}{// Tr.AdjugateJacobian() det(J)J-1}
+180 
+181     \textcolor{comment}{// w = w* Mphi * lambda}
+182     w *= Mphi * this->lambda;
+183 
+184     \textcolor{comment}{// dshapedxt =  det(J)J-1 dshape}
+185     Mult(dshape, Tr.AdjugateJacobian(), dshapedxt);
+186     \textcolor{comment}{// elmat += w * dshapedxt * dshapedxt^T}
+187     AddMult\_a\_AAt(w, dshapedxt, elmat);
+188 
+189     \textcolor{comment}{//  (this->omega * secondDerivativedoubleWellPotential(elfun * shape) +}
+190     \textcolor{comment}{//   this->alpha * secondDerivativeInterpolationPotential(elfun * shape)) *}
+191     \textcolor{comment}{// Compute w'(u)*(du,v), v is shape function}
+192     \textcolor{keywordtype}{double} fun\_val =
+193         Mphi * (this->omega * Wsecond + this->alpha * Hsecond) * ip.weight * Tr.Weight();  \textcolor{comment}{// w'(u)}
+194     \textcolor{comment}{// elmat += fun\_val * shape * shape^T}
+195     AddMult\_a\_VVt(fun\_val, shape, elmat);  \textcolor{comment}{// w'(u)*(du, v)}
+196   \}
+197 \}
+\end{DoxyCode}
+\mbox{\Hypertarget{classCahnHilliardSpecializedNLFormIntegrator_a929a71732c32b00c962903af70a303fb}\label{classCahnHilliardSpecializedNLFormIntegrator_a929a71732c32b00c962903af70a303fb}} 
+\index{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}!Assemble\+Element\+Vector@{Assemble\+Element\+Vector}}
+\index{Assemble\+Element\+Vector@{Assemble\+Element\+Vector}!Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator@{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}}
+\subsubsection{\texorpdfstring{Assemble\+Element\+Vector()}{AssembleElementVector()}}
+{\footnotesize\ttfamily template$<$Thermodynamics\+Potential\+Discretization S\+C\+H\+E\+ME$>$ \\
+void \hyperlink{classCahnHilliardSpecializedNLFormIntegrator}{Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator}$<$ S\+C\+H\+E\+ME $>$\+::Assemble\+Element\+Vector (\begin{DoxyParamCaption}\item[{const mfem\+::\+Finite\+Element \&}]{el,  }\item[{mfem\+::\+Element\+Transformation \&}]{Tr,  }\item[{const mfem\+::\+Vector \&}]{elfun,  }\item[{mfem\+::\+Vector \&}]{elvect }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Residual part of the non linear problem. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em S\+C\+H\+E\+ME} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em el} & \\
+\hline
+{\em Tr} & \\
+\hline
+{\em elfun} & \\
+\hline
+{\em elvect} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 78 of file Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator.\+hpp.
+
+
+
+References Potential\+Functions$<$ O\+R\+D\+E\+R, S\+C\+H\+E\+M\+E $>$\+::get\+Potential\+Function().
+
+
+\begin{DoxyCode}
+80                         \{
+81   \textcolor{keywordtype}{int} nd = el.GetDof();
+82   \textcolor{keywordtype}{int} dim = el.GetDim();
+83   \textcolor{keywordtype}{int} spaceDim = Tr.GetSpaceDim();
+84   dshape.SetSize(nd, dim);
+85   shape.SetSize(nd);
+86   invdfdx.SetSize(dim, spaceDim);
+87   vec.SetSize(dim);
+88   pointflux.SetSize(spaceDim);
+89 
+90   elvect.SetSize(nd);
+91   \textcolor{keyword}{const} mfem::IntegrationRule* ir =
+92       &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
+93 
+94   elvect = 0.0;
+95   \textcolor{keywordflow}{for} (\textcolor{keywordtype}{int} i = 0; i < ir->GetNPoints(); i++) \{
+96     \textcolor{keyword}{const} mfem::IntegrationPoint& ip = ir->IntPoint(i);
+97     el.CalcDShape(ip, dshape);  \textcolor{comment}{// dphi}
+98     el.CalcShape(ip, shape);    \textcolor{comment}{// phi}
+99     Tr.SetIntPoint(&ip);
+100 
+101     \textcolor{keyword}{const} \textcolor{keyword}{auto} u = elfun * shape;
+102     \textcolor{keyword}{const} \textcolor{keyword}{auto} un = u\_old.GetValue(Tr, ip);
+103 
+104     \textcolor{keyword}{auto} sol = std::exp(-2. * t) * std::sin(x + y);
+105     \textcolor{keyword}{auto} g = -1. * (std::pow(sol, 3) - sol);
+106 
+107     \textcolor{keyword}{const} \textcolor{keyword}{auto} W = this->first\_derivative\_potential\_.\hyperlink{classPotentialFunctions_a63a86cbadc57d531e0c0fa987ac9fea6}{getPotentialFunction}(\textcolor{stringliteral}{"W"}, un);
+108     \textcolor{keyword}{const} \textcolor{keyword}{auto} H = g * this->first\_derivative\_potential\_.\hyperlink{classPotentialFunctions_a63a86cbadc57d531e0c0fa987ac9fea6}{getPotentialFunction}(\textcolor{stringliteral}{"X"}, un);
+109     \textcolor{keyword}{const} \textcolor{keyword}{auto} Wprime = W(u);
+110     \textcolor{keyword}{const} \textcolor{keyword}{auto} Hprime = H(u);
+111     \textcolor{keyword}{const} \textcolor{keyword}{auto} Mphi = mob.Eval(Tr, ip);
+112 
+113     CalcAdjugate(Tr.Jacobian(), invdfdx);  \textcolor{comment}{// invdfdx = adj(J)}
+114 
+115     dshape.MultTranspose(elfun, vec);
+116     invdfdx.MultTranspose(vec, pointflux);
+117 
+118     \textcolor{keyword}{const} \textcolor{keyword}{auto} fun\_val = Mphi * (this->omega * Wprime + this->alpha * Hprime);
+119 
+120     \textcolor{comment}{// Given phi, compute (w'(phi)-f, v), v is shape function}
+121     \textcolor{keyword}{const} \textcolor{keywordtype}{double} ww = ip.weight * Tr.Weight() * fun\_val;
+122     add(elvect, ww, shape, elvect);
+123 
+124     \textcolor{comment}{// Laplacian : given u, compute (grad(u), grad(v)), v is shape function.}
+125     \textcolor{keywordtype}{double} w;
+126     w = Mphi * ip.weight * this->lambda / Tr.Weight();
+127     pointflux *= w;
+128     invdfdx.Mult(pointflux, vec);
+129     dshape.AddMult(vec, elvect);
+130   \}
+131 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Cahn\+Hilliard\+Specialized\+N\+L\+Form\+Integrator.\+hpp\end{DoxyCompactItemize}

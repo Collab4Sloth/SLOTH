@@ -1,0 +1,188 @@
+\hypertarget{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4}{}\section{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+:\+:Implicit $>$ Struct Template Reference}
+\label{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4}\index{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}}
+
+
+Collaboration diagram for potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+:\+:Implicit $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=259pt]{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_a54faef5e6e6e4acf56b5e473c765532a}{getW} (Args... args)
+\begin{DoxyCompactList}\small\item\em First derivative of the double Well potential W(x)=x² $\ast$ (1-\/x)² \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_af57f36f2f98b7c524a03273504fa82a7}{getF} (Args... args)
+\begin{DoxyCompactList}\small\item\em First derivative of the F potential F(x)=(x² -\/1)/4. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_a6a52cc510f4213371c7e99e4b6fbe477}{getH} (Args... args)
+\begin{DoxyCompactList}\small\item\em First derivative of the interpolation potential H(x)=x³ $\ast$ (6x²-\/15x+10) \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_ac886230109344fb32f98f4e5816665c7}{getX} (Args... args)
+\begin{DoxyCompactList}\small\item\em First derivative of the identity potential X(x)=x. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$$>$\newline
+struct potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}
+
+
+
+Definition at line 130 of file Phase\+Field\+Potentials.\+hpp.
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_af57f36f2f98b7c524a03273504fa82a7}\label{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_af57f36f2f98b7c524a03273504fa82a7}} 
+\index{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}!getF@{getF}}
+\index{getF@{getF}!potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}}
+\subsubsection{\texorpdfstring{get\+F()}{getF()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$\+::getF (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+First derivative of the F potential F(x)=(x² -\/1)/4. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 153 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+153                                                         \{
+154     \textcolor{keywordflow}{return} std::function<double(const double&)>([](\textcolor{keywordtype}{double} x) \{
+155       \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = x * x * x - x;
+156       \textcolor{keywordflow}{return} pot;
+157     \});
+158   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_a6a52cc510f4213371c7e99e4b6fbe477}\label{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_a6a52cc510f4213371c7e99e4b6fbe477}} 
+\index{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}!getH@{getH}}
+\index{getH@{getH}!potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}}
+\subsubsection{\texorpdfstring{get\+H()}{getH()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$\+::getH (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+First derivative of the interpolation potential H(x)=x³ $\ast$ (6x²-\/15x+10) 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 167 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+167                                                         \{
+168     \textcolor{keywordflow}{return} std::function<double(const double&)>([](\textcolor{keywordtype}{double} x) \{
+169       \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = 30. * x * x * (1.0 - x) * (1.0 - x);
+170       \textcolor{keywordflow}{return} pot;
+171     \});
+172   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_a54faef5e6e6e4acf56b5e473c765532a}\label{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_a54faef5e6e6e4acf56b5e473c765532a}} 
+\index{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}!getW@{getW}}
+\index{getW@{getW}!potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}}
+\subsubsection{\texorpdfstring{get\+W()}{getW()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$\+::getW (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+First derivative of the double Well potential W(x)=x² $\ast$ (1-\/x)² 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 139 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+139                                                         \{
+140     \textcolor{keywordflow}{return} std::function<double(const double&)>([](\textcolor{keywordtype}{double} x) \{
+141       \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = 2. * x * (1.0 - x) * (1.0 - 2. * x);
+142       \textcolor{keywordflow}{return} pot;
+143     \});
+144   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_ac886230109344fb32f98f4e5816665c7}\label{structpotential__function_3_011_00_01ThermodynamicsPotentialDiscretization_1_1Implicit_01_4_ac886230109344fb32f98f4e5816665c7}} 
+\index{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}!getX@{getX}}
+\index{getX@{getX}!potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$@{potential\+\_\+function$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$}}
+\subsubsection{\texorpdfstring{get\+X()}{getX()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 1, Thermodynamics\+Potential\+Discretization\+::\+Implicit $>$\+::getX (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+First derivative of the identity potential X(x)=x. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 181 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+181                                                         \{
+182     \textcolor{keywordflow}{return} std::function<double(const double&)>([](\textcolor{keywordtype}{double} x) \{
+183       \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = 1.;
+184       \textcolor{keywordflow}{return} pot;
+185     \});
+186   \}
+\end{DoxyCode}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Phase\+Field\+Potentials.\+hpp\end{DoxyCompactItemize}

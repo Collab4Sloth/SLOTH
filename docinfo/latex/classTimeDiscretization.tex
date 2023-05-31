@@ -1,0 +1,81 @@
+\hypertarget{classTimeDiscretization}{}\section{Time\+Discretization$<$ P\+ST, O\+PE, V\+AR $>$ Class Template Reference}
+\label{classTimeDiscretization}\index{Time\+Discretization$<$ P\+S\+T, O\+P\+E, V\+A\+R $>$@{Time\+Discretization$<$ P\+S\+T, O\+P\+E, V\+A\+R $>$}}
+
+
+Inheritance diagram for Time\+Discretization$<$ P\+ST, O\+PE, V\+AR $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=232pt]{classTimeDiscretization__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Time\+Discretization$<$ P\+ST, O\+PE, V\+AR $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=220pt]{classTimeDiscretization__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\hyperlink{classTimeDiscretization_a04acc6d99c77872e59ff39670b9f0c57}{Time\+Discretization} (const std\+::string \&ode\+\_\+solver, const O\+PE \&oper, const \hyperlink{classParameters}{Parameters} \&params, const V\+AR \&variables, P\+ST \&pst)
+\begin{DoxyCompactList}\small\item\em Construct a new Time Discretization\+:\+: Time Discretization object. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classTimeDiscretization_ae6a52d8b302e8e9f721e00cf4bf64e8c}\label{classTimeDiscretization_ae6a52d8b302e8e9f721e00cf4bf64e8c}} 
+void \hyperlink{classTimeDiscretization_ae6a52d8b302e8e9f721e00cf4bf64e8c}{execute} ()
+\begin{DoxyCompactList}\small\item\em Run the calculation. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classTimeDiscretization_aac54cfc0fcd36d7e9b7aefe8db96f9e8}\label{classTimeDiscretization_aac54cfc0fcd36d7e9b7aefe8db96f9e8}} 
+\hyperlink{classTimeDiscretization_aac54cfc0fcd36d7e9b7aefe8db96f9e8}{$\sim$\+Time\+Discretization} ()
+\begin{DoxyCompactList}\small\item\em Destroy the Time Discretization\+:\+: Time Discretization object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$class P\+ST, class O\+PE, class V\+AR$>$\newline
+class Time\+Discretization$<$ P\+S\+T, O\+P\+E, V\+A\+R $>$}
+
+
+
+Definition at line 23 of file Time.\+hpp.
+
+
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classTimeDiscretization_a04acc6d99c77872e59ff39670b9f0c57}\label{classTimeDiscretization_a04acc6d99c77872e59ff39670b9f0c57}} 
+\index{Time\+Discretization@{Time\+Discretization}!Time\+Discretization@{Time\+Discretization}}
+\index{Time\+Discretization@{Time\+Discretization}!Time\+Discretization@{Time\+Discretization}}
+\subsubsection{\texorpdfstring{Time\+Discretization()}{TimeDiscretization()}}
+{\footnotesize\ttfamily template$<$class P\+ST, class O\+PE, class V\+AR$>$ \\
+\hyperlink{classTimeDiscretization}{Time\+Discretization}$<$ P\+ST, O\+PE, V\+AR $>$\+::\hyperlink{classTimeDiscretization}{Time\+Discretization} (\begin{DoxyParamCaption}\item[{const std\+::string \&}]{ode\+\_\+solver,  }\item[{const O\+PE \&}]{oper,  }\item[{const \hyperlink{classParameters}{Parameters} \&}]{params,  }\item[{const V\+AR \&}]{variables,  }\item[{P\+ST \&}]{pst }\end{DoxyParamCaption})}
+
+
+
+Construct a new Time Discretization\+:\+: Time Discretization object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ode\+\_\+solver} & \\
+\hline
+{\em unknown} & \\
+\hline
+{\em with\+\_\+save} & \\
+\hline
+\end{DoxyParams}
+
+
+Definition at line 87 of file Time.\+hpp.
+
+
+\begin{DoxyCode}
+90     : oper\_(oper), variables\_(variables), pst\_(pst) \{
+91   this->set\_parameters(params);
+92   this->set\_ODE\_solver(ode\_solver);
+93   this->set\_options(params);
+94 \}
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Time.\+hpp\end{DoxyCompactItemize}

@@ -1,0 +1,220 @@
+\hypertarget{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4}{}\section{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+:\+:Explicit $>$ Struct Template Reference}
+\label{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4}\index{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}}
+
+
+Collaboration diagram for potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+:\+:Explicit $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=259pt]{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_aad1f4c29167d929c6da7b701539a40b0}{getW} (Args... args)
+\begin{DoxyCompactList}\small\item\em Double Well potential W(x)=x² $\ast$ (1-\/x)² \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_ac2cb58d964d6727a364a8f7a39f57f93}{getF} (Args... args)
+\begin{DoxyCompactList}\small\item\em F potential F(x)=(x² -\/1)/4. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_a61efe16deb68d2a92e1e160fc71240b9}{getH} (Args... args)
+\begin{DoxyCompactList}\small\item\em Interpolation potential H(x)=x³ $\ast$ (6x²-\/15x+10) \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename... Args$>$ }\\std\+::function$<$ double(const double \&)$>$ \hyperlink{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_a47e7aead8ac26c18694091e060c480e9}{getX} (Args... args)
+\begin{DoxyCompactList}\small\item\em Identity potential X(x)=x. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\subsubsection*{template$<$$>$\newline
+struct potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}
+
+
+
+Definition at line 257 of file Phase\+Field\+Potentials.\+hpp.
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_ac2cb58d964d6727a364a8f7a39f57f93}\label{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_ac2cb58d964d6727a364a8f7a39f57f93}} 
+\index{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}!getF@{getF}}
+\index{getF@{getF}!potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}}
+\subsubsection{\texorpdfstring{get\+F()}{getF()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$\+::getF (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+F potential F(x)=(x² -\/1)/4. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 288 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+288                                                         \{
+289     \textcolor{keyword}{auto} v = std::vector<double>\{args...\};
+290 
+291     \textcolor{keywordflow}{if} (v.size() == 1) \{
+292       \textcolor{keyword}{const} \textcolor{keyword}{auto} xn = v[0];
+293       \textcolor{keywordflow}{return} std::function<double(const double&)>([xn](\textcolor{keywordtype}{double} x) \{
+294         \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = 0.25 * (xn * xn - 1.0) * (xn * xn - 1.0);
+295         \textcolor{keywordflow}{return} pot;
+296       \});
+297     \} \textcolor{keywordflow}{else} \{
+298       \textcolor{keywordflow}{throw} std::runtime\_error(
+299           \textcolor{stringliteral}{"potential\_function::getF: only one argument is expected for explicit scheme"});
+300     \}
+301   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_a61efe16deb68d2a92e1e160fc71240b9}\label{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_a61efe16deb68d2a92e1e160fc71240b9}} 
+\index{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}!getH@{getH}}
+\index{getH@{getH}!potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}}
+\subsubsection{\texorpdfstring{get\+H()}{getH()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$\+::getH (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Interpolation potential H(x)=x³ $\ast$ (6x²-\/15x+10) 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 310 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+310                                                         \{
+311     \textcolor{keyword}{auto} v = std::vector<double>\{args...\};
+312 
+313     \textcolor{keywordflow}{if} (v.size() == 1) \{
+314       \textcolor{keyword}{const} \textcolor{keyword}{auto} xn = v[0];
+315       \textcolor{keywordflow}{return} std::function<double(const double&)>([xn](\textcolor{keywordtype}{double} x) \{
+316         \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = xn * xn * xn * (6.0 * xn * xn - 15.0 * xn + 10.0);
+317         \textcolor{keywordflow}{return} pot;
+318       \});
+319     \} \textcolor{keywordflow}{else} \{
+320       \textcolor{keywordflow}{throw} std::runtime\_error(
+321           \textcolor{stringliteral}{"potential\_function::getH: only one argument is expected for explicit scheme"});
+322     \}
+323   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_aad1f4c29167d929c6da7b701539a40b0}\label{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_aad1f4c29167d929c6da7b701539a40b0}} 
+\index{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}!getW@{getW}}
+\index{getW@{getW}!potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}}
+\subsubsection{\texorpdfstring{get\+W()}{getW()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$\+::getW (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Double Well potential W(x)=x² $\ast$ (1-\/x)² 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 266 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+266                                                         \{
+267     \textcolor{keyword}{auto} v = std::vector<double>\{args...\};
+268 
+269     \textcolor{keywordflow}{if} (v.size() == 1) \{
+270       \textcolor{keyword}{const} \textcolor{keyword}{auto} xn = v[0];
+271       \textcolor{keywordflow}{return} std::function<double(const double&)>([xn](\textcolor{keywordtype}{double} x) \{
+272         \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = xn * xn * (1.0 - xn) * (1.0 - xn);
+273         \textcolor{keywordflow}{return} pot;
+274       \});
+275     \} \textcolor{keywordflow}{else} \{
+276       \textcolor{keywordflow}{throw} std::runtime\_error(
+277           \textcolor{stringliteral}{"potential\_function::getW: only one argument is expected for explicit scheme"});
+278     \}
+279   \}
+\end{DoxyCode}
+\mbox{\Hypertarget{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_a47e7aead8ac26c18694091e060c480e9}\label{structpotential__function_3_010_00_01ThermodynamicsPotentialDiscretization_1_1Explicit_01_4_a47e7aead8ac26c18694091e060c480e9}} 
+\index{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}!getX@{getX}}
+\index{getX@{getX}!potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$@{potential\+\_\+function$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$}}
+\subsubsection{\texorpdfstring{get\+X()}{getX()}}
+{\footnotesize\ttfamily template$<$typename... Args$>$ \\
+std\+::function$<$double(const double\&)$>$ \hyperlink{structpotential__function}{potential\+\_\+function}$<$ 0, Thermodynamics\+Potential\+Discretization\+::\+Explicit $>$\+::getX (\begin{DoxyParamCaption}\item[{Args...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Identity potential X(x)=x. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Args} & \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::function$<$double(const double\&)$>$ 
+\end{DoxyReturn}
+
+
+Definition at line 332 of file Phase\+Field\+Potentials.\+hpp.
+
+
+\begin{DoxyCode}
+332                                                         \{
+333     \textcolor{keyword}{auto} v = std::vector<double>\{args...\};
+334 
+335     \textcolor{keywordflow}{if} (v.size() == 1) \{
+336       \textcolor{keyword}{const} \textcolor{keyword}{auto} xn = v[0];
+337       \textcolor{keywordflow}{return} std::function<double(const double&)>([xn](\textcolor{keywordtype}{double} x) \{
+338         \textcolor{keyword}{const} \textcolor{keyword}{auto} pot = xn;
+339         \textcolor{keywordflow}{return} pot;
+340       \});
+341     \} \textcolor{keywordflow}{else} \{
+342       \textcolor{keywordflow}{throw} std::runtime\_error(
+343           \textcolor{stringliteral}{"potential\_function::getX: only one argument is expected for explicit scheme"});
+344     \}
+345   \}
+\end{DoxyCode}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Phase\+Field\+Potentials.\+hpp\end{DoxyCompactItemize}

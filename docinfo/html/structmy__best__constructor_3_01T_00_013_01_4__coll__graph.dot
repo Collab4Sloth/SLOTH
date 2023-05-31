@@ -1,0 +1,7 @@
+digraph "my_best_constructor&lt; T, 3 &gt;"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  Node1 [label="{my_best_constructor\l\< T, 3 \>\n||+ operator()()\l+ operator()()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+}

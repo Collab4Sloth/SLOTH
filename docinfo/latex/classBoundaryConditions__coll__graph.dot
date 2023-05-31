@@ -1,0 +1,7 @@
+digraph "BoundaryConditions&lt; T, DIM &gt;"
+{
+  bgcolor="transparent";
+  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
+  node [fontname="Helvetica",fontsize="12",shape=record];
+  Node1 [label="{BoundaryConditions\l\< T, DIM \>\n||+ BoundaryConditions()\l+ SetBoundaryConditions()\l+ GetEssentialDofs()\l+ ~BoundaryConditions()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+}
