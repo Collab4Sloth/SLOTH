@@ -53,22 +53,22 @@ int main(int argc, char* argv[]) {
   //        Spatial Discretization           //
   //###########################################
   //###########################################
-  // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1,
-  //                                                  "../../../Mesh-examples/periodic_002.msh");
+  // SpatialDiscretization<FECollection, DIM> spatial(
+  //     "GMSH", 1, "../../../../Mesh-examples/periodic_002.msh", true);
   //##############################
   //          Meshing           //
   //##############################
 
   auto NN = 50;
   auto L = 2.e-3;
-  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
-                                                   std::make_tuple(NN, NN, L, L));
   // Create translation vectors defining the periodicity
   mfem::Vector x_translation({L, 0.0});
-  mfem::Vector y_translation({0.0, L});
-  std::vector<mfem::Vector> translations = {x_translation, y_translation};
+  // mfem::Vector y_translation({0.0, L});
+  std::vector<mfem::Vector> translations = {x_translation};
+  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
+                                                   std::make_tuple(NN, NN, L, L), translations);
 
-  spatial.make_periodic_mesh(translations);
+  // // spatial.make_periodic_mesh(translations);
   //##############################
   //    Boundary conditions     //
   //##############################
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const std::string& main_folder_path = "Paraview";
-  const std::string& calculation_path = "EulerExplicit";
+  const std::string& calculation_path = "EulerImplicit";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
   auto pst = PST(main_folder_path, calculation_path, &spatial, frequency, level_of_detail);
@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
                  Parameter("time_step", dt), Parameter("compute_error", true),
                  Parameter("compute_energies", true));
-  auto time = TIME("EulerExplicit", oper, time_params, vars, pst);
+  auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
   time.execute();
   return 0;
 }

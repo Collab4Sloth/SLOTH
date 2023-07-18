@@ -51,27 +51,42 @@ template <class T, int DIM>
 template <class... Args>
 BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *spatial,
                                                const Args &...boundaries) {
+  bool must_be_periodic = spatial->is_periodic();
+
   this->fespace_ = spatial->get_finite_element_space();
-  const auto &mesh_max_bdr_attributes = spatial->get_max_bdr_attributes();
 
   auto bdrs = std::vector<Boundary>{boundaries...};
+  auto mesh_max_bdr_attributes = bdrs.size();
+  // If periodic, the number of boundary conditions is used
+  // Consistency is checked later
+  if (!must_be_periodic) {
+    mesh_max_bdr_attributes = spatial->get_max_bdr_attributes();
+  }
 
   Dirichlet_bdr_.SetSize(mesh_max_bdr_attributes);
   Dirichlet_value_.SetSize(mesh_max_bdr_attributes);
-  bool exist_periodic_bdr = {false};
-  [bdrs, &exist_periodic_bdr]() {
-    bool is_periodic = false;
-    for (const auto &bdr : bdrs) {
-      if (bdr.is_essential_boundary()) {
-        is_periodic = true;
-        break;
-      }
+  bool exist_periodic_bdr = false;
+  for (const auto &bdr : bdrs) {
+    if (bdr.is_periodic_boundary()) {
+      exist_periodic_bdr = true;
+      break;
     }
-    return is_periodic;
-  };
-  bool test_periodic_bdr = (mesh_max_bdr_attributes != bdrs.size()) && exist_periodic_bdr;
+  }
+
+  if (!must_be_periodic && exist_periodic_bdr) {
+    throw std::runtime_error(
+        "BoundaryConditions::BoundaryConditions(): mesh is not defined as periodic but at least "
+        "one boundary is flagged periodic. Please check your data");
+  }
+
+  if (must_be_periodic && !exist_periodic_bdr) {
+    throw std::runtime_error(
+        "BoundaryConditions::BoundaryConditions(): mesh is defined as periodic but no boundary is "
+        "flagged periodic. Please check your data");
+  }
+
   bool test_standard_bdr = mesh_max_bdr_attributes == bdrs.size();
-  if (test_periodic_bdr || test_standard_bdr) {
+  if (exist_periodic_bdr || test_standard_bdr) {
     for (const auto &bdr : bdrs) {
       const auto &id = bdr.get_boundary_index();
       if (bdr.is_essential_boundary()) {

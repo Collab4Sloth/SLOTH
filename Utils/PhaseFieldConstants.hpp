@@ -17,8 +17,8 @@
  */
 namespace NewtonDefaultConstant {
 const auto iter_max = 100;
-const auto abs_tol = 1.e-14;
-const auto rel_tol = 1.e-14;
+const auto abs_tol = 1.e-13;
+const auto rel_tol = 1.e-13;
 const bool iterative_mode = false;
 const auto print_level = 1;
 }  // namespace NewtonDefaultConstant

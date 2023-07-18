@@ -49,32 +49,6 @@ class TimeDiscretization {
   void execute();
   ~TimeDiscretization();
 };
-//  explicit instantiation of PostProcessing class template
-// template class TimeDiscretization<mfem::H1_FECollection, mfem::ParaViewDataCollection, 1,
-//                                   AllenCahnSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::L2_FECollection, mfem::ParaViewDataCollection, 2,
-//                                   AllenCahnSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::H1_FECollection, mfem::ParaViewDataCollection, 3,
-//                                   AllenCahnSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::L2_FECollection, mfem::ParaViewDataCollection, 1,
-//                                   AllenCahnSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::H1_FECollection, mfem::ParaViewDataCollection, 2,
-//                                   AllenCahnSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::L2_FECollection, mfem::ParaViewDataCollection, 3,
-//                                   AllenCahnSpecializedNLFormIntegrator>;
-
-// template class TimeDiscretization<mfem::H1_FECollection, mfem::ParaViewDataCollection, 1,
-//                                   CahnHilliardSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::L2_FECollection, mfem::ParaViewDataCollection, 2,
-//                                   CahnHilliardSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::H1_FECollection, mfem::ParaViewDataCollection, 3,
-//                                   CahnHilliardSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::L2_FECollection, mfem::ParaViewDataCollection, 1,
-//                                   CahnHilliardSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::H1_FECollection, mfem::ParaViewDataCollection, 2,
-//                                   CahnHilliardSpecializedNLFormIntegrator>;
-// template class TimeDiscretization<mfem::L2_FECollection, mfem::ParaViewDataCollection, 3,
-//                                   CahnHilliardSpecializedNLFormIntegrator>;
 
 /**
  * @brief Construct a new Time Discretization:: Time Discretization object
@@ -214,10 +188,13 @@ void TimeDiscretization<PST, OPE, VAR>::execute() {
   // Initialization
   this->initialize();
   // Variable& var2 = variables_.getIVariable(0);
+  // TODO(cci) : passe par la map
   auto& var = variables_.get_variable("phi");
   // Not necessary : deja dans Operator au constructeur
   // this->oper_.initialize(var);
   auto current_time = this->initial_time_;
+  // TODO(cci) : construire un block vector
+
   auto unk = var.get_unknown();
 
   //=============================================
@@ -232,10 +209,14 @@ void TimeDiscretization<PST, OPE, VAR>::execute() {
     //------------
     // Solve
     //------------
+    // TODO(cci) : passer le block vector
+
     this->ode_solver_->Step(unk, current_time, current_time_step);
     //-----------------
     // Update solution
     //-----------------
+    // TODO(cci) : vers l'update avec une loop su rle block vector
+
     var.update(unk);
 
     //---------------------

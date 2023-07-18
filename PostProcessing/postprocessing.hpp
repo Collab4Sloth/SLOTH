@@ -27,6 +27,7 @@ class PostProcessing : public DC {
  private:
   std::map<std::string, mfem::GridFunction> fields_to_save_;
   int frequency_;
+  std::string post_processing_directory_;
 
  public:
   PostProcessing(const std::string& main_folder_path, const std::string& calculation_path,
@@ -62,6 +63,7 @@ PostProcessing<T, DC, DIM>::PostProcessing(const std::string& main_folder_path,
   this->SetLevelsOfDetail(level_of_detail);
   this->SetDataFormat(mfem::VTKFormat::BINARY);
   this->SetHighOrderOutput(true);
+  this->post_processing_directory_ = main_folder_path + "/" + calculation_path;
 }
 
 /**
@@ -96,7 +98,7 @@ void PostProcessing<T, DC, DIM>::create_csv(const std::string& filename,
                                             const std::string& headers) {
   std::ios_base::openmode mode = std::ios::out | std::ios::trunc;
   std::ofstream fic;
-  fic.open(filename, mode);
+  fic.open(this->post_processing_directory_ + "/" + filename, mode);
   fic << headers;
   fic << std::endl;
   fic.close();
@@ -116,7 +118,7 @@ void PostProcessing<T, DC, DIM>::export_csv(
     const std::map<std::tuple<int, double, double>, double>& map_results) {
   std::ios_base::openmode mode = std::ios::out | std::ios::app;
   std::ofstream fic;
-  fic.open(filename, mode);
+  fic.open(this->post_processing_directory_ + "/" + filename, mode);
   std::ostringstream text2fic;
   // TODO(CCI) : template + forward ?
   for (auto [key, value] : map_results) {

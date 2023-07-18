@@ -178,7 +178,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretizati
 }
 
 /**
- * @brief Initialization stage
+ * @brief Initialization stage (call by imeDiscretization<PST, OPE, VAR>::initialize())
  *
  * @param vv
  */

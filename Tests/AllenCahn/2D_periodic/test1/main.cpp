@@ -76,77 +76,84 @@ int main(int argc, char* argv[]) {
   //##############################
   // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, "Mesh-examples/periodic.msh");
 
-  auto NN = 32;
-  auto L = 2. * M_PI;
-  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
-                                                   std::make_tuple(NN, NN, L, L));
-  // Create translation vectors defining the periodicity
-  mfem::Vector x_translation({L, 0.0});
-  mfem::Vector y_translation({0.0, L});
-  std::vector<mfem::Vector> translations = {x_translation, y_translation};
+  std::vector<int> vect_NN{128};                              // 16, 32, 64};
+  std::vector<std::string> vect_TimeScheme{"EulerImplicit"};  //, "EulerExplicit"};
 
-  spatial.make_periodic_mesh(translations);
-  //##############################
-  //    Boundary conditions     //
-  //##############################
-  // 2D y
-  //    |_x
-  auto boundaries = {Boundary("lower", 0, "Periodic"), Boundary("right", 1, "Periodic"),
-                     Boundary("upper", 2, "Periodic"), Boundary("left", 3, "Periodic")};
-  // auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("upper", 2, "Neumann", 0.)};
-  auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  for (const auto& time_scheme : vect_TimeScheme) {
+    for (const auto& NN : vect_NN) {
+      auto L = 2. * M_PI;
+      // Create translation vectors defining the periodicity
+      mfem::Vector x_translation({L, 0.0});
+      mfem::Vector y_translation({0.0, L});
+      std::vector<mfem::Vector> translations = {x_translation, y_translation};
+      SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
+                                                       std::make_tuple(NN, NN, L, L), translations);
 
-  //###########################################
-  //###########################################
-  //           Physical models               //
-  //###########################################
-  //###########################################
-  //####################
-  //    parameters    //
-  //####################
-  // Cahn number
-  const auto& epsilon(0.3);
-  // Two-phase mobility
-  const auto& mob(1.);
-  const auto& lambda = 1.;
-  const auto& omega = 1. / (epsilon * epsilon);
-  auto params = Parameters(Parameter("mobility", mob), Parameter("lambda", lambda),
-                           Parameter("omega", omega));
-  //####################
-  //    variables     //
-  //####################
-  auto vars =
-      VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", "Unconserved", "Sinusoide",
-                                      std::make_tuple(1.), "Sinusoide", std::make_tuple(1.)));
-  //####################
-  //    operators     //
-  //####################
-  // OPE oper(&spatial, params, vars);
-  OPE oper(&spatial, params, vars, "Sinusoide2", omega);
+      //##############################
+      //    Boundary conditions     //
+      //##############################
+      // 2D y
+      //    |_x
+      auto boundaries = {Boundary("lower", 0, "Periodic"), Boundary("right", 1, "Periodic"),
+                         Boundary("upper", 2, "Periodic"), Boundary("left", 3, "Periodic")};
+      // auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("upper", 2, "Neumann",
+      // 0.)};
+      auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
-  //###########################################
-  //###########################################
-  //     Post-processing                     //
-  //###########################################
-  //###########################################
-  const std::string& main_folder_path = "Paraview";
-  const std::string& calculation_path = "MainPST";
-  const auto& level_of_detail = 1;
-  const auto& frequency = 1;
-  auto pst = PST("Paraview", "MainPST", &spatial, frequency, level_of_detail);
+      //###########################################
+      //###########################################
+      //           Physical models               //
+      //###########################################
+      //###########################################
+      //####################
+      //    parameters    //
+      //####################
+      // Cahn number
+      const auto& epsilon(0.3);
+      // Two-phase mobility
+      const auto& mob(1.);
+      const auto& lambda = 1.;
+      const auto& omega = 1. / (epsilon * epsilon);
+      auto params = Parameters(Parameter("mobility", mob), Parameter("lambda", lambda),
+                               Parameter("omega", omega));
+      //####################
+      //    variables     //
+      //####################
+      auto vars =
+          VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", "Unconserved", "Sinusoide",
+                                          std::make_tuple(1.), "Sinusoide", std::make_tuple(1.)));
+      //####################
+      //    operators     //
+      //####################
+      // OPE oper(&spatial, params, vars);
+      OPE oper(&spatial, params, vars, "Sinusoide2", omega);
 
-  //###########################################
-  //###########################################
-  //           Time-integration              //
-  //###########################################
-  //###########################################
-  const auto& t_initial = 0.0;
-  const auto& t_final = 1.;
-  const auto& dt = 0.005;
-  auto time_params =
-      Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt), Parameter("compute_error", true));
-  auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
-  time.execute();
+      //###########################################
+      //###########################################
+      //     Post-processing                     //
+      //###########################################
+      //###########################################
+      const std::string& main_folder_path = "Paraview_4";
+      const std::string& calculation_path = time_scheme + "_" + std::to_string(NN);
+      const auto& level_of_detail = 1;
+      const auto& frequency = 1;
+      auto pst = PST(main_folder_path, calculation_path, &spatial, frequency, level_of_detail);
+
+      //###########################################
+      //###########################################
+      //           Time-integration              //
+      //###########################################
+      //###########################################
+      const auto& t_initial = 0.0;
+      const auto& t_final = 1.;
+      const auto& dt = 0.05;
+      auto time_params =
+          Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
+                     Parameter("time_step", dt), Parameter("compute_error", true),
+                     Parameter("compute_energies", true));
+      auto time = TIME(time_scheme, oper, time_params, vars, pst);
+      time.execute();
+    }
+  }
   return 0;
 }

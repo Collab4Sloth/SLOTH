@@ -22,23 +22,23 @@
 class PhaseFieldReducedOperator : public mfem::Operator {
  private:
   // Mass matrix
-  mfem::BilinearForm *M;
+  mfem::BilinearForm *M_;
   // PhaseField Matrix
-  mfem::NonlinearForm *N;
+  mfem::NonlinearForm *N_;
   // Jacobian matrix
   mutable mfem::SparseMatrix *Jacobian;
 
   // Time step
-  double dt;
+  double dt_;
   // Unknown
-  const mfem::Vector *unk;
+  const mfem::Vector *unk_;
   mutable mfem::Vector z;
 
  public:
-  PhaseFieldReducedOperator(mfem::BilinearForm *M_, mfem::NonlinearForm *N_);
+  PhaseFieldReducedOperator(mfem::BilinearForm *M, mfem::NonlinearForm *N);
 
   /// Set current dt, unk values - needed to compute action and Jacobian.
-  void SetParameters(double dt_, const mfem::Vector *unk_);
+  void SetParameters(double dt, const mfem::Vector *unk);
 
   /// Compute y = N(unk + dt*k) + M k
   void Mult(const mfem::Vector &k, mfem::Vector &y) const;
@@ -48,30 +48,28 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   ~PhaseFieldReducedOperator();
 };
 
-PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::BilinearForm *M_,
-                                                     mfem::NonlinearForm *N_)
-    : Operator(N_->Height()), M(M_), N(N_), Jacobian(NULL), dt(0.0), unk(NULL), z(height) {}
+PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::BilinearForm *M, mfem::NonlinearForm *N)
+    : Operator(N->Height()), M_(M), N_(N), Jacobian(NULL), dt_(0.0), unk_(NULL), z(height) {}
 
 /// Set current dt, unk values - needed to compute action and Jacobian.
-void PhaseFieldReducedOperator::SetParameters(double dt_, const mfem::Vector *unk_) {
-  dt = dt_;
-  unk = unk_;
+void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk) {
+  dt_ = dt;
+  unk_ = unk;
 }
 
 /// Compute y = N(unk + dt*k) + M k
 void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
-  add(*unk, dt, k, z);
-  N->Mult(z, y);
-  M->AddMult(k, y);
+  add(*unk_, dt_, k, z);
+  N_->Mult(z, y);
+  M_->AddMult(k, y);
 }
 
 mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) const {
-  // std::cout << " PhaseFieldReducedOperator::GetGradient  " << std::endl;
   delete Jacobian;
-  Jacobian = Add(1.0, M->SpMat(), 0.0, M->SpMat());
-  add(*unk, dt, k, z);
-  mfem::SparseMatrix *grad_N = dynamic_cast<mfem::SparseMatrix *>(&N->GetGradient(z));
-  Jacobian->Add(dt, *grad_N);
+  Jacobian = Add(1.0, M_->SpMat(), 0.0, M_->SpMat());
+  add(*unk_, dt_, k, z);
+  mfem::SparseMatrix *grad_N = dynamic_cast<mfem::SparseMatrix *>(&N_->GetGradient(z));
+  Jacobian->Add(dt_, *grad_N);
   return *Jacobian;
 }
 
