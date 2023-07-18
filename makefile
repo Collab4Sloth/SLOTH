@@ -27,7 +27,9 @@ MFEM_LIB_FILE = mfem_is_not_built
 ###################
 ## ALLEN-CAHN
 ALLENCAHN_TESTS_1D= Tests/AllenCahn/1D/test1/main
-ALLENCAHN_TESTS_2D= Tests/AllenCahn/2D/test1/main
+ALLENCAHN_TESTS_2D= \
+					Tests/AllenCahn/2D/test1/main\
+					Tests/AllenCahn/2D_multieq/test1/main
 ALLENCAHN_TESTS_2D_PERIODIC= Tests/AllenCahn/2D_periodic/test1/main\
 							Tests/AllenCahn/2D_periodic/test2/main
 ALLENCAHN_TESTS_3D= Tests/AllenCahn/3D/test1/main
