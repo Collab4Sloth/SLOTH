@@ -33,6 +33,14 @@ Mettre au propre les choix possible pour les termes sources et cas annexes (calc
    4. Finaliser la doc général de fonctionnement
 
 
+## Notes de developpement en cours
+
+Pour le multivariables, il faut que :
+- le FiniteElementSpace devienne un Array<FiniteElementSpace>
+- NonLinearForm deviennet un BlockNonlinearForm 
+-  Array<int> &block_trueOffsets soit defini ;
+   fes.Copy(spaces);
+https://github.com/mfem/mfem/blob/master/fem/nonlininteg.cpp#L424
 
 
 * \tableofcontents
