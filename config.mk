@@ -66,29 +66,29 @@ MFEM_USE_PARELAG       = NO
 MFEM_USE_ENZYME        = NO
 
 # Compiler, compile options, and link options
-MFEM_CXX       = $(SPACK)/openmpi-4.1.4-d6lksze6gp4ujqtvvomuylw63efqopie/bin/mpic++
+MFEM_CXX       = $(OPENMPI)/bin/mpic++
 MFEM_HOST_CXX  = $(MFEM_CXX)
 MFEM_CPPFLAGS  =  -I$(SRC_DIR) 
 MFEM_CXXFLAGS  = -g -Wall -std=c++17
 MFEM_PUGUIXML  = #-I$(PUGIXML_INSTALL_DIR)/include
 MFEM_TPLFLAGS  = \
-				-I$(SPACK)/hypre-2.27.0-ce52bddurkaaupytcxnmbibvuyr6dm2f/include \
-				-I$(SPACK)/superlu-dist-8.1.2-e6uwf67etsnifcqfrsajfqhtjhcbp4py/include \
-				-I$(SPACK)/parmetis-4.0.3-56eufzeiw4c7oka4fo5atqrpb7pegfmg/include \
-				-I$(SPACK)/metis-5.1.0-wsod6lfx6henngwcw66imtodafykpl2c/include \
-				-I$(SPACK)/sundials-6.4.1-wbkipfmjhc4i4ejjr3ocbkvnxlhwlbdu/include \
-				-I$(SPACK)/suite-sparse-5.13.0-ujhxe6inqyn6zgyvptsreckx2oc3jqoa/include \
-				-I$(SPACK)/strumpack-7.0.1-erk4bgbiypyvr5kjr2hooewwnncqi5au/include -fopenmp \
-				-I$(SPACK)/parmetis-4.0.3-56eufzeiw4c7oka4fo5atqrpb7pegfmg/include \
-				-I$(SPACK)/netlib-scalapack-2.2.0-zcjmy24bd2a2gar4p42hhjv5paumpeb6/include \
-				-I$(SPACK)/butterflypack-2.2.2-h726msqzes7vqptvcse2seqep4pbxkjt/include \
-				-I$(SPACK)/zfp-0.5.5-b26deeqfywuv5uxvde2soyq3sx2scj5c/include \
-				-I$(SPACK)/petsc-3.18.3-wa5ktxrtg5ipxslsrkvqxc3sumfbsmjj/include -fopenmp \
-				-I$(SPACK)/zlib-1.2.13-pxz5yozsajxrqkol7hmfkgshayjsvfew/include
+				-I$(HYPRE)/include \
+				-I$(SUPERLUDIST)/include \
+				-I$(PARMETIS)/include \
+				-I$(METIS)/include \
+				-I$(SUNDIALS)/include \
+				-I$(SUITE)/include \
+				-I$(STRUM)/include -fopenmp \
+				-I$(PARMETIS)/include \
+				-I$(NETLIB)/include \
+				-I$(BUTTERFLY)/include \
+				-I$(ZFP)/include \
+				-I$(PETSC)/include -fopenmp \
+				-I$(ZLIB)/include
 MFEM_INCFLAGS  = -I$(MFEM_INC_DIR) $(MFEM_TPLFLAGS) $(MFEM_PUGUIXML)
 MFEM_PICFLAG   =
 MFEM_FLAGS     = $(MFEM_CPPFLAGS) $(MFEM_CXXFLAGS) $(MFEM_INCFLAGS)
-MFEM_EXT_LIBS  = -Wl,-rpath,$(SPACK)/hypre-2.27.0-ce52bddurkaaupytcxnmbibvuyr6dm2f/lib -Wl,-rpath,$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -L$(SPACK)/hypre-2.27.0-ce52bddurkaaupytcxnmbibvuyr6dm2f/lib -L$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -lHYPRE -lopenblas -Wl,-rpath,$(SPACK)/superlu-dist-8.1.2-e6uwf67etsnifcqfrsajfqhtjhcbp4py/lib -Wl,-rpath,$(SPACK)/parmetis-4.0.3-56eufzeiw4c7oka4fo5atqrpb7pegfmg/lib -L$(SPACK)/superlu-dist-8.1.2-e6uwf67etsnifcqfrsajfqhtjhcbp4py/lib -L$(SPACK)/parmetis-4.0.3-56eufzeiw4c7oka4fo5atqrpb7pegfmg/lib -lsuperlu_dist -lparmetis -Wl,-rpath,$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -L$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -lopenblas -Wl,-rpath,$(SPACK)/metis-5.1.0-wsod6lfx6henngwcw66imtodafykpl2c/lib -L$(SPACK)/metis-5.1.0-wsod6lfx6henngwcw66imtodafykpl2c/lib -lmetis -Wl,-rpath,$(SPACK)/sundials-6.4.1-wbkipfmjhc4i4ejjr3ocbkvnxlhwlbdu/lib -L$(SPACK)/sundials-6.4.1-wbkipfmjhc4i4ejjr3ocbkvnxlhwlbdu/lib -lsundials_arkode -lsundials_cvodes -lsundials_nvecserial -lsundials_kinsol -lsundials_nvecparallel -lsundials_nvecmpiplusx -Wl,-rpath,$(SPACK)/suite-sparse-5.13.0-ujhxe6inqyn6zgyvptsreckx2oc3jqoa/lib -L$(SPACK)/suite-sparse-5.13.0-ujhxe6inqyn6zgyvptsreckx2oc3jqoa/lib -lklu -lbtf -lumfpack -lcholmod -lcolamd -lamd -lcamd -lccolamd -lsuitesparseconfig -Wl,-rpath,$(SPACK)/strumpack-7.0.1-erk4bgbiypyvr5kjr2hooewwnncqi5au/lib -L$(SPACK)/strumpack-7.0.1-erk4bgbiypyvr5kjr2hooewwnncqi5au/lib -lstrumpack -Wl,-rpath,$(SPACK)/parmetis-4.0.3-56eufzeiw4c7oka4fo5atqrpb7pegfmg/lib -L$(SPACK)/parmetis-4.0.3-56eufzeiw4c7oka4fo5atqrpb7pegfmg/lib -lparmetis -Wl,-rpath,$(SPACK)/netlib-scalapack-2.2.0-zcjmy24bd2a2gar4p42hhjv5paumpeb6/lib -L$(SPACK)/netlib-scalapack-2.2.0-zcjmy24bd2a2gar4p42hhjv5paumpeb6/lib -lscalapack -Wl,-rpath,$(SPACK)/butterflypack-2.2.2-h726msqzes7vqptvcse2seqep4pbxkjt/lib -L$(SPACK)/butterflypack-2.2.2-h726msqzes7vqptvcse2seqep4pbxkjt/lib -ldbutterflypack -lzbutterflypack -Wl,-rpath,$(SPACK)/zfp-0.5.5-b26deeqfywuv5uxvde2soyq3sx2scj5c/lib -L$(SPACK)/zfp-0.5.5-b26deeqfywuv5uxvde2soyq3sx2scj5c/lib -lzfp -Wl,-rpath,$(SPACK)/petsc-3.18.3-wa5ktxrtg5ipxslsrkvqxc3sumfbsmjj/lib -L$(SPACK)/petsc-3.18.3-wa5ktxrtg5ipxslsrkvqxc3sumfbsmjj/lib -lpetsc  -lrt -Wl,-rpath,$(SPACK)/zlib-1.2.13-pxz5yozsajxrqkol7hmfkgshayjsvfew/lib -L$(SPACK)/zlib-1.2.13-pxz5yozsajxrqkol7hmfkgshayjsvfew/lib -lz
+MFEM_EXT_LIBS  = -Wl,-rpath,$(HYPRE)/lib -Wl,-rpath,$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -L$(HYPRE)/lib -L$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -lHYPRE -lopenblas -Wl,-rpath,$(SUPERLUDIST)/lib -Wl,-rpath,$(PARMETIS)/lib -L$(SUPERLUDIST)/lib -L$(PARMETIS)/lib -lsuperlu_dist -lparmetis -Wl,-rpath,$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -L$(SPACK)/openblas-0.3.21-vyi6qw5caknyfrujfjgqatebpvzkm5kh/lib -lopenblas -Wl,-rpath,$(METIS)/lib -L$(METIS)/lib -lmetis -Wl,-rpath,$(SUNDIALS)/lib -L$(SUNDIALS)/lib -lsundials_arkode -lsundials_cvodes -lsundials_nvecserial -lsundials_kinsol -lsundials_nvecparallel -lsundials_nvecmpiplusx -Wl,-rpath,$(SUITE)/lib -L$(SUITE)/lib -lklu -lbtf -lumfpack -lcholmod -lcolamd -lamd -lcamd -lccolamd -lsuitesparseconfig -Wl,-rpath,$(STRUM)/lib -L$(STRUM)/lib -lstrumpack -Wl,-rpath,$(PARMETIS)/lib -L$(PARMETIS)/lib -lparmetis -Wl,-rpath,$(NETLIB)/lib -L$(NETLIB)/lib -lscalapack -Wl,-rpath,$(BUTTERFLY)/lib -L$(BUTTERFLY)/lib -ldbutterflypack -lzbutterflypack -Wl,-rpath,$(ZFP)/lib -L$(ZFP)/lib -lzfp -Wl,-rpath,$(PETSC)/lib -L$(PETSC)/lib -lpetsc  -lrt -Wl,-rpath,$(ZLIB)/lib -L$(ZLIB)/lib -lz
 MFEM_LIBS      =  -L$(MFEM_LIB_DIR) -lmfem  $(MFEM_EXT_LIBS)  -lstdc++fs # -L$(PUGIXML_INSTALL_DIR)/lib -lpugixml
 MFEM_LIB_FILE  = $(MFEM_LIB_DIR)/libmfem.a
 MFEM_STATIC    = YES
