@@ -49,8 +49,9 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
+  auto refinement_level = 0;
   SpatialDiscretization<FECollection, DIM> spatial(
-      "InlineSquareWithTetraedres", 1, std::make_tuple(30, 30, 30, 1.e-3, 1.e-3, 1.e-3));
+      "InlineSquareWithTetraedres", 1, refinement_level, std::make_tuple(30, 30, 30, 1.e-3, 1.e-3, 1.e-3));
   //##############################
   //    Boundary conditions     //
   //##############################

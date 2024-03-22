@@ -49,8 +49,9 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
-  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
-                                                            std::make_tuple(30, 30, 1.e-3, 1.e-3));
+  auto refinement_level = 0;
+  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
+      "InlineSquareWithQuadrangles", 1, refinement_level, std::make_tuple(30, 30, 1.e-3, 1.e-3));
   //##############################
   //    Boundary conditions     //
   //##############################

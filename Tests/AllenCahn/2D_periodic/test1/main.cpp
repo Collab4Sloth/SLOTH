@@ -76,9 +76,10 @@ int main(int argc, char* argv[]) {
   //##############################
   // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, "Mesh-examples/periodic.msh");
 
-  std::vector<int> vect_NN{128};                              // 16, 32, 64};
+  std::vector<int> vect_NN{64};                               // 16, 32, 64};
   std::vector<std::string> vect_TimeScheme{"EulerImplicit"};  //, "EulerExplicit"};
 
+  auto refinement_level = 1;
   for (const auto& time_scheme : vect_TimeScheme) {
     for (const auto& NN : vect_NN) {
       auto L = 2. * M_PI;
@@ -87,6 +88,7 @@ int main(int argc, char* argv[]) {
       mfem::Vector y_translation({0.0, L});
       std::vector<mfem::Vector> translations = {x_translation, y_translation};
       SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
+                                                       refinement_level,
                                                        std::make_tuple(NN, NN, L, L), translations);
 
       //##############################

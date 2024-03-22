@@ -51,8 +51,10 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
+  auto refinement_level = 0;
   SpatialDiscretization<FECollection, DIM> spatial(
-      "GMSH", 1, "../../../../Mesh-examples/camembert2D.msh", false);
+      "GMSH", 1, refinement_level, "../../../../Mesh-examples/camembert2D.msh", false);
+
   //##############################
   //    Boundary conditions     //
   //##############################

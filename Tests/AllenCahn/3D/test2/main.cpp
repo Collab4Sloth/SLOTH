@@ -51,8 +51,9 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
+  auto refinement_level = 0;
   SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
-      "GMSH", 1, "../../../../Mesh-examples/camembert3D.msh", false);
+      "GMSH", 1, refinement_level, "../../../../Mesh-examples/camembert3D.msh", false);
   //##############################
   //    Boundary conditions     //
   //##############################

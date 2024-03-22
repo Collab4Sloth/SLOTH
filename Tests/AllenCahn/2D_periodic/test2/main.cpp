@@ -65,7 +65,8 @@ int main(int argc, char* argv[]) {
   mfem::Vector x_translation({L, 0.0});
   // mfem::Vector y_translation({0.0, L});
   std::vector<mfem::Vector> translations = {x_translation};
-  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
+  auto refinement_level = 0;
+  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1, refinement_level,
                                                    std::make_tuple(NN, NN, L, L), translations);
 
   // // spatial.make_periodic_mesh(translations);

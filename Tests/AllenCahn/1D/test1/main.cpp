@@ -48,7 +48,8 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
-  SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", 1,
+  auto refinement_level = 0;
+  SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", 1, refinement_level,
                                                    std::make_tuple(30, 1.e-3));
   //##############################
   //    Boundary conditions     //

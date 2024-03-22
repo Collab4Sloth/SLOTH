@@ -49,25 +49,25 @@ class SpatialDiscretization {
   T *fecollection_;
 
  public:
-  SpatialDiscretization(const std::string &mesh_type, const int &fe_order,
+  SpatialDiscretization(const std::string &mesh_type, const int &fe_order, const int &ref_level,
                         const std::string &mesh_file, bool periodic_mesh = false) {
     specialized_spatial_constructor<T, DIM> init;
-    init(*this, mesh_type, fe_order, mesh_file, periodic_mesh);
+    init(*this, mesh_type, fe_order, ref_level, mesh_file, periodic_mesh);
   }
 
   template <class... Args>
   explicit SpatialDiscretization(const std::string &mesh_type, const int &fe_order,
-                                 std::tuple<Args...> tup_args) {
+                                 const int &ref_level, std::tuple<Args...> tup_args) {
     specialized_spatial_constructor<T, DIM> init;
-    init(*this, mesh_type, fe_order, tup_args);
+    init(*this, mesh_type, fe_order, ref_level, tup_args);
   }
 
   template <class... Args>
   explicit SpatialDiscretization(const std::string &mesh_type, const int &fe_order,
-                                 std::tuple<Args...> tup_args,
+                                 const int &ref_level, std::tuple<Args...> tup_args,
                                  std::vector<mfem::Vector> translations) {
     specialized_spatial_constructor<T, DIM> init;
-    init(*this, mesh_type, fe_order, tup_args, translations);
+    init(*this, mesh_type, fe_order, ref_level, tup_args, translations);
   }
 
   int fe_order_;
@@ -117,7 +117,8 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, const std::string &file, bool periodic_mesh) {
+                  const int &fe_order, const int &ref_level, const std::string &file,
+                  bool periodic_mesh) {
     a_my_class.fe_order_ = fe_order;
     a_my_class.dimension_ = 1;
 
@@ -160,8 +161,9 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, std::tuple<Args...> tup_args) {
+                  const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.set_finite_element_space();
   }
 
@@ -176,10 +178,11 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, std::tuple<Args...> tup_args,
+                  const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args,
                   std::vector<mfem::Vector> translations) {
-    this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
+    this->build_mesh(a_my_class, mesh_type, tup_args);
 
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.make_periodic_line();
 
     a_my_class.is_periodic_mesh_ = true;
@@ -250,7 +253,8 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 2> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, const std::string &file, bool periodic_mesh) {
+                  const int &fe_order, const int &ref_level, const std::string &file,
+                  bool periodic_mesh) {
     a_my_class.fe_order_ = fe_order;
     a_my_class.dimension_ = 2;
 
@@ -271,6 +275,7 @@ struct specialized_spatial_constructor<T, 2> {
             "allowed");
         break;
     }
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
       a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
@@ -291,8 +296,10 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 2> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, std::tuple<Args...> tup_args) {
+                  const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
+
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.set_finite_element_space();
   }
 
@@ -308,9 +315,10 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 2> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, std::tuple<Args...> tup_args,
+                  const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args,
                   std::vector<mfem::Vector> translations) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
+    a_my_class.apply_uniform_refinement(ref_level);
 
     a_my_class.make_periodic_mesh(translations);
     a_my_class.is_periodic_mesh_ = true;
@@ -389,7 +397,8 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 3> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, const std::string &file, bool periodic_mesh) {
+                  const int &fe_order, const int &ref_level, const std::string &file,
+                  bool periodic_mesh) {
     a_my_class.fe_order_ = fe_order;
     a_my_class.dimension_ = 3;
 
@@ -410,6 +419,7 @@ struct specialized_spatial_constructor<T, 3> {
             "allowed");
         break;
     }
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
       a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
@@ -431,9 +441,10 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 3> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, std::tuple<Args...> tup_args) {
+                  const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.set_finite_element_space();
   }
 
@@ -448,10 +459,11 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 3> &a_my_class, const std::string &mesh_type,
-                  const int &fe_order, std::tuple<Args...> tup_args,
+                  const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args,
                   std::vector<mfem::Vector> translations) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.make_periodic_mesh(translations);
     a_my_class.is_periodic_mesh_ = true;
     a_my_class.set_finite_element_space();
