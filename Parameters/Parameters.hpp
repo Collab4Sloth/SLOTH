@@ -23,6 +23,7 @@
 class Parameters {
  private:
   std::vector<Parameter> vect_params_;
+  double get_val(const std::string& name) const;
 
  public:
   Parameters();
@@ -32,6 +33,7 @@ class Parameters {
   void add(const Parameter& param);
   void ListParamByName();
   double get_parameter_value(const std::string& name) const;
+  double get_parameter_value_or_default(const std::string& name, const double& default_value) const;
   bool get_option_value(const std::string& name) const;
   std::map<std::string, double> getMapParameters() const;
   ~Parameters();
@@ -68,7 +70,41 @@ void Parameters::add(const Parameter& param) { this->vect_params_.emplace_back(p
  * @return double double value of the parameter
  */
 double Parameters::get_parameter_value(const std::string& name) const {
+  auto value = this->get_val(name);
   const auto lowest_float = std::numeric_limits<float>::lowest();
+
+  if (value > lowest_float) {
+    return value;
+  } else {
+    throw std::runtime_error("Parameter " + name + " not found");
+  }
+}
+
+/**
+ * @brief get double value of a parameter by name if defined, or its default value
+ *
+ * @param name name of the parameter
+ * @return double double value of the parameter
+ */
+double Parameters::get_parameter_value_or_default(const std::string& name,
+                                                  const double& default_value) const {
+  auto value = this->get_val(name);
+  const auto lowest_float = std::numeric_limits<float>::lowest();
+
+  if (value > lowest_float) {
+    return value;
+  } else {
+    return default_value;
+  }
+}
+
+/**
+ * @brief get double value of a parameter by name
+ *
+ * @param name name of the parameter
+ * @return double double value of the parameter
+ */
+double Parameters::get_val(const std::string& name) const {
   auto value = std::numeric_limits<double>::lowest();
 
   for (const auto& p : this->vect_params_) {
@@ -77,11 +113,7 @@ double Parameters::get_parameter_value(const std::string& name) const {
       value = std::get<double>(p.getValue());
     }
   }
-  if (value > lowest_float) {
-    return value;
-  } else {
-    throw std::runtime_error("Parameter " + name + " not found");
-  }
+  return value;
 }
 
 /**

@@ -28,25 +28,6 @@
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"
 
-/*!
- * \mainpage  Doxygen documentation for PhaseField Solver based on MFEM
- *
- * \tableofcontents
- * \section __quick Quick started
- *
- * \subsection _main_sec0 Installation
- * \subsubsection __main_sub0 MFEM
- * \subsubsection __main_sub1 Post-processing tools
- *
- * \subsection _main_sec1 Development of a phase-field application?
- * A phase-field application is roughly a C++ main program composed of four parts:
- * \arg \ref __spatial "Spatial discretization"
- * \arg \ref __physical "Physical modeling"
- * \arg \ref __postprocessing "Post-processing directives"
- * \arg \ref __time "Time integration"
- *
- *
- */
 ///---------------
 /// Main program
 ///---------------
@@ -68,7 +49,7 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
-  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
+  SpatialDiscretization<FECollection, DIM> spatial(
       "InlineSquareWithTetraedres", 1, std::make_tuple(30, 30, 30, 1.e-3, 1.e-3, 1.e-3));
   //##############################
   //    Boundary conditions     //

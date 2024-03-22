@@ -125,7 +125,7 @@ struct specialized_spatial_constructor<T, 1> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 2, 1);
+          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
           break;
         } else {
           throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
@@ -258,7 +258,7 @@ struct specialized_spatial_constructor<T, 2> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 2, 1);
+          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
           break;
         } else {
           throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
@@ -397,7 +397,7 @@ struct specialized_spatial_constructor<T, 3> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 2, 1);
+          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
           break;
         } else {
           throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +

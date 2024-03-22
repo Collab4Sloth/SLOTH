@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <tuple>
 #include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/PhaseChangeCoefficient.hpp"
+#include "Coefficients/PhaseChangeFunction.hpp"
 #include "Coefficients/PhaseFieldMobilities.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
@@ -15,15 +15,16 @@
 
 #pragma once
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI>
+          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI, PhaseChange PHASECHANGE>
 class AllenCahnMeltingNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  private:
   mfem::GridFunction u_old;
   mfem::Vector shape;
   double omega, lambda;
   double mob_;
+  double alpha_;
 
-  PhaseChangeCoefficient alpha_;
+  PhaseChangeFunction<PHASECHANGE> phase_change_function_;
 
   PotentialFunctions<1, SCHEME, ENERGY> energy_first_derivative_potential_;
   PotentialFunctions<1, SCHEME, INTERPOLATION> interpolation_first_derivative_potential_;
@@ -37,8 +38,7 @@ class AllenCahnMeltingNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 
  public:
   AllenCahnMeltingNLFormIntegrator(const mfem::GridFunction& _u_old, const double& _omega,
-                                   const double& _lambda, const double& _mob,
-                                   PhaseChangeCoefficient _alpha);
+                                   const double& _lambda, const double& _mob, const double& _alpha);
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
                                      const mfem::Vector& elfun, mfem::Vector& elvect);
@@ -66,11 +66,11 @@ class AllenCahnMeltingNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  * @return AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION>::
  */
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI>
-AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::
+          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI, PhaseChange PHASECHANGE>
+AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI, PHASECHANGE>::
     AllenCahnMeltingNLFormIntegrator(const mfem::GridFunction& _u_old, const double& _omega,
                                      const double& _lambda, const double& _mob,
-                                     PhaseChangeCoefficient _alpha)
+                                     const double& _alpha)
     : u_old(_u_old), omega(_omega), lambda(_lambda), mob_(_mob), alpha_(_alpha) {}
 
 /**
@@ -85,10 +85,10 @@ AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::
  * @param elvect
  */
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI>
-void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::AssembleElementVector(
-    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
-    mfem::Vector& elvect) {
+          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI, PhaseChange PHASECHANGE>
+void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI, PHASECHANGE>::
+    AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
+                          const mfem::Vector& elfun, mfem::Vector& elvect) {
   int nd = el.GetDof();
   int dim = el.GetDim();
   int spaceDim = Tr.GetSpaceDim();
@@ -118,7 +118,8 @@ void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::Asse
     const auto Hprime = H(u);
     const auto MOB = this->mobility_function_.getMobilityFunction(un);
     const auto Mphi = MOB(this->mob_);
-    const auto phase_change = this->alpha_.Eval(Tr, ip);
+    const auto PHChange = this->phase_change_function_.getPhaseChangeFunction(un);
+    const auto phase_change = PHChange(this->alpha_);
 
     CalcAdjugate(Tr.Jacobian(), invdfdx);  // invdfdx = adj(J)
 
@@ -157,10 +158,10 @@ void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::Asse
  * @param elmat
  */
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI>
-void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::AssembleElementGrad(
-    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
-    mfem::DenseMatrix& elmat) {
+          ThermodynamicsPotentials INTERPOLATION, Mobility MOBI, PhaseChange PHASECHANGE>
+void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI, PHASECHANGE>::
+    AssembleElementGrad(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
+                        const mfem::Vector& elfun, mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
   int dim = el.GetDim();
   int spaceDim = Tr.GetSpaceDim();
@@ -188,7 +189,8 @@ void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, INTERPOLATION, MOBI>::Asse
     const auto Hsecond = H(u);
     const auto MOB = this->mobility_function_.getMobilityFunction(un);
     const auto Mphi = MOB(this->mob_);
-    const auto phase_change = this->alpha_.Eval(Tr, ip);
+    const auto PHChange = this->phase_change_function_.getPhaseChangeFunction(un);
+    const auto phase_change = PHChange(this->alpha_);
 
     Tr.SetIntPoint(&ip);
     w = Tr.Weight();  // det(J)

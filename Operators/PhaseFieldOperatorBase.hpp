@@ -23,7 +23,7 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/PhaseChangeCoefficient.hpp"
+#include "Coefficients/PhaseChangeFunction.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
 #include "Integrators/DiffusionNLFIntegrator.hpp"
 #include "Operators/ReducedOperator.hpp"
@@ -80,7 +80,7 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
   PhaseFieldReducedOperator *reduced_oper;
   // mfem::Vector u_ini;
   // TODO(ci230846) : une liste de paramètres à généraliser avec la classe Parameters
-  double mobility_coeff_, omega_, lambda_;
+  double mobility_coeff_, omega_, lambda_, phase_change_coeff_;
 
   std::function<double(const mfem::Vector &, double)> src_func_;
 
@@ -142,6 +142,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretizati
   this->omega_ = params.get_parameter_value("omega");
   this->lambda_ = params.get_parameter_value("lambda");
   this->mobility_coeff_ = params.get_parameter_value("mobility");
+  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
 }
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -170,6 +171,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretizati
   this->omega_ = params.get_parameter_value("omega");
   this->lambda_ = params.get_parameter_value("lambda");
   this->mobility_coeff_ = params.get_parameter_value("mobility");
+  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
   AnalyticalFunctions<DIM> source_func;
   this->src_func_ = source_func.getAnalyticalFunctions(this->source_term_name_, args...);
 

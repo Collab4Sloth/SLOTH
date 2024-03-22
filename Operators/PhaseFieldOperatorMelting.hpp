@@ -22,7 +22,7 @@
 #include <vector>
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/PhaseChangeCoefficient.hpp"
+#include "Coefficients/PhaseChangeFunction.hpp"
 #include "Integrators/AllenCahnMeltingNLFormIntegrator.hpp"
 #include "Operators/PhaseFieldOperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
@@ -83,12 +83,9 @@ NLFI *PhaseFieldOperatorMelting<T, DIM, NLFI>::set_nlfi_ptr(const double dt,
                                                             const mfem::Vector &u) {
   mfem::GridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
-  // PhaseChange Coefficient
-  PhaseChangeCoefficient phase_change;
-  phase_change.SetTime(this->GetTime());
-  un.ProjectCoefficient(phase_change);
 
-  NLFI *nlfi_ptr = new NLFI(un, this->omega_, this->lambda_, this->mobility_coeff_, phase_change);
+  NLFI *nlfi_ptr =
+      new NLFI(un, this->omega_, this->lambda_, this->mobility_coeff_, this->phase_change_coeff_);
   return nlfi_ptr;
 }
 

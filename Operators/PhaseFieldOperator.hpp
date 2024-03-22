@@ -22,7 +22,7 @@
 #include <vector>
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/PhaseChangeCoefficient.hpp"
+#include "Coefficients/PhaseChangeFunction.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
 #include "Integrators/DiffusionNLFIntegrator.hpp"
 #include "Operators/PhaseFieldOperatorBase.hpp"
