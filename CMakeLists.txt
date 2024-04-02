@@ -6,6 +6,8 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Only for gcc 8? (see target_link_libraries(${CURRENT_EXE} std::filesystem) in CMakeLists.txt in Tests )
+find_package(Filesystem)
 
 # (must be placed *before* any add_subdirectory, cmake bug ?)
 include(CTest)
@@ -15,12 +17,23 @@ enable_testing()
 find_package(MFEM REQUIRED)
 
 if (MFEM_USE_MPI)
-  message(STATUS "MFEM: using MPI, so SLOTH will use MPI")
-  find_package(MPI REQUIRED)
+  message(STATUS "MFEM: using MPI, so SLOTH will use MPI (with HYPRE, METIS)")
   # The following include directories are automatically filled within FindMFEM.cmake
   include_directories(SYSTEM ${HYPRE_INCLUDE_DIRS})
   include_directories(SYSTEM ${METIS_INCLUDE_DIRS})
 endif(MFEM_USE_MPI)
+
+# Support for OpenMP
+if(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
+  message(STATUS "MFEM: using OPENMP, so SLOTH will use OPENMP")
+  find_package(OpenMP REQUIRED)
+
+  if(OPENMP_FOUND)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+  endif()
+endif(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
 
 if (MFEM_USE_MUMPS)
 	find_package(OpenMP)
@@ -29,10 +42,13 @@ if (MFEM_USE_MUMPS)
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif (MFEM_USE_MUMPS)
 
-# Support for OpenMP
-if(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP) 
-  find_package(OpenMP REQUIRED)
-endif(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
+# Petsc
+if(MFEM_USE_PETSC)
+  message(STATUS "MFEM: using PETSc, so SLOTH will use PETSc")
+  find_package(PETSc REQUIRED)
+endif(MFEM_USE_PETSC)
+ 
+
  
 # documentation
 if (NOT TARGET doc)

@@ -101,13 +101,16 @@ set_property(TARGET MFEM::mfem APPEND
 # Set MPI library
 if(MFEM_USE_MPI)
   # The following include directories are automatically filled within FindMFEM.cmake
-  message(STATUS "MFEM: using MPI, so mfem_mgis will use MPI")
+  message(STATUS "MFEM uses MPI")
   find_package(MPI REQUIRED)
-	find_package(HYPRE)
+  find_package(HYPRE REQUIRED)
+  find_package(METIS REQUIRED)
   set_property(TARGET MFEM::mfem APPEND
     PROPERTY INTERFACE_LINK_LIBRARIES
     ${MPI_CXX_LIBRARIES})
     include_directories(${MPI_INCLUDE_PATH})
+
+  
 endif(MFEM_USE_MPI)
 
 if (NOT MFEM_USE_SUITESPARSE)
