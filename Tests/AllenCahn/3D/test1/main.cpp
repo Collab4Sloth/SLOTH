@@ -11,21 +11,21 @@
 #include <memory>
 #include <sstream>
 
-#include "BCs/BoundaryConditions.hpp"
-#include "Coefficients/AnalyticalFunctions.hpp"
-#include "Coefficients/EnergyCoefficient.hpp"
-#include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Operators/ConductionOperator.hpp"
-#include "Operators/PhaseFieldOperator.hpp"
-#include "Operators/ReducedOperator.hpp"
-#include "Parameters/Parameter.hpp"
-#include "Parameters/Parameters.hpp"
-#include "PostProcessing/postprocessing.hpp"
-#include "Spatial/Spatial.hpp"
-#include "Time/Time.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Variables/Variable.hpp"
-#include "Variables/Variables.hpp"
+#include <BCs/BoundaryConditions.hpp>
+#include <Coefficients/AnalyticalFunctions.hpp>
+#include <Coefficients/EnergyCoefficient.hpp>
+#include <Integrators/AllenCahnNLFormIntegrator.hpp>
+#include <Operators/ConductionOperator.hpp>
+#include <Operators/PhaseFieldOperator.hpp>
+#include <Operators/ReducedOperator.hpp>
+#include <Parameters/Parameter.hpp>
+#include <Parameters/Parameters.hpp>
+#include <PostProcessing/postprocessing.hpp>
+#include <Spatial/Spatial.hpp>
+#include <Time/Time.hpp>
+#include <Utils/PhaseFieldOptions.hpp>
+#include <Variables/Variable.hpp>
+#include <Variables/Variables.hpp>
 #include "mfem.hpp"
 
 ///---------------
