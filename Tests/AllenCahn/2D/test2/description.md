@@ -3,8 +3,14 @@
 
 ## Statement of the problem
 
-$$\frac{\partial \phi}{\partial t}=\nabla \cdot{} \lambda \nabla \phi\text{ in }\Omega$$
-$$\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma$$
+$$
+\frac{\partial \phi}{\partial t}=\nabla \cdot{} \lambda \nabla \phi\text{ in }\Omega
+$$
+
+$$
+\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma
+$$
+
 (to be finished)
 ## Input file description
 

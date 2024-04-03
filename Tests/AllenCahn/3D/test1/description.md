@@ -3,13 +3,31 @@
 
 ## Statement of the problem
 
-$$\frac{\partial \phi}{\partial t}=\nabla \cdot{} \lambda \nabla \phi\text{ in }\Omega$$
-$$\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{top}$$
-$$\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{bottom}$$
-$$\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{front}$$
-$$\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{rear}$$
-$$\phi=0 \text{ on }\Gamma_{left}$$
-$$\phi=1 \text{ on }\Gamma_{right}$$
+$$
+\frac{\partial \phi}{\partial t}=\nabla \cdot{} \lambda \nabla \phi\text{ in }\Omega$$
+
+$$
+\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{top}$$
+
+$$
+\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{bottom}
+$$
+
+$$
+\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{front}
+$$
+
+$$
+\bf{n} \cdot{} \lambda \nabla \phi=0 \text{ on }\Gamma_{rear}
+$$
+
+$$
+\phi=0 \text{ on }\Gamma_{left}
+$$
+
+$$
+\phi=1 \text{ on }\Gamma_{right}
+$$
 
 (to be finished)
 ## Input file description

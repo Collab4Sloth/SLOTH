@@ -13,5 +13,24 @@ Please use the [GitLab issue tracker](https://www-git-cad.intra.cea.fr/DEC/colla
 
 
 ## Contributors
-- [Clément Introïni](https://www.researchgate.net/profile/Clement-Introini)
-- [Raphaël Prat]()
+
+
+<div class="grid cards" markdown>
+
+
+-   __Modelling & Development Team__
+  
+    ---    
+    - [Clément Introïni](https://www.researchgate.net/profile/Clement-Introini)
+    - [Raphaël Prat]()
+
+
+
+-   __Students Team__
+
+    ---
+    - [Etienne Delobre (Master 2023)]()
+    - [Clément Plumecocq (PhD 2023-2026)]()
+    - [Mouad Bakhkakh (Master 2024)]()
+  
+</div>

@@ -777,7 +777,7 @@ RECURSIVE= YES
 #
 # Note that relative paths are relative to the directory from which doxygen is
 # run.
-EXCLUDE= ./ \ @CMAKE_BINARY_DIR@ \ @CMAKE_BINARY_DIR@2 \ @CMAKE_SOURCE_DIR@/TESTS \ hessio2shadok \ @CMAKE_BIN_DIR@
+EXCLUDE= ./ \ @CMAKE_BINARY_DIR@ \ @CMAKE_BINARY_DIR@2 \ @CMAKE_SOURCE_DIR@/TESTS  \ @CMAKE_BIN_DIR@
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
@@ -1418,7 +1418,6 @@ MATHJAX_EXTENSIONS=
 # example see the documentation.
 # This tag requires that the tag USE_MATHJAX is set to YES.
 MATHJAX_CODEFILE=
-
 # When the SEARCHENGINE tag is enabled doxygen will generate a search box for
 # the HTML output. The underlying search engine uses javascript and DHTML and
 # should work on any modern browser. Note that when using HTML help

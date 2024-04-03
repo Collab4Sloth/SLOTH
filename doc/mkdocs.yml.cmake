@@ -1,10 +1,11 @@
 site_name: SLOTH 
-repo_url: https://github.com/CINTROINI/sloth.git
+repo_url: https://www-git-cad.intra.cea.fr/DEC/collaboratif/ci230846/DEV_PROJECT/sloth.git
 use_directory_urls: false
 markdown_extensions:  
   - toc:
       permalink: true
   - attr_list
+  - md_in_html
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -16,18 +17,27 @@ markdown_extensions:
   - def_list
   - pymdownx.tasklist:
       custom_checkbox: true
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 plugins:
+  - offline
   - search
   - with-pdf
 
 theme: 
   name: material
-  logo: img/sloth.ico
+  logo: img/sloth_bl.png
   icon:
-    repo: fontawesome/brands/github-alt
+    repo: fontawesome/brands/gitlab
     previous: fontawesome/solid/angle-left
     next: fontawesome/solid/angle-right
+
   features:
     - navigation.tabs
     # - navigation.sections
@@ -38,8 +48,8 @@ theme:
     - navigation.tracking
     - content.code.copy
   palette:
-    primary: indigo
-    accent: blue
+    primary: black
+    accent: 'red'
 ########################################
 ########################################
 docs_dir: '@DOCS_DIR@'

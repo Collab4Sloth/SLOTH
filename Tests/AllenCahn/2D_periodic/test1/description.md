@@ -3,9 +3,17 @@
 
 ## Statement of the problem
 
-$$\frac{\partial \phi}{\partial t}=\nabla \cdot{} \lambda \nabla \phi\text{ in }\Omega$$
-$$\phi_{\Gamma_{left}}=\phi_{\Gamma_{right}}$$
-$$\phi_{\Gamma_{top}}=\phi_{\Gamma_{bottom}}$$
+$$
+\frac{\partial \phi}{\partial t}=\nabla \cdot{} \lambda \nabla \phi\text{ in }\Omega
+$$
+
+$$
+\phi_{\Gamma_{left}}=\phi_{\Gamma_{right}}
+$$
+
+$$
+\phi_{\Gamma_{top}}=\phi_{\Gamma_{bottom}}
+$$
 
 (to be finished)
 ## Input file description
