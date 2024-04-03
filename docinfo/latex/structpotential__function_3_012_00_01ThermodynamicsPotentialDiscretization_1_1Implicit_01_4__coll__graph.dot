@@ -1,7 +1,0 @@
-digraph "potential_function&lt; 2, ThermodynamicsPotentialDiscretization::Implicit &gt;"
-{
-  bgcolor="transparent";
-  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
-  node [fontname="Helvetica",fontsize="12",shape=record];
-  Node1 [label="{potential_function\l\< 2, ThermodynamicsPotential\lDiscretization::Implicit \>\n||+ getW()\l+ getF()\l+ getH()\l+ getX()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
-}

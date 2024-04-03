@@ -1,8 +1,0 @@
-<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node2" href="$classEnergyCoefficient.html" title="EnergyCoefficient" alt="" coords="178,5,327,35"/>
-<area shape="rect" id="node3" href="$classInterfacialCoefficient.html" title="InterfacialCoefficient" alt="" coords="169,59,336,88"/>
-<area shape="rect" id="node4" href="$classMeltingCoefficient.html" title="MeltingCoefficient" alt="" coords="177,112,328,141"/>
-<area shape="rect" id="node5" href="$classMobilityCoefficient.html" title="MobilityCoefficient\l\&lt; MOBI \&gt;" alt="" coords="176,166,329,213"/>
-<area shape="rect" id="node6" href="$classPhaseChangeCoefficient.html" title="PhaseChangeCoefficient" alt="" coords="152,237,353,267"/>
-<area shape="rect" id="node7" href="$classSourceTermCoefficient.html" title="SourceTermCoefficient" alt="" coords="159,291,346,320"/>
-</map>

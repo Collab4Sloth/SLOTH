@@ -1,7 +1,0 @@
-digraph "TimeDiscretization&lt; PST, OPE, VAR &gt;"
-{
-  bgcolor="transparent";
-  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
-  node [fontname="Helvetica",fontsize="12",shape=record];
-  Node2 [label="{TimeDiscretization\l\< PST, OPE, VAR \>\n||+ TimeDiscretization()\l+ execute()\l+ ~TimeDiscretization()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
-}

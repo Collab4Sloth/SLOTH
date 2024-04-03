@@ -1,7 +1,0 @@
-digraph "Parameters"
-{
-  bgcolor="transparent";
-  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
-  node [fontname="Helvetica",fontsize="12",shape=record];
-  Node1 [label="{Parameters\n||+ Parameters()\l+ Parameters()\l+ add()\l+ ListParamByName()\l+ get_parameter_value()\l+ get_option_value()\l+ getMapParameters()\l+ ~Parameters()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
-}

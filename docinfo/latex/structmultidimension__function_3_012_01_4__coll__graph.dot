@@ -1,7 +1,0 @@
-digraph "multidimension_function&lt; 2 &gt;"
-{
-  bgcolor="transparent";
-  edge [fontname="Helvetica",fontsize="12",labelfontname="Helvetica",labelfontsize="12"];
-  node [fontname="Helvetica",fontsize="12",shape=record];
-  Node1 [label="{multidimension_function\< 2 \>\n||+ getHeaviside()\l+ getSinusoide()\l+ getSinusoide2()\l+ getHyperbolicTangent()\l+ getUniform()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
-}

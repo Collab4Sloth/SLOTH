@@ -1,5 +1,3 @@
-# How To install Sloth with cmake and spack
-
 The installation of SLOTH consists of installing MFEM first and then, to compile SLOTH 
 
 ### Installing MFEM
@@ -45,15 +43,12 @@ cmake .. -DMFEM_USE_PETSC=ON -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH="" -DPETSC_IN
 make
 ```
 
-To build documentation, run 
+<!-- 
 
 ```shell
-make doc
-```
+./Tests/AllenCahn/1D/test1/AllenCahn1Dtest1 
+./Tests/AllenCahn/3D/test1/AllenCahn3Dtest1 
+``` -->
 
-To deploy the project, run 
 
-```shell
-make install 
-```
 
