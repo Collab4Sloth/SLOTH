@@ -1,3 +1,5 @@
+
+
 The installation of SLOTH consists of installing MFEM first and then, to compile SLOTH 
 
 ### Installing MFEM
@@ -43,12 +45,47 @@ cmake .. -DMFEM_USE_PETSC=ON -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH="" -DPETSC_IN
 make
 ```
 
-<!-- 
+## Building documentation
+
+- To build documentation, run 
 
 ```shell
-./Tests/AllenCahn/1D/test1/AllenCahn1Dtest1 
-./Tests/AllenCahn/3D/test1/AllenCahn3Dtest1 
+make doc
+```
+
+The documentation is built with [MKdocs](https://www.mkdocs.org/) and, for code documentation, with Doxygen. 
+
+[MKdocs](https://www.mkdocs.org/) is used to generate a global documentation under HTML format. A PDF file is also generated. 
+To do it, a set of packages are needed. Please refer to the following list (may be not complete):
+```shell
+
+pip3 install mkdocs                           # for the use of MkDocs
+pip3 install mkdocs-material                  # for the graphical environment Material
+pip3 install mkdocs-material-extensions       # for additional functionalities of Material
+pip3 install mkdocs-plugin-offline            # for the plugin offline
+pip3 install mkdocs-plugin-search             # for the plugin search
+pip3 install mkdocs-with-pdf                  # for the plugin with-pdf
+
+pip3 install markdown                         # for the extensions attr_list, md_in_html, def_list
+pip3 install pymdown-extensions               # for the extensions highlight, inlinehilite, snippets, superfences, tasklist, arithmatex
+
+
+
+pip3 install  mkdocs-git-revision-date-plugin  # to include Git revision....
+pip3 install  mkdocs-material[imaging]         # to use additional graphical features of  Material.
+pip3 install  mkdocs-pdf-export-plugin         # To export documentation under PDF format
+pip3 install  python-markdown-math             # To take into account mathematical formula in markdown
+pip3 install  WeasyPrint==52.5                 # Used by the plugin with-pdf.
+
+
+```
+
+
+<!-- ## Building documentation
+
+To deploy the project, run 
+
+```shell
+make install 
 ``` -->
-
-
 
