@@ -1,16 +1,22 @@
+variables:
+  GIT_SSL_NO_VERIFY: 1
+  GIT_SUBMODULE_STRATEGY: recursive
+
+
 stages:          # List of stages for jobs, and their order of execution
   - quality
 
 cpplint:
   image: python:3.8-buster
   stage: quality
+  dependencies: []
+  needs: []
   variables:
     FAILED: 200
   before_script:
     - apt -yqq update && apt -yqq install python3-pip
     - pip3 install cpplint anybadge
   script:
-    - tar -xjf sources.tar.bz2
     - mkdir cpplint
     - cpplint --linelength=100 --counting=total --recursive ${CI_PROJECT_DIR}/Integrators ${CI_PROJECT_DIR}/Operators/ ${CI_PROJECT_DIR}/Parameters/ ${CI_PROJECT_DIR}/PostProcessing/  ${CI_PROJECT_DIR}/Spatial/ ${CI_PROJECT_DIR}/Time/ ${CI_PROJECT_DIR}/Variables/ ${CI_PROJECT_DIR}/Utils/ ${CI_PROJECT_DIR}/BCs/ ${CI_PROJECT_DIR}/Coefficients/  2>&1 | tee ./cpplint/cpplint.log || EXIT_CODE=$?
   after_script:
