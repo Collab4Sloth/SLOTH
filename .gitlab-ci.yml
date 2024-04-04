@@ -1,0 +1,26 @@
+stages:          # List of stages for jobs, and their order of execution
+  - quality
+
+cpplint:
+  image: python:3.8-buster
+  stage: quality
+  variables:
+    FAILED: 200
+  before_script:
+    - apt -yqq update && apt -yqq install python3-pip
+    - pip3 install cpplint anybadge
+  script:
+    - tar -xjf sources.tar.bz2
+    - mkdir cpplint
+    - cpplint --linelength=100 --counting=total --recursive ${CI_PROJECT_DIR}/Integrators ${CI_PROJECT_DIR}/Operators/ ${CI_PROJECT_DIR}/Parameters/ ${CI_PROJECT_DIR}/PostProcessing/  ${CI_PROJECT_DIR}/Spatial/ ${CI_PROJECT_DIR}/Time/ ${CI_PROJECT_DIR}/Variables/ ${CI_PROJECT_DIR}/Utils/ ${CI_PROJECT_DIR}/BCs/ ${CI_PROJECT_DIR}/Coefficients/  2>&1 | tee ./cpplint/cpplint.log || EXIT_CODE=$?
+  after_script:
+    - 'CPPLINT_SCORE=$(sed -n "s/^Total errors found: \([-0-9.]*\)/\1/p" ./cpplint/cpplint.log)'
+    - anybadge --use-max --label=cpplint --file=cpplint/cpplint.svg --value=$CPPLINT_SCORE 200=red 100=orange 50=yellow 0=green
+    - echo "cpplint score is $CPPLINT_SCORE"
+    - if [[ $CPPLINT_SCORE > $FAILED ]]; then exit $EXIT_CODE; fi
+  allow_failure: true
+  artifacts:
+    name: "cpplint"
+    when: always
+    paths:
+      - cpplint/
