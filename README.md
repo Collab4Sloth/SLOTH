@@ -65,8 +65,6 @@ To do it, a set of packages are needed. Please refer to the following list (may 
 pip3 install mkdocs                           # for the use of MkDocs
 pip3 install mkdocs-material                  # for the graphical environment Material
 pip3 install mkdocs-material-extensions       # for additional functionalities of Material
-pip3 install mkdocs-plugin-offline            # for the plugin offline
-pip3 install mkdocs-plugin-search             # for the plugin search
 pip3 install mkdocs-with-pdf                  # for the plugin with-pdf
 
 pip3 install markdown                         # for the extensions attr_list, md_in_html, def_list
