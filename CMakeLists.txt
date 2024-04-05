@@ -65,7 +65,10 @@ if(NOT TARGET doc)
   add_subdirectory(doc)
 endif(NOT TARGET doc)
 
-find_package(SuiteSparse REQUIRED)
+if(MFEM_USE_SUITESPARSE)
+  find_package(SuiteSparse REQUIRED)
+endif(MFEM_USE_SUITESPARSE)
+
 find_package(METIS REQUIRED)
 
 # HYPRE version
