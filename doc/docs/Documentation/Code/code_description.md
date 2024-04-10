@@ -19,7 +19,7 @@ this is the modle 1
 ```
 ```` -->
 
-<iframe src="html/index.html"  style="width: 100%; height: 100vh; border: none;"></iframe>
+<iframe src="../../../html/index.html"  style="width: 100%; height: 100vh; border: none;"></iframe>
 
 
 <!-- ``` title=".browserslistrc"
