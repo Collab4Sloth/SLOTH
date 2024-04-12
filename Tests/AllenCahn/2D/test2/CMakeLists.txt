@@ -1,6 +1,3 @@
+create_test("AllenCahn2Dtest2" "AllenCahn2Dtest2" FALSE)
 
-set(CURRENT_EXE "AllenCahn2Dtest2")
-add_executable( ${CURRENT_EXE} main.cpp )
-target_include_directories( ${CURRENT_EXE} PUBLIC ${MFEM_DIR}/include)
-target_link_directories(${CURRENT_EXE} PUBLIC ${MFEM_DIR}/lib $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib)
-target_link_libraries(${CURRENT_EXE} mfem mpi z HYPRE SuiteSparse::suitesparse metis petsc $ENV{FILESYSTEM_VAR})
+configure_file(${CMAKE_SOURCE_DIR}/Mesh-examples/camembert2D.msh ${CMAKE_CURRENT_BINARY_DIR}/camembert2D.msh COPYONLY)

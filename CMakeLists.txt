@@ -19,10 +19,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   endif()
 endif()
 
-# (must be placed *before* any add_subdirectory, cmake bug ?)
-include(CTest)
-enable_testing()
-
 # MFEM
 find_package(MFEM REQUIRED)
 
@@ -76,5 +72,23 @@ include(cmake/modules/hypre.cmake)
 set(MFEM_HYPRE_VERSION ${HYPRE_VERSION})
 add_compile_definitions(MFEM_HYPRE_VERSION=${MFEM_HYPRE_VERSION})
 
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+# # TESTS
+function(create_test exe_name test_name test_will_fail)
+  set(CURRENT_EXE ${exe_name})
+
+  add_executable(${CURRENT_EXE} main.cpp)
+  target_include_directories(${CURRENT_EXE} PUBLIC ${MFEM_DIR}/include)
+  target_link_directories(${CURRENT_EXE} PUBLIC ${MFEM_DIR}/lib $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib)
+  target_link_libraries(${CURRENT_EXE} mfem mpi z HYPRE SuiteSparse::suitesparse metis petsc $ENV{FILESYSTEM_VAR})
+
+  add_test(NAME ${test_name} COMMAND ${CURRENT_EXE})
+  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+endfunction(create_test)
+
+include(CTest)
+enable_testing()
+
 add_subdirectory(Tests)

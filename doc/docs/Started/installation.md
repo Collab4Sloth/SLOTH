@@ -53,6 +53,35 @@ make
 make doc
 ```
 
+
+## Building/running tests
+
+- All tests are located in the Tests subdirectory. 
+- All tests are built during compilation (see `make` command). 
+- All tests can be executed by running
+```shell
+make test 
+```
+
+or 
+
+```shell
+ctest
+```
+
+- This stage can be mimicked without execution by using the `-N` option:
+
+```shell
+ctest -N
+```
+
+- Each test can be run independently by using the `-R` option:
+- 
+```shell
+ctest -R monTest
+```
+
+
 The documentation is built with [MKdocs](https://www.mkdocs.org/) and, for code documentation, with Doxygen. 
 
 [MKdocs](https://www.mkdocs.org/) is used to generate a global documentation under HTML format. A PDF file is also generated. 
