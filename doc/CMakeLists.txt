@@ -30,8 +30,8 @@ set(OthertargetName "mkdocs_${PROJECT_NAME}")
 set(DOCS_DIR "${CMAKE_CURRENT_BINARY_DIR}/docs/")
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/docs/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/docs/)
 
-# Build the list of all *.md files found in Tests directory
-set(EXAMPLES_DIR "${CMAKE_SOURCE_DIR}/Tests")
+# Build the list of all *.md files found in tests directory
+set(EXAMPLES_DIR "${CMAKE_SOURCE_DIR}/tests")
 file(GLOB_RECURSE EXAMPLE_FILES "${EXAMPLES_DIR}/description.md")
 set(EXAMPLE_LIST "")
 
@@ -41,7 +41,7 @@ foreach(EXAMPLE_FILE ${EXAMPLE_FILES})
     get_filename_component(EXAMPLE_NAME ${EXAMPLE_FILE} NAME_WE)
     get_filename_component(EXAMPLE_FILE_DIR ${EXAMPLE_FILE} DIRECTORY)
     string(REPLACE "${EXAMPLES_DIR}" "" EXAMPLE_FILE_DIR ${EXAMPLE_FILE_DIR})
-    string(REPLACE "Tests" "" EXAMPLE_FILE_DIR ${EXAMPLE_FILE_DIR})
+    string(REPLACE "tests" "" EXAMPLE_FILE_DIR ${EXAMPLE_FILE_DIR})
     string(REPLACE "/" " " EXAMPLE_NAV_NAME ${EXAMPLE_FILE_DIR})
     configure_file(${EXAMPLE_FILE} "${DOCS_DIR}/${DOCS_EXAMPLES_DIR}/${EXAMPLE_FILE_DIR}/${EXAMPLE_NAME}.md" COPYONLY)
     set(EXAMPLE_LIST "${EXAMPLE_LIST}\n      - ${EXAMPLE_NAV_NAME}: ${DOCS_EXAMPLES_DIR}/${EXAMPLE_FILE_DIR}/${EXAMPLE_NAME}.md")
@@ -65,4 +65,5 @@ add_custom_target(${targetName} DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/doc.txt)
 add_custom_target(${OthertargetName} DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/mkdocs.txt ${targetName})
 add_dependencies(doc ${OthertargetName})
 
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/site DESTINATION doc_${PROJECT_NAME})
+
+# install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/site DESTINATION doc_${PROJECT_NAME})

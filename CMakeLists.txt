@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(sloth)
+project(sloth VERSION 1.0 LANGUAGES CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
@@ -19,76 +19,39 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   endif()
 endif()
 
-# MFEM
-find_package(MFEM REQUIRED)
+# ########################
+# # Global Configuration
+# ########################
+# install
+set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/INSTALL)
 
-if(MFEM_USE_MPI)
-  message(STATUS "MFEM: using MPI, so SLOTH will use MPI (with HYPRE, METIS)")
+# ########################
+# # MFEM Configuration
+# ########################
+include(MFEM4SLOTH)
 
-  # The following include directories are automatically filled within FindMFEM.cmake
-  include_directories(SYSTEM ${HYPRE_INCLUDE_DIRS})
-  include_directories(SYSTEM ${METIS_INCLUDE_DIRS})
-endif(MFEM_USE_MPI)
+# ########################
+# # Sloth header's only
+# # library (interface)
+# ########################
+add_subdirectory(kernel)
 
-# Support for OpenMP
-if(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
-  message(STATUS "MFEM: using OPENMP, so SLOTH will use OPENMP")
-  find_package(OpenMP REQUIRED)
+# include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-  if(OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-  endif()
-endif(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
-
-if(MFEM_USE_MUMPS)
-  find_package(OpenMP)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif(MFEM_USE_MUMPS)
-
-# Petsc
-if(MFEM_USE_PETSC)
-  message(STATUS "MFEM: using PETSc, so SLOTH will use PETSc")
-  find_package(PETSc REQUIRED)
-endif(MFEM_USE_PETSC)
-
-# documentation
+# ########################
+# # Doc Configuration
+# ########################
 if(NOT TARGET doc)
   add_custom_target(doc)
   add_subdirectory(doc)
 endif(NOT TARGET doc)
 
-if(MFEM_USE_SUITESPARSE)
-  find_package(SuiteSparse REQUIRED)
-endif(MFEM_USE_SUITESPARSE)
-
-find_package(METIS REQUIRED)
-
-# HYPRE version
-include(cmake/modules/hypre.cmake)
-set(MFEM_HYPRE_VERSION ${HYPRE_VERSION})
-add_compile_definitions(MFEM_HYPRE_VERSION=${MFEM_HYPRE_VERSION})
-
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
-# # TESTS
-function(create_test exe_name test_name test_will_fail)
-  set(CURRENT_EXE ${exe_name})
-
-  add_executable(${CURRENT_EXE} main.cpp)
-  target_include_directories(${CURRENT_EXE} PUBLIC ${MFEM_DIR}/include)
-  target_link_directories(${CURRENT_EXE} PUBLIC ${MFEM_DIR}/lib $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib)
-  target_link_libraries(${CURRENT_EXE} mfem mpi z HYPRE SuiteSparse::suitesparse metis petsc $ENV{FILESYSTEM_VAR})
-
-  add_test(NAME ${test_name} COMMAND ${CURRENT_EXE})
-  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
-endfunction(create_test)
+# ########################
+# # Test Configuration
+# ########################
+include(TEST4SLOTH)
 
 include(CTest)
 enable_testing()
 
-add_subdirectory(Tests)
+add_subdirectory(tests)
