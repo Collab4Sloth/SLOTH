@@ -122,8 +122,8 @@ int main(int argc, char* argv[]) {
       //    variables     //
       //####################
       auto vars =
-          VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", "Unconserved", "Sinusoide",
-                                          std::make_tuple(1.), "Sinusoide", std::make_tuple(1.)));
+          VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, "Sinusoide", std::make_tuple(1.),
+                                          "Sinusoide", std::make_tuple(1.)));
       //####################
       //    operators     //
       //####################

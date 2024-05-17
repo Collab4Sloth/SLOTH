@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
   const auto& thickness = 5.e-5;
   const auto& radius = 1.e-1 * pellet_radius;
   auto vars = VAR(Variable<FECollection, DIM>(
-      &spatial, bcs, "phi", "Unconserved", "HyperbolicTangent",
+      &spatial, bcs, "phi", 2, "HyperbolicTangent",
       std::make_tuple(center_x, center_y, center_z, a_x, a_y, a_z, thickness, radius),
       "HyperbolicTangent",
       std::make_tuple(center_x, center_y, center_z, a_x, a_y, a_z, epsilon, radius)));

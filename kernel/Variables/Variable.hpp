@@ -9,10 +9,13 @@
  */
 #include <any>
 #include <limits>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <tuple>
+#include <utility>
+
 #include "BCs/BoundaryConditions.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/AnalyticalFunctions.hpp"
@@ -29,12 +32,14 @@ class Variable {
   VariableType::value variable_type_;
   mfem::FiniteElementSpace* fespace_;
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
+  std::map<int, mfem::Vector> map_of_unk_;
+  int depth_ = 2;
   mfem::Vector unk_;
   mfem::GridFunction uh_;
 
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
-  void setVariableType(const std::string& type);
+  void setVariableDepth(const int& depth);
   template <class... Args>
   std::function<double(const mfem::Vector&, double)> buildAnalyticalFunction(
       const int& dim, const std::string& analytical_function, Args... args);
@@ -48,52 +53,53 @@ class Variable {
   void setAnalyticalSolution(const int& dim, const std::string& analytical_solution_name,
                              Args... args);
   void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
+  void saveBeforeUpdate();
 
  public:
   template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const std::string& initial_condition_name, std::tuple<Args...> args1);
 
   template <class... Args1, class... Args2>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const std::string& initial_condition_name, std::tuple<Args1...> args1,
            const std::string& analytical_solution_name, std::tuple<Args2...> args2);
 
   template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const std::string& initial_condition_name, std::tuple<Args...> args1,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function);
 
   template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const std::string& analytical_solution_name, std::tuple<Args...> args1);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const double& initial_condition_value);
 
   template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const double& initial_condition_value, const std::string& analytical_solution_name,
            std::tuple<Args...> args1);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const std::string& type,
+           const std::string& variable_name, const int& depth,
            const double& initial_condition_value,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
@@ -116,18 +122,18 @@ class Variable {
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_name
  */
 template <class T, int DIM>
 template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type, const std::string& initial_condition_name,
+                           const int& depth, const std::string& initial_condition_name,
                            std::tuple<Args...> args1)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -147,7 +153,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_name
  * @param analytical_solution_name
  */
@@ -155,12 +161,12 @@ template <class T, int DIM>
 template <class... Args1, class... Args2>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type, const std::string& initial_condition_name,
+                           const int& depth, const std::string& initial_condition_name,
                            std::tuple<Args1...> args1, const std::string& analytical_solution_name,
                            std::tuple<Args2...> args2)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -181,7 +187,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_name
  * @param analytical_solution_function
  */
@@ -189,12 +195,12 @@ template <class T, int DIM>
 template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type, const std::string& initial_condition_name,
+                           const int& depth, const std::string& initial_condition_name,
                            std::tuple<Args...> args1,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
 
@@ -210,17 +216,17 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_function
  */
 template <class T, int DIM>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type,
+                           const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
@@ -231,7 +237,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_function
  * @param analytical_solution_name
  */
@@ -239,12 +245,12 @@ template <class T, int DIM>
 template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type,
+                           const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const std::string& analytical_solution_name, std::tuple<Args...> args1)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -261,19 +267,19 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_function
  * @param analytical_solution_function
  */
 template <class T, int DIM>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type,
+                           const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
@@ -285,16 +291,16 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_value
  */
 template <class T, int DIM>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type, const double& initial_condition_value)
+                           const int& depth, const double& initial_condition_value)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
 }
@@ -303,7 +309,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_value
  * @param analytical_solution_name
  */
@@ -311,11 +317,11 @@ template <class T, int DIM>
 template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type, const double& initial_condition_value,
+                           const int& depth, const double& initial_condition_value,
                            const std::string& analytical_solution_name, std::tuple<Args...> args1)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -332,18 +338,18 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  *
  * @param fespace
  * @param variable_name
- * @param type
+ * @param depth
  * @param initial_condition_value
  * @param analytical_solution_function
  */
 template <class T, int DIM>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const std::string& type, const double& initial_condition_value,
+                           const int& depth, const double& initial_condition_value,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableType(type);
+  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
@@ -441,8 +447,33 @@ void Variable<T, DIM>::setAnalyticalSolution(
  */
 template <class T, int DIM>
 void Variable<T, DIM>::update(const mfem::Vector& unk) {
+  this->saveBeforeUpdate();
   this->unk_ = unk;
   this->uh_.SetFromTrueDofs(this->unk_);
+
+  auto current_solution = std::prev(this->map_of_unk_.end());
+  current_solution->second = this->unk_;
+  // for (const auto& [k, v] : this->map_of_unk_) {
+  //   std::cout << " value at it = " << k << std::endl;
+  //   v.Print();
+  // }
+}
+
+/**
+ * @brief Save previous solutions before update
+ *
+ * @tparam T
+ * @tparam DIM
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::saveBeforeUpdate() {
+  auto begin = this->map_of_unk_.begin();
+  auto end = this->map_of_unk_.end();
+  ++begin;
+  for (auto it = begin; it != end; ++it) {
+    auto itm = (it->first) - 1;
+    this->map_of_unk_[itm] = it->second;
+  }
 }
 
 /**
@@ -527,25 +558,41 @@ VariableType::value Variable<T, DIM>::getVariableType() {
 // }
 
 /**
- * @brief Set the VariableType from string
+ * @brief Set the variable depth and initialize at the given initial condition
  *
- * @param type string defining the type of the variable
+ * @tparam T
+ * @tparam DIM
+ * @param depth
  */
 template <class T, int DIM>
-void Variable<T, DIM>::setVariableType(const std::string& type) {
-  switch (VariableType::from(type)) {
-    case VariableType::Conserved:
-      this->variable_type_ = VariableType::Conserved;
-      break;
-    case VariableType::Unconserved:
-      this->variable_type_ = VariableType::Unconserved;
-      break;
-    default:
-      throw std::runtime_error(
-          "Variable::getVariableType() : only conserved and unconserved type are allowed");
-      break;
+void Variable<T, DIM>::setVariableDepth(const int& depth) {
+  this->depth_ = depth;
+
+  for (auto id = 0; id < depth; id++) {
+    this->map_of_unk_.insert(std::pair<int, mfem::Vector>(id, this->unk_));
   }
 }
+
+// /**
+//  * @brief Set the VariableType from string
+//  *
+//  * @param depth string defining the type of the variable
+//  */
+// template <class T, int DIM>
+// void Variable<T, DIM>::setVariableType(const int& depth) {
+//   switch (VariableType::from(type)) {
+//     case VariableType::Conserved:
+//       this->variable_type_ = VariableType::Conserved;
+//       break;
+//     case VariableType::Unconserved:
+//       this->variable_type_ = VariableType::Unconserved;
+//       break;
+//     default:
+//       throw std::runtime_error(
+//           "Variable::getVariableType() : only conserved and unconserved type are allowed");
+//       break;
+//   }
+// }
 
 /**
  * @brief Destroy the Variable:: Variable object
