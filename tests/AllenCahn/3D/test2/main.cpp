@@ -100,11 +100,16 @@ int main(int argc, char* argv[]) {
   const auto& a_z = 1.;
   const auto& thickness = 5.e-5;
   const auto& radius = 1.e-1 * pellet_radius;
-  auto vars = VAR(Variable<FECollection, DIM>(
-      &spatial, bcs, "phi", 2, "HyperbolicTangent",
-      std::make_tuple(center_x, center_y, center_z, a_x, a_y, a_z, thickness, radius),
-      "HyperbolicTangent",
-      std::make_tuple(center_x, center_y, center_z, a_x, a_y, a_z, epsilon, radius)));
+
+  auto initial_condition =
+      AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
+                               center_z, a_x, a_y, a_z, thickness, radius);
+  auto analytical_solution =
+      AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
+                               center_z, a_x, a_y, a_z, epsilon, radius);
+
+  auto vars = VAR(
+      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
   //####################
   //    operators     //
   //####################
@@ -127,7 +132,7 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 100.;
+  const auto& t_final = 0.25;
   const auto& dt = 0.25;
   auto time_params =
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),

@@ -12,9 +12,9 @@
 #include <any>
 #include <functional>
 #include <string>
-#include <tuple>
 #include <utility>  // std::forward
 #include <vector>
+
 #include "../Utils/PhaseFieldOptions.hpp"
 
 template <int DIM>
@@ -36,6 +36,12 @@ class AnalyticalFunctions {
   }
 
   template <typename... Args>
+  std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
+    multidimension_function<DIM> func;
+    return func.getParabolic(args...);
+  }
+
+  template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getUniform(Args... args) {
     multidimension_function<DIM> func;
     return func.getUniform(args...);
@@ -52,11 +58,18 @@ class AnalyticalFunctions {
   }
 
  public:
-  AnalyticalFunctions();
+  template <class... Args>
+  AnalyticalFunctions(AnalyticalFunctionsType::value function_name, Args... args_func);
+
+  explicit AnalyticalFunctions(std::function<double(const mfem::Vector &, double)> user_function);
 
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getAnalyticalFunctions(
-      const std::string &analytical_function_name, Args... args);
+      AnalyticalFunctionsType::value function_name, Args... args);
+
+  std::function<double(const mfem::Vector &, double)> analytical_function_;
+
+  std::function<double(const mfem::Vector &, double)> getFunction();
 
   ~AnalyticalFunctions();
 };
@@ -108,16 +121,48 @@ struct multidimension_function<1> {
     } else {
       throw std::runtime_error(
           "multidimension_function::getHyperbolicTangent: four arguments are expected (1- "
-          "center_x, "
-          "2-  a_x, 3- thickness, 4- radius");
+          "center_x, 2-  a_x, 3- thickness, 4- radius");
     }
   }
+
+  // PARABOLIC
+  template <typename... Args>
+  std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
+    auto v = std::vector<double>{args...};
+    if (v.size() == 4) {
+      const auto rmax = v[0];
+      const auto fo = v[1];
+      const auto lin_pow = v[2];
+      const auto cond = v[3];
+
+      return std::function<double(const mfem::Vector &, double)>(
+          [rmax, fo, cond, lin_pow](mfem::Vector x, double time) {
+            const auto r2 = x[0] * x[0];
+            const auto rmax2 = rmax * rmax;
+
+            const auto func = fo + lin_pow * (rmax2 - r2) / (4.0 * M_PI * cond * rmax2);
+            return func;
+          });
+    } else {
+      throw std::runtime_error(
+          "multidimension_function::getParabolic: three arguments are expected (1- "
+          "maximum radius, 2-  initial temperature, 3- lineic power, 4- conductivity");
+    }
+  }
+
   // Uniform
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getUniform(Args... args) {
-    const auto value = 0.;
-    return std::function<double(const mfem::Vector &, double)>(
-        [value](mfem::Vector x, double time) { return value; });
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto value = v[0];
+      return std::function<double(const mfem::Vector &, double)>(
+          [value](mfem::Vector x, double time) { return value; });
+    } else {
+      throw std::runtime_error(
+          "multidimension_function::getUniform: only one argument is expected");
+    }
   }
 };
 ///////////////////////
@@ -200,12 +245,25 @@ struct multidimension_function<2> {
           "2- center_y, 3- a_x, 4- a_y, 5- thickness, 6- radius");
     }
   }
+  // PARABOLIC
+  template <typename... Args>
+  std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
+    throw std::runtime_error("Not implemented");
+  }
+
   // Uniform
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getUniform(Args... args) {
-    const auto value = 0.;
-    return std::function<double(const mfem::Vector &, double)>(
-        [value](mfem::Vector x, double time) { return value; });
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto value = v[0];
+      return std::function<double(const mfem::Vector &, double)>(
+          [value](mfem::Vector x, double time) { return value; });
+    } else {
+      throw std::runtime_error(
+          "multidimension_function::getUniform: only one argument is expected");
+    }
   }
 };
 ///////////////////////
@@ -268,22 +326,26 @@ struct multidimension_function<3> {
           "2- center_y, 3- center_z, 4- a_x, 5- a_y, 6- a_z, 7- thickness, 8- radius");
     }
   }
+  // PARABOLIC
+  template <typename... Args>
+  std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
+    throw std::runtime_error("Not implemented");
+  }
   // Uniform
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getUniform(Args... args) {
-    const auto value = 0.;
-    return std::function<double(const mfem::Vector &, double)>(
-        [value](mfem::Vector x, double time) { return value; });
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto value = v[0];
+      return std::function<double(const mfem::Vector &, double)>(
+          [value](mfem::Vector x, double time) { return value; });
+    } else {
+      throw std::runtime_error(
+          "multidimension_function::getUniform: only one argument is expected");
+    }
   }
 };
-
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-
-//  explicit instantiation of AnalyticalFunctions class template/
-template class AnalyticalFunctions<1>;
-template class AnalyticalFunctions<2>;
-template class AnalyticalFunctions<3>;
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -293,20 +355,50 @@ template class AnalyticalFunctions<3>;
  *
  */
 template <int DIM>
-AnalyticalFunctions<DIM>::AnalyticalFunctions() {}
+template <class... Args>
+AnalyticalFunctions<DIM>::AnalyticalFunctions(AnalyticalFunctionsType::value function_name,
+                                              Args... args_func) {
+  // std::apply(
+  //     [function_name, this](Args... args) {
+  //   this->analytical_function_ = this->getAnalyticalFunctions(function_name, args...);
+  // },
+  // args_func);
+  this->analytical_function_ = this->getAnalyticalFunctions(function_name, args_func...);
+}
+
+template <int DIM>
+AnalyticalFunctions<DIM>::AnalyticalFunctions(
+    std::function<double(const mfem::Vector &, double)> user_function) {
+  this->analytical_function_ = user_function;
+}
+
+/**
+ * @brief Return the analytical function
+ *
+ * @tparam DIM
+ * @tparam Args
+ * @return std::function<double(const mfem::Vector &, double)>
+ */
+template <int DIM>
+std::function<double(const mfem::Vector &, double)> AnalyticalFunctions<DIM>::getFunction() {
+  return this->analytical_function_;
+}
 
 /**
  * @brief return the function associated with the analytical_function_name
  *
- * @param analytical_function_name
- * @return const double
+ * @tparam DIM
+ * @tparam Args
+ * @param function_name
+ * @param args
+ * @return std::function<double(const mfem::Vector &, double)>
  */
 template <int DIM>
 template <class... Args>
 std::function<double(const mfem::Vector &, double)>
-AnalyticalFunctions<DIM>::getAnalyticalFunctions(const std::string &analytical_function_name,
+AnalyticalFunctions<DIM>::getAnalyticalFunctions(AnalyticalFunctionsType::value function_name,
                                                  Args... args) {
-  switch (AnalyticalFunctionsType::from(analytical_function_name)) {
+  switch (function_name) {
     case AnalyticalFunctionsType::Heaviside:
       return this->getHeaviside(args...);
     case AnalyticalFunctionsType::Sinusoide:
@@ -315,12 +407,14 @@ AnalyticalFunctions<DIM>::getAnalyticalFunctions(const std::string &analytical_f
       return this->getSinusoide2(args...);
     case AnalyticalFunctionsType::HyperbolicTangent:
       return this->getHyperbolicTangent(args...);
+    case AnalyticalFunctionsType::Parabolic:
+      return this->getParabolic(args...);
     case AnalyticalFunctionsType::Uniform:
       return this->getUniform(args...);
     default:
       throw std::runtime_error(
-          "AnalyticalFunctions::getAnalyticalFunctions: Heaviside, Sinusoide, HyperbolicTangent "
-          "and Uniform "
+          "AnalyticalFunctions::getAnalyticalFunctions: Heaviside, Sinusoide, HyperbolicTangent, "
+          "Parabolic, Uniform "
           "analytical function  are available");
       break;
   }

@@ -68,16 +68,8 @@ enum class PhaseChange { Null, Constant, Calphad };
 enum class ThermodynamicsPotentials { W, F, H, X };
 enum class ThermodynamicsPotentialDiscretization { Implicit, Explicit, SemiImplicit };
 
-// struct ThermodynamicsPotentialDiscretization {
-//   enum value { Implicit, Explicit, SemiImplicit };
-//   static value from(const std::string&);
-// };
-struct VariableType {
-  enum value { Conserved, Unconserved };
-  static value from(const std::string&);
-};
 struct AnalyticalFunctionsType {
-  enum value { Heaviside, Sinusoide, Sinusoide2, HyperbolicTangent, Uniform };
+  enum value { Heaviside, Sinusoide, Sinusoide2, HyperbolicTangent, Parabolic, Uniform };
   static value from(const std::string&);
 };
 
@@ -124,6 +116,11 @@ struct Problems {
   static value from(const std::string&);
 };
 
+struct VariableType {
+  enum value { Primary, Auxiliary };
+  static value from(const std::string&);
+};
+
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 
@@ -134,6 +131,7 @@ SourceTerm::value SourceTerm::from(const std::string& v) {
                                                       {"Sinusoide2D", SourceTerm::Sinusoide2D}};
   return m.find("SourceTerm", v);
 }
+
 //////////////////////////
 // Conversion de l'option BoundaryConditionType
 BoundaryConditionType::value BoundaryConditionType::from(const std::string& v) {
@@ -183,38 +181,10 @@ AnalyticalFunctionsType::value AnalyticalFunctionsType::from(const std::string& 
       {"Sinusoide", AnalyticalFunctionsType::Sinusoide},
       {"Sinusoide2", AnalyticalFunctionsType::Sinusoide2},
       {"HyperbolicTangent", AnalyticalFunctionsType::HyperbolicTangent},
+      {"Parabolic", AnalyticalFunctionsType::Parabolic},
       {"Uniform", AnalyticalFunctionsType::Uniform}};
   return m.find("AnalyticalFunctionsType", v);
 }
-
-//////////////////////////
-// Conversion de l'option  VariableType
-VariableType::value VariableType::from(const std::string& v) {
-  static PhaseFieldPrivate::mmap<VariableType::value> m{{"Conserved", VariableType::Conserved},
-                                                        {"Unconserved", VariableType::Unconserved}};
-  return m.find("VariableType", v);
-}
-
-//////////////////////////
-// Conversion de l'option  ThermodynamicsPotentials
-// ThermodynamicsPotentials::value ThermodynamicsPotentials::from(const std::string& v) {
-//   static PhaseFieldPrivate::mmap<ThermodynamicsPotentials::value> m{
-//       {"X", ThermodynamicsPotentials::X},
-//       {"H", ThermodynamicsPotentials::H},
-//       {"F", ThermodynamicsPotentials::F},
-//       {"W", ThermodynamicsPotentials::W}};
-//   return m.find("ThermodynamicsPotentials", v);
-// }
-//////////////////////////
-// // Conversion de l'option  ThermodynamicsPotentialDiscretization
-// ThermodynamicsPotentialDiscretization::value ThermodynamicsPotentialDiscretization::from(
-//     const std::string& v) {
-//   static PhaseFieldPrivate::mmap<ThermodynamicsPotentialDiscretization::value> m{
-//       {"Implicit", ThermodynamicsPotentialDiscretization::Implicit},
-//       {"Explicit", ThermodynamicsPotentialDiscretization::Explicit},
-//       {"SemiImplicit", ThermodynamicsPotentialDiscretization::SemiImplicit}};
-//   return m.find("ThermodynamicsPotentialDiscretization", v);
-// }
 
 ///////////////////////////////////////////////////
 //////// Static methods

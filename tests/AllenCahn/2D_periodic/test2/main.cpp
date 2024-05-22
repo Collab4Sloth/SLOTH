@@ -106,10 +106,12 @@ int main(int argc, char* argv[]) {
   const auto& a_y = 0.;
   const auto& thickness = 1.e-10;
   const auto& radius = 1.e-3;
-  auto vars = VAR(Variable<FECollection, DIM>(
-      &spatial, bcs, "phi", 2, "HyperbolicTangent",
-      std::make_tuple(center_x, center_y, a_x, a_y, thickness, radius), "HyperbolicTangent",
-      std::make_tuple(center_x, center_y, a_x, a_y, epsilon, radius)));
+  auto initial_condition = AnalyticalFunctions<DIM>(
+      AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
+  auto analytical_solution = AnalyticalFunctions<DIM>(
+      AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
+  auto vars = VAR(
+      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
   //####################
   //    operators     //
   //####################
@@ -132,7 +134,7 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 50.;
+  const auto& t_final = 0.4;
   const auto& dt = 0.1;
   auto time_params =
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),

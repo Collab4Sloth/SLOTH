@@ -84,10 +84,24 @@ int main(int argc, char* argv[]) {
   const auto& a_x = 1.;
   const auto& thickness = 5.e-5;
   const auto& radius = 5.e-4;
-  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, "HyperbolicTangent",
-                                              std::make_tuple(center_x, a_x, thickness, radius),
-                                              "HyperbolicTangent",
-                                              std::make_tuple(center_x, a_x, epsilon, radius)));
+
+  auto user_func = std::function<double(const mfem::Vector&, double)>(
+      [center_x, a_x, radius, thickness](mfem::Vector x, double time) {
+        const auto xx = a_x * (x[0] - center_x);
+        const auto r = xx;
+        const auto func = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);
+        return func;
+      });
+
+  auto initial_condition = AnalyticalFunctions<DIM>(user_func);
+  // auto initial_condition =
+  //     AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
+  //                              center_x, a_x, thickness, radius);
+
+  auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
+                                                      center_x, a_x, epsilon, radius);
+  auto vars = VAR(
+      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
   //####################
   //    operators     //
   //####################

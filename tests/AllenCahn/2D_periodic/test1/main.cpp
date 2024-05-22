@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
   //##############################
   // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, "Mesh-examples/periodic.msh");
 
-  std::vector<int> vect_NN{64};                               // 16, 32, 64};
+  std::vector<int> vect_NN{32};                               // 16, 32, 64};
   std::vector<std::string> vect_TimeScheme{"EulerImplicit"};  //, "EulerExplicit"};
 
   auto refinement_level = 1;
@@ -121,14 +121,18 @@ int main(int argc, char* argv[]) {
       //####################
       //    variables     //
       //####################
-      auto vars =
-          VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, "Sinusoide", std::make_tuple(1.),
-                                          "Sinusoide", std::make_tuple(1.)));
+      auto initial_condition = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
+      auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
+
+      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition,
+                                                  analytical_solution));
       //####################
       //    operators     //
       //####################
       // OPE oper(&spatial, params, vars);
-      OPE oper(&spatial, params, vars, "Sinusoide2", omega);
+
+      auto source_terme = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega);
+      OPE oper(&spatial, params, vars, source_terme);
 
       //###########################################
       //###########################################
@@ -147,7 +151,7 @@ int main(int argc, char* argv[]) {
       //###########################################
       //###########################################
       const auto& t_initial = 0.0;
-      const auto& t_final = 1.;
+      const auto& t_final = 0.2;
       const auto& dt = 0.05;
       auto time_params =
           Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),

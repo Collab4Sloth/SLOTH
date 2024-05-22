@@ -20,6 +20,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
@@ -29,10 +30,10 @@
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
+#include "Solvers/UtilsForSolvers.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/PhaseFieldConstants.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForSolvers.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"
@@ -47,11 +48,13 @@ template <class T, int DIM, class NLFI>
 class PhaseFieldOperator : public PhaseFieldOperatorBase<T, DIM, NLFI> {
  public:
   PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
+                     Variables<T, DIM> &vars, Variables<T, DIM> &auxvars);
+
+  PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
                      Variables<T, DIM> &vars);
 
-  template <class... Args>
   PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Variables<T, DIM> &vars, const std::string &source_term_name, Args... args);
+                     Variables<T, DIM> &vars, AnalyticalFunctions<DIM> source_term_name);
 
   NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override;
 
@@ -62,6 +65,25 @@ class PhaseFieldOperator : public PhaseFieldOperatorBase<T, DIM, NLFI> {
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
+
+/**
+ * @brief Construct a new Phase Field Operator< T,  DIM,  NLFI>:: Phase Field Operator object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param params
+ * @param vars
+ * @param auxvars
+ */
+template <class T, int DIM, class NLFI>
+PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial,
+                                                     const Parameters &params,
+                                                     Variables<T, DIM> &vars,
+                                                     Variables<T, DIM> &auxvars)
+    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars, auxvars) {}
+
 /**
  * @brief Construct a new Phase Field Operator< T,  DIM,  NLFI>:: Phase Field Operator object
  *
@@ -89,13 +111,11 @@ PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DI
  * @param vars
  */
 template <class T, int DIM, class NLFI>
-template <class... Args>
 PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial,
                                                      const Parameters &params,
                                                      Variables<T, DIM> &vars,
-                                                     const std::string &source_term_name,
-                                                     Args... args)
-    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars, source_term_name, args...) {}
+                                                     AnalyticalFunctions<DIM> source_term_name)
+    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars, source_term_name) {}
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////

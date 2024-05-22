@@ -40,48 +40,41 @@ class Variable {
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
   void setVariableDepth(const int& depth);
-  template <class... Args>
-  std::function<double(const mfem::Vector&, double)> buildAnalyticalFunction(
-      const int& dim, const std::string& analytical_function, Args... args);
 
-  template <class... Args>
-  void setInitialCondition(const int& dim, const std::string& initial_condition_name, Args... args);
+  std::function<double(const mfem::Vector&, double)> buildAnalyticalFunction(
+      const int& dim, AnalyticalFunctions<DIM> analytical_function);
+
+  void setInitialCondition(const int& dim, AnalyticalFunctions<DIM> initial_condition_name);
   void setInitialCondition(const mfem::FunctionCoefficient& initial_condition_function);
   void setInitialCondition(const double& initial_condition_value);
 
-  template <class... Args>
-  void setAnalyticalSolution(const int& dim, const std::string& analytical_solution_name,
-                             Args... args);
+  void setAnalyticalSolution(const int& dim, AnalyticalFunctions<DIM> analytical_solution_name);
   void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
   void saveBeforeUpdate();
 
  public:
-  template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
-           const std::string& initial_condition_name, std::tuple<Args...> args1);
+           AnalyticalFunctions<DIM> initial_condition_name);
 
-  template <class... Args1, class... Args2>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
-           const std::string& initial_condition_name, std::tuple<Args1...> args1,
-           const std::string& analytical_solution_name, std::tuple<Args2...> args2);
+           AnalyticalFunctions<DIM> initial_condition_name,
+           AnalyticalFunctions<DIM> analytical_solution_name);
 
-  template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
-           const std::string& initial_condition_name, std::tuple<Args...> args1,
+           AnalyticalFunctions<DIM> initial_condition_name,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function);
 
-  template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
-           const std::string& analytical_solution_name, std::tuple<Args...> args1);
+           AnalyticalFunctions<DIM> analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
@@ -92,11 +85,10 @@ class Variable {
            const std::string& variable_name, const int& depth,
            const double& initial_condition_value);
 
-  template <class... Args>
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
-           const double& initial_condition_value, const std::string& analytical_solution_name,
-           std::tuple<Args...> args1);
+           const double& initial_condition_value,
+           AnalyticalFunctions<DIM> analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
@@ -126,11 +118,9 @@ class Variable {
  * @param initial_condition_name
  */
 template <class T, int DIM>
-template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const std::string& initial_condition_name,
-                           std::tuple<Args...> args1)
+                           const int& depth, AnalyticalFunctions<DIM> initial_condition_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
   this->setVariableDepth(depth);
@@ -138,11 +128,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
 
-  std::apply(
-      [dim, initial_condition_name, this](Args... args) {
-        Variable<T, DIM>::setInitialCondition(dim, initial_condition_name, args...);
-      },
-      args1);
+  Variable<T, DIM>::setInitialCondition(dim, initial_condition_name);
   // mfem::ConstantCoefficient cc(0.);
   // this->uh_.ProjectCoefficient(cc);
   // this->uh_.GetTrueDofs(this->unk_);
@@ -158,28 +144,22 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_name
  */
 template <class T, int DIM>
-template <class... Args1, class... Args2>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const std::string& initial_condition_name,
-                           std::tuple<Args1...> args1, const std::string& analytical_solution_name,
-                           std::tuple<Args2...> args2)
+                           const int& depth, AnalyticalFunctions<DIM> initial_condition_name,
+                           AnalyticalFunctions<DIM> analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
   this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
-  std::apply(
-      [dim, initial_condition_name, this](Args1... args) {
-        this->setInitialCondition(dim, initial_condition_name, args...);
-      },
-      args1);
-  std::apply(
-      [dim, analytical_solution_name, this](Args2... args) {
-        this->setAnalyticalSolution(dim, analytical_solution_name, args...);
-      },
-      args2);
+  // std::apply([dim, initial_condition_name, this]() {
+  this->setInitialCondition(dim, initial_condition_name);
+  // });
+  // std::apply([dim, analytical_solution_name, this]() {
+  this->setAnalyticalSolution(dim, analytical_solution_name);
+  // });
 }
 
 /**
@@ -192,11 +172,9 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_function
  */
 template <class T, int DIM>
-template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const std::string& initial_condition_name,
-                           std::tuple<Args...> args1,
+                           const int& depth, AnalyticalFunctions<DIM> initial_condition_name,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
@@ -205,9 +183,9 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
 
   const auto dim = spatial->get_dimension();
-  std::apply([dim, initial_condition_name, this](
-                 Args... args) { this->setInitialCondition(dim, initial_condition_name, args...); },
-             args1);
+  std::apply([dim, initial_condition_name, this]() {
+    this->setInitialCondition(dim, initial_condition_name);
+  });
   this->setAnalyticalSolution(analytical_solution_function);
 }
 
@@ -242,12 +220,11 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_name
  */
 template <class T, int DIM>
-template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
-                           const std::string& analytical_solution_name, std::tuple<Args...> args1)
+                           AnalyticalFunctions<DIM> analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
   this->setVariableDepth(depth);
@@ -255,11 +232,9 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_function);
-  std::apply(
-      [dim, analytical_solution_name, this](Args... args) {
-        this->setAnalyticalSolution(dim, analytical_solution_name, args...);
-      },
-      args1);
+  std::apply([dim, analytical_solution_name, this]() {
+    this->setAnalyticalSolution(dim, analytical_solution_name);
+  });
 }
 
 /**
@@ -314,11 +289,10 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_name
  */
 template <class T, int DIM>
-template <class... Args>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const double& initial_condition_value,
-                           const std::string& analytical_solution_name, std::tuple<Args...> args1)
+                           AnalyticalFunctions<DIM> analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
   this->setVariableDepth(depth);
@@ -326,11 +300,9 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_value);
-  std::apply(
-      [dim, analytical_solution_name, this](Args... args) {
-        this->setAnalyticalSolution(dim, analytical_solution_name, args...);
-      },
-      args1);
+  std::apply([dim, analytical_solution_name, this]() {
+    this->setAnalyticalSolution(dim, analytical_solution_name);
+  });
 }
 
 /**
@@ -363,12 +335,12 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @return std::function<double(const mfem::Vector&, double)>
  */
 template <class T, int DIM>
-template <class... Args>
 std::function<double(const mfem::Vector&, double)> Variable<T, DIM>::buildAnalyticalFunction(
-    const int& dim, const std::string& analytical_function_name, Args... args) {
+    const int& dim, AnalyticalFunctions<DIM> analytical_function_name) {
   // this->ics_ = std::make_shared<AnalyticalFunctions<DIM>>();
-  std::shared_ptr<AnalyticalFunctions<DIM>> ics(new AnalyticalFunctions<DIM>);
-  return ics->getAnalyticalFunctions(analytical_function_name, args...);
+  std::shared_ptr<AnalyticalFunctions<DIM>> ics(
+      new AnalyticalFunctions<DIM>(analytical_function_name));
+  return ics->getFunction();
 }
 
 /**
@@ -377,11 +349,9 @@ std::function<double(const mfem::Vector&, double)> Variable<T, DIM>::buildAnalyt
  * @param initial_condition_name
  */
 template <class T, int DIM>
-template <class... Args>
 void Variable<T, DIM>::setInitialCondition(const int& dim,
-                                           const std::string& initial_condition_name,
-                                           Args... args) {
-  auto icf = this->buildAnalyticalFunction(dim, initial_condition_name, args...);
+                                           AnalyticalFunctions<DIM> initial_condition_name) {
+  auto icf = this->buildAnalyticalFunction(dim, initial_condition_name);
   mfem::FunctionCoefficient ic_fc(icf);
   this->uh_.ProjectCoefficient(ic_fc);
   this->uh_.GetTrueDofs(this->unk_);
@@ -421,12 +391,10 @@ void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value
  * @param analytical_solution_name
  */
 template <class T, int DIM>
-template <class... Args>
 void Variable<T, DIM>::setAnalyticalSolution(const int& dim,
-                                             const std::string& analytical_solution_name,
-                                             Args... args) {
+                                             AnalyticalFunctions<DIM> analytical_solution_name) {
   this->analytical_solution_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
-      this->buildAnalyticalFunction(dim, analytical_solution_name, args...));
+      this->buildAnalyticalFunction(dim, analytical_solution_name));
 }
 
 /**

@@ -20,6 +20,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
@@ -28,10 +29,10 @@
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
+#include "Solvers/UtilsForSolvers.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/PhaseFieldConstants.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForSolvers.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"

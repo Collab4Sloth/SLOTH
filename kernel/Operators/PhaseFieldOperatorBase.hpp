@@ -20,6 +20,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
@@ -29,11 +30,11 @@
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
+#include "Solvers/UtilsForSolvers.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/AnalyticalFunctions.hpp"
 #include "Utils/PhaseFieldConstants.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForSolvers.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"
@@ -73,6 +74,7 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
 
   BoundaryConditions<T, DIM> *bcs_;
   Variables<T, DIM> vars_;
+  Variables<T, DIM> auxvars_;
 
   mfem::NewtonSolver newton_solver_;
   /** Nonlinear operator defining the reduced backward Euler equation for the
@@ -91,11 +93,15 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
  public:
   PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
                          Variables<T, DIM> &vars);
-
-  template <typename... Args>
   PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                         Variables<T, DIM> &vars, const std::string &source_term_name,
-                         Args... args);
+                         Variables<T, DIM> &vars, Variables<T, DIM> &auxvars);
+
+  PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
+                         Variables<T, DIM> &vars, AnalyticalFunctions<DIM> source_term_name);
+
+  PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
+                         Variables<T, DIM> &vars, Variables<T, DIM> &auxvars,
+                         AnalyticalFunctions<DIM> source_term_name);
 
   virtual void Mult(const mfem::Vector &u, mfem::Vector &du_dt) const;
   /** Solve the Backward-Euler equation: k = f(u + dt*k, t), for the unknown k.
@@ -121,12 +127,48 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
+
 /**
- * @brief Construct a new Phase Field Operator:: Phase Field Operator object
+ * @brief Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
+ * Base object
  *
- * @param fespace Finite Element space
- * @param params list of Parameters
- * @param u unknown vector
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param params
+ * @param vars
+ * @param auxvars
+ */
+template <class T, int DIM, class NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial,
+                                                             const Parameters &params,
+                                                             Variables<T, DIM> &vars,
+                                                             Variables<T, DIM> &auxvars)
+    : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
+      M(NULL),
+      N(NULL),
+      vars_(vars),
+      auxvars_(auxvars),
+      current_dt_(0.0),
+      z(height) {
+  this->fespace_ = spatial->get_finite_element_space();
+  this->omega_ = params.get_parameter_value("omega");
+  this->lambda_ = params.get_parameter_value("lambda");
+  this->mobility_coeff_ = params.get_parameter_value("mobility");
+  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
+}
+
+/**
+ * @brief Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
+ * Base object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param params
+ * @param vars
  */
 template <class T, int DIM, class NLFI>
 PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial,
@@ -146,34 +188,69 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretizati
 }
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
+
 /**
- * @brief Construct a new Phase Field Operator:: Phase Field Operator object
+ * @brief Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
+ * Base object
  *
- * @param fespace Finite Element space
- * @param params list of Parameters
- * @param u unknown vector
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param params
+ * @param vars
+ * @param auxvars
+ * @param source_term_name
  */
 template <class T, int DIM, class NLFI>
-template <typename... Args>
-PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial,
-                                                             const Parameters &params,
-                                                             Variables<T, DIM> &vars,
-                                                             const std::string &source_term_name,
-                                                             Args... args)
+PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
+    SpatialDiscretization<T, DIM> *spatial, const Parameters &params, Variables<T, DIM> &vars,
+    Variables<T, DIM> &auxvars, AnalyticalFunctions<DIM> source_term_name)
     : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
       M(NULL),
       N(NULL),
       vars_(vars),
+      auxvars_(auxvars),
       current_dt_(0.0),
-      z(height),
-      source_term_name_(source_term_name) {
+      z(height) {
   this->fespace_ = spatial->get_finite_element_space();
   this->omega_ = params.get_parameter_value("omega");
   this->lambda_ = params.get_parameter_value("lambda");
   this->mobility_coeff_ = params.get_parameter_value("mobility");
   this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
-  AnalyticalFunctions<DIM> source_func;
-  this->src_func_ = source_func.getAnalyticalFunctions(this->source_term_name_, args...);
+  this->src_func_ = source_term_name.getFunction();
+
+  // auto &vv = vars.get_variable("phi");
+  // this->initialize(vv);
+}
+
+/**
+ * @brief Construct a new Phase Field Operator:: Phase Field Operator object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param params
+ * @param vars
+ * @param source_term_name
+ */
+template <class T, int DIM, class NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
+    SpatialDiscretization<T, DIM> *spatial, const Parameters &params, Variables<T, DIM> &vars,
+    AnalyticalFunctions<DIM> source_term_name)
+    : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
+      M(NULL),
+      N(NULL),
+      vars_(vars),
+      current_dt_(0.0),
+      z(height) {
+  this->fespace_ = spatial->get_finite_element_space();
+  this->omega_ = params.get_parameter_value("omega");
+  this->lambda_ = params.get_parameter_value("lambda");
+  this->mobility_coeff_ = params.get_parameter_value("mobility");
+  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
+  this->src_func_ = source_term_name.getFunction();
 
   // auto &vv = vars.get_variable("phi");
   // this->initialize(vv);
@@ -283,7 +360,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
   N->Mult(v, z);
 
   // Source term
-  if (!this->source_term_name_.empty()) {
+  if (!(this->src_func_ == nullptr)) {
     mfem::Vector source_term;
     this->get_source_term(source_term);
     z -= source_term;
@@ -317,7 +394,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
 
   // Source term
   mfem::Vector source_term;
-  if (!this->source_term_name_.empty()) {
+  if (!(this->src_func_ == nullptr)) {
     this->get_source_term(source_term);
   }
 
@@ -389,6 +466,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_
   RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
   RHSS->Assemble();
   source_term = *RHSS.get();
+  source_term.Print();
 }
 
 /**
