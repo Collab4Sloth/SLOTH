@@ -1,6 +1,6 @@
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Optim")
+  set(CMAKE_BUILD_TYPE "Release")
 endif()
 
 set(WARNINGS " -Wall  -Wextra -Wno-deprecated -Wparentheses  -Wreturn-type  -Wmissing-declarations  -fmessage-length=0  -Wunused  -Wfatal-errors  -Wpointer-arith  -Wcast-align  -Wwrite-strings  -Wctor-dtor-privacy  -Wnon-virtual-dtor  -Woverloaded-virtual -Wfloat-equal  -Wno-endif-labels  -Wsign-compare  -Wmissing-format-attribute  -Wno-multichar  -Wno-deprecated-declarations  -Wpacked  -Wredundant-decls  -Wdisabled-optimization  -Wunknown-pragmas  -Wundef  -Wreorder")
@@ -85,7 +85,7 @@ function(create_test exe_name test_name test_will_fail)
     set_target_properties(${CURRENT_EXE} PROPERTIES LINK_FLAGS ${COVERAGE_OPTIONS})
 
   ELSE()
-    message("Default build")
+    message("Default build : Release ")
   ENDIF()
 
   install(TARGETS ${CURRENT_EXE})

@@ -35,6 +35,7 @@
 #include "Utils/AnalyticalFunctions.hpp"
 #include "Utils/PhaseFieldConstants.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/UtilsForDebug.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"
@@ -400,7 +401,11 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
 
   dv_dt = v;
   dv_dt *= (1. / dt);
+  // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
   this->newton_solver_.Mult(source_term, dv_dt);
+  delete J_solver;
+  // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : after Newton Mult");
+
   dv_dt.SetSubVector(this->ess_tdof_list_, 0.0);  // pour  Dirichlet ... uniquement?
   // std::cout << " PhaseFieldOperatorBase this->newton_solver_->Mult " << std::endl;
 
