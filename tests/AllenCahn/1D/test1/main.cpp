@@ -1,10 +1,12 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file main.cpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief 1D AllenCahn problem along a radius
+ * @version 0.1
+ * @date 2024-05-23
  *
- * \brief Main program for the PF-MFEM short application
- * \file main.cpp
- * \author ci230846
- * \date 11/01/2022
+ * @copyright Copyright (c) 2024
+ *
  */
 #include <iostream>
 #include <map>
@@ -54,7 +56,6 @@ int main(int argc, char* argv[]) {
   //##############################
   //    Boundary conditions     //
   //##############################
-  //   // 1D _x
   auto boundaries = {Boundary("left", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
@@ -86,7 +87,7 @@ int main(int argc, char* argv[]) {
   const auto& radius = 5.e-4;
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [center_x, a_x, radius, thickness](mfem::Vector x, double time) {
+      [center_x, a_x, radius, thickness](const mfem::Vector& x, double time) {
         const auto xx = a_x * (x[0] - center_x);
         const auto r = xx;
         const auto func = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);
@@ -94,10 +95,6 @@ int main(int argc, char* argv[]) {
       });
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
-  // auto initial_condition =
-  //     AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
-  //                              center_x, a_x, thickness, radius);
-
   auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
                                                       center_x, a_x, epsilon, radius);
   auto vars = VAR(

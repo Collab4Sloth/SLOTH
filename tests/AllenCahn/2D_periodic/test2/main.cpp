@@ -1,10 +1,12 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file main.cpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Allen-Cahn problem solved in a square with two periodic surface
+ * @version 0.1
+ * @date 2024-05-23
  *
- * \brief Main program for the PF-MFEM short application
- * \file main.cpp
- * \author ci230846
- * \date 11/01/2022
+ * @copyright Copyright (c) 2024
+ *
  */
 #include <cmath>
 #include <iostream>
@@ -16,9 +18,7 @@
 #include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Operators/ConductionOperator.hpp"
 #include "Operators/PhaseFieldOperator.hpp"
-#include "Operators/PhaseFieldOperatorMelting.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -34,11 +34,6 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  // int DIM1 = 1;
-  // mfem::OptionsParser args(argc, argv);
-  // args.AddOption(&DIM1, "-d", "--dimension", "dimension");
-  // args.ParseCheck();
-  // const int DIM = DIM1;
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
@@ -53,8 +48,6 @@ int main(int argc, char* argv[]) {
   //        Spatial Discretization           //
   //###########################################
   //###########################################
-  // SpatialDiscretization<FECollection, DIM> spatial(
-  //     "GMSH", 1, "../../../../Mesh-examples/periodic_002.msh", true);
   //##############################
   //          Meshing           //
   //##############################
@@ -63,21 +56,16 @@ int main(int argc, char* argv[]) {
   auto L = 2.e-3;
   // Create translation vectors defining the periodicity
   mfem::Vector x_translation({L, 0.0});
-  // mfem::Vector y_translation({0.0, L});
   std::vector<mfem::Vector> translations = {x_translation};
   auto refinement_level = 0;
   SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1, refinement_level,
                                                    std::make_tuple(NN, NN, L, L), translations);
 
-  // // spatial.make_periodic_mesh(translations);
   //##############################
   //    Boundary conditions     //
   //##############################
-  // 2D y
-  //    |_x
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Periodic", 0.),
                      Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Periodic", 0.)};
-  // auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("upper", 2, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
   //###########################################
@@ -88,7 +76,6 @@ int main(int argc, char* argv[]) {
   //####################
   //    parameters    //
   //####################
-  // Cahn number
   const auto& epsilon(3.e-4);
   // Two-phase mobility
   const auto& mob(5.e-5);
@@ -110,8 +97,8 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
-  auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+
+  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
   //####################
   //    operators     //
   //####################
@@ -123,10 +110,10 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const std::string& main_folder_path = "Paraview";
-  const std::string& calculation_path = "EulerImplicit";
+  const std::string& calculation_path = "MainPST";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
-  auto pst = PST(main_folder_path, calculation_path, &spatial, frequency, level_of_detail);
+  auto pst = PST("Paraview", "MainPST", &spatial, frequency, level_of_detail);
 
   //###########################################
   //###########################################

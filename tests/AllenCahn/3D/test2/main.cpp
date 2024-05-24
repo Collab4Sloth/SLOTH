@@ -1,10 +1,12 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file main.cpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Allen-Cahn problem solved in 3D piece of pellet fragment
+ * @version 0.1
+ * @date 2024-05-23
  *
- * \brief Main program for the PF-MFEM short application
- * \file main.cpp
- * \author ci230846
- * \date 11/01/2022
+ * @copyright Copyright (c) 2024
+ *
  */
 #include <iostream>
 #include <map>
@@ -15,7 +17,6 @@
 #include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Integrators/AllenCahnMeltingNLFormIntegrator.hpp"
-#include "Operators/ConductionOperator.hpp"
 #include "Operators/PhaseFieldOperatorMelting.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
@@ -57,8 +58,6 @@ int main(int argc, char* argv[]) {
   //##############################
   //    Boundary conditions     //
   //##############################
-  // 2D y
-  //    |_x
   auto boundaries = {
       Boundary("InterPelletPlane", 1, "Neumann", 0.), Boundary("MidPelletPlane", 2, "Neumann", 0.),
       Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 4, "Neumann", 0.),
@@ -104,12 +103,9 @@ int main(int argc, char* argv[]) {
   auto initial_condition =
       AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
                                center_z, a_x, a_y, a_z, thickness, radius);
-  auto analytical_solution =
-      AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
-                               center_z, a_x, a_y, a_z, epsilon, radius);
 
   auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
   //####################
   //    operators     //
   //####################
@@ -136,7 +132,7 @@ int main(int argc, char* argv[]) {
   const auto& dt = 0.25;
   auto time_params =
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt), Parameter("compute_error", true),
+                 Parameter("time_step", dt), Parameter("compute_error", false),
                  Parameter("compute_energies", true));
   auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
   time.execute();

@@ -1,10 +1,12 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file main.cpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Allen-Cahn problem solved in a square
+ * @version 0.1
+ * @date 2024-05-23
  *
- * \brief Main program for the PF-MFEM short application
- * \file main.cpp
- * \author ci230846
- * \date 11/01/2022
+ * @copyright Copyright (c) 2024
+ *
  */
 #include <iostream>
 #include <map>
@@ -15,7 +17,6 @@
 #include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Operators/ConductionOperator.hpp"
 #include "Operators/PhaseFieldOperator.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
@@ -55,8 +56,6 @@ int main(int argc, char* argv[]) {
   //##############################
   //    Boundary conditions     //
   //##############################
-  // 2D y
-  //    |_x
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Dirichlet", 1.),
                      Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
@@ -94,6 +93,7 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
+
   auto vars = VAR(
       Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
   //####################

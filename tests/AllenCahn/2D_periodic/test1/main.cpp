@@ -1,10 +1,12 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file main.cpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Allen-Cahn problem solved in a 2D periodic domain
+ * @version 0.1
+ * @date 2024-05-23
  *
- * \brief Main program for the PF-MFEM short application
- * \file main.cpp
- * \author ci230846
- * \date 11/01/2022
+ * @copyright Copyright (c) 2024
+ *
  */
 #include <cmath>
 #include <iostream>
@@ -16,9 +18,7 @@
 #include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Operators/ConductionOperator.hpp"
 #include "Operators/PhaseFieldOperator.hpp"
-#include "Operators/PhaseFieldOperatorMelting.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -30,33 +30,10 @@
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"
 
-/*!
- * \mainpage
- *
- * \tableofcontents
- * \section __quick Quick started
- * \subsection _main_sec0 Installation
- * \subsubsection __main_sub0 MFEM
- * \subsubsection __main_sub1 Post-processing tools
- *
- * \subsection _main_sec1 Development of a phase-field application?
- * A phase-field application is roughly a C++ main program composed of four parts:
- * \arg \ref __spatial "Spatial discretization"
- * \arg \ref __physical "Physical modeling"
- * \arg \ref __postprocessing "Post-processing directives"
- * \arg \ref __time "Time integration"
- *
- *
- */
 ///---------------
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  // int DIM1 = 1;
-  // mfem::OptionsParser args(argc, argv);
-  // args.AddOption(&DIM1, "-d", "--dimension", "dimension");
-  // args.ParseCheck();
-  // const int DIM = DIM1;
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::F, Mobility::Constant>;
@@ -77,7 +54,7 @@ int main(int argc, char* argv[]) {
   // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, "Mesh-examples/periodic.msh");
 
   std::vector<int> vect_NN{32};                               // 16, 32, 64};
-  std::vector<std::string> vect_TimeScheme{"EulerImplicit"};  //, "EulerExplicit"};
+  std::vector<std::string> vect_TimeScheme{"EulerImplicit", "EulerExplicit"};
 
   auto refinement_level = 1;
   for (const auto& time_scheme : vect_TimeScheme) {
@@ -94,12 +71,8 @@ int main(int argc, char* argv[]) {
       //##############################
       //    Boundary conditions     //
       //##############################
-      // 2D y
-      //    |_x
       auto boundaries = {Boundary("lower", 0, "Periodic"), Boundary("right", 1, "Periodic"),
                          Boundary("upper", 2, "Periodic"), Boundary("left", 3, "Periodic")};
-      // auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("upper", 2, "Neumann",
-      // 0.)};
       auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
       //###########################################
@@ -110,9 +83,7 @@ int main(int argc, char* argv[]) {
       //####################
       //    parameters    //
       //####################
-      // Cahn number
       const auto& epsilon(0.3);
-      // Two-phase mobility
       const auto& mob(1.);
       const auto& lambda = 1.;
       const auto& omega = 1. / (epsilon * epsilon);
@@ -139,7 +110,7 @@ int main(int argc, char* argv[]) {
       //     Post-processing                     //
       //###########################################
       //###########################################
-      const std::string& main_folder_path = "Paraview_4";
+      const std::string& main_folder_path = "Paraview";
       const std::string& calculation_path = time_scheme + "_" + std::to_string(NN);
       const auto& level_of_detail = 1;
       const auto& frequency = 1;

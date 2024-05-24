@@ -1,31 +1,32 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file main.cpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Allen-Cahn problem solved in a cube
+ * @version 0.1
+ * @date 2024-05-23
  *
- * \brief Main program for the PF-MFEM short application
- * \file main.cpp
- * \author ci230846
- * \date 11/01/2022
+ * @copyright Copyright (c) 2024
+ *
  */
 #include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
 
-#include <BCs/BoundaryConditions.hpp>
-#include <Coefficients/AnalyticalFunctions.hpp>
-#include <Coefficients/EnergyCoefficient.hpp>
-#include <Integrators/AllenCahnNLFormIntegrator.hpp>
-#include <Operators/ConductionOperator.hpp>
-#include <Operators/PhaseFieldOperator.hpp>
-#include <Operators/ReducedOperator.hpp>
-#include <Parameters/Parameter.hpp>
-#include <Parameters/Parameters.hpp>
-#include <PostProcessing/postprocessing.hpp>
-#include <Spatial/Spatial.hpp>
-#include <Time/Time.hpp>
-#include <Utils/PhaseFieldOptions.hpp>
-#include <Variables/Variable.hpp>
-#include <Variables/Variables.hpp>
+#include "BCs/BoundaryConditions.hpp"
+#include "Coefficients/AnalyticalFunctions.hpp"
+#include "Coefficients/EnergyCoefficient.hpp"
+#include "Integrators/AllenCahnNLFormIntegrator.hpp"
+#include "Operators/PhaseFieldOperator.hpp"
+#include "Operators/ReducedOperator.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Parameters/Parameters.hpp"
+#include "PostProcessing/postprocessing.hpp"
+#include "Spatial/Spatial.hpp"
+#include "Time/Time.hpp"
+#include "Utils/PhaseFieldOptions.hpp"
+#include "Variables/Variable.hpp"
+#include "Variables/Variables.hpp"
 #include "mfem.hpp"
 
 ///---------------
@@ -55,9 +56,6 @@ int main(int argc, char* argv[]) {
   //##############################
   //    Boundary conditions     //
   //##############################
-  //   // 3D y
-  //   //    |_x
-  //   //    oz
   auto boundaries = {Boundary("rear", 0, "Neumann", 0.),    Boundary("lower", 1, "Neumann", 0.),
                      Boundary("right", 2, "Dirichlet", 1.), Boundary("upper", 3, "Neumann", 0.),
                      Boundary("left", 4, "Dirichlet", 0.),  Boundary("front", 5, "Neumann", 0.)};
@@ -128,7 +126,8 @@ int main(int argc, char* argv[]) {
   const auto& dt = 0.25;
   auto time_params =
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt), Parameter("compute_error", true));
+                 Parameter("time_step", dt), Parameter("compute_error", true),
+                 Parameter("compute_energies", true));
   auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
   time.execute();
   return 0;
