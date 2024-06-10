@@ -19,6 +19,7 @@
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"
 
+
 template <class PST, class OPE, class VAR>
 class TimeDiscretization {
  private:
@@ -156,12 +157,20 @@ void TimeDiscretization<PST, OPE, VAR>::set_options(const Parameters& params) {
  */
 template <class PST, class OPE, class VAR>
 void TimeDiscretization<PST, OPE, VAR>::initialize() {
+  Timers timer_initialize("TimeDiscretization::initialize");
+  UtilsForOutput::getInstance().get_indentation();
+  timer_initialize.start();
+
   // this->oper_.SetTime(this->initial_time_);
   this->oper_.initialize(this->initial_time_);
   // Call before the first call to step() or when the time-step is restarted
   this->ode_solver_->Init(this->oper_);
   // Save at initial time
   this->pst_.save_variables(this->variables_, 0, this->initial_time_);
+
+  timer_initialize.stop();
+  UtilsForOutput::getInstance().update_timer("TimeDiscretization::initialize",timer_initialize);
+  UtilsForOutput::getInstance().get_lose_indentation("TimeDiscretization::initialize");
 }
 
 /**
@@ -176,7 +185,10 @@ double TimeDiscretization<PST, OPE, VAR>::compute_real_time_step(const double& c
     this->last_step_ = true;
     dt_real = this->final_time_ - current_time;
   }
+  
   return dt_real;
+
+  
 }
 
 /**
@@ -185,6 +197,12 @@ double TimeDiscretization<PST, OPE, VAR>::compute_real_time_step(const double& c
  */
 template <class PST, class OPE, class VAR>
 void TimeDiscretization<PST, OPE, VAR>::execute() {
+  //------Start profiling-------------------------;
+  Timers timer_execute("TimeDiscretization::execute");
+  UtilsForOutput::getInstance().get_indentation();
+  timer_execute.start();
+  //------------------------------------------------
+
   // Initialization
   this->initialize();
   // Variable& var2 = variables_.getIVariable(0);
@@ -200,6 +218,8 @@ void TimeDiscretization<PST, OPE, VAR>::execute() {
   //=============================================
   //           loop over time-step
   //=============================================
+
+
   for (auto iter = 1; !this->last_step_; iter++) {
     //------------
     // Time-step
@@ -212,6 +232,7 @@ void TimeDiscretization<PST, OPE, VAR>::execute() {
     // TODO(cci) : passer le block vector
 
     this->ode_solver_->Step(unk, current_time, current_time_step);
+
     //-----------------
     // Update solution
     //-----------------
@@ -220,18 +241,26 @@ void TimeDiscretization<PST, OPE, VAR>::execute() {
     var.update(unk);
 
     //---------------------
-    // Extra calculations
+    // Extra calculation
     //---------------------
     // oper.SetParameters(unk);
+
+    
     if (this->compute_energies_) {
       this->oper_.ComputeEnergies(std::make_tuple(iter, current_time_step, current_time), unk);
     }
+    
+    
+
     if (this->compute_error_) {
+
       auto solution_func = this->analytical_solution_.get();
 
       this->oper_.ComputeError(std::make_tuple(iter, current_time_step, current_time), unk,
                                *solution_func);
+      
     }
+    
     //-------------------
     // Visualization
     //-------------------
@@ -239,16 +268,27 @@ void TimeDiscretization<PST, OPE, VAR>::execute() {
       this->pst_.save_variables(this->variables_, iter, current_time);
     }
   }
+  
+
   if (this->compute_error_) {
     this->pst_.export_csv("error.csv", this->oper_.get_l2_error());
   }
+
+  
+  
   if (this->compute_energies_) {
     this->pst_.export_csv("energy_density.csv", this->oper_.get_energy_density());
     this->pst_.export_csv("energy_interface.csv", this->oper_.get_energy_interface());
   }
+  
   //=============================================
   //          end of loop over time-step
   //=============================================
+
+  timer_execute.stop();
+  UtilsForOutput::getInstance().update_timer("TimeDiscretization::execute",timer_execute);
+  UtilsForOutput::getInstance().get_lose_indentation("TimeDiscretization::execute");
+  
 }
 
 /**

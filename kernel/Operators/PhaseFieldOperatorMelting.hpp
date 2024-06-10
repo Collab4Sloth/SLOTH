@@ -82,11 +82,23 @@ PhaseFieldOperatorMelting<T, DIM, NLFI>::PhaseFieldOperatorMelting(
 template <class T, int DIM, class NLFI>
 NLFI *PhaseFieldOperatorMelting<T, DIM, NLFI>::set_nlfi_ptr(const double dt,
                                                             const mfem::Vector &u) {
+  
+  //------Start profiling-------------------------
+  Timers timer_set_nlfi_ptr("set_nlfi_ptr");
+  timer_set_nlfi_ptr.start();
+  //------------------------------------------------
+
   mfem::GridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
   NLFI *nlfi_ptr =
       new NLFI(un, this->omega_, this->lambda_, this->mobility_coeff_, this->phase_change_coeff_);
+  
+  // save the results of profiling 
+  timer_set_nlfi_ptr.stop();
+  UtilsForOutput::getInstance().update_timer("set_nlfi_ptr",timer_set_nlfi_ptr );
+  //------------------------------------------------
+  
   return nlfi_ptr;
 }
 

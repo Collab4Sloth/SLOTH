@@ -33,6 +33,26 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  // Initialize MPI
+  MPI_Init(&argc , &argv);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+//   ------Start profiling-------------------------
+  Output output2D1("output2D1");
+
+  //--Enable profiling--
+  UtilsForOutput::getInstance().get_enableOutput();
+  
+  //--Disable profiling--
+  // UtilsForOutput::getInstance().get_disableOutput();
+
+  Timers timer_AllenCahn2Dtest1("timer_AllenCahn2Dtest1");
+  // Timers timer_execute("execute");
+  timer_AllenCahn2Dtest1.start();
+  //---------------------------------------------
+
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
@@ -50,7 +70,7 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
-  auto refinement_level = 0;
+  auto refinement_level = 3;
   SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
       "InlineSquareWithQuadrangles", 1, refinement_level, std::make_tuple(30, 30, 1.e-3, 1.e-3));
   //##############################
@@ -118,13 +138,26 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 1.;
+  const auto& t_final = 100.;
   const auto& dt = 0.25;
   auto time_params =
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
                  Parameter("time_step", dt), Parameter("compute_error", true),
                  Parameter("compute_energies", true));
   auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
+
   time.execute();
+
+
+  //---------End Profiling------------------
+    timer_AllenCahn2Dtest1.stop();
+    UtilsForOutput::getInstance().update_timer("timer_AllenCahn2Dtest1", timer_AllenCahn2Dtest1);
+    UtilsForOutput::getInstance().print_timetable();
+    UtilsForOutput::getInstance().savefiles();
+  //----------------------------------------
+
+  // Finalize MPI
+  MPI_Finalize();
+
   return 0;
 }

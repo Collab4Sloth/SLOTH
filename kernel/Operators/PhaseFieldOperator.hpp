@@ -133,9 +133,19 @@ PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DI
  */
 template <class T, int DIM, class NLFI>
 NLFI *PhaseFieldOperator<T, DIM, NLFI>::set_nlfi_ptr(const double dt, const mfem::Vector &u) {
+  //------Start profiling-------------------------
+  Timers timer_set_nlfi_ptr("set_nlfi_ptr");
+  timer_set_nlfi_ptr.start();
+  //------------------------------------------------
+
   mfem::GridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
   NLFI *nlfi_ptr = new NLFI(un, this->omega_, this->lambda_, this->mobility_coeff_);
+
+  // save the results of profiling 
+  timer_set_nlfi_ptr.stop();
+  UtilsForOutput::getInstance().update_timer("set_nlfi_ptr",timer_set_nlfi_ptr );
+  //------------------------------------------------
   return nlfi_ptr;
 }
 

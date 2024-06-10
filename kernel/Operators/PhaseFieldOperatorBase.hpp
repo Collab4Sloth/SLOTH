@@ -71,7 +71,7 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
   mfem::LinearForm *RHS;
   mfem::NonlinearForm *N;
   mfem::Solver *J_solver;  // Solver for the Jacobian solve in the Newton method
-  mfem::Solver *J_prec;    // Preconditioner for the Jacobian solve in the Newton method
+  mfem::Solver *J_prec;  // Preconditioner for the Jacobian solve in the Newton method
 
   BoundaryConditions<T, DIM> *bcs_;
   Variables<T, DIM> vars_;
@@ -301,6 +301,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
   mfem::GridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
+  // Print number of degres of freedom
+  std::cout << "number of DoFs : " << u.Size() << std::endl;
+
   NLFI *nlfi_ptr = set_nlfi_ptr(dt, u);
   N->AddDomainIntegrator(nlfi_ptr);
   N->SetEssentialTrueDofs(this->ess_tdof_list_);
@@ -315,7 +318,23 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
       NewtonDefaultConstant::iterative_mode, NewtonDefaultConstant::iter_max,
       NewtonDefaultConstant::rel_tol, NewtonDefaultConstant::abs_tol);
   // TODO(ci230846) : cette partie devra etre generalisee pour un solveur iteratif
-  J_solver = new mfem::UMFPackSolver;
+
+  //--Direct solver--
+  // J_solver = new mfem::UMFPackSolver;
+
+  //--iterative solver--
+  J_solver = new mfem::BiCGSTABSolver;
+  // J_solver = new mfem::CGSolver;
+  // J_solver = new mfem::GMRESSolver;
+
+  //--Direct parallel solver--
+  // J_solver = new mfem::HypreILU;
+  // J_solver = new mfem::HyprePCG;
+
+  // J_solver = new mfem::CGSolver(MPI_COMM_WORLD);
+  // J_solver = new mfem::SuperLUSolver(MPI_COMM_WORLD); // problème de liaison de lib dans
+  // cmakelists
+
   this->ut_solver_.BuildSolver(this->newton_solver_, *J_solver, *reduced_oper);
 }
 
@@ -337,6 +356,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(const double dt
   M->Assemble(0);
   mfem::SparseMatrix tmp;
   M->FormSystemMatrix(this->ess_tdof_list_, Mmat);
+
   this->ut_solver_.SetSolverParameters(
       M_solver, MassDefaultConstant::print_level, MassDefaultConstant::iterative_mode,
       MassDefaultConstant::iter_max, MassDefaultConstant::rel_tol, MassDefaultConstant::abs_tol);
@@ -381,6 +401,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const mfem::Vector &u,
                                                          mfem::Vector &du_dt) {
+  Timers timer_ImplicitSolve("PhaseFieldOperatorBase::ImplicitSolve");
+  timer_ImplicitSolve.start();
+
   const auto sc = height;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
@@ -410,6 +433,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   // std::cout << " PhaseFieldOperatorBase this->newton_solver_->Mult " << std::endl;
 
   MFEM_VERIFY(this->newton_solver_.GetConverged(), "Nonlinear solver did not converge.");
+
+  timer_ImplicitSolve.stop();
+  UtilsForOutput::getInstance().update_timer("PhaseFieldOperatorBase::ImplicitSolve",timer_ImplicitSolve);
 }
 
 /**
@@ -421,21 +447,41 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::ComputeEnergies(
     const std::tuple<int, double, double> &iter, const mfem::Vector &u) {
+  //------Start profiling-------------------------
+  Timers timer_ComputeEnergies("PhaseFieldOperatorBase::ComputeEnergies");
+  timer_ComputeEnergies.start();
+  //------------------------------------------------
+
   mfem::GridFunction un_gf(this->fespace_);
+
   un_gf.SetFromTrueDofs(u);
+
   mfem::GridFunction gf(this->fespace_);
   EnergyCoefficient g(&un_gf, 0.5 * this->lambda_, this->omega_);
+
   gf.ProjectCoefficient(g);
+
   mfem::GridFunction sigf(this->fespace_);
   EnergyCoefficient sig(&un_gf, this->lambda_, 0.);
+
   sigf.ProjectCoefficient(sig);
 
-  // Calcul de l'intégrale de l'objet FunctionCoefficient sur le domaine
   mfem::ConstantCoefficient zero(0.);
+
   const auto energy = gf.ComputeL1Error(zero);
+
   this->energy_density_.try_emplace(iter, energy);
+
   const auto interfacial_energy = sigf.ComputeL1Error(zero);
+
   this->energy_interface_.try_emplace(iter, interfacial_energy);
+
+  //-------End profiling----------------------
+  timer_ComputeEnergies.stop();
+  UtilsForOutput::getInstance().update_timer("PhaseFieldOperatorBase::ComputeEnergies", timer_ComputeEnergies);
+  //-----------------------------------------
+
+
 }
 
 /**
@@ -448,12 +494,45 @@ template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::ComputeError(
     const std::tuple<int, double, double> &iter, const mfem::Vector &u,
     std::function<double(const mfem::Vector &, double)> solution_func) {
+
+  Timers timer_ComputeError("PhaseFieldOperatorBase::ComputeError");
+  timer_ComputeError.start();
+
+
   mfem::GridFunction gf(this->fespace_);
   gf.SetFromTrueDofs(u);
   mfem::FunctionCoefficient solution_coef(solution_func);
   solution_coef.SetTime(this->GetTime());
   const auto error = gf.ComputeL2Error(solution_coef);
   this->error_l2_.try_emplace(iter, error);
+
+  //--Print the number of iterations and the residual norm for the Kyrlov solvers--
+  // if (J_solver->GetConverged()) {
+  //   std::cout << "J_solver converged in " << J_solver->GetNumIterations()
+  //             << " iterations with a residual norm of " << J_solver->GetFinalNorm() << ".\n";
+  // }
+
+  // else {
+  //   std::cout << "J_solver did not converge in " << J_solver->GetNumIterations()
+  //             << " iterations. Residual norm is " << J_solver->GetFinalNorm() << ".\n";
+
+  //   std::ofstream file("residu.csv", std::ios::app);
+  //   if (std::get<0>(iter) == 1) {
+  //     std::ofstream file("residu.csv",
+  //                        std::ios::out | std::ios::trunc);  // Ouvrir le fichier en mode ajout
+  //   }
+
+  //   if (file.is_open()) {
+  //     file << std::get<0>(iter) << " " << J_solver->GetFinalNorm()
+  //          << "\n";  // Écrire les données dans le fichier
+  //     file.close();  // Fermer le fichier
+  //   } else {
+  //     std::cerr << "Impossible d'ouvrir le fichier residu.csv." << std::endl;
+  //   }
+  // }
+
+  timer_ComputeError.stop();
+  UtilsForOutput::getInstance().update_timer("PhaseFieldOperatorBase::ComputeError", timer_ComputeError);
 }
 
 /**

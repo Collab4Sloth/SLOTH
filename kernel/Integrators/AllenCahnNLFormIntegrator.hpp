@@ -10,10 +10,14 @@
  */
 #include <algorithm>
 #include <tuple>
+
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseFieldMobilities.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
+#include "Profiling/UtilsforOutput.hpp"
+#include "Profiling/output.hpp"
+#include "Profiling/timers.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
 #include "mfem.hpp"
 
@@ -83,6 +87,17 @@ template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials
 void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementVector(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::Vector& elvect) {
+  //-------------------------------
+  //------- PROFILING
+  //-------------------------------
+  Timers timer_CalcAdjugate("CalcAdjugate");
+  Timers timer_MultTranspose("MultTranspose");
+  Timers timer_VMult("VMult");
+  Timers timer_AddMult("AddMult");
+  Timers timer_AssembleElementVector("AssembleElementVector");
+  //-------------------------------
+  timer_AssembleElementVector.start();
+
   int nd = el.GetDof();
   int dim = el.GetDim();
   int spaceDim = Tr.GetSpaceDim();
@@ -110,10 +125,20 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementVector(
     const auto MOB = this->mobility_function_.getMobilityFunction(un);
     const auto Mphi = MOB(this->mob_);
 
+    //--------------------------
+    timer_CalcAdjugate.start();
     CalcAdjugate(Tr.Jacobian(), invdfdx);  // invdfdx = adj(J)
+    timer_CalcAdjugate.stop();
+    UtilsForOutput::getInstance().update_timer("CalcAdjugate", timer_CalcAdjugate);
+    //--------------------------
 
+    //--------------------------
+    timer_MultTranspose.start();
     dshape.MultTranspose(elfun, vec);
     invdfdx.MultTranspose(vec, pointflux);
+    timer_MultTranspose.stop();
+    UtilsForOutput::getInstance().update_timer("MultTranspose", timer_MultTranspose);
+    //--------------------------
 
     // Energy contribution + source
     const auto energy = this->omega * Wprime;
@@ -127,9 +152,27 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementVector(
     double w;
     w = Mphi * ip.weight * this->lambda / Tr.Weight();
     pointflux *= w;
+
+    //--------------------------
+    timer_VMult.start();
     invdfdx.Mult(pointflux, vec);
+    timer_VMult.stop();
+    UtilsForOutput::getInstance().update_timer("VMult", timer_VMult);
+    //--------------------------
+
+    //--------------------------
+    timer_AddMult.start();
     dshape.AddMult(vec, elvect);
+    timer_AddMult.stop();
+    UtilsForOutput::getInstance().update_timer("AddMult", timer_AddMult);
+    //--------------------------
   }
+
+  //--------------------------
+  // save the results of profiling
+  timer_AssembleElementVector.stop();
+  UtilsForOutput::getInstance().update_timer("AssembleElementVector", timer_AssembleElementVector);
+  //--------------------------
 }
 
 /**
@@ -147,6 +190,14 @@ template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials
 void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementGrad(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::DenseMatrix& elmat) {
+  //------Start profiling-------------------------
+  Timers timer_AssembleElementGrad("AssembleElementGrad");
+  Timers timer_AddMult_a_VVt("AddMult_a_VVt");
+  Timers timer_AddMult_a_AAt("AddMult_a_AAt");
+  Timers timer_Mult("Mult");
+  timer_AssembleElementGrad.start();
+  //------------------------------------------------
+
   int nd = el.GetDof();
   int dim = el.GetDim();
   int spaceDim = Tr.GetSpaceDim();
@@ -185,15 +236,38 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementGrad(
     w *= Mphi * this->lambda;
 
     // dshapedxt =  det(J)J-1 dshape
+    //--------------------------
+    timer_Mult.start();
     Mult(dshape, Tr.AdjugateJacobian(), dshapedxt);
+    timer_Mult.stop();
+    UtilsForOutput::getInstance().update_timer("Mult", timer_Mult);
+    //--------------------------
+
     // elmat += w * dshapedxt * dshapedxt^T
+    //--------------------------
+    timer_AddMult_a_AAt.start();
     AddMult_a_AAt(w, dshapedxt, elmat);
+    timer_AddMult_a_AAt.stop();
+    UtilsForOutput::getInstance().update_timer("AddMult_a_AAt", timer_AddMult_a_AAt);
+    //--------------------------
 
     //  (this->omega * secondDerivativedoubleWellPotential(elfun * shape) +
     //   this->alpha * secondDerivativeInterpolationPotential(elfun * shape)) *
     // Compute w'(u)*(du,v), v is shape function
     double fun_val = (Mphi * this->omega * Wsecond) * ip.weight * Tr.Weight();  // w'(u)
+
     // elmat += fun_val * shape * shape^T
+
+    //--------------------------
+    timer_AddMult_a_VVt.start();
     AddMult_a_VVt(fun_val, shape, elmat);  // w'(u)*(du, v)
+    timer_AddMult_a_VVt.stop();
+    UtilsForOutput::getInstance().update_timer("AddMult_a_VVt", timer_AddMult_a_VVt);
+    //--------------------------
   }
+
+  // save the results of profiling
+  timer_AssembleElementGrad.stop();
+  UtilsForOutput::getInstance().update_timer("AssembleElementGrad", timer_AssembleElementGrad);
+  //------------------------------------------------
 }

@@ -33,6 +33,19 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  //------Start profiling-------------------------
+  Output output3D2("output3D2");
+  
+  //--Enable profiling--
+  UtilsForOutput::getInstance().get_enableOutput();
+  
+  //--Disable profiling--
+  // UtilsForOutput::getInstance().get_disableOutput();
+  
+  Timers timer_AllenCahn3Dtest2("timer_AllenCahn3Dtest2");
+  Timers timer_execute("execute");
+  timer_AllenCahn3Dtest2.start();
+  //----------------------------------------------- 
   const auto DIM = 3;
   using NLFI =
       AllenCahnMeltingNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
@@ -135,6 +148,20 @@ int main(int argc, char* argv[]) {
                  Parameter("time_step", dt), Parameter("compute_error", false),
                  Parameter("compute_energies", true));
   auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
+  
+  //profiling execute()
+  timer_execute.start();
+
   time.execute();
+
+  timer_execute.stop();
+  UtilsForOutput::getInstance().update_timer("execute", timer_execute);
+
+  //-------End profiling----------------------
+  timer_AllenCahn3Dtest2.stop();
+  UtilsForOutput::getInstance().update_timer("timer_AllenCahn3Dtest2", timer_AllenCahn3Dtest2);
+  UtilsForOutput::getInstance().print_timetable();
+  UtilsForOutput::getInstance().savefiles();
+  //-----------------------------------------------------
   return 0;
 }

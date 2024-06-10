@@ -33,6 +33,29 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+
+  // Initialize MPI
+  MPI_Init(&argc , &argv);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  //---------Start Profiling------------------
+  Output output1D("output1D");
+
+  //--Enable profiling--
+  UtilsForOutput::getInstance().get_enableOutput();
+  
+  //--Disable profiling--
+  // UtilsForOutput::getInstance().get_disableOutput();
+  
+
+  Timers timer_AllenCahn1Dtest1("AllenCahn1Dtest1");
+  Timers timer_OPE("OPE");
+  Timers timer_execute("execute");
+  timer_AllenCahn1Dtest1.start();
+  //---------------------------------------
+
   const auto DIM = 1;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
@@ -102,7 +125,15 @@ int main(int argc, char* argv[]) {
   //####################
   //    operators     //
   //####################
+
+  //------profiling OPE---------
+
+  timer_OPE.start();
+
   OPE oper(&spatial, params, vars);
+
+  timer_OPE.stop();
+  UtilsForOutput::getInstance().update_timer("OPE", timer_OPE);
 
   //###########################################
   //###########################################
@@ -121,13 +152,38 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 100.;
+  const auto& t_final = 100.; //100.
   const auto& dt = 0.25;
   auto time_params =
       Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
                  Parameter("time_step", dt), Parameter("compute_error", true),
                  Parameter("compute_energies", true));
   auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
+
+  //--profiling execute()---
+  timer_execute.start();
+
   time.execute();
+  
+  timer_execute.stop();
+  UtilsForOutput::getInstance().update_timer("execute", timer_execute);
+
+  //---------End Profiling------------------
+  timer_AllenCahn1Dtest1.stop();
+  UtilsForOutput::getInstance().update_timer("AllenCahn1Dtest1", timer_AllenCahn1Dtest1);
+  UtilsForOutput::getInstance().print_timetable();
+  UtilsForOutput::getInstance().savefiles();
+  //----------------------------------------
+
+
+
+
+ 
+
+
+
+  // Finalize MPI
+  MPI_Finalize();
+  
   return 0;
 }

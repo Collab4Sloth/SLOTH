@@ -34,6 +34,30 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+   // Initialize MPI
+  MPI_Init(&argc , &argv);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  //---------Start Profiling------------------
+  Output output2D2P("output2D2P");
+  
+  //--Enable profiling--
+  UtilsForOutput::getInstance().get_enableOutput();
+  
+  //--Disable profiling--
+  // UtilsForOutput::getInstance().get_disableOutput();
+  
+  Timers timer_AllenCahn2Dtest2P("timer_AllenCahn2Dtest2P");
+  Timers timer_execute("execute");
+  timer_AllenCahn2Dtest2P.start();
+  //---------------------------------------
+  // int DIM1 = 1;
+  // mfem::OptionsParser args(argc, argv);
+  // args.AddOption(&DIM1, "-d", "--dimension", "dimension");
+  // args.ParseCheck();
+  // const int DIM = DIM1;
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
@@ -128,6 +152,21 @@ int main(int argc, char* argv[]) {
                  Parameter("time_step", dt), Parameter("compute_error", true),
                  Parameter("compute_energies", true));
   auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
+  //profiling execute()
+  timer_execute.start();
   time.execute();
+  timer_execute.stop();
+  UtilsForOutput::getInstance().update_timer("execute", timer_execute);
+
+  //---------End Profiling------------------
+  timer_AllenCahn2Dtest2P.stop();
+  UtilsForOutput::getInstance().update_timer("timer_AllenCahn2Dtest2P", timer_AllenCahn2Dtest2P);
+  UtilsForOutput::getInstance().print_timetable();
+  UtilsForOutput::getInstance().savefiles();
+  //----------------------------------------
+
+  // Finalize MPI
+  MPI_Finalize();
+  
   return 0;
 }

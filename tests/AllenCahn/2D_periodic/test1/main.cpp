@@ -34,6 +34,27 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+
+   // Initialize MPI
+  MPI_Init(&argc , &argv);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  //------Start profiling-------------------------
+  Output output2D1P("output2D1P");
+
+  //--Enable profiling--
+  UtilsForOutput::getInstance().get_enableOutput();
+  
+  //--Disable profiling--
+  // UtilsForOutput::getInstance().get_disableOutput();
+
+  Timers timer_AllenCahn2Dtest1P("timer_AllenCahn2Dtest1P");
+  Timers timer_execute("execute");
+  timer_AllenCahn2Dtest1P.start();
+  //----------------------------------------------- 
+
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::F, Mobility::Constant>;
@@ -56,7 +77,7 @@ int main(int argc, char* argv[]) {
   std::vector<int> vect_NN{32};                               // 16, 32, 64};
   std::vector<std::string> vect_TimeScheme{"EulerImplicit", "EulerExplicit"};
 
-  auto refinement_level = 1;
+  auto refinement_level = 2;
   for (const auto& time_scheme : vect_TimeScheme) {
     for (const auto& NN : vect_NN) {
       auto L = 2. * M_PI;
@@ -129,8 +150,25 @@ int main(int argc, char* argv[]) {
                      Parameter("time_step", dt), Parameter("compute_error", true),
                      Parameter("compute_energies", true));
       auto time = TIME(time_scheme, oper, time_params, vars, pst);
+      //profiling execute()
+      timer_execute.start();
+
       time.execute();
+
+      timer_execute.stop();
+      UtilsForOutput::getInstance().update_timer("execute", timer_execute);
     }
   }
+   //---------End Profiling------------------
+    timer_AllenCahn2Dtest1P.stop();
+    UtilsForOutput::getInstance().update_timer("timer_AllenCahn2Dtest1P", timer_AllenCahn2Dtest1P);
+    UtilsForOutput::getInstance().print_timetable();
+    UtilsForOutput::getInstance().savefiles();
+  //----------------------------------------
+
+  // Finalize MPI
+  MPI_Finalize();
+
+
   return 0;
 }
