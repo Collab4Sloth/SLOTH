@@ -16,12 +16,14 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
+#include "Couplings/Coupling.hpp"
 #include "Integrators/AllenCahnMeltingNLFormIntegrator.hpp"
 #include "Operators/PhaseFieldOperatorMelting.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "PostProcessing/postprocessing.hpp"
+#include "Profiling/Profiling.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Time/Time.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
@@ -33,60 +35,58 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  //------Start profiling-------------------------
-  Output output3D2("output3D2");
-  
-  //--Enable profiling--
-  UtilsForOutput::getInstance().get_enableOutput();
-  
-  //--Disable profiling--
-  // UtilsForOutput::getInstance().get_disableOutput();
-  
-  Timers timer_AllenCahn3Dtest2("timer_AllenCahn3Dtest2");
-  Timers timer_execute("execute");
-  timer_AllenCahn3Dtest2.start();
-  //----------------------------------------------- 
+  //---------------------------------------
+  // Initialize MPI
+  //---------------------------------------
+  MPI_Init(&argc, &argv);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  //---------------------------------------
+  // Profiling
+  Profiling::getInstance().enable();
+  //---------------------------------------
   const auto DIM = 3;
-  using NLFI =
-      AllenCahnMeltingNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
-                                       ThermodynamicsPotentials::W, ThermodynamicsPotentials::H,
-                                       Mobility::Constant, PhaseChange::Constant>;
+  using NLFI = AllenCahnMeltingNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
+                                                ThermodynamicsPotentials::W, Mobility::Constant,
+                                                ThermodynamicsPotentials::H, PhaseChange::Constant>;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
   using OPE = PhaseFieldOperatorMelting<FECollection, DIM, NLFI>;
-  using TIME = TimeDiscretization<PST, OPE, VAR>;
-  //###########################################
-  //###########################################
-  //        Spatial Discretization           //
-  //###########################################
-  //###########################################
-  //##############################
-  //          Meshing           //
-  //##############################
+  using PB = Problem<OPE, VAR, PST>;
+
+  // ###########################################
+  // ###########################################
+  //         Spatial Discretization           //
+  // ###########################################
+  // ###########################################
+  // ##############################
+  //           Meshing           //
+  // ##############################
   auto refinement_level = 0;
   SpatialDiscretization<mfem::H1_FECollection, DIM> spatial("GMSH", 1, refinement_level,
                                                             "camembert3D.msh", false);
-  //##############################
-  //    Boundary conditions     //
-  //##############################
+  // ##############################
+  //     Boundary conditions     //
+  // ##############################
   auto boundaries = {
       Boundary("InterPelletPlane", 1, "Neumann", 0.), Boundary("MidPelletPlane", 2, "Neumann", 0.),
       Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 4, "Neumann", 0.),
       Boundary("ExternalSurface", 0, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
-  //###########################################
-  //###########################################
-  //           Physical models               //
-  //###########################################
-  //###########################################
-  //####################
-  //    parameters    //
-  //####################
-  // Melting factor
-  const auto& alpha(7.e3);
+  // ###########################################
+  // ###########################################
+  //            Physical models               //
+  // ###########################################
+  // ###########################################
+  // ####################
+  //     parameters    //
+  // ####################
+  //  Melting factor
+  const auto& alpha(-7.e3);
   // Interface thickness
   const auto& epsilon(5.e-4);
   // Interfacial energy
@@ -99,9 +99,9 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
                  Parameter("mobility", mob), Parameter("sigma", sigma), Parameter("lambda", lambda),
                  Parameter("omega", omega), Parameter("melting_factor", alpha));
-  //####################
-  //    variables     //
-  //####################
+  // ####################
+  //     variables     //
+  // ####################
   const auto& pellet_radius = 0.00465;
   const auto& pellet_height = 0.01;
   const auto& center_x = 0.;
@@ -117,51 +117,52 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
                                center_z, a_x, a_y, a_z, thickness, radius);
 
-  auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
-  //####################
-  //    operators     //
-  //####################
-  OPE oper(&spatial, params, vars);
+  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
 
-  //###########################################
-  //###########################################
-  //     Post-processing                     //
-  //###########################################
-  //###########################################
-  const std::string& main_folder_path = "Paraview";
-  const std::string& calculation_path = "MainPST";
+  // ###########################################
+  // ###########################################
+  //      Post-processing                     //
+  // ###########################################
+  // ###########################################
+  const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
-  auto pst = PST("Paraview", "MainPST", &spatial, frequency, level_of_detail);
+  // ####################
+  //     operators     //
+  // ####################
 
-  //###########################################
-  //###########################################
-  //           Time-integration              //
-  //###########################################
-  //###########################################
+  // Problem 1:
+  const auto crit_cvg_1 = 1.e-12;
+  OPE oper(&spatial, params, vars);
+  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
+  auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
+  PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
+
+  // Coupling 1
+  auto cc = Coupling("coupling 1 ", std::move(problem1));
+
+  // ###########################################
+  // ###########################################
+  //            Time-integration              //
+  // ###########################################
+  // ###########################################
   const auto& t_initial = 0.0;
   const auto& t_final = 0.25;
   const auto& dt = 0.25;
-  auto time_params =
-      Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt), Parameter("compute_error", false),
-                 Parameter("compute_energies", true));
-  auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
-  
-  //profiling execute()
-  timer_execute.start();
+  auto time_params = Parameters(Parameter("initial_time", t_initial),
+                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time = TimeDiscretization(time_params, std::move(cc));
 
-  time.execute();
-
-  timer_execute.stop();
-  UtilsForOutput::getInstance().update_timer("execute", timer_execute);
-
-  //-------End profiling----------------------
-  timer_AllenCahn3Dtest2.stop();
-  UtilsForOutput::getInstance().update_timer("timer_AllenCahn3Dtest2", timer_AllenCahn3Dtest2);
-  UtilsForOutput::getInstance().print_timetable();
-  UtilsForOutput::getInstance().savefiles();
-  //-----------------------------------------------------
+  // time.get_tree();
+  time.solve();
+  //---------------------------------------
+  // Profiling stop
+  //---------------------------------------
+  Profiling::getInstance().print();
+  //---------------------------------------
+  // Finalize MPI
+  //---------------------------------------
+  MPI_Finalize();
+  //---------------------------------------
   return 0;
 }

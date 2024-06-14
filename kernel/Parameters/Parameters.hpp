@@ -13,37 +13,26 @@
 #include <set>
 #include <string>
 #include <vector>
-#include "../Parameters/Parameter.hpp"
+#include <optional>
+
+#include "Parameters/Parameter.hpp"
 #pragma once
 
-/**
- * @brief Class used to manage a list of Parameter
- *
- */
 class Parameters {
  private:
   std::vector<Parameter> vect_params_;
-  double get_val(const std::string& name) const;
 
  public:
-  Parameters();
   template <class... Args>
-  explicit Parameters(const Args&... args);
+  Parameters(Args&&... args);
+  std::optional<Parameter> get_parameter(const std::string& name) const;
+  template <typename T>
+  T get_param_value_or_default(const std::string& name, T default_value) const;
+  template <typename T>
+  T get_param_value(const std::string& name) const;
 
-  void add(const Parameter& param);
-  void ListParamByName();
-  double get_parameter_value(const std::string& name) const;
-  double get_parameter_value_or_default(const std::string& name, const double& default_value) const;
-  bool get_option_value(const std::string& name) const;
-  std::map<std::string, double> getMapParameters() const;
   ~Parameters();
 };
-
-/**
- * @brief Construct a new Parameters:: Parameters object
- *
- */
-Parameters::Parameters() {}
 
 /**
  * @brief Construct a new Parameters:: Parameters object
@@ -52,103 +41,70 @@ Parameters::Parameters() {}
  * @param args
  */
 template <class... Args>
-Parameters::Parameters(const Args&... args) {
-  this->vect_params_ = std::vector<Parameter>{args...};
+Parameters::Parameters(Args&&... args) {
+  this->vect_params_ = std::vector<Parameter>{std::forward<Args>(args)...};
 }
 
 /**
- * @brief add a new parameters
+ * @brief Return the parameter associated to the given name
  *
- * @param param parameter to add
+ * @param name
+ * @return Parameter
  */
-void Parameters::add(const Parameter& param) { this->vect_params_.emplace_back(param); }
-
-/**
- * @brief get double value of a parameter by name
- *
- * @param name name of the parameter
- * @return double double value of the parameter
- */
-double Parameters::get_parameter_value(const std::string& name) const {
-  auto value = this->get_val(name);
-  const auto lowest_float = std::numeric_limits<float>::lowest();
-
-  if (value > lowest_float) {
-    return value;
-  } else {
-    throw std::runtime_error("Parameter " + name + " not found");
+std::optional<Parameter> Parameters::get_parameter(const std::string& name) const {
+  for (const auto& param : vect_params_) {
+    if (param.get_name() == name) {
+      return param;
+    }
   }
+  return std::nullopt;
 }
-
 /**
- * @brief get double value of a parameter by name if defined, or its default value
- *
- * @param name name of the parameter
- * @return double double value of the parameter
+ * @brief Return the value of the parameter associated to the given name or, use th edefault given,
+ * value
+ * @param name
+ * @param default_value
+ * @return std::variant<int, double, std::string>
  */
-double Parameters::get_parameter_value_or_default(const std::string& name,
-                                                  const double& default_value) const {
-  auto value = this->get_val(name);
-  const auto lowest_float = std::numeric_limits<float>::lowest();
-
-  if (value > lowest_float) {
-    return value;
+template <typename T>
+T Parameters::get_param_value_or_default(const std::string& name, T default_value) const {
+  auto xx = this->get_parameter(name);
+  if (xx) {
+    const Parameter& pp = xx.value();
+    try {
+      auto value = pp.get_value();
+      return std::get<T>(value);
+    } catch (const std::bad_variant_access&) {
+      std::string error_mess = name + "Invalid conversion. Please check the data.";
+      throw std::runtime_error(error_mess);
+    }
   } else {
     return default_value;
   }
 }
 
 /**
- * @brief get double value of a parameter by name
- *
- * @param name name of the parameter
- * @return double double value of the parameter
- */
-double Parameters::get_val(const std::string& name) const {
-  auto value = std::numeric_limits<double>::lowest();
-
-  for (const auto& p : this->vect_params_) {
-    auto pn = p.getName();
-    if (pn == name) {
-      value = std::get<double>(p.getValue());
-    }
-  }
-  return value;
-}
-
-/**
- * @brief  get boolean option of a parameter by name
+ * @brief Return the value of the parameter associated to the given name
  *
  * @param name
- * @return true
- * @return false
+ * @return std::variant<int, double, std::string>
  */
-bool Parameters::get_option_value(const std::string& name) const {
-  bool active_option = false;
-
-  for (const auto& p : this->vect_params_) {
-    auto pn = p.getName();
-    if (pn == name) {
-      active_option = std::get<bool>(p.getValue());
+template <typename T>
+T Parameters::get_param_value(const std::string& name) const {
+  auto xx = this->get_parameter(name);
+  if (xx) {
+    const Parameter& pp = xx.value();
+    try {
+      auto value = pp.get_value();
+      return std::get<T>(value);
+    } catch (const std::bad_variant_access&) {
+      std::string error_mess = name + " Invalid conversion. Please check the data.";
+      throw std::runtime_error(error_mess);
     }
+  } else {
+    std::string error_mess = name + "Not Found. Please check the data.";
+    throw std::runtime_error(error_mess);
   }
-
-  return active_option;
-}
-
-/**
- * @brief transform list of parameters into a map<string,double>
- *
- * @return std::map<std::string, double>
- */
-std::map<std::string, double> Parameters::getMapParameters() const {
-  std::map<std::string, double> map_par;
-  for (auto p : this->vect_params_) {
-    auto name = p.getName();
-    auto value = std::get<double>(p.getValue());
-    map_par.try_emplace(name, value);
-  }
-  return map_par;
 }
 
 /**

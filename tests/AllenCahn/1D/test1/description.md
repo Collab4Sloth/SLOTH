@@ -2,7 +2,9 @@
 
 
 ## Statement of the problem
-This example code solves the Allen-Cahn equation in a 1D domain $\Omega=[0,R]$ with $R=10^{-3}$ (inline mesh).
+This example code solves three  Allen-Cahn equations in a 1D domain $\Omega=[0,R]$ with $R=10^{-3}$ (inline mesh). 
+Each equation corresponds to a problem consider inside the same coupling. There is no interaction between the equations (just for test).
+Each equation uses a different numerical scheme.
 
 ### __Governing equation__
 Let us consider the following set of governing equations:
@@ -10,6 +12,7 @@ Let us consider the following set of governing equations:
 $$
 \frac{\partial \phi}{\partial t}=M_\phi[\nabla \cdot{} \lambda \nabla \phi -\omega W'(\phi)]\text{ in }\Omega 
 $$
+
 $$
 W(\phi)=\phi^2(1-\phi)^2
 $$
@@ -45,9 +48,9 @@ For this test, the following parameters are considered:
 
 ### __Numerical scheme__
 
-- Time marching: Euler Implicit scheme, $t\in[0,100]$, $\delta t=0.25$
+- Time marching: Euler Implicit/Euler Explicit/ RK4 schemes, $t\in[0,50]$, $\delta t=0.25$
 - Spatial discretization: uniform mesh with $N=30$ nodes 
-- Double-Well potential: implicit scheme
+- Double-Well potential: implicit/explicit/SemiImplicit scheme
 
   
 
@@ -90,3 +93,8 @@ None
 ## Intellectual Property
 
 See [About page](../../../../../about.html) 
+
+<!-- !!! note
+    Example of a note.
+!!! tip "Custom title"
+    Example tip. -->

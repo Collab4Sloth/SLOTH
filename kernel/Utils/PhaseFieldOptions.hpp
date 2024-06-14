@@ -9,8 +9,6 @@
  *
  */
 
-#ifndef UTILS_PFOPTIONS_HPP_
-#define UTILS_PFOPTIONS_HPP_
 #include <algorithm>
 #include <iostream>
 #include <limits>
@@ -20,6 +18,46 @@
 #include <variant>
 #include <vector>
 
+#pragma once
+/**
+ * @brief Custom IterationKey for specialized map
+ *
+ */
+struct IterationKey {
+  std::pair<std::string, int> iter_;
+  std::pair<std::string, double> time_step_;
+  std::pair<std::string, double> time_;
+
+  /**
+   * @brief Construct a new Iteration Key object
+   *
+   * @param iter
+   * @param time_step
+   * @param time
+   * @param s_iter
+   * @param s_time_step
+   * @param s_time
+   */
+  IterationKey(int iter, double time_step, double time, std::string s_iter = "Iter[-]",
+               std::string s_time_step = "Dt[s]", std::string s_time = "Time[s]")
+      : iter_(s_iter, iter), time_step_(s_time_step, time_step), time_(s_time, time) {}
+
+  /**
+   * @brief Comparison operator : mandatory for using IterationKey as a key in map
+   *
+   * @param user_key
+   * @return true
+   * @return false
+   */
+  bool operator<(const IterationKey& user_key) const {
+    return std::tie(iter_, time_step_, time_) < std::tie(user_key.iter_, user_key.time_step_, user_key.time_);
+  }
+};
+
+using SpecializedValue = std::pair<std::string, double>;
+
+//////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 namespace PhaseFieldPrivate {
 template <typename EType>
 struct mmap : private std::vector<std::pair<const char* const, EType>> {
@@ -72,6 +110,20 @@ struct AnalyticalFunctionsType {
   enum value { Heaviside, Sinusoide, Sinusoide2, HyperbolicTangent, Parabolic, Uniform };
   static value from(const std::string&);
 };
+
+///////////////////////////////////////////////////
+//////// SOLVER
+///////////////////////////////////////////////////
+struct ConvergenceType {
+  enum value { RELATIVE_MAX, ABSOLUTE_MAX };
+  static value from(const std::string&);
+};
+///////////////////////////////////////////////////
+//////// SOLVER
+///////////////////////////////////////////////////
+enum class SolverType { NEWTON, BICGSTAB, GMRES, CG };
+
+enum class PreconditionerType { SMOOTHER, UMFPACK };
 
 ///////////////////////////////////////////////////
 //////// ODE SOLVER
@@ -290,5 +342,3 @@ std::tuple<Meshes::value, Problems> transformOptions(const std::string& meshType
   return std::make_tuple(m, p);
 }
 }  // namespace utils
-
-#endif /* UTILS_PFOPTIONS_HPP_ */

@@ -19,6 +19,7 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "BCs/BoundaryConditions.hpp"
@@ -26,11 +27,11 @@
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
-#include "Integrators/DiffusionNLFIntegrator.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Solvers/UtilsForSolvers.hpp"
+#include "Profiling/Profiling.hpp"
+#include "Solvers/Solver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/AnalyticalFunctions.hpp"
 #include "Utils/PhaseFieldConstants.hpp"
@@ -50,40 +51,36 @@ template <class T, int DIM, class NLFI>
 class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
  private:
   T *fecollection_;
-  UtilsForSolvers ut_solver_;
-
-  // Results
-  std::map<std::tuple<int, double, double>, double> error_l2_;
-  std::map<std::tuple<int, double, double>, double> energy_density_;
-  std::map<std::tuple<int, double, double>, double> energy_interface_;
 
  protected:
+  // Results
+  std::multimap<IterationKey, SpecializedValue> time_specialized_;
+
   mfem::FiniteElementSpace *fespace_;
   mfem::Array<int> ess_tdof_list_;
 
-  // Mass operator
-  mfem::BilinearForm *M;    // mass operator
-  mfem::CGSolver M_solver;  // Krylov solver for inverting the mass matrix M
-  mfem::DSmoother M_prec;   // Preconditioner for the mass matrix M
+  /// Mass operator
+  mfem::BilinearForm *M;  // mass operator
+  Solver *mass_solver_;
+  std::shared_ptr<mfem::IterativeSolver>
+      M_solver_;  // Krylov solver for inverting the mass matrix M
+
   mfem::SparseMatrix Mmat;
 
-  // Right-Hand-Side
+  /// Right-Hand-Side
   mfem::LinearForm *RHS;
   mfem::NonlinearForm *N;
-  mfem::Solver *J_solver;  // Solver for the Jacobian solve in the Newton method
-  mfem::Solver *J_prec;  // Preconditioner for the Jacobian solve in the Newton method
+  Solver *rhs_solver_;
+  std::shared_ptr<mfem::IterativeSolver> newton_solver_;
 
+  /// Boundary conditions
   BoundaryConditions<T, DIM> *bcs_;
   Variables<T, DIM> vars_;
   Variables<T, DIM> auxvars_;
 
-  mfem::NewtonSolver newton_solver_;
   /** Nonlinear operator defining the reduced backward Euler equation for the
       velocity. Used in the implementation of method ImplicitSolve. */
   PhaseFieldReducedOperator *reduced_oper;
-  // mfem::Vector u_ini;
-  // TODO(ci230846) : une liste de paramètres à généraliser avec la classe Parameters
-  double mobility_coeff_, omega_, lambda_, phase_change_coeff_;
 
   std::function<double(const mfem::Vector &, double)> src_func_;
 
@@ -103,7 +100,6 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
   PhaseFieldOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
                          Variables<T, DIM> &vars, Variables<T, DIM> &auxvars,
                          AnalyticalFunctions<DIM> source_term_name);
-
   virtual void Mult(const mfem::Vector &u, mfem::Vector &du_dt) const;
   /** Solve the Backward-Euler equation: k = f(u + dt*k, t), for the unknown k.
       This is the only requirement for high-order SDIRK implicit integration.*/
@@ -111,19 +107,19 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
   void SetConstantParameters(const double dt, mfem::Vector &u);
   void SetTransientParameters(const double dt, const mfem::Vector &u);
   void initialize(const double &initial_time);
-  void ComputeEnergies(const std::tuple<int, double, double> &iter, const mfem::Vector &u);
-  void ComputeError(const std::tuple<int, double, double> &iter, const mfem::Vector &u,
+  void ComputeError(const int &it, const double &dt, const double &t, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
   void get_source_term(mfem::Vector &source_term) const;
 
-  const std::map<std::tuple<int, double, double>, double> get_l2_error() const;
-  const std::map<std::tuple<int, double, double>, double> get_energy_density() const;
-  const std::map<std::tuple<int, double, double>, double> get_energy_interface() const;
+  const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
 
   virtual ~PhaseFieldOperatorBase();
 
   // Pure virtual methods
   virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;
+  virtual void get_parameters(const Parameters &vectr_param) = 0;
+  virtual void ComputeEnergies(const int &it, const double &dt, const double &t,
+                               const mfem::Vector &u) = 0;
 };
 
 ////////////////////////////////////////////////////////
@@ -149,15 +145,12 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretizati
     : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
       M(NULL),
       N(NULL),
+      reduced_oper(NULL),
       vars_(vars),
       auxvars_(auxvars),
       current_dt_(0.0),
       z(height) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->omega_ = params.get_parameter_value("omega");
-  this->lambda_ = params.get_parameter_value("lambda");
-  this->mobility_coeff_ = params.get_parameter_value("mobility");
-  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
 }
 
 /**
@@ -178,14 +171,11 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(SpatialDiscretizati
     : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
       M(NULL),
       N(NULL),
+      reduced_oper(NULL),
       vars_(vars),
       current_dt_(0.0),
       z(height) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->omega_ = params.get_parameter_value("omega");
-  this->lambda_ = params.get_parameter_value("lambda");
-  this->mobility_coeff_ = params.get_parameter_value("mobility");
-  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
 }
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -210,15 +200,12 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
     : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
       M(NULL),
       N(NULL),
+      reduced_oper(NULL),
       vars_(vars),
       auxvars_(auxvars),
       current_dt_(0.0),
       z(height) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->omega_ = params.get_parameter_value("omega");
-  this->lambda_ = params.get_parameter_value("lambda");
-  this->mobility_coeff_ = params.get_parameter_value("mobility");
-  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
   this->src_func_ = source_term_name.getFunction();
 
   // auto &vv = vars.get_variable("phi");
@@ -243,18 +230,12 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
     : mfem::TimeDependentOperator(spatial->getSize(), 0.0),
       M(NULL),
       N(NULL),
+      reduced_oper(NULL),
       vars_(vars),
       current_dt_(0.0),
       z(height) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->omega_ = params.get_parameter_value("omega");
-  this->lambda_ = params.get_parameter_value("lambda");
-  this->mobility_coeff_ = params.get_parameter_value("mobility");
-  this->phase_change_coeff_ = params.get_parameter_value_or_default("melting_factor", 0.);
   this->src_func_ = source_term_name.getFunction();
-
-  // auto &vv = vars.get_variable("phi");
-  // this->initialize(vv);
 }
 
 /**
@@ -264,15 +245,20 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time) {
+  Catch_Time_Section("PhaseFieldOperatorBase::initialize");
   this->SetTime(initial_time);
+
   auto &vv = vars_.get_variable("phi");
   auto u = vv.get_unknown();
 
   this->bcs_ = vv.get_boundary_conditions();
   this->ess_tdof_list_ = this->bcs_->GetEssentialDofs();
   this->bcs_->SetBoundaryConditions(u);
+
   this->SetConstantParameters(this->current_dt_, u);
+
   this->SetTransientParameters(this->current_dt_, u);
+
   vv.update(u);
 }
 
@@ -289,8 +275,14 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double dt,
                                                                   const mfem::Vector &u) {
-  delete N;
-  delete reduced_oper;
+  Catch_Time_Section("PhaseFieldOperatorBase::SetTransientParameters");
+  if (N != nullptr) {
+    delete N;
+  }
+
+  if (reduced_oper != nullptr) {
+    delete reduced_oper;
+  }
 
   ////////////////////////////////////////////
   // PhaseField reduced operator N
@@ -301,9 +293,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
   mfem::GridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
-  // Print number of degres of freedom
-  std::cout << "number of DoFs : " << u.Size() << std::endl;
-
   NLFI *nlfi_ptr = set_nlfi_ptr(dt, u);
   N->AddDomainIntegrator(nlfi_ptr);
   N->SetEssentialTrueDofs(this->ess_tdof_list_);
@@ -313,29 +302,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
-  this->ut_solver_.SetSolverParameters(
-      this->newton_solver_, NewtonDefaultConstant::print_level,
-      NewtonDefaultConstant::iterative_mode, NewtonDefaultConstant::iter_max,
-      NewtonDefaultConstant::rel_tol, NewtonDefaultConstant::abs_tol);
-  // TODO(ci230846) : cette partie devra etre generalisee pour un solveur iteratif
+  this->rhs_solver_ = new Solver(SolverType::NEWTON, PreconditionerType::UMFPACK, *reduced_oper);
 
-  //--Direct solver--
-  // J_solver = new mfem::UMFPackSolver;
-
-  //--iterative solver--
-  J_solver = new mfem::BiCGSTABSolver;
-  // J_solver = new mfem::CGSolver;
-  // J_solver = new mfem::GMRESSolver;
-
-  //--Direct parallel solver--
-  // J_solver = new mfem::HypreILU;
-  // J_solver = new mfem::HyprePCG;
-
-  // J_solver = new mfem::CGSolver(MPI_COMM_WORLD);
-  // J_solver = new mfem::SuperLUSolver(MPI_COMM_WORLD); // problème de liaison de lib dans
-  // cmakelists
-
-  this->ut_solver_.BuildSolver(this->newton_solver_, *J_solver, *reduced_oper);
+  this->newton_solver_ = this->rhs_solver_->get_solver();
 }
 
 /**
@@ -347,20 +316,20 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(const double dt, mfem::Vector &u) {
-  delete M;
+  Catch_Time_Section("PhaseFieldOperatorBase::SetConstantParameters");
+  if (M != nullptr) {
+    delete M;
+  }
   ////////////////
   // Mass matrix (constant)
   ////////////////
   M = new mfem::BilinearForm(this->fespace_);
   M->AddDomainIntegrator(new mfem::MassIntegrator());
   M->Assemble(0);
-  mfem::SparseMatrix tmp;
   M->FormSystemMatrix(this->ess_tdof_list_, Mmat);
 
-  this->ut_solver_.SetSolverParameters(
-      M_solver, MassDefaultConstant::print_level, MassDefaultConstant::iterative_mode,
-      MassDefaultConstant::iter_max, MassDefaultConstant::rel_tol, MassDefaultConstant::abs_tol);
-  this->ut_solver_.BuildSolver(M_solver, M_prec, Mmat);
+  this->mass_solver_ = new Solver(SolverType::CG, PreconditionerType::SMOOTHER, Mmat);
+  this->M_solver_ = this->mass_solver_->get_solver();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -374,6 +343,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(const double dt
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vector &du_dt) const {
+  Catch_Time_Section("PhaseFieldOperatorBase::Mult");
+
   const auto sc = height;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
@@ -388,7 +359,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
   }
 
   z.Neg();  // z = -z
-  M_solver.Mult(z, dv_dt);
+  this->M_solver_->Mult(z, dv_dt);
 }
 
 /**
@@ -401,8 +372,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const mfem::Vector &u,
                                                          mfem::Vector &du_dt) {
-  Timers timer_ImplicitSolve("PhaseFieldOperatorBase::ImplicitSolve");
-  timer_ImplicitSolve.start();
+  Catch_Time_Section("PhaseFieldOperatorBase::ImplicitSolve");
 
   const auto sc = height;
   mfem::Vector v(u.GetData(), sc);
@@ -425,63 +395,15 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   dv_dt = v;
   dv_dt *= (1. / dt);
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
-  this->newton_solver_.Mult(source_term, dv_dt);
-  delete J_solver;
+  this->newton_solver_->Mult(source_term, dv_dt);
+  delete this->rhs_solver_;
+
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : after Newton Mult");
 
   dv_dt.SetSubVector(this->ess_tdof_list_, 0.0);  // pour  Dirichlet ... uniquement?
   // std::cout << " PhaseFieldOperatorBase this->newton_solver_->Mult " << std::endl;
 
-  MFEM_VERIFY(this->newton_solver_.GetConverged(), "Nonlinear solver did not converge.");
-
-  timer_ImplicitSolve.stop();
-  UtilsForOutput::getInstance().update_timer("PhaseFieldOperatorBase::ImplicitSolve",timer_ImplicitSolve);
-}
-
-/**
- * @brief Compute Phase-field Energies
- *
- * @param u unknown vector
- * @return const double
- */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::ComputeEnergies(
-    const std::tuple<int, double, double> &iter, const mfem::Vector &u) {
-  //------Start profiling-------------------------
-  Timers timer_ComputeEnergies("PhaseFieldOperatorBase::ComputeEnergies");
-  timer_ComputeEnergies.start();
-  //------------------------------------------------
-
-  mfem::GridFunction un_gf(this->fespace_);
-
-  un_gf.SetFromTrueDofs(u);
-
-  mfem::GridFunction gf(this->fespace_);
-  EnergyCoefficient g(&un_gf, 0.5 * this->lambda_, this->omega_);
-
-  gf.ProjectCoefficient(g);
-
-  mfem::GridFunction sigf(this->fespace_);
-  EnergyCoefficient sig(&un_gf, this->lambda_, 0.);
-
-  sigf.ProjectCoefficient(sig);
-
-  mfem::ConstantCoefficient zero(0.);
-
-  const auto energy = gf.ComputeL1Error(zero);
-
-  this->energy_density_.try_emplace(iter, energy);
-
-  const auto interfacial_energy = sigf.ComputeL1Error(zero);
-
-  this->energy_interface_.try_emplace(iter, interfacial_energy);
-
-  //-------End profiling----------------------
-  timer_ComputeEnergies.stop();
-  UtilsForOutput::getInstance().update_timer("PhaseFieldOperatorBase::ComputeEnergies", timer_ComputeEnergies);
-  //-----------------------------------------
-
-
+  MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
 }
 
 /**
@@ -492,47 +414,17 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ComputeEnergies(
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::ComputeError(
-    const std::tuple<int, double, double> &iter, const mfem::Vector &u,
+    const int &it, const double &dt, const double &t, const mfem::Vector &u,
     std::function<double(const mfem::Vector &, double)> solution_func) {
-
-  Timers timer_ComputeError("PhaseFieldOperatorBase::ComputeError");
-  timer_ComputeError.start();
-
+  Catch_Time_Section("PhaseFieldOperatorBase::ComputeError");
 
   mfem::GridFunction gf(this->fespace_);
   gf.SetFromTrueDofs(u);
   mfem::FunctionCoefficient solution_coef(solution_func);
   solution_coef.SetTime(this->GetTime());
   const auto error = gf.ComputeL2Error(solution_coef);
-  this->error_l2_.try_emplace(iter, error);
 
-  //--Print the number of iterations and the residual norm for the Kyrlov solvers--
-  // if (J_solver->GetConverged()) {
-  //   std::cout << "J_solver converged in " << J_solver->GetNumIterations()
-  //             << " iterations with a residual norm of " << J_solver->GetFinalNorm() << ".\n";
-  // }
-
-  // else {
-  //   std::cout << "J_solver did not converge in " << J_solver->GetNumIterations()
-  //             << " iterations. Residual norm is " << J_solver->GetFinalNorm() << ".\n";
-
-  //   std::ofstream file("residu.csv", std::ios::app);
-  //   if (std::get<0>(iter) == 1) {
-  //     std::ofstream file("residu.csv",
-  //                        std::ios::out | std::ios::trunc);  // Ouvrir le fichier en mode ajout
-  //   }
-
-  //   if (file.is_open()) {
-  //     file << std::get<0>(iter) << " " << J_solver->GetFinalNorm()
-  //          << "\n";  // Écrire les données dans le fichier
-  //     file.close();  // Fermer le fichier
-  //   } else {
-  //     std::cerr << "Impossible d'ouvrir le fichier residu.csv." << std::endl;
-  //   }
-  // }
-
-  timer_ComputeError.stop();
-  UtilsForOutput::getInstance().update_timer("PhaseFieldOperatorBase::ComputeError", timer_ComputeError);
+  this->time_specialized_.emplace(IterationKey(it, dt, t), SpecializedValue("L2-error[-]", error));
 }
 
 /**
@@ -550,26 +442,12 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_
   RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
   RHSS->Assemble();
   source_term = *RHSS.get();
-  source_term.Print();
+  // source_term.Print();
 }
 
 /**
- * @brief Get a value of a map of L2 errors at a given iteration
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @param iter
- * @return const std::map<std::tuple<int, double, double>, double>
- */
-template <class T, int DIM, class NLFI>
-const std::map<std::tuple<int, double, double>, double>
-PhaseFieldOperatorBase<T, DIM, NLFI>::get_l2_error() const {
-  return this->error_l2_;
-}
-
-/**
- * @brief Get a of a map of interfacial energy  at a given iteration
+ * @brief Get a of a multimap of integral values calculated at a given iteration (see
+ * computeEnergies and computeError)
  *
  * @tparam T
  * @tparam DIM
@@ -577,23 +455,9 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::get_l2_error() const {
  * @return const std::map<std::tuple<int, double, double>, double>
  */
 template <class T, int DIM, class NLFI>
-const std::map<std::tuple<int, double, double>, double>
-PhaseFieldOperatorBase<T, DIM, NLFI>::get_energy_density() const {
-  return this->energy_density_;
-}
-
-/**
- * @brief Get a of a map of interfacial energy  at a given iteration
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @return const std::map<std::tuple<int, double, double>, double>
- */
-template <class T, int DIM, class NLFI>
-const std::map<std::tuple<int, double, double>, double>
-PhaseFieldOperatorBase<T, DIM, NLFI>::get_energy_interface() const {
-  return this->energy_interface_;
+const std::multimap<IterationKey, SpecializedValue>
+PhaseFieldOperatorBase<T, DIM, NLFI>::get_time_specialized() const {
+  return this->time_specialized_;
 }
 
 /**
@@ -601,8 +465,4 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::get_energy_interface() const {
  *
  */
 template <class T, int DIM, class NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI>::~PhaseFieldOperatorBase() {
-  // delete J_solver;
-  // delete J_prec;
-  // delete reduced_oper;
-}
+PhaseFieldOperatorBase<T, DIM, NLFI>::~PhaseFieldOperatorBase() {}

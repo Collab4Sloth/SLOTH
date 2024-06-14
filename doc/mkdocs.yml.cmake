@@ -6,6 +6,9 @@ markdown_extensions:
       permalink: true
   - attr_list
   - md_in_html
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -58,7 +61,7 @@ docs_dir: '@DOCS_DIR@'
 nav:
   - Home: index.md
   - Getting Started:
-    - Installing SLOTH: Started/installation.md
+    - Installing SLOTH on Linux and Mac Os: Started/installation.md
     - Creating a Phase-Field application: Started/howto.md
     - Examples: 
       - Synthesis: Started/examples.md

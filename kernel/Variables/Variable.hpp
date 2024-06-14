@@ -96,6 +96,7 @@ class Variable {
            const double& initial_condition_value,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
+  mfem::Vector get_last();
   std::string getVariableName() const;
   VariableType::value getVariableType();
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
@@ -151,13 +152,13 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
   // std::apply([dim, initial_condition_name, this]() {
   this->setInitialCondition(dim, initial_condition_name);
   // });
+  this->setVariableDepth(depth);
   // std::apply([dim, analytical_solution_name, this]() {
   this->setAnalyticalSolution(dim, analytical_solution_name);
   // });
@@ -179,7 +180,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
 
@@ -187,6 +187,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   std::apply([dim, initial_condition_name, this]() {
     this->setInitialCondition(dim, initial_condition_name);
   });
+  this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
 }
 
@@ -205,10 +206,10 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& initial_condition_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
+  this->setVariableDepth(depth);
 }
 
 /**
@@ -228,11 +229,11 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_function);
+  this->setVariableDepth(depth);
   std::apply([dim, analytical_solution_name, this]() {
     this->setAnalyticalSolution(dim, analytical_solution_name);
   });
@@ -255,10 +256,10 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
+  this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
 }
 
@@ -276,9 +277,9 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const int& depth, const double& initial_condition_value)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
+  this->setVariableDepth(depth);
 }
 /**
  * @brief Construct a new Variable<T>:: Variable object
@@ -296,11 +297,11 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_value);
+  this->setVariableDepth(depth);
   std::apply([dim, analytical_solution_name, this]() {
     this->setAnalyticalSolution(dim, analytical_solution_name);
   });
@@ -322,10 +323,10 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
+  this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
 }
 
@@ -408,6 +409,17 @@ void Variable<T, DIM>::setAnalyticalSolution(
     const mfem::FunctionCoefficient& analytical_solution_function) {
   this->analytical_solution_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
       analytical_solution_function);
+}
+/**
+ * @brief Return the last term of the saved variables
+ * 
+ * @tparam T 
+ * @tparam DIM 
+ * @return mfem::Vector 
+ */
+template <class T, int DIM>
+mfem::Vector Variable<T, DIM>::get_last() {
+  return std::prev(this->map_of_unk_.end())->second;
 }
 
 /**

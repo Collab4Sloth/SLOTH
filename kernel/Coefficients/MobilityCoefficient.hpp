@@ -63,13 +63,15 @@ double MobilityCoefficient<MOBI>::Eval(mfem::ElementTransformation &T,
     case Mobility::Constant:
       return this->mobility_;
 
-    case Mobility::Degenerated:
+    case Mobility::Degenerated: {
       const auto xx = gf.GetValue(T.ElementNo, ip);
       const auto a_xx = std::max(std::min(xx, 1.), 0.);
       const auto degenerated_mob_func = this->mobility_ *
                                         std::pow(1. - a_xx, this->degenerate_order_) *
                                         std::pow(a_xx, this->degenerate_order_);
       return degenerated_mob_func;
+    }
+
     default:
       throw std::runtime_error(
           "MobilityCoefficient::Eval: only constant and degenerated mobilities  are available");

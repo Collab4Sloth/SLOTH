@@ -8,8 +8,7 @@
  *  Created on: 20 March 2023
  *      Author: ci230846
  */
-#ifndef PF_CONSTANTS_HH_
-#define PF_CONSTANTS_HH_
+#pragma once
 
 /**
  * @brief Default constant used by Newton Solver
@@ -24,6 +23,42 @@ const auto print_level = 1;
 }  // namespace NewtonDefaultConstant
 
 /**
+ * @brief Default constant used by BICGSTAB Solver
+ *
+ */
+namespace BICGSTABDefaultConstant {
+const auto iter_max = 100;
+const auto abs_tol = 1.e-13;
+const auto rel_tol = 1.e-13;
+const bool iterative_mode = false;
+const auto print_level = 1;
+}  // namespace BICGSTABDefaultConstant
+
+/**
+ * @brief Default constant used by CG Solver
+ *
+ */
+namespace CGDefaultConstant {
+const auto iter_max = 100;
+const auto abs_tol = 1.e-13;
+const auto rel_tol = 1.e-13;
+const bool iterative_mode = false;
+const auto print_level = 1;
+}  // namespace CGDefaultConstant
+
+/**
+ * @brief Default constant used by GMRES Solver
+ *
+ */
+namespace GMRESDefaultConstant {
+const auto iter_max = 100;
+const auto abs_tol = 1.e-13;
+const auto rel_tol = 1.e-13;
+const bool iterative_mode = false;
+const auto print_level = 1;
+}  // namespace GMRESDefaultConstant
+
+/**
  * @brief Default constant used by Mass Solver
  *
  */
@@ -34,5 +69,3 @@ const auto rel_tol = 1.e-15;
 const bool iterative_mode = false;
 const auto print_level = -1;
 }  // namespace MassDefaultConstant
-
-#endif /* __PF_CONSTANTS_HH_ */

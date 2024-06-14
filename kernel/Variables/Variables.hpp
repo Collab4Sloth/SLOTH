@@ -15,10 +15,7 @@
 #include <vector>
 #include "Variables/Variable.hpp"
 #pragma once
-/*!
- * \page __variables Variables
- *
- */
+
 
 /**
  * @brief Class used to manage a list of Variable

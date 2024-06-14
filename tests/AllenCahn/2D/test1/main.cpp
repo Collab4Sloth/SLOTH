@@ -16,12 +16,14 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
+#include "Couplings/Coupling.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
 #include "Operators/PhaseFieldOperator.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "PostProcessing/postprocessing.hpp"
+#include "Profiling/Profiling.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Time/Time.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
@@ -33,26 +35,17 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  //---------------------------------------
   // Initialize MPI
-  MPI_Init(&argc , &argv);
+  //---------------------------------------
+  MPI_Init(&argc, &argv);
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-//   ------Start profiling-------------------------
-  Output output2D1("output2D1");
-
-  //--Enable profiling--
-  UtilsForOutput::getInstance().get_enableOutput();
-  
-  //--Disable profiling--
-  // UtilsForOutput::getInstance().get_disableOutput();
-
-  Timers timer_AllenCahn2Dtest1("timer_AllenCahn2Dtest1");
-  // Timers timer_execute("execute");
-  timer_AllenCahn2Dtest1.start();
-  //---------------------------------------------
-
+  //---------------------------------------
+  // Profiling start
+  Profiling::getInstance().enable();
+  //---------------------------------------
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
@@ -61,7 +54,7 @@ int main(int argc, char* argv[]) {
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI>;
-  using TIME = TimeDiscretization<PST, OPE, VAR>;
+  using PB = Problem<OPE, VAR, PST>;
   //###########################################
   //###########################################
   //        Spatial Discretization           //
@@ -70,7 +63,7 @@ int main(int argc, char* argv[]) {
   //##############################
   //          Meshing           //
   //##############################
-  auto refinement_level = 3;
+  auto refinement_level = 0;
   SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
       "InlineSquareWithQuadrangles", 1, refinement_level, std::make_tuple(30, 30, 1.e-3, 1.e-3));
   //##############################
@@ -116,21 +109,28 @@ int main(int argc, char* argv[]) {
 
   auto vars = VAR(
       Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
-  //####################
-  //    operators     //
-  //####################
-  OPE oper(&spatial, params, vars);
 
   //###########################################
   //###########################################
   //     Post-processing                     //
   //###########################################
   //###########################################
-  const std::string& main_folder_path = "Paraview";
-  const std::string& calculation_path = "MainPST";
+  const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
-  auto pst = PST("Paraview", "MainPST", &spatial, frequency, level_of_detail);
+  // ####################
+  //     operators     //
+  // ####################
+
+  // Problem 1:
+  const auto crit_cvg_1 = 1.e-12;
+  OPE oper(&spatial, params, vars);
+  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
+  auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
+  PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
+
+  // Coupling 1
+  auto cc = Coupling("coupling 1 ", std::move(problem1));
 
   //###########################################
   //###########################################
@@ -138,26 +138,22 @@ int main(int argc, char* argv[]) {
   //###########################################
   //###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 100.;
+  const auto& t_final = 1.;
   const auto& dt = 0.25;
-  auto time_params =
-      Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt), Parameter("compute_error", true),
-                 Parameter("compute_energies", true));
-  auto time = TIME("EulerImplicit", oper, time_params, vars, pst);
+  auto time_params = Parameters(Parameter("initial_time", t_initial),
+                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time = TimeDiscretization(time_params, std::move(cc));
 
-  time.execute();
-
-
-  //---------End Profiling------------------
-    timer_AllenCahn2Dtest1.stop();
-    UtilsForOutput::getInstance().update_timer("timer_AllenCahn2Dtest1", timer_AllenCahn2Dtest1);
-    UtilsForOutput::getInstance().print_timetable();
-    UtilsForOutput::getInstance().savefiles();
-  //----------------------------------------
-
+  // time.get_tree();
+  time.solve();
+  //---------------------------------------
+  // Profiling stop
+  //---------------------------------------
+  Profiling::getInstance().print();
+  //---------------------------------------
   // Finalize MPI
+  //---------------------------------------
   MPI_Finalize();
-
+  //---------------------------------------
   return 0;
 }

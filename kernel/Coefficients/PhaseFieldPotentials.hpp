@@ -9,8 +9,6 @@
  */
 // TODO(ci) mettre de l'ordre dans ce qui est autorisé et non pour la manipulation des potentiels
 
-#ifndef PHASEFIELDPOTENTIALS_HPP_
-#define PHASEFIELDPOTENTIALS_HPP_
 #pragma once
 #include <functional>
 #include <string>
@@ -854,4 +852,3 @@ template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME,
           ThermodynamicsPotentials POTENTIAL>
 PotentialFunctions<ORDER, SCHEME, POTENTIAL>::~PotentialFunctions() {}
 
-#endif /* PHASEFIELDPOTENTIALS_HPP_ */

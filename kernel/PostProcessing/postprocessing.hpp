@@ -9,17 +9,21 @@
  */
 
 #pragma once
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tuple>
-#include "../Spatial/Spatial.hpp"
-#include "../Utils/PhaseFieldOptions.hpp"
-#include "../Variables/Variable.hpp"
-#include "../Variables/Variables.hpp"
+
+#include "Spatial/Spatial.hpp"
+#include "Utils/PhaseFieldOptions.hpp"
+#include "Variables/Variable.hpp"
 #include "mfem.hpp"
 
 template <class T, class DC, int DIM>
@@ -28,17 +32,16 @@ class PostProcessing : public DC {
   std::map<std::string, mfem::GridFunction> fields_to_save_;
   int frequency_;
   std::string post_processing_directory_;
+  bool need_to_be_saved(const int& iteration);
 
  public:
   PostProcessing(const std::string& main_folder_path, const std::string& calculation_path,
                  SpatialDiscretization<T, DIM>* space, const int& frequency,
                  const int& level_of_detail);
   void save_variables(const Variables<T, DIM>& vars, const int& iter, const double& time);
-  void create_csv(const std::string& filename, const std::string& headers);
-  void export_csv(const std::string& filename,
-                  const std::map<std::tuple<int, double, double>, double>& map_results);
+  void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results);
   int get_frequency();
-  bool need_to_be_saved(const int& iteration);
+
   ~PostProcessing();
 };
 
@@ -76,58 +79,17 @@ PostProcessing<T, DC, DIM>::PostProcessing(const std::string& main_folder_path,
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, const int& iter,
                                                 const double& time) {
-  this->SetCycle(iter);
-  this->SetTime(time);
-  auto map_var = vars.get_map_gridfunction();
-  for (auto [name, gf] : map_var) {
-    this->RegisterField(name, &gf);
-    this->Save();
+  if (this->need_to_be_saved(iter)) {
+    this->SetCycle(iter);
+    this->SetTime(time);
+    auto map_var = vars.get_map_gridfunction();
+    for (auto [name, gf] : map_var) {
+      this->RegisterField(name, &gf);
+      this->Save();
+    }
   }
 }
 
-/**
- * @brief create csv file from name, overwrite if already exist
- *
- * @tparam T
- * @tparam DC
- * @tparam DIM
- * @param filename
- */
-template <class T, class DC, int DIM>
-void PostProcessing<T, DC, DIM>::create_csv(const std::string& filename,
-                                            const std::string& headers) {
-  std::ios_base::openmode mode = std::ios::out | std::ios::trunc;
-  std::ofstream fic;
-  fic.open(this->post_processing_directory_ + "/" + filename, mode);
-  fic << headers;
-  fic << std::endl;
-  fic.close();
-}
-
-/**
- * @brief export results into CSV file
- *
- * @tparam T
- * @tparam DC
- * @tparam DIM
- * @param map_results
- */
-template <class T, class DC, int DIM>
-void PostProcessing<T, DC, DIM>::export_csv(
-    const std::string& filename,
-    const std::map<std::tuple<int, double, double>, double>& map_results) {
-  std::ios_base::openmode mode = std::ios::out | std::ios::app;
-  std::ofstream fic;
-  fic.open(this->post_processing_directory_ + "/" + filename, mode);
-  std::ostringstream text2fic;
-  // TODO(CCI) : template + forward ?
-  for (auto [key, value] : map_results) {
-    text2fic << std::get<0>(key) << " " << std::get<1>(key) << " " << std::get<2>(key) << " "
-             << value << "\n";
-  }
-  fic << text2fic.str();
-  fic.close();
-}
 /**
  * @brief Get the frequency of post-processing in terms of number of iterations (1 means each
  * iteration)
@@ -150,6 +112,60 @@ template <class T, class DC, int DIM>
 bool PostProcessing<T, DC, DIM>::need_to_be_saved(const int& iteration) {
   bool check = (iteration % this->frequency_ == 0);
   return check;
+}
+
+/**
+ * @brief Export specialized results in CSV files
+ *
+ * @tparam T
+ * @tparam DC
+ * @tparam DIM
+ * @param filename
+ * @param tup
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::save_specialized(
+    const std::multimap<IterationKey, SpecializedValue>& mmap_results) {
+  const std::string& filename = "time_specialized.csv";
+  std::filesystem::path file = std::filesystem::path(this->post_processing_directory_) / filename;
+  std::ofstream fic(file, std::ios::out | std::ios::trunc);
+
+  if (!fic.is_open()) {
+    throw std::runtime_error("Unable to open file: " + filename);
+  }
+
+  std::ostringstream text2fic;
+  ////////////////////////////////////////////
+  // Headers
+  ////////////////////////////////////////////
+  auto key0 = mmap_results.begin()->first;
+  auto value0 = mmap_results.begin()->second;
+  auto range0 = mmap_results.equal_range(key0);
+  text2fic << key0.iter_.first << "," << key0.time_step_.first << "," << key0.time_.first;
+  for (auto it = range0.first; it != range0.second; ++it) {
+    const auto& value = it->second;
+    text2fic << "," << value.first;
+  }
+  text2fic << "\n";
+  ////////////////////////////////////////////
+  // Values
+  ////////////////////////////////////////////
+  std::set<IterationKey> already_seen_keys;
+  for (const auto& [key, value] : mmap_results) {
+    if (already_seen_keys.find(key) != already_seen_keys.end()) {
+      continue;
+    }
+    auto range = mmap_results.equal_range(key);
+    text2fic << key.iter_.second << "," << key.time_step_.second << "," << key.time_.second;
+    for (auto it = range.first; it != range.second; ++it) {
+      const auto& value = it->second;
+      text2fic << "," << value.second;
+    }
+    text2fic << "\n";
+    already_seen_keys.insert(key);
+  }
+
+  fic << text2fic.str();
 }
 
 /**

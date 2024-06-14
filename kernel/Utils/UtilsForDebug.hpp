@@ -13,9 +13,18 @@
 #include <string>
 
 #include "mfem.hpp"
+#pragma once
 
-#ifndef UTILSFORDEBUG_H_
-#define UTILSFORDEBUG_H_
+class SlothInfo {
+ public:
+  template <typename... Args>
+  static void print(Args... args) ;
+};
+
+template <typename... Args>
+void SlothInfo::print(Args... args) {
+  (std::cout << ... << args) << "\n";
+}
 
 /**
  * @brief
@@ -52,6 +61,4 @@ void UtilsForDebug::memory_checkpoint(const std::string& msg) {
   std::cout << "<<<" << msg << ">>>" << std::endl;
   std::cout << "Memory footprint " << mem.ru_maxrss * 1e-6 << " GB" << std::endl;
 }
-#endif
 
-/* UTILSFORDEBUG_H_ */

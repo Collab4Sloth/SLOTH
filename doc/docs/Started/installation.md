@@ -2,7 +2,7 @@
 
 The installation of SLOTH consists of installing MFEM first and then, to compile SLOTH 
 
-### Installing MFEM
+### Installing MFEM using spack
 
 A straightforward way to install MFEM is to use [spack](https://spack.readthedocs.io/en/latest/getting_started.html)
 
@@ -110,11 +110,68 @@ pip3 install  WeasyPrint==52.5                 # Used by the plugin with-pdf.
 ```
 
 
-<!-- ## Building documentation
 
-To deploy the project, run 
+
+### Installation on Mac Os using homebrew 
+
+MFEM can be install using homebrew. 
 
 ```shell
-make install 
-``` -->
+brew install mfem
+```
+
+by default, this installation depends on hypre, metis, openblas, suite-sparse.
+
+It is possible rebuild  mfem with additional dependencies. 
+
+- Get the .rb file : run `brew edit mfem` to open the default rb file or get it from [Github](https://github.com/Homebrew/homebrew-core/blob/5ecde7427aa47ac931795c78669f0a4da53a12ed/Formula/m/mfem.rb)
+- Add your dependencies with `depends_on` directive. Here, let us consider the `petsc` dependency:
+
+```shell
+  depends_on "cmake" => :build
+  depends_on "hypre"        # optional "mpi"
+  depends_on "metis"        # optional "metis"
+  depends_on "openblas"
+  depends_on "suite-sparse"
+  depends_on "petsc"
+```
+
+- save the file in the directory and run the following command:
+  
+```shell
+  brew install --formula mfem.rb
+````
+
+Installation with petsc can be checked by editing once again the mfem.rb file. petsc must be mentioned as default dependency. 
+
+Each dependency can be installed easily using homebrew. 
+
+## Compiling SLOTH using mfem version installed with homebrew
+
+```shell
+mkdir build ; cd build
+```
+
+
+- Set several environment variables 
+
+```shell
+export MFEM_DIR=$(echo `brew --prefix mfem`)
+
+export MPI_DIR=$(echo `brew --prefix open-mpi`)
+
+export HYPRE_DIR=$(echo `brew --prefix hypre`)
+
+export METIS_DIR=$(echo `brew --prefix metis`)
+
+export PETSC_DIR=$(echo `brew --prefix petsc`) 
+```
+
+- Run cmake as follow:
+
+```shell
+cmake .. -DMFEM_USE_PETSC=ON -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH="" -DPETSC_INCLUDES=${PETSC_DIR}/include -DPETSC_LIBRARIES=${PETSC_DIR}/lib -DPETSC_EXECUTABLE_RUNS=${PETSC_DIR}/bin -DMPI_DIR=$(echo `brew --prefix open-mpi`) -DHYPRE_DIR=$(echo `brew --prefix hypre`) 
+```
+
+- Compile running `make`
 

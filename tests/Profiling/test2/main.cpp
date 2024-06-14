@@ -13,52 +13,46 @@
 
 #include <iostream>
 
-#include "Profiling/UtilsforOutput.hpp"
-#include "Profiling/output.hpp"
-#include "Profiling/timers.hpp"
+#include "Profiling/Profiling.hpp"
 
 int main(int argc, char** argv) {
-  MPI_Init(&argc, &argv);
-
+  //---------------------------------------
   // Initialize MPI
+  //---------------------------------------
+  MPI_Init(&argc, &argv);
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
+  //---------------------------------------
+  // Profiling
+  Profiling::getInstance().enable();
+  //---------------------------------------
+  {
+    Catch_Time_Section("test2");
+    //---------------------------------------
 
-  // ------Start profiling-------------------------
-  Output output2("output2");
+    // Start Chrono using MPI_Wtime
+    double start_time = MPI_Wtime();
 
-  // --Enable profiling--
-  UtilsForOutput::getInstance().get_enableOutput();
+    // Print the Hello message and the rank for each proc
+    std::cout << "Hello, World! from process " << rank << " out of " << size << std::endl;
 
-  // --Disable profiling--
-  // UtilsForOutput::getInstance().get_disableOutput();
+    // Stop chrono
+    double end_time = MPI_Wtime();
 
-  Timers timer_ex2("ex2");
-  timer_ex2.start();
-  //---------------------------------------------
-
-  // Start Chrono using MPI_Wtime
-  double start_time = MPI_Wtime();
-
-  // Print the Hello message and the rank for each proc
-  std::cout << "Hello, World! from process " << rank << " out of " << size << std::endl;
-
-  // Stop chrono
-  double end_time = MPI_Wtime();
-  timer_ex2.stop();
-
-  // Print elapsed time using MPI_Wtime
-  std::cout << "(MPI_Wtime)temps écoulé pour le rang " << rank << " : " << (end_time - start_time)
-            << std::endl;
-
-  // ---------End Profiling------------------
-  UtilsForOutput::getInstance().update_timer("ex2", timer_ex2);
-  UtilsForOutput::getInstance().print_timetable();
-  UtilsForOutput::getInstance().savefiles();
-  //----------------------------------------
-
+    // Print elapsed time using MPI_Wtime
+    std::cout << "(MPI_Wtime)time spent for rank " << rank << " : " << (end_time - start_time)
+              << std::endl;
+  }
+  //---------------------------------------
+  // Profiling stop
+  //---------------------------------------
+  Profiling::getInstance().print();
+  //---------------------------------------
+  // Finalize MPI
+  //---------------------------------------
   MPI_Finalize();
+  //---------------------------------------
 
   return 0;
 }
