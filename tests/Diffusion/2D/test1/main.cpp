@@ -1,11 +1,11 @@
 /**
  * @file main.cpp
- * @author ci230846 (clement.introini@cea.fr)
- * @brief Allen-Cahn problem solved in 3D piece of pellet fragment
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief Diffusion problem solved in a square (similar to the test 16 in mfem.org page)
  * @version 0.1
- * @date 2024-05-23
+ * @date 2024-06-06
  *
- * @copyright Copyright (c) 2024
+ * Copyright CEA (c) 2024
  *
  */
 #include <iostream>
@@ -16,13 +16,12 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Couplings/Coupling.hpp"
-#include "Integrators/AllenCahnMeltingNLFormIntegrator.hpp"
-#include "Operators/PhaseFieldOperatorMelting.hpp"
+#include "Integrators/DiffusionNLFormIntegrator.hpp"
+#include "Operators/DiffusionOperator.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "PostProcessing/postprocessing.hpp"
-#include "Profiling/Profiling.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Time/Time.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
@@ -42,20 +41,17 @@ int main(int argc, char* argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   //---------------------------------------
-  // Profiling
+  // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 3;
-  using NLFI = AllenCahnMeltingNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
-                                                ThermodynamicsPotentials::W, Mobility::Constant,
-                                                ThermodynamicsPotentials::H, PhaseChange::Constant>;
+  const auto DIM = 2;
+  using NLFI = DiffusionNLFormIntegrator;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperatorMelting<FECollection, DIM, NLFI>;
+  using OPE = DiffusionOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VAR, PST>;
-
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -64,16 +60,13 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;
-  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial("GMSH", 1, refinement_level,
-                                                            "camembert3D.msh", false);
+  auto refinement_level = 4;
+  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 2, refinement_level, "star2D.msh",
+                                                   false);
   // ##############################
   //     Boundary conditions     //
-  // ##############################
-  auto boundaries = {
-      Boundary("InterPelletPlane", 1, "Neumann", 0.), Boundary("MidPelletPlane", 2, "Neumann", 0.),
-      Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 4, "Neumann", 0.),
-      Boundary("ExternalSurface", 0, "Neumann", 0.)};
+  // // ##############################
+  auto boundaries = {Boundary("lower", 0, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
   // ###########################################
@@ -84,39 +77,24 @@ int main(int argc, char* argv[]) {
   // ####################
   //     parameters    //
   // ####################
-  //  Melting factor
-  const auto& alpha(-7.e3);
-  // Interface thickness
-  const auto& epsilon(5.e-4);
-  // Interfacial energy
-  const auto& sigma(6.e-2);
-  // Two-phase mobility
-  const auto& mob(1.e-5);
-  const auto& lambda = 3. * sigma * epsilon / 2.;
-  const auto& omega = 12. * sigma / epsilon;
-  auto params =
-      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                 Parameter("mobility", mob), Parameter("sigma", sigma), Parameter("lambda", lambda),
-                 Parameter("omega", omega), Parameter("melting_factor", alpha));
+  const auto& alpha(1.e-2);
+  const auto& kappa(0.5);
+  auto params = Parameters(Parameter("kappa", kappa), Parameter("alpha", alpha));
   // ####################
   //     variables     //
   // ####################
-  const auto& pellet_radius = 0.00465;
-  const auto& pellet_height = 0.01;
-  const auto& center_x = 0.;
-  const auto& center_y = 0.;
-  const auto& center_z = 0.5 * pellet_height;
-  const auto& a_x = 1.;
-  const auto& a_y = 1.;
-  const auto& a_z = 1.;
-  const auto& thickness = 5.e-5;
-  const auto& radius = 1.e-1 * pellet_radius;
+  auto user_func =
+      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+        if (x.Norml2() < 0.5) {
+          return 2.0;
+        } else {
+          return 1.0;
+        }
+      });
 
-  auto initial_condition =
-      AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
-                               center_z, a_x, a_y, a_z, thickness, radius);
+  auto initial_condition = AnalyticalFunctions<DIM>(user_func);
 
-  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
+  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "c", 2, initial_condition));
 
   // ###########################################
   // ###########################################
@@ -146,13 +124,12 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.25;
-  const auto& dt = 0.25;
+  const auto& t_final = 0.5;
+  const auto& dt = 0.01;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, std::move(cc));
 
-  // time.get_tree();
   time.solve();
   //---------------------------------------
   // Profiling stop

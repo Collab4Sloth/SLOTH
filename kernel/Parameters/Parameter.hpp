@@ -23,13 +23,14 @@ class Parameter {
   param_type value_;
 
  public:
-  Parameter(const std::string& name, param_type value) : name_(name), value_(value), description_("") {}
+  Parameter(const std::string& name, param_type value)
+      : name_(name), value_(value), description_("") {}
+
   Parameter(const std::string& name, param_type value, const std::string& description)
       : name_(name), value_(value), description_(description) {}
 
   std::string get_name() const;
   std::string get_description() const;
-
 
   void print() const;
 
@@ -47,7 +48,7 @@ class Parameter {
 void Parameter::print() const {
   const auto& param_value = this->get_value();
   const auto& param_name = this->get_name();
-   std::cout << param_name << " = "<< std::get<std::string>(param_value) << std::endl; 
+  std::cout << param_name << " = " << std::get<std::string>(param_value) << std::endl;
 }
 
 /**

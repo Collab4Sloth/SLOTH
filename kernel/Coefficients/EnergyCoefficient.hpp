@@ -1,10 +1,12 @@
-/*
- * Copyright © CEA 2023
+/**
+ * @file EnergyCoefficient.hpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief
+ * @version 0.1
+ * @date 2024-06-18
  *
- * MobilityCoefficient.hpp
+ * @copyright Copyright (c) 2024
  *
- *  Created on: 7 fev. 2023
- *      Author: ci230846
  */
 #include <numeric>
 
@@ -58,24 +60,4 @@ double EnergyCoefficient::Eval(mfem::ElementTransformation &T, const mfem::Integ
   const auto f_o = omega * phi * phi * (1. - phi) * (1. - phi);
   const auto energy = f_o + f_int;
   return energy;
-}
-//--------------------------
-//--------------------------
-//--------------------------
-class MeltingCoefficient : public mfem::Coefficient {
- private:
-  mfem::GridFunction *gfu;
-  double dh;
-
- public:
-  MeltingCoefficient(mfem::GridFunction *gfu_, const double &dh_) : gfu(gfu_), dh(dh_) {}
-  double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
-};
-
-double MeltingCoefficient::Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip) {
-  const auto phi = gfu->GetValue(T.ElementNo, ip);
-
-  const auto p_phi = 30.0 * phi * (1. - phi) * (1. - 2. * phi);
-  const auto melting = dh * p_phi;
-  return melting;
 }

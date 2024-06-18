@@ -67,6 +67,9 @@ class PhaseFieldOperatorBase : public mfem::TimeDependentOperator {
 
   mfem::SparseMatrix Mmat;
 
+  void build_mass_matrix();
+  bool constant_mass_matrix_{true};
+
   /// Right-Hand-Side
   mfem::LinearForm *RHS;
   mfem::NonlinearForm *N;
@@ -267,6 +270,30 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
 //////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief build the mass matrix
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ */
+template <class T, int DIM, class NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI>::build_mass_matrix() {
+  if (M != nullptr) {
+    delete M;
+  }
+  ////////////////
+  // Mass matrix (constant)
+  ////////////////
+  M = new mfem::BilinearForm(this->fespace_);
+  M->AddDomainIntegrator(new mfem::MassIntegrator());
+  M->Assemble(0);
+  M->FormSystemMatrix(this->ess_tdof_list_, Mmat);
+
+  this->mass_solver_ = new Solver(SolverType::CG, PreconditionerType::SMOOTHER, Mmat);
+  this->M_solver_ = this->mass_solver_->get_solver();
+}
+
+/**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
  *solution_coef
  * @param dt time-step
@@ -276,17 +303,20 @@ template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double dt,
                                                                   const mfem::Vector &u) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetTransientParameters");
-  if (N != nullptr) {
-    delete N;
-  }
 
-  if (reduced_oper != nullptr) {
-    delete reduced_oper;
+  ////////////////////////////////////////////
+  // Variable mass matrix
+  ////////////////////////////////////////////
+  if (!this->constant_mass_matrix_) {
+    this->build_mass_matrix();
   }
 
   ////////////////////////////////////////////
   // PhaseField reduced operator N
   ////////////////////////////////////////////
+  if (N != nullptr) {
+    delete N;
+  }
   N = new mfem::NonlinearForm(this->fespace_);
   mfem::GridFunction un_gf(this->fespace_);
   un_gf.SetFromTrueDofs(u);
@@ -297,6 +327,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
   N->AddDomainIntegrator(nlfi_ptr);
   N->SetEssentialTrueDofs(this->ess_tdof_list_);
 
+  if (reduced_oper != nullptr) {
+    delete reduced_oper;
+  }
   reduced_oper = new PhaseFieldReducedOperator(M, N);
 
   ////////////////////////////////////////////
@@ -317,19 +350,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(const double dt, mfem::Vector &u) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetConstantParameters");
-  if (M != nullptr) {
-    delete M;
+  if (this->constant_mass_matrix_) {
+    this->build_mass_matrix();
   }
-  ////////////////
-  // Mass matrix (constant)
-  ////////////////
-  M = new mfem::BilinearForm(this->fespace_);
-  M->AddDomainIntegrator(new mfem::MassIntegrator());
-  M->Assemble(0);
-  M->FormSystemMatrix(this->ess_tdof_list_, Mmat);
-
-  this->mass_solver_ = new Solver(SolverType::CG, PreconditionerType::SMOOTHER, Mmat);
-  this->M_solver_ = this->mass_solver_->get_solver();
 }
 
 //////////////////////////////////////////////////////////////////////////////

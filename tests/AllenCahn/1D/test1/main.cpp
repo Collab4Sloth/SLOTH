@@ -14,7 +14,6 @@
 #include <sstream>
 
 #include "BCs/BoundaryConditions.hpp"
-#include "Coefficients/AnalyticalFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Couplings/Coupling.hpp"
