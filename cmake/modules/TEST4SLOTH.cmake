@@ -56,7 +56,21 @@ function(build_cov_target _testrunner)
   )
 endfunction() # SETUP_TARGET_FOR_COVERAGE
 
-function(create_test exe_name test_name test_will_fail)
+function(create_col_comparison test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label)
+  set(DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/ref_${test_name})
+  file(GLOB_RECURSE REF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/ref/${reference_file})
+  file(MAKE_DIRECTORY ${DEST_DIR})
+  configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
+  configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
+  configure_file(${CMAKE_SOURCE_DIR}/tests/tools/col_compare.py ${CMAKE_CURRENT_BINARY_DIR}/col_compare.py COPYONLY)
+
+  add_test(NAME ${test_name} COMMAND python3 col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1)
+  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+  set_tests_properties(${test_name} PROPERTIES DEPENDS ${test_depend})
+  set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
+endfunction() # COMPARISON test
+
+function(create_test exe_name test_name test_will_fail test_label)
   set(CURRENT_EXE ${exe_name})
 
   add_executable(${CURRENT_EXE} main.cpp)
@@ -67,6 +81,7 @@ function(create_test exe_name test_name test_will_fail)
   # target_link_libraries(${CURRENT_EXE} mfem mpi z HYPRE SuiteSparse::suitesparse metis petsc $ENV{FILESYSTEM_VAR} Sloth)
   add_test(NAME ${test_name} COMMAND ${CURRENT_EXE})
   set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+  set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 
   IF(CMAKE_BUILD_TYPE MATCHES Debug)
     message("Debug build.")

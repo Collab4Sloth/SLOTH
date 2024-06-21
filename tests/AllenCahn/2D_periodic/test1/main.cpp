@@ -128,7 +128,8 @@ int main(int argc, char* argv[]) {
       OPE oper(&spatial, params, vars, source_terme);
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-      auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
+      auto pst =
+          PST(main_folder_path, "Problem1_" + time_scheme, &spatial, frequency, level_of_detail);
       PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
 
       // Coupling 1
@@ -152,12 +153,12 @@ int main(int argc, char* argv[]) {
       // Profiling stop
       //---------------------------------------
       Profiling::getInstance().print();
-      //---------------------------------------
-      // Finalize MPI
-      //---------------------------------------
-      MPI_Finalize();
-      //---------------------------------------
     }
   }
+  //---------------------------------------
+  // Finalize MPI
+  //---------------------------------------
+  MPI_Finalize();
+  //---------------------------------------
   return 0;
 }
