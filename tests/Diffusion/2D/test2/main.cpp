@@ -1,7 +1,8 @@
 /**
  * @file main.cpp
  * @author ci230846  (clement.introini@cea.fr)
- * @brief Diffusion problem solved in a square (similar to the test 16 in mfem.org page)
+ * @brief Non linear Diffusion problem solved in a square (non linear version of the test 16 in
+ * mfem.org page)
  * @version 0.1
  * @date 2024-06-06
  *
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   const auto DIM = 2;
-  using NLFI = DiffusionNLFormIntegrator<DiffusionCoefficientDiscretization::Explicit,
+  using NLFI = DiffusionNLFormIntegrator<DiffusionCoefficientDiscretization::Implicit,
                                          DiffusionCoefficients::Linear>;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;

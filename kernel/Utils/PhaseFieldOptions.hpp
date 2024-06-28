@@ -50,7 +50,8 @@ struct IterationKey {
    * @return false
    */
   bool operator<(const IterationKey& user_key) const {
-    return std::tie(iter_, time_step_, time_) < std::tie(user_key.iter_, user_key.time_step_, user_key.time_);
+    return std::tie(iter_, time_step_, time_) <
+           std::tie(user_key.iter_, user_key.time_step_, user_key.time_);
   }
 };
 
@@ -110,6 +111,12 @@ struct AnalyticalFunctionsType {
   enum value { Heaviside, Sinusoide, Sinusoide2, HyperbolicTangent, Parabolic, Uniform };
   static value from(const std::string&);
 };
+
+///////////////////////////////////////////////////
+//////// Diffusion
+///////////////////////////////////////////////////
+enum class DiffusionCoefficients { Linear };
+enum class DiffusionCoefficientDiscretization { Implicit, Explicit, SemiImplicit };
 
 ///////////////////////////////////////////////////
 //////// SOLVER

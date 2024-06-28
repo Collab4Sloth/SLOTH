@@ -251,7 +251,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
   Catch_Time_Section("PhaseFieldOperatorBase::initialize");
   this->SetTime(initial_time);
 
-  auto &vv = vars_.get_variable("phi");
+  auto &vv = vars_.getIVariable(0);
   auto u = vv.get_unknown();
 
   this->bcs_ = vv.get_boundary_conditions();

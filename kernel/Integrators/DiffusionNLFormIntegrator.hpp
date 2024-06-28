@@ -11,8 +11,7 @@
 #include <algorithm>
 #include <tuple>
 
-#include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/PhaseFieldMobilities.hpp"
+#include "Coefficients/DiffusionCoeffients.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
 #include "mfem.hpp"
@@ -20,14 +19,19 @@
 #pragma once
 
 using FuncType = std::function<double(const double&, const double&)>;
+
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
 class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  private:
   mfem::GridFunction u_old_;
-  mfem::DenseMatrix dshape, dshapedxt, invdfdx;
-  mfem::Vector shape, vec, pointflux;
+  mfem::DenseMatrix gradPsi;
+  mfem::Vector Psi, gradU;
 
-  FuncType laplacian();
-  FuncType stabilization();
+  DiffusionFunctions<0, SCHEME, COEFFICIENT> diffusion_coefficient_function_;
+  DiffusionFunctions<1, SCHEME, COEFFICIENT> diffusion_coefficient_function_first_derivative_;
+
+  template <typename... Args>
+  FuncType diffusion(const int order_derivative, Args... parameters);
 
  protected:
   double alpha_, kappa_;
@@ -49,41 +53,45 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Stabilization terms
+ * @brief Diffusion coefficient (or derivative)
  *
  * @tparam SCHEME
- * @tparam MOBI
+ * @tparam COEFFICIENT
+ * @param order_derivative
  * @return FuncType
  */
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
+template <typename... Args>
+FuncType DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::diffusion(const int order_derivative,
+                                                                   Args... parameters) {
+  return FuncType([this, order_derivative, parameters...](const double& u, const double& un) {
+    std::function<double(const double&)> func;
+    if (order_derivative == 0) {
+      func = this->diffusion_coefficient_function_.getFunction(un, parameters...);
+    } else if (order_derivative == 1) {
+      func = this->diffusion_coefficient_function_first_derivative_.getFunction(un, parameters...);
+    } else {
+      throw std::runtime_error(
+          "Error while setting the order of derivative: only 0 and 1 are allowed.");
+    }
 
-FuncType DiffusionNLFormIntegrator::stabilization() {
-  return [](const double& u, const double& un) { return 0.; };
-}
-
-/**
- * @brief Laplacian coefficient
- *
- * @tparam SCHEME
- * @tparam MOBI
- * @return std::function<double(const double&, const double&)>
- */
-
-FuncType DiffusionNLFormIntegrator::laplacian() {
-  return FuncType([this](const double& u, const double& un) {
-    const auto& laplacian = this->alpha_ * un + this->kappa_;
-    return laplacian;
+    return func(u);
   });
 }
 
 /**
- * @brief Construct a new DiffusionNLFormIntegrator object
+ * @brief Construct a new DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::DiffusionNLFormIntegrator
+ * object
  *
+ * @tparam SCHEME
+ * @tparam COEFFICIENT
  * @param u_old
  * @param alpha
  * @param kappa
  */
-DiffusionNLFormIntegrator::DiffusionNLFormIntegrator(const mfem::GridFunction& u_old,
-                                                     const double& alpha, const double& kappa)
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
+DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::DiffusionNLFormIntegrator(
+    const mfem::GridFunction& u_old, const double& alpha, const double& kappa)
     : u_old_(u_old), alpha_(alpha), kappa_(kappa) {}
 
 /**
@@ -94,51 +102,36 @@ DiffusionNLFormIntegrator::DiffusionNLFormIntegrator(const mfem::GridFunction& u
  * @param elfun
  * @param elvect
  */
-void DiffusionNLFormIntegrator::AssembleElementVector(const mfem::FiniteElement& el,
-                                                      mfem::ElementTransformation& Tr,
-                                                      const mfem::Vector& elfun,
-                                                      mfem::Vector& elvect) {
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
+void DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::AssembleElementVector(
+    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
+    mfem::Vector& elvect) {
   int nd = el.GetDof();
   int dim = el.GetDim();
-  int spaceDim = Tr.GetSpaceDim();
-  dshape.SetSize(nd, dim);
-  shape.SetSize(nd);
-  invdfdx.SetSize(dim, spaceDim);
-  vec.SetSize(dim);
-  pointflux.SetSize(spaceDim);
-
+  gradPsi.SetSize(nd, dim);
+  Psi.SetSize(nd);
+  gradU.SetSize(dim);
   elvect.SetSize(nd);
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
   elvect = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcDShape(ip, dshape);  // dphi
-    el.CalcShape(ip, shape);    // phi
+    el.CalcShape(ip, Psi);
     Tr.SetIntPoint(&ip);
 
-    const auto& u = elfun * shape;
+    const auto& u = elfun * Psi;
     const auto& un = this->u_old_.GetValue(Tr, ip);
-    // mfem::Vector gradun;
-    // this->u_old_.GetGradient(Tr, gradun);
 
-    // Given phi, compute (w'(phi), v), v is shape function
-    const double& ww = 0.;
-    // ip.weight* Tr.Weight() * this->stabilization()(u, un);
-    add(elvect, ww, shape, elvect);
+    // Laplacian : given u, compute (grad(u), grad(psi)), psi is shape function.
+    // given u (elfun), compute grad(u)
+    el.CalcPhysDShape(Tr, gradPsi);
+    gradPsi.MultTranspose(elfun, gradU);
 
-    // Laplacian : given u, compute (grad(u), grad(v)), v is shape function.
-    CalcAdjugate(Tr.Jacobian(), invdfdx);   // invdfdx = adj(J)
-    dshape.MultTranspose(elfun, vec);       //= dphi^t*elfun = dphi^t*u
-    invdfdx.MultTranspose(vec, pointflux);  //= Jadj^t*dphi^t*u : grad phi sur l'element K
-
-    double w;
-    w = this->laplacian()(u, un) * ip.weight / Tr.Weight();  // wq*D/det(J)
-    pointflux *= w;                                          //= wq/det(J)*rD*Q(xq)*Jadj^t*dphi*u
-    invdfdx.Mult(pointflux, vec);
-
-    //
-    dshape.AddMult(vec, elvect);
+    const double coeff_diffu =
+        this->diffusion(0, this->alpha_, this->kappa_)(u, un) * ip.weight * Tr.Weight();
+    gradU *= coeff_diffu;
+    gradPsi.AddMult(gradU, elvect);
   }
 }
 
@@ -150,56 +143,51 @@ void DiffusionNLFormIntegrator::AssembleElementVector(const mfem::FiniteElement&
  * @param elfun
  * @param elmat
  */
-void DiffusionNLFormIntegrator::AssembleElementGrad(const mfem::FiniteElement& el,
-                                                    mfem::ElementTransformation& Tr,
-                                                    const mfem::Vector& elfun,
-                                                    mfem::DenseMatrix& elmat) {
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
+void DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::AssembleElementGrad(
+    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
+    mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
   int dim = el.GetDim();
   int spaceDim = Tr.GetSpaceDim();
   bool square = (dim == spaceDim);
   double w;
 
-  shape.SetSize(nd);
-  dshape.SetSize(nd, dim);
-  dshapedxt.SetSize(nd, spaceDim);
+  Psi.SetSize(nd);
+  gradPsi.SetSize(nd, dim);
   elmat.SetSize(nd);
+  mfem::Vector vec;
+  vec.SetSize(nd);
 
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
 
   elmat = 0.0;
+  vec = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcDShape(ip, dshape);  // dphi
-    const auto& u = elfun * shape;
+    el.CalcShape(ip, Psi);
+    const auto& u = elfun * Psi;
     const auto& un = this->u_old_.GetValue(Tr, ip);
-
+    // Laplacian : compute (grad(phi), grad(psi)), phi is shape function.
     Tr.SetIntPoint(&ip);
-    w = Tr.Weight();  // det(J)
-    // std::cout << " SQUARE  ? " << square << std::endl;
-    w = ip.weight / (square ? w : w * w * w);
-    // AdjugateJacobian = / adj(J),         if J is square
-    //                    \ adj(J^t.J).J^t, otherwise
+    const double coeff_diffu =
+        this->diffusion(0, this->alpha_, this->kappa_)(u, un) * ip.weight * Tr.Weight();
+    el.CalcPhysDShape(Tr, gradPsi);
+    AddMult_a_AAt(coeff_diffu, gradPsi, elmat);
 
-    // Tr.AdjugateJacobian() det(J)J-1
-
-    w *= this->laplacian()(u, un);
-
-    // dshapedxt =  det(J)J-1 dshape
-    Mult(dshape, Tr.AdjugateJacobian(), dshapedxt);
-    // elmat += w * dshapedxt * dshapedxt^T
-    AddMult_a_AAt(w, dshapedxt, elmat);
-
-    // Compute w'(u)*(du,v), v is shape function ( // w''(u))
-    // double fun_val = this->stabilization()(u, un) * ip.weight * Tr.Weight();
-    // elmat += fun_val * shape * shape^T
-    // AddMult_a_VVt(fun_val, shape, elmat);  // w'(u)*(du, v)
+    gradPsi.MultTranspose(elfun, gradU);
+    gradPsi.AddMult(gradU, vec);
+    const auto coef_diffu_derivative = this->diffusion(1, this->alpha_, this->kappa_)(u, un);
+    AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, elmat);
   }
 }
 
 /**
- * @brief Destroy the DiffusionNLFormIntegrator  object
+ * @brief Destroy the DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::DiffusionNLFormIntegrator
  *
+ * @tparam SCHEME
+ * @tparam COEFFICIENT
  */
-DiffusionNLFormIntegrator::~DiffusionNLFormIntegrator() {}
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
+DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::~DiffusionNLFormIntegrator() {}

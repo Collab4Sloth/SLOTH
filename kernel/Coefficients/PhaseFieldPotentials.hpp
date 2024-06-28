@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 
-#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
 
 template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME>
@@ -725,88 +724,6 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::SemiImplicit
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 
-//  explicit instantiation of AnalyticalFunctions class template/
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::W>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::W>;
-
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::F>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::F>;
-
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::X>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::X>;
-
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Implicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::Explicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<0, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<1, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::H>;
-template class PotentialFunctions<2, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                  ThermodynamicsPotentials::H>;
-
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-
 /**
  * @brief Construct a new potential function:: potential function object
  *
@@ -816,11 +733,15 @@ template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME,
 PotentialFunctions<ORDER, SCHEME, POTENTIAL>::PotentialFunctions() {}
 
 /**
- * @brief return the function associated with the potential_name and its ORDER of
- * derivative
+ * @brief return the function associated with the POTENTIAL, its ORDER of
+ * derivative and its time discretization scheme
  *
- * @param potential_name
- * @return const double
+ * @tparam ORDER
+ * @tparam SCHEME
+ * @tparam POTENTIAL
+ * @tparam Args
+ * @param args
+ * @return std::function<double(const double&)>
  */
 template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME,
           ThermodynamicsPotentials POTENTIAL>

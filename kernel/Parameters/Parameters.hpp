@@ -10,10 +10,11 @@
 #include <any>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
-#include <optional>
 
 #include "Parameters/Parameter.hpp"
 #pragma once
@@ -24,7 +25,7 @@ class Parameters {
 
  public:
   template <class... Args>
-  Parameters(Args&&... args);
+  explicit Parameters(Args&&... args);
   std::optional<Parameter> get_parameter(const std::string& name) const;
   template <typename T>
   T get_param_value_or_default(const std::string& name, T default_value) const;

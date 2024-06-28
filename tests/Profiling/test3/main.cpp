@@ -29,7 +29,8 @@ int main(int argc, char** argv) {
     //---------------------------------------
 
     int n = 0;
-    for (int i = 0; i < 1e8; i++) {
+    const int nmax = 1e3;  // 1e8 initially but reduced for integration
+    for (int i = 0; i < nmax; i++) {
       Catch_Time_Section("somme");
       n++;
     }
