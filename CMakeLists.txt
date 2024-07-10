@@ -34,9 +34,8 @@ include(MFEM4SLOTH)
 # # Sloth header's only
 # # library (interface)
 # ########################
+include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
-
-# include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # ########################
 # # Doc Configuration
@@ -55,3 +54,34 @@ include(CTest)
 enable_testing()
 
 add_subdirectory(tests)
+
+# ########################
+# # Code Coverage
+# ########################
+IF(CMAKE_BUILD_TYPE MATCHES Coverage)
+  # Collect CodeCoverage analysis with gcovr
+  add_custom_target(cc
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
+    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --sort --sort-reverse uncovered-percent --exclude-unreachable-branches --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
+    COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
+  )
+ENDIF()
+
+# ########################
+# # Static analysis
+# ########################
+# Check if the lint target is already defined
+if(NOT TARGET lint)
+  find_program(CPP_LINT cpplint)
+
+  # Add a custom target for linting
+  add_custom_target(lint
+    COMMAND ${CPP_LINT}
+    --filter=-runtime/references,-build/header_guard,-runtime/string
+    --counting=total
+    --extensions=cpp,cxx,hpp,h,hxx
+    --linelength=100
+    --recursive ${CMAKE_SOURCE_DIR}/kernel ${CMAKE_SOURCE_DIR}/tests
+    COMMENT "Linting source files"
+  )
+endif()

@@ -2,7 +2,7 @@
 
 The installation of SLOTH consists of installing MFEM first and then, to compile SLOTH 
 
-### Installing MFEM using spack
+### Installation of MFEM on Linux using spack
 
 A straightforward way to install MFEM is to use [spack](https://spack.readthedocs.io/en/latest/getting_started.html)
 
@@ -15,34 +15,105 @@ $SPACK/share/spack/setup-env.sh
 spack install mfem+mpi+debug+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist
 ```
 
+____
+
+### Installation of MFEM on Mac Os using homebrew 
+
+MFEM can be install using homebrew. 
+
+```shell
+brew install mfem
+```
+
+by default, this installation depends on hypre, metis, openblas, suite-sparse.
+
+It is possible rebuild  mfem with additional dependencies. 
+
+- Get the .rb file : run `brew edit mfem` to open the default rb file or get it from [Github](https://github.com/Homebrew/homebrew-core/blob/5ecde7427aa47ac931795c78669f0a4da53a12ed/Formula/m/mfem.rb)
+- Add your dependencies with `depends_on` directive. Here, let us consider the `petsc` dependency:
+
+```shell
+  depends_on "cmake" => :build
+  depends_on "hypre"       
+  depends_on "metis"       
+  depends_on "openblas"
+  depends_on "suite-sparse"
+  depends_on "petsc"
+```
+
+- save the file in the directory and run the following command:
+  
+```shell
+  brew install --formula mfem.rb
+````
+
+Installation with petsc can be checked by editing once again the mfem.rb file. petsc must be mentioned as default dependency. 
+
+Each dependency can be installed easily using homebrew. 
+
+## Compiling SLOTH using mfem version installed with homebrew
+
+```shell
+mkdir build ; cd build
+```
+
+
+- Set several environment variables 
+
+```shell
+export MFEM_DIR=$(echo `brew --prefix mfem`)
+
+export MPI_DIR=$(echo `brew --prefix open-mpi`)
+
+export HYPRE_DIR=$(echo `brew --prefix hypre`)
+
+export METIS_DIR=$(echo `brew --prefix metis`)
+
+```
+
+____
+
 ### Compiling SLOTH
+
 
 - First, create a dedicated directory to build SLOTH
 ```shell
 mkdir build && cd build
 ```
 
-- Second, load mfem as SLOTH's prerequisite using `spack`
+- Second, load the SLOTH environment file 
+
 ```shell
-spack load mfem
+source ../envSloth.sh [OPTIONS] 
 ```
 
-- Third, export `HYPRE` and `MPI`  location into environment variables used during compilation process
-
+where [OPTIONS] are:
 ```shell
-export HYPRE_DIR=`spack location -i hypre`
-export MPI_DIR=`spack location -i mpi`
+    --release to build with Release compiler options 
+        
+    --debug to build with Debug compiler options 
+        
+    --coverage to build with Coverage compiler options 
+        
+    --clean to remove previous build if it exists 
 ```
 
-- Fourth, run `cmake` with `PETSc` directives
+By default, SLOTH is built with release compiler options.
+
+
+- Finally, compile 
 
 ```shell
-cmake .. -DMFEM_USE_PETSC=ON -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH="" -DPETSC_INCLUDES=${PETSC_DIR}/include -DPETSC_LIBRARIES=${PETSC_DIR}/lib -DPETSC_EXECUTABLE_RUNS=${PETSC_DIR}/bin
+make -j N 
 ```
-- Finally, compile (i.e. build all examples)
+with N the number of jobs.
+
+## Static code analysis
+
+- To do a static code analysis with CPPLINT, run 
 
 ```shell
-make
+make lint
 ```
 
 ## Building documentation
@@ -112,66 +183,4 @@ pip3 install  WeasyPrint==52.5                 # Used by the plugin with-pdf.
 
 
 
-### Installation on Mac Os using homebrew 
-
-MFEM can be install using homebrew. 
-
-```shell
-brew install mfem
-```
-
-by default, this installation depends on hypre, metis, openblas, suite-sparse.
-
-It is possible rebuild  mfem with additional dependencies. 
-
-- Get the .rb file : run `brew edit mfem` to open the default rb file or get it from [Github](https://github.com/Homebrew/homebrew-core/blob/5ecde7427aa47ac931795c78669f0a4da53a12ed/Formula/m/mfem.rb)
-- Add your dependencies with `depends_on` directive. Here, let us consider the `petsc` dependency:
-
-```shell
-  depends_on "cmake" => :build
-  depends_on "hypre"        # optional "mpi"
-  depends_on "metis"        # optional "metis"
-  depends_on "openblas"
-  depends_on "suite-sparse"
-  depends_on "petsc"
-```
-
-- save the file in the directory and run the following command:
-  
-```shell
-  brew install --formula mfem.rb
-````
-
-Installation with petsc can be checked by editing once again the mfem.rb file. petsc must be mentioned as default dependency. 
-
-Each dependency can be installed easily using homebrew. 
-
-## Compiling SLOTH using mfem version installed with homebrew
-
-```shell
-mkdir build ; cd build
-```
-
-
-- Set several environment variables 
-
-```shell
-export MFEM_DIR=$(echo `brew --prefix mfem`)
-
-export MPI_DIR=$(echo `brew --prefix open-mpi`)
-
-export HYPRE_DIR=$(echo `brew --prefix hypre`)
-
-export METIS_DIR=$(echo `brew --prefix metis`)
-
-export PETSC_DIR=$(echo `brew --prefix petsc`) 
-```
-
-- Run cmake as follow:
-
-```shell
-cmake .. -DMFEM_USE_PETSC=ON -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH="" -DPETSC_INCLUDES=${PETSC_DIR}/include -DPETSC_LIBRARIES=${PETSC_DIR}/lib -DPETSC_EXECUTABLE_RUNS=${PETSC_DIR}/bin -DMPI_DIR=$(echo `brew --prefix open-mpi`) -DHYPRE_DIR=$(echo `brew --prefix hypre`) 
-```
-
-- Compile running `make`
 

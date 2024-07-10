@@ -14,4 +14,10 @@ target_include_directories(Sloth INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
 target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include)
 target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib)
-target_link_libraries(Sloth INTERFACE mfem mpi z HYPRE SuiteSparse::suitesparse metis petsc $ENV{FILESYSTEM_VAR})
+
+target_link_libraries(Sloth INTERFACE mfem mpi z HYPRE SuiteSparse::suitesparse metis $ENV{FILESYSTEM_VAR})
+
+# PETSC ??
+if(MFEM_USE_PETSC)
+    target_link_libraries(Sloth INTERFACE petsc )
+endif(MFEM_USE_PETSC)

@@ -8,7 +8,7 @@
  * @copyright Copyright (c) 2024
  *
  */
-#include <chrono>
+#include <chrono>  // NOLINT [build/c++11]
 #include <iostream>
 #include <string>
 #include <tuple>

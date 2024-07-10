@@ -12,13 +12,13 @@
 
 #include <string>
 
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 class SlothInfo {
  public:
   template <typename... Args>
-  static void print(Args... args) ;
+  static void print(Args... args);
 };
 
 template <typename... Args>

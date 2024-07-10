@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 /**
  * @brief specialized_spatial_constructor

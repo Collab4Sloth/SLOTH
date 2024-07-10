@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "Utils/UtilsForDebug.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 
@@ -52,9 +52,9 @@ Coupling<Args...>::Coupling(const std::string& name, Args&&... problems)
 
 /**
  * @brief Return the name of the coupling
- * 
- * @tparam Args 
- * @return const std::string 
+ *
+ * @tparam Args
+ * @return const std::string
  */
 template <class... Args>
 std::string Coupling<Args...>::get_name() {
@@ -134,8 +134,8 @@ void Coupling<Args...>::post_execute(const int& iter, const double& current_time
 }
 /**
  * @brief Update the variables of the problems inside this coupling
- * 
- * @tparam Args 
+ *
+ * @tparam Args
  */
 template <class... Args>
 void Coupling<Args...>::update() {
@@ -144,11 +144,11 @@ void Coupling<Args...>::update() {
 
 /**
  * @brief Save the variables of the problems inside this coupling
- * 
- * @tparam Args 
- * @param iter 
- * @param current_time 
- * @param current_time_step 
+ *
+ * @tparam Args
+ * @param iter
+ * @param current_time
+ * @param current_time_step
  */
 template <class... Args>
 void Coupling<Args...>::post_processing(const int& iter, const double& current_time,
@@ -162,8 +162,8 @@ void Coupling<Args...>::post_processing(const int& iter, const double& current_t
 
 /**
  * @brief Call the finalize methods of each problem
- * 
- * @tparam Args 
+ *
+ * @tparam Args
  */
 template <class... Args>
 void Coupling<Args...>::finalize() {
@@ -176,4 +176,4 @@ void Coupling<Args...>::finalize() {
  * @tparam Args
  */
 template <class... Args>
-Coupling<Args...>::~Coupling(){};
+Coupling<Args...>::~Coupling() {}

@@ -22,7 +22,7 @@
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Utils/UtilsForDebug.hpp"
 #include "Variables/Variable.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 template <class... Args>
 class TimeDiscretization {
  private:

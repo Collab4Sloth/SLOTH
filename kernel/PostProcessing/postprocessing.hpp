@@ -24,7 +24,7 @@
 #include "Spatial/Spatial.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Variables/Variable.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 template <class T, class DC, int DIM>
 class PostProcessing : public DC {

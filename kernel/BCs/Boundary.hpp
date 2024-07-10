@@ -13,9 +13,9 @@
 #include <string>
 #include <vector>
 
-#include "Spatial/Spatial.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp"
+#include "kernel/Spatial/Spatial.hpp"
+#include "kernel/Utils/PhaseFieldOptions.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 /**

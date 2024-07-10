@@ -15,7 +15,7 @@
 #include "BCs/Boundary.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 /**

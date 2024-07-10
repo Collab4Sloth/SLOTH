@@ -17,7 +17,7 @@
 #include "Coefficients/SourceTermCoefficient.hpp"
 #include "Profiling/Profiling.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 using FuncType = std::function<double(const double&, const double&)>;
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,

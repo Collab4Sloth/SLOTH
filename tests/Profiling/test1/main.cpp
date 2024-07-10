@@ -11,7 +11,7 @@
 
 #include <mpi.h>
 
-#include <chrono>
+#include <chrono>  // NOLINT [build/c++11]
 #include <iomanip>
 #include <iostream>
 

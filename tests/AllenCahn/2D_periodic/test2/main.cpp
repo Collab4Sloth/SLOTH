@@ -29,7 +29,7 @@
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 ///---------------
 /// Main program
@@ -70,8 +70,9 @@ int main(int argc, char* argv[]) {
   mfem::Vector x_translation({L, 0.0});
   std::vector<mfem::Vector> translations = {x_translation};
   auto refinement_level = 0;
-  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1, refinement_level,
-                                                   std::make_tuple(NN, NN, L, L), translations);
+  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
+                                                   refinement_level, std::make_tuple(NN, NN, L, L),
+                                                   translations);
 
   //##############################
   //    Boundary conditions     //
@@ -111,13 +112,13 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
 
   auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
-  
+
   //###########################################
   //###########################################
   //     Post-processing                     //
   //###########################################
   //###########################################
- const std::string& main_folder_path = "Saves";
+  const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
   // ####################
@@ -131,7 +132,6 @@ int main(int argc, char* argv[]) {
   auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
   PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
 
-
   // Coupling 1
   auto cc = Coupling("coupling 1 ", std::move(problem1));
 
@@ -143,11 +143,9 @@ int main(int argc, char* argv[]) {
   const auto& t_initial = 0.0;
   const auto& t_final = 0.4;
   const auto& dt = 0.1;
-  auto time_params =
-      Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt));
-auto time = TimeDiscretization(time_params, std::move(cc));
-
+  auto time_params = Parameters(Parameter("initial_time", t_initial),
+                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time = TimeDiscretization(time_params, std::move(cc));
 
   // time.get_tree();
   time.solve();

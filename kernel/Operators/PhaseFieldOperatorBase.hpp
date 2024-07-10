@@ -39,7 +39,7 @@
 #include "Utils/UtilsForDebug.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 

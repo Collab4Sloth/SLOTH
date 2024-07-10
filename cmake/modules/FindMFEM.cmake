@@ -98,6 +98,7 @@ set_property(TARGET MFEM::mfem APPEND
 set_property(TARGET MFEM::mfem APPEND
     PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
 
+
 # Set MPI library
 if(MFEM_USE_MPI)
   # The following include directories are automatically filled within FindMFEM.cmake

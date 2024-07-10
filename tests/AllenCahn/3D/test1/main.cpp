@@ -28,7 +28,7 @@
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "mfem.hpp"
+#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
 
 ///---------------
 /// Main program
@@ -54,34 +54,35 @@ int main(int argc, char* argv[]) {
   using VAR = Variables<FECollection, DIM>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VAR, PST>;
-  //###########################################
-  //###########################################
-  //        Spatial Discretization           //
-  //###########################################
-  //###########################################
-  //##############################
-  //          Meshing           //
-  //##############################
+  // ###########################################
+  // ###########################################
+  //         Spatial Discretization           //
+  // ###########################################
+  // ###########################################
+  // ##############################
+  //           Meshing           //
+  // ##############################
   auto refinement_level = 0;
   SpatialDiscretization<FECollection, DIM> spatial(
-      "InlineSquareWithTetraedres", 1, refinement_level, std::make_tuple(30, 30, 30, 1.e-3, 1.e-3, 1.e-3));
-  //##############################
-  //    Boundary conditions     //
-  //##############################
+      "InlineSquareWithTetraedres", 1, refinement_level,
+      std::make_tuple(30, 30, 30, 1.e-3, 1.e-3, 1.e-3));
+  // ##############################
+  //     Boundary conditions     //
+  // ##############################
   auto boundaries = {Boundary("rear", 0, "Neumann", 0.),    Boundary("lower", 1, "Neumann", 0.),
                      Boundary("right", 2, "Dirichlet", 1.), Boundary("upper", 3, "Neumann", 0.),
                      Boundary("left", 4, "Dirichlet", 0.),  Boundary("front", 5, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
-  //###########################################
-  //###########################################
-  //           Physical models               //
-  //###########################################
-  //###########################################
-  //####################
-  //    parameters    //
-  //####################
-  // Interface thickness
+  // ###########################################
+  // ###########################################
+  //            Physical models               //
+  // ###########################################
+  // ###########################################
+  // ####################
+  //     parameters    //
+  // ####################
+  //  Interface thickness
   const auto& epsilon(5.e-4);
   // Interfacial energy
   const auto& sigma(6.e-2);
@@ -92,9 +93,9 @@ int main(int argc, char* argv[]) {
   auto params = Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
                            Parameter("mobility", mob), Parameter("sigma", sigma),
                            Parameter("lambda", lambda), Parameter("omega", omega));
-  //####################
-  //    variables     //
-  //####################
+  // ####################
+  //     variables     //
+  // ####################
   const auto& center_x = 0.;
   const auto& center_y = 0.;
   const auto& center_z = 0.;
@@ -113,12 +114,12 @@ int main(int argc, char* argv[]) {
   auto vars = VAR(
       Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
 
-  //###########################################
-  //###########################################
-  //     Post-processing                     //
-  //###########################################
-  //###########################################
- const std::string& main_folder_path = "Saves";
+  // ###########################################
+  // ###########################################
+  //      Post-processing                     //
+  // ###########################################
+  // ###########################################
+  const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
   // ####################
@@ -132,23 +133,20 @@ int main(int argc, char* argv[]) {
   auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
   PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
 
-
   // Coupling 1
   auto cc = Coupling("coupling 1 ", std::move(problem1));
 
-  //###########################################
-  //###########################################
-  //           Time-integration              //
-  //###########################################
-  //###########################################
+  // ###########################################
+  // ###########################################
+  //            Time-integration              //
+  // ###########################################
+  // ###########################################
   const auto& t_initial = 0.0;
   const auto& t_final = 0.25;
   const auto& dt = 0.25;
-  auto time_params =
-      Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-                 Parameter("time_step", dt));
-auto time = TimeDiscretization(time_params, std::move(cc));
-
+  auto time_params = Parameters(Parameter("initial_time", t_initial),
+                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time = TimeDiscretization(time_params, std::move(cc));
 
   // time.get_tree();
   time.solve();
