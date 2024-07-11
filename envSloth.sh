@@ -46,7 +46,7 @@ for arg in "$@"; do
         Print "Previous build will be removed if it exists "
         ;;
     *)
-        echo "\nERROR with $arg in shell script options"
+        Print "\nERROR with $arg in shell script options"
         return
         ;;
     esac
@@ -54,10 +54,10 @@ done
 #=============================================
 #=============================================
 if [[ "$clean_build" == "Yes" ]]; then
-    echo_msg "Delete existing build before creating a new one..."
+    Print "Delete existing build before creating a new one..."
     rm -rf *
 fi
 #=============================================
-echo_msg "Create a new build..."
+Print "Create a new build..."
 cmake .. ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code
-echo_msg "Done!"
+Print "Done!"
