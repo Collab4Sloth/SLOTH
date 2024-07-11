@@ -10,6 +10,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     spack load mfem
     export HYPRE_DIR=$(spack location -i hypre)
     export MPI_DIR=$(spack location -i mpi)
+    export METIS_DIR=$(spack location -i metis)
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     export HYPRE_DIR=$(echo $(brew --prefix hypre))
