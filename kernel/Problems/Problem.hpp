@@ -150,6 +150,29 @@ void Problem<OPE, VAR, PST>::update() {
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
+    SlothInfo::print(R"(@@@@@@@@@@@@@@@@%#+--=*%@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@%#+-:::--:::-+*%@@@@@@@@@@@@
+@@@@@@@@%*+-:::-+#%@@%#*=:::-=*#@@@@@@@@
+@@@@@%+-:::-+#%@@@@@@@@@@@#*=::::=@@@@@@
+@@@@@=::+#%@@@@@@%%%%@@@@@@@@@%*::+@@@@@
+@@@@*::#@@@@@#+--::::-=+*%@@@@@@*::#@@@@
+@@@%::+@@@@*-:::::::::::::-+%@@@@=:-%@@@
+@@@=:-@@@%=::::::::::::::--::=#@@%-:=@@@
+@@*::#@@@-:::::::--:::::+*==:::-*@#::*@@
+@#::+@@@#+#=::::+##+::::-%-+:::::-%+::%@
+%-:=@@@@#==-%@#::::::::::--*:::::::*=:-@
+*::#@@@@@+:-*#*===::::::::#*:::::::-#::*
+@-:-@@@@@@#=---:::::::::=#@*:::::::#=:-@
+@%::+@@@@@@@*++===+++*#%@@@#::::::**::%@
+@@*::#@@@@#-::--:::--=+*%@@@=::::=#::*@@
+@@@+::%@@%:::::::::::::::=#@%::::%-:=@@@
+@@@@=:=@@@+::::::::::::::::=##::*+:-%@@@
+@@@@%::=*%@%+-::::::::--==---##++::#@@@@
+@@@@@#=::::=*##*+++*#%@@@@%*=-:::=*@@@@@
+@@@@@@@@%*=-:::=+#%@@@#*=:::-=*#@@@@@@@@
+@@@@@@@@@@@@%#+-:::-=:::-+*%@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@%#+--+#%@@@@@@@@@@@@@@@@
+  )");
   this->oper_.initialize(initial_time);
   // Call before the first call to step() or when the time-step is restarted
   this->ode_solver_->Init(this->oper_);
@@ -212,14 +235,19 @@ void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current
 }
 
 /**
- * @brief Fill CSV files, if required
+ * @brief Show calculation information
  *
  * @tparam OPE
  * @tparam VAR
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
-  this->pst_.save_specialized(this->oper_.get_time_specialized());
+  if (!this->pst_.get_enable_save_specialized_at_iter()) {
+    this->pst_.save_specialized(this->oper_.get_time_specialized());
+  }
+  SlothInfo::print(" ");
+  SlothInfo::print(" ============================== ");
+  SlothInfo::print(" Results are saved in the folder : ", pst_.get_post_processing_directory());
 }
 
 /**
@@ -238,6 +266,9 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   this->post_execute(iter, current_time_step, current_time);
   // Save for visualization
   this->save(iter, current_time);
+  if (this->pst_.get_enable_save_specialized_at_iter()) {
+    this->pst_.save_specialized(this->oper_.get_time_specialized());
+  }
 }
 
 /**

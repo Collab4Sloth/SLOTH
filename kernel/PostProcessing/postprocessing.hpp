@@ -31,16 +31,19 @@ class PostProcessing : public DC {
  private:
   std::map<std::string, mfem::GridFunction> fields_to_save_;
   int frequency_;
+  bool enable_save_specialized_at_iter_;
   std::string post_processing_directory_;
   bool need_to_be_saved(const int& iteration);
 
  public:
   PostProcessing(const std::string& main_folder_path, const std::string& calculation_path,
                  SpatialDiscretization<T, DIM>* space, const int& frequency,
-                 const int& level_of_detail);
+                 const int& level_of_detail, const bool& enable_save_specialized_at_iter = false);
   void save_variables(const Variables<T, DIM>& vars, const int& iter, const double& time);
   void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results);
   int get_frequency();
+  std::string get_post_processing_directory();
+  bool get_enable_save_specialized_at_iter();
 
   ~PostProcessing();
 };
@@ -60,8 +63,11 @@ template <class T, class DC, int DIM>
 PostProcessing<T, DC, DIM>::PostProcessing(const std::string& main_folder_path,
                                            const std::string& calculation_path,
                                            SpatialDiscretization<T, DIM>* space,
-                                           const int& frequency, const int& level_of_detail)
-    : DC(calculation_path, &space->get_mesh()), frequency_(frequency) {
+                                           const int& frequency, const int& level_of_detail,
+                                           const bool& enable_save_specialized_at_iter)
+    : DC(calculation_path, &space->get_mesh()),
+      frequency_(frequency),
+      enable_save_specialized_at_iter_(enable_save_specialized_at_iter) {
   this->SetPrefixPath(main_folder_path);
   this->SetLevelsOfDetail(level_of_detail);
   this->SetDataFormat(mfem::VTKFormat::BINARY);
@@ -99,6 +105,27 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
 template <class T, class DC, int DIM>
 int PostProcessing<T, DC, DIM>::get_frequency() {
   return this->frequency_;
+}
+
+
+/**
+ * @brief Get the post-processing directory 
+ *
+ * @return std::string
+ */
+template <class T, class DC, int DIM>
+std::string PostProcessing<T, DC, DIM>::get_post_processing_directory() {
+  return this->post_processing_directory_;
+}
+
+/**
+ * @brief Get the post-processing directory 
+ *
+ * @return std::string
+ */
+template <class T, class DC, int DIM>
+bool PostProcessing<T, DC, DIM>::get_enable_save_specialized_at_iter() {
+  return this->enable_save_specialized_at_iter_;
 }
 
 /**
