@@ -39,7 +39,7 @@
 #include "Utils/UtilsForDebug.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 
@@ -445,7 +445,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ComputeError(
   gf.SetFromTrueDofs(u);
   mfem::FunctionCoefficient solution_coef(solution_func);
   solution_coef.SetTime(this->GetTime());
-  const auto error = gf.ComputeL2Error(solution_coef);
+
+  const auto error = gf.ComputeLpError(2, solution_coef);
 
   this->time_specialized_.emplace(IterationKey(it, dt, t), SpecializedValue("L2-error[-]", error));
 }
@@ -465,7 +466,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_
   RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
   RHSS->Assemble();
   source_term = *RHSS.get();
-  // source_term.Print();
+  source_term.SetSubVector(this->ess_tdof_list_, 0.);
 }
 
 /**

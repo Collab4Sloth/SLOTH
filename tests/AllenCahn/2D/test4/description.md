@@ -1,0 +1,74 @@
+# 2D Allen-Cahn simulation in a square: steady quadratic manufactured solution
+
+## Statement of the problem
+This example code solves the Allen-Cahn equation in a 2D domain $\Omega=[0,1]\times[0,1]$ (inline mesh), with a spatiotemporal source term built in order to recover a steady quadratic solution:
+
+$$
+u({\bf x},t)=xy(x - 1)  (y - 1)
+$$
+
+### __Governing equation__
+Let us consider the following set of governing equations:
+
+$$
+\frac{\partial \phi}{\partial t}=\Delta \phi - W'(\phi)+S({\bf x},t)\text{ in }\Omega 
+$$
+
+$$
+W(\phi)=\phi^2(1-\phi)^2
+$$
+
+where $S({\bf x},t)=2 u({\bf x},t)  (1 - 2  u({\bf x},t))  (1 -u({\bf x},t)) - [2  x  (x - 1) + 2  y  (y - 1)]$ 
+
+
+
+### __Boundary conditions__
+
+
+
+
+Dirichlet boundary conditions are prescribed on $\Gamma$ :
+
+$$
+\phi=0 \text{ on }\Gamma 
+$$
+
+### __Parameters__
+For this test, all parameters are set to one.
+
+### __Numerical scheme__
+
+- Time marching: Euler Implicit scheme, $t\in[0,1]$, $\delta t=0.25$
+- Spatial discretization: uniform mesh with $N=4$ nodes in each direction
+- Double-Well potential: implicit scheme
+
+  
+## Running
+
+### __Using the binary__
+```shell
+./AllenCahn2Dtest4
+```
+
+### __Using ctest__
+
+```shell
+ctest -R AllenCahn2Dtest4
+```
+
+
+## Post-processing
+
+(to be written)
+
+## Files & Dependencies
+
+Source file : `main.cpp`
+
+## References
+
+None
+
+## Intellectual Property
+
+See [About page](../../../../../about.html) 

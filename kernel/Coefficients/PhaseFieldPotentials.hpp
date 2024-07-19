@@ -385,7 +385,7 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
     if (v.size() == 1) {
       const auto xn = v[0];
       return std::function<double(const double&)>([xn](double x) {
-        const auto pot = xn * (xn * xn - 1.0);
+        const auto pot = xn * xn * xn - xn;
         return pot;
       });
     } else {
