@@ -1,4 +1,4 @@
-create_test("AllenCahn2Dtest2" "AllenCahn2Dtest2" FALSE "EXE AC")
+create_test("AllenCahn2Dtest2" "AllenCahn2Dtest2" FALSE "EXE AC" 3)
 
 configure_file(${CMAKE_SOURCE_DIR}/kernel/Mesh-examples/camembert2D.msh ${CMAKE_CURRENT_BINARY_DIR}/camembert2D.msh COPYONLY)
 

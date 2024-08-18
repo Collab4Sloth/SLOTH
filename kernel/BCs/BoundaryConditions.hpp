@@ -26,7 +26,7 @@ template <class T, int DIM>
 class BoundaryConditions {
  private:
   T *fecollection_;
-  mfem::FiniteElementSpace *fespace_;
+  mfem::ParFiniteElementSpace *fespace_;
   mfem::Array<int> Dirichlet_bdr_;
   mfem::Array<double> Dirichlet_value_;
   mfem::Array<int> ess_tdof_list_;

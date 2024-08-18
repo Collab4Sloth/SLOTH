@@ -12,19 +12,47 @@
 
 #include <string>
 
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
+
+enum class Verbosity { Quiet, Normal, Verbose, Debug, Error };
 
 class SlothInfo {
  public:
+  static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
+
   template <typename... Args>
-  static void print(Args... args);
+  static void debug(Args... args) {
+    if (Verbosity::Debug <= verbosityLevel) {
+      (std::cout << ... << args) << "\n";
+    }
+  }
+  template <typename... Args>
+  static void error(Args... args) {
+    if (Verbosity::Error <= verbosityLevel) {
+      (std::cout << ... << args) << "\n";
+    }
+  }
+
+  template <typename... Args>
+  static void verbose(Args... args) {
+    if (Verbosity::Verbose <= verbosityLevel) {
+      (std::cout << ... << args) << "\n";
+    }
+  }
+
+  template <typename... Args>
+  static void print(Args... args) {
+    if (Verbosity::Normal <= verbosityLevel) {
+      (std::cout << ... << args) << "\n";
+    }
+  }
+
+ private:
+  static Verbosity verbosityLevel;
 };
 
-template <typename... Args>
-void SlothInfo::print(Args... args) {
-  (std::cout << ... << args) << "\n";
-}
+Verbosity SlothInfo::verbosityLevel = Verbosity::Verbose;
 
 /**
  * @brief
@@ -61,4 +89,3 @@ void UtilsForDebug::memory_checkpoint(const std::string& msg) {
   std::cout << "<<<" << msg << ">>>" << std::endl;
   std::cout << "Memory footprint " << mem.ru_maxrss * 1e-6 << " GB" << std::endl;
 }
-

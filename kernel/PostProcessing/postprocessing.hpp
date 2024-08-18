@@ -24,12 +24,12 @@
 #include "Spatial/Spatial.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Variables/Variable.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 template <class T, class DC, int DIM>
 class PostProcessing : public DC {
  private:
-  std::map<std::string, mfem::GridFunction> fields_to_save_;
+  std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   int frequency_;
   bool enable_save_specialized_at_iter_;
   std::string post_processing_directory_;
@@ -107,9 +107,8 @@ int PostProcessing<T, DC, DIM>::get_frequency() {
   return this->frequency_;
 }
 
-
 /**
- * @brief Get the post-processing directory 
+ * @brief Get the post-processing directory
  *
  * @return std::string
  */
@@ -119,7 +118,7 @@ std::string PostProcessing<T, DC, DIM>::get_post_processing_directory() {
 }
 
 /**
- * @brief Get the post-processing directory 
+ * @brief Get the post-processing directory
  *
  * @return std::string
  */

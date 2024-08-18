@@ -35,13 +35,15 @@ class AllenCahnMeltingNLFormIntegrator final
   PotentialFunctions<1, SCHEME, INTERPOLATION> interpolation_first_derivative_potential_;
   PotentialFunctions<2, SCHEME, INTERPOLATION> interpolation_second_derivative_potential_;
 
-  FuncType enthalpy_derivative(const int& order_derivative);
+  FuncType enthalpy_derivative(const int order_derivative);
 
-  FuncType energy_derivatives(const int& order_derivative);
+  FuncType energy_derivatives(const int order_derivative) override;
+
+ protected:
+  void get_parameters(const Parameters& vectr_param) override;
 
  public:
-  AllenCahnMeltingNLFormIntegrator(const mfem::GridFunction& _u_old, const double& _omega,
-                                   const double& _lambda, const double& _mob, const double& _alpha);
+  AllenCahnMeltingNLFormIntegrator(const mfem::ParGridFunction& _u_old, const Parameters& params);
   ~AllenCahnMeltingNLFormIntegrator();
 };
 
@@ -65,7 +67,7 @@ template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION, PhaseChange PHASECHANGE>
 FuncType
 AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION,
-                                 PHASECHANGE>::energy_derivatives(const int& order_derivative) {
+                                 PHASECHANGE>::energy_derivatives(const int order_derivative) {
   return [this, order_derivative](const double& u, const double& un) {
     return AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::energy_derivatives(order_derivative)(
                u, un) +
@@ -88,7 +90,7 @@ template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION, PhaseChange PHASECHANGE>
 FuncType
 AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION,
-                                 PHASECHANGE>::enthalpy_derivative(const int& order_derivative) {
+                                 PHASECHANGE>::enthalpy_derivative(const int order_derivative) {
   return FuncType([this, order_derivative](const double& u, const double& un) {
     std::function<double(const double&)> H_derivative;
     if (order_derivative == 1) {
@@ -104,7 +106,12 @@ AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION,
     return h_prime;
   });
 }
-
+template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION, PhaseChange PHASECHANGE>
+void AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION,
+                                      PHASECHANGE>::get_parameters(const Parameters& params) {
+  this->alpha_ = params.get_param_value_or_default<double>("melting_factor", 0.);
+}
 /**
  * @brief Construct AllenCahnMeltingNLFormIntegrator object
  *
@@ -123,9 +130,11 @@ AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION,
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION, PhaseChange PHASECHANGE>
 AllenCahnMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION, PHASECHANGE>::
-    AllenCahnMeltingNLFormIntegrator(const mfem::GridFunction& u_old, const double& omega,
-                                     const double& lambda, const double& mob, const double& alpha)
-    : AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>(u_old, omega, lambda, mob), alpha_(alpha) {}
+    AllenCahnMeltingNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params)
+    : AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>(u_old, params) {
+  AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_parameters(params);
+  this->get_parameters(params);
+}
 
 /**
  * @brief Destroy the AllenCahnMeltingNLFormIntegrator  object

@@ -17,44 +17,42 @@
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
+#include "Problems/ProblemBase.hpp"
 #include "Variables/Variable.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 template <class OPE, class VAR, class PST>
-class Problem {
+class Problem : public ProblemBase<VAR, PST> {
  private:
-  std::string name_{"UNKNOWN PROBLEM"};
-  mfem::ODESolver* ode_solver_;
   OPE oper_;
-  VAR variables_;
-  PST& pst_;
-  mfem::Vector unknown_;
-  PhysicalConvergence convergence_;
   std::shared_ptr<std::function<double(const mfem::Vector&, double)> > analytical_solution_{
       nullptr};
-  void set_ODE_solver(const TimeScheme::value& ode_solver);
-  void do_time_step(mfem::Vector& unk, double& current_time, double current_time_step);
-  std::tuple<bool, double> check_convergence(const mfem::Vector& unk, const mfem::Vector& prev_unk);
+
+  void post_execute(const int& iter, const double& current_time_step, const double& current_time);
+
+ protected:
+  // Virtual methods override
+  void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
+                    double current_time_step, const int iter) override;
 
  public:
-  Problem(const std::string& name, const OPE& oper, const VAR& variables, PST& pst,
-          TimeScheme::value ode, const PhysicalConvergence& convergence, const Parameters& params);
-  const std::string get_name();
-  VAR get_problem_variables();
-  void update();
-  void initialize(const double& initial_time);
-  std::tuple<bool, double, mfem::Vector> execute(const int& iter, double& current_time,
-                                                 const double& current_time_step);
-  void post_execute(const int& iter, const double& current_time_step, const double& current_time);
-  void save(const int& iter, const double& current_time);
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          const PhysicalConvergence& convergence);
+
+  Problem(const std::string& name, const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
+          const PhysicalConvergence& convergence);
+
+  // Virtual methods override
+  void initialize(const double& initial_time) override;
   void post_processing(const int& iter, const double& current_time_step,
-                       const double& current_time);
-  void finalize();
+                       const double& current_time) override;
+  void finalize() override;
+
   ~Problem();
 };
 
 /**
- * @brief Construct a new Problem object
+ * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
  *
  * @tparam OPE
  * @tparam SOLVER
@@ -63,82 +61,27 @@ class Problem {
  * @param convergence
  */
 template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, const VAR& variables,
-                                PST& pst, TimeScheme::value ode,
-                                const PhysicalConvergence& convergence, const Parameters& params)
-    : name_(name), oper_(oper), variables_(variables), pst_(pst), convergence_(convergence) {
-  this->set_ODE_solver(ode);
-}
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                const PhysicalConvergence& convergence)
+    : ProblemBase<VAR, PST>(name, variables, pst, convergence), oper_(oper) {}
 
 /**
- * @brief Set the ODE time marching
- *
- * @tparam OPE
- * @tparam VAR
- * @param ode_solver
- */
-template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::set_ODE_solver(const TimeScheme::value& ode_solver) {
-  switch (ode_solver) {
-    case TimeScheme::EulerExplicit: {
-      this->ode_solver_ = new mfem::ForwardEulerSolver;
-      break;
-    }
-    case TimeScheme::EulerImplicit: {
-      this->ode_solver_ = new mfem::BackwardEulerSolver;
-      break;
-    }
-    case TimeScheme::RungeKutta4: {
-      this->ode_solver_ = new mfem::SDIRK33Solver;
-      break;
-    }
-    default:
-      throw std::runtime_error(
-          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, Rungekutta4 are "
-          "available");
-      break;
-  }
-}
-
-/**
- * @brief Return the name of the problem
+ * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
  *
  * @tparam OPE
  * @tparam VAR
  * @tparam PST
- * @return const std::string
+ * @param name
+ * @param oper
+ * @param variables
+ * @param auxvariables
+ * @param pst
+ * @param convergence
  */
 template <class OPE, class VAR, class PST>
-const std::string Problem<OPE, VAR, PST>::get_name() {
-  return this->name_;
-}
-
-/**
- * @brief Return the variables associated with the problem
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @return VAR
- */
-template <class OPE, class VAR, class PST>
-VAR Problem<OPE, VAR, PST>::get_problem_variables() {
-  return this->variables_;
-}
-
-/**
- * @brief Update the variables associated with the problem
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- */
-template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::update() {
-  // auto& var = this->variables_.get_variable("phi");
-  auto& var = this->variables_.getIVariable(0);
-  var.update(this->unknown_);
-}
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables,
+                                VAR& auxvariables, PST& pst, const PhysicalConvergence& convergence)
+    : ProblemBase<VAR, PST>(name, variables, auxvariables, pst, convergence), oper_(oper) {}
 
 /**
  * @brief  Initialize the calculation : operator + ODE
@@ -150,64 +93,7 @@ void Problem<OPE, VAR, PST>::update() {
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
-    SlothInfo::print(R"(@@@@@@@@@@@@@@@@%#+--=*%@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@%#+-:::--:::-+*%@@@@@@@@@@@@
-@@@@@@@@%*+-:::-+#%@@%#*=:::-=*#@@@@@@@@
-@@@@@%+-:::-+#%@@@@@@@@@@@#*=::::=@@@@@@
-@@@@@=::+#%@@@@@@%%%%@@@@@@@@@%*::+@@@@@
-@@@@*::#@@@@@#+--::::-=+*%@@@@@@*::#@@@@
-@@@%::+@@@@*-:::::::::::::-+%@@@@=:-%@@@
-@@@=:-@@@%=::::::::::::::--::=#@@%-:=@@@
-@@*::#@@@-:::::::--:::::+*==:::-*@#::*@@
-@#::+@@@#+#=::::+##+::::-%-+:::::-%+::%@
-%-:=@@@@#==-%@#::::::::::--*:::::::*=:-@
-*::#@@@@@+:-*#*===::::::::#*:::::::-#::*
-@-:-@@@@@@#=---:::::::::=#@*:::::::#=:-@
-@%::+@@@@@@@*++===+++*#%@@@#::::::**::%@
-@@*::#@@@@#-::--:::--=+*%@@@=::::=#::*@@
-@@@+::%@@%:::::::::::::::=#@%::::%-:=@@@
-@@@@=:=@@@+::::::::::::::::=##::*+:-%@@@
-@@@@%::=*%@%+-::::::::--==---##++::#@@@@
-@@@@@#=::::=*##*+++*#%@@@@%*=-:::=*@@@@@
-@@@@@@@@%*=-:::=+#%@@@#*=:::-=*#@@@@@@@@
-@@@@@@@@@@@@%#+-:::-=:::-+*%@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@%#+--+#%@@@@@@@@@@@@@@@@
-  )");
-  this->oper_.initialize(initial_time);
-  // Call before the first call to step() or when the time-step is restarted
-  this->ode_solver_->Init(this->oper_);
-}
-
-/**
- * @brief Run a time-step : calculation + check of convergence
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
- * @return std::tuple<bool, double, mfem::Vector>
- */
-template <class OPE, class VAR, class PST>
-std::tuple<bool, double, mfem::Vector> Problem<OPE, VAR, PST>::execute(
-    const int& iter, double& current_time, const double& current_time_step) {
-  SlothInfo::print("   ============================== ");
-  SlothInfo::print("   ==== Problem : ", this->name_);
-  SlothInfo::print("   ============================== ");
-  auto& var = this->variables_.getIVariable(0);
-  auto unk = var.get_unknown();
-  this->do_time_step(unk, current_time, current_time_step);
-
-  bool is_converged = true;
-  auto criterion = 0.;
-  if (iter > 1) {
-    const auto& prev_unk = var.get_last();
-    const auto& [is_converged_iter, criterion_iter] = this->check_convergence(unk, prev_unk);
-    is_converged = is_converged_iter;
-    criterion = criterion_iter;
-  }
-  return std::make_tuple(is_converged, criterion, unk);
+  this->oper_.initialize(initial_time, this->variables_, this->auxvariables_);
 }
 
 /**
@@ -242,12 +128,16 @@ void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
-  if (!this->pst_.get_enable_save_specialized_at_iter()) {
-    this->pst_.save_specialized(this->oper_.get_time_specialized());
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    if (!this->pst_.get_enable_save_specialized_at_iter()) {
+      this->pst_.save_specialized(this->oper_.get_time_specialized());
+    }
+    SlothInfo::verbose(" ");
+    SlothInfo::verbose(" ============================== ");
+    SlothInfo::verbose(" Results are saved in the folder : ",
+                       this->pst_.get_post_processing_directory());
   }
-  SlothInfo::print(" ");
-  SlothInfo::print(" ============================== ");
-  SlothInfo::print(" Results are saved in the folder : ", pst_.get_post_processing_directory());
 }
 
 /**
@@ -265,7 +155,7 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
                                              const double& current_time_step) {
   this->post_execute(iter, current_time_step, current_time);
   // Save for visualization
-  this->save(iter, current_time);
+  ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
   if (this->pst_.get_enable_save_specialized_at_iter()) {
     this->pst_.save_specialized(this->oper_.get_time_specialized());
   }
@@ -281,34 +171,14 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
  * @param current_time_step
  */
 template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::do_time_step(mfem::Vector& unk, double& current_time,
-                                          double current_time_step) {
-  this->ode_solver_->Step(unk, current_time, current_time_step);
+void Problem<OPE, VAR, PST>::do_time_step(mfem::Vector& unk, double& next_time,
+                                          const double& current_time, double current_time_step,
+                                          const int iter) {
+  this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
   // calculation converges
   this->unknown_ = unk;
-}
-
-/**
- * @brief Check convergence at the current iteration
- *
- * @tparam OPE
- * @tparam VAR
- * @param unk
- * @param prev_unk
- * @return std::tuple<bool, double>
- */
-template <class OPE, class VAR, class PST>
-std::tuple<bool, double> Problem<OPE, VAR, PST>::check_convergence(const mfem::Vector& unk,
-                                                                   const mfem::Vector& prev_unk) {
-  return this->convergence_.getPhysicalConvergence(unk, prev_unk);
-}
-
-template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::save(const int& iter, const double& current_time) {
-  auto vars = this->get_problem_variables();
-  this->pst_.save_variables(vars, iter, current_time);
 }
 
 /**

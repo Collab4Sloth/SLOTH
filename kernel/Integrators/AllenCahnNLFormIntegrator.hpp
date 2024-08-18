@@ -15,16 +15,20 @@
 #include "Coefficients/PhaseFieldMobilities.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Parameters/Parameters.hpp"
 #include "Profiling/Profiling.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+#pragma once
 
 using FuncType = std::function<double(const double&, const double&)>;
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  private:
-  mfem::GridFunction u_old_;
+  mfem::ParGridFunction u_old_;
   mfem::DenseMatrix dshape, dshapedxt, invdfdx;
   mfem::Vector shape, vec, pointflux;
 
@@ -33,16 +37,16 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 
   MobilityFunctions<MOBI> mobility_function_;
   FuncType laplacian();
-  FuncType double_well_derivative(const int& order_derivative);
+  FuncType double_well_derivative(const int order_derivative);
 
  protected:
   double omega_, lambda_, mob_;
 
-  virtual FuncType energy_derivatives(const int& order_derivative);
+  virtual FuncType energy_derivatives(const int order_derivative);
+  virtual void get_parameters(const Parameters& vectr_param);
 
  public:
-  AllenCahnNLFormIntegrator(const mfem::GridFunction& u_old, const double& omega,
-                            const double& lambda, const double& mob);
+  AllenCahnNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params);
   ~AllenCahnNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
@@ -68,7 +72,7 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 FuncType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::energy_derivatives(
-    const int& order_derivative) {
+    const int order_derivative) {
   return [this, order_derivative](const double& u, const double& un) {
     return this->double_well_derivative(order_derivative)(u, un);
   };
@@ -86,7 +90,7 @@ FuncType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::energy_derivatives(
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 FuncType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::double_well_derivative(
-    const int& order_derivative) {
+    const int order_derivative) {
   return FuncType([this, order_derivative](const double& u, const double& un) {
     std::function<double(const double&)> W_derivative;
     if (order_derivative == 1) {
@@ -120,6 +124,14 @@ FuncType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::laplacian() {
   });
 }
 
+template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI>
+void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_parameters(const Parameters& params) {
+  this->omega_ = params.get_param_value<double>("omega");
+  this->lambda_ = params.get_param_value<double>("lambda");
+  this->mob_ = params.get_param_value<double>("mobility");
+}
+
 /**
  * @brief Construct a new AllenCahnNLFormIntegrator object
  *
@@ -134,8 +146,10 @@ FuncType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::laplacian() {
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
-    const mfem::GridFunction& u_old, const double& omega, const double& lambda, const double& mob)
-    : u_old_(u_old), omega_(omega), lambda_(lambda), mob_(mob) {}
+    const mfem::ParGridFunction& u_old, const Parameters& params)
+    : u_old_(u_old) {
+  this->get_parameters(params);
+}
 
 /**
  * @brief Residual part of the non linear problem

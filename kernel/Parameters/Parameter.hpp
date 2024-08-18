@@ -19,8 +19,8 @@ using param_type = std::variant<int, double, std::string, bool>;
 class Parameter {
  private:
   std::string name_;
-  std::string description_;
   param_type value_;
+  std::string description_;
 
  public:
   Parameter(const std::string& name, param_type value)
@@ -48,7 +48,7 @@ class Parameter {
 void Parameter::print() const {
   const auto& param_value = this->get_value();
   const auto& param_name = this->get_name();
-  std::cout << param_name << " = " << std::get<std::string>(param_value) << std::endl;
+  SlothInfo::print(param_name, " = ", std::get<std::string>(param_value));
 }
 
 /**
@@ -61,7 +61,7 @@ auto Parameter::get_value() const -> param_type {
       [](auto&& arg) -> param_type {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double> ||
-                      std::is_same_v<T, std::string>) {
+                      std::is_same_v<T, std::string> || std::is_same_v<T, bool>) {
           return arg;
         } else {
           throw std::runtime_error("Unsupported type");

@@ -20,7 +20,7 @@
 #include "Spatial/Spatial.hpp"
 #include "Utils/AnalyticalFunctions.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 template <class T, int DIM>
@@ -30,12 +30,12 @@ class Variable {
   BoundaryConditions<T, DIM> bcs_;
   std::string variable_name_;
   VariableType::value variable_type_;
-  mfem::FiniteElementSpace* fespace_;
+  mfem::ParFiniteElementSpace* fespace_;
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
   std::map<int, mfem::Vector> map_of_unk_;
   int depth_ = 2;
   mfem::Vector unk_;
-  mfem::GridFunction uh_;
+  mfem::ParGridFunction uh_;
 
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
@@ -102,9 +102,10 @@ class Variable {
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
   void update(const mfem::Vector& unk);
   mfem::Vector get_unknown();
-  mfem::GridFunction get_gf() const;
-  mfem::GridFunction get_igf() const;
-  // mfem::GridFunction get_analytical_solution();
+  std::map<int, mfem::Vector> get_map_unknown();
+  mfem::ParGridFunction get_gf() const;
+  mfem::ParGridFunction get_igf() const;
+  // mfem::ParGridFunction get_analytical_solution();
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
   BoundaryConditions<T, DIM>* get_boundary_conditions();
 
@@ -412,10 +413,10 @@ void Variable<T, DIM>::setAnalyticalSolution(
 }
 /**
  * @brief Return the last term of the saved variables
- * 
- * @tparam T 
- * @tparam DIM 
- * @return mfem::Vector 
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return mfem::Vector
  */
 template <class T, int DIM>
 mfem::Vector Variable<T, DIM>::get_last() {
@@ -469,22 +470,34 @@ mfem::Vector Variable<T, DIM>::get_unknown() {
 }
 
 /**
- * @brief return the gridfunction associated to the unknown
+ * @brief Return a map of unknows
  *
- * @return mfem::GridFunction
+ * @tparam T
+ * @tparam DIM
+ * @return std::map<int, mfem::Vector>
  */
 template <class T, int DIM>
-mfem::GridFunction Variable<T, DIM>::get_gf() const {
+std::map<int, mfem::Vector> Variable<T, DIM>::get_map_unknown() {
+  return this->map_of_unk_;
+}
+
+/**
+ * @brief return the gridfunction associated to the unknown
+ *
+ * @return mfem::ParGridFunction
+ */
+template <class T, int DIM>
+mfem::ParGridFunction Variable<T, DIM>::get_gf() const {
   return this->uh_;
 }
 
 /**
  * @brief return the gridfunction associated to the analytical solution
  *
- * @return mfem::GridFunction
+ * @return mfem::ParGridFunction
  */
 // template <class T, int DIM>
-// mfem::GridFunction Variable<T, DIM>::get_analytical_solution() {
+// mfem::ParGridFunction Variable<T, DIM>::get_analytical_solution() {
 //   return this->uh_ex_;
 // }
 

@@ -1,0 +1,56 @@
+/**
+ * @file sloth.hpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief List of all header files contained in the kernel directory
+ * @version 0.1
+ * @date 2024-08-06
+ *
+ * Copyright CEA (c) 2024
+ *
+*/
+#include "BCs/Boundary.hpp"
+#include "BCs/BoundaryConditions.hpp"
+#include "Coefficients/DiffusionCoeffients.hpp"
+#include "Coefficients/EnergyCoefficient.hpp"
+#include "Coefficients/MobilityCoefficient.hpp"
+#include "Coefficients/PhaseChangeFunction.hpp"
+#include "Coefficients/PhaseFieldMobilities.hpp"
+#include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Coefficients/SourceTermCoefficient.hpp"
+#include "Convergence/PhysicalConvergence.hpp"
+#include "Couplings/Coupling.hpp"
+#include "Integrators/AllenCahnMeltingNLFormIntegrator.hpp"
+#include "Integrators/AllenCahnNLFormIntegrator.hpp"
+#include "Integrators/DiffusionNLFormIntegrator.hpp"
+#include "Operators/DiffusionOperator.hpp"
+#include "Operators/OperatorBase.hpp"
+#include "Operators/PhaseFieldOperator.hpp"
+#include "Operators/PhaseFieldOperatorBase.hpp"
+#include "Operators/ReducedOperator.hpp"
+#include "Operators/SteadyPhaseFieldOperatorBase.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Parameters/Parameters.hpp"
+#include "PostProcessing/postprocessing.hpp"
+#include "Problems/MPIProblem.hpp"
+#include "Problems/Problem.hpp"
+#include "Problems/ProblemBase.hpp"
+#include "Profiling/Profiling.hpp"
+#include "Profiling/Timer.hpp"
+#include "Solvers/DSolverBase.hpp"
+#include "Solvers/HPrecondBase.hpp"
+#include "Solvers/HSolverBase.hpp"
+#include "Solvers/IPrecondBase.hpp"
+#include "Solvers/ISolverBase.hpp"
+#include "Solvers/LSolver.hpp"
+#include "Solvers/NLSolver.hpp"
+#include "Solvers/NLSolverBase.hpp"
+#include "Solvers/SlothSolver.hpp"
+#include "Solvers/SolverBase.hpp"
+#include "Spatial/Spatial.hpp"
+#include "Time/Time.hpp"
+#include "Utils/AnalyticalFunctions.hpp"
+#include "Utils/PhaseFieldConstants.hpp"
+#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/UtilsForDebug.hpp"
+#include "Variables/Variable.hpp"
+#include "Variables/Variables.hpp"

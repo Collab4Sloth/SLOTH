@@ -1,20 +1,16 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file ReducedOperator.hpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief
+ * @version 0.1
+ * @date 2024-07-30
  *
- * \brief PhaseField time-dependent operator built on the basis of ex16.cpp from MFEM repository
+ * Copyright CEA (c) 2024
  *
- *   After spatial discretization, the phasefield model can be written as:
- *      dphi/dt = M^{-1}(-Kphi)
- *   where phi denotes the phase-field variable and K the phase-field operator (that does not
- *   depends on time)
- *
- * \file ReducedOperator.hpp
- * \author ci230846
- * \date 20/01/2022
  */
+#include <memory>
 
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
-
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 /*
  *  Class PhaseFieldReducedOperator
@@ -22,11 +18,11 @@
 class PhaseFieldReducedOperator : public mfem::Operator {
  private:
   // Mass matrix
-  mfem::BilinearForm *M_;
+  mfem::ParBilinearForm *M_;
   // PhaseField Matrix
-  mfem::NonlinearForm *N_;
+  mfem::ParNonlinearForm *N_;
   // Jacobian matrix
-  mutable mfem::SparseMatrix *Jacobian;
+  mutable mfem::HypreParMatrix *Jacobian;
 
   // Time step
   double dt_;
@@ -34,8 +30,11 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   const mfem::Vector *unk_;
   mutable mfem::Vector z;
 
+  const mfem::Array<int> &ess_tdof_list;
+
  public:
-  PhaseFieldReducedOperator(mfem::BilinearForm *M, mfem::NonlinearForm *N);
+  PhaseFieldReducedOperator(mfem::ParBilinearForm *M, mfem::ParNonlinearForm *N,
+                            const mfem::Array<int> &ess_tdof);
 
   /// Set current dt, unk values - needed to compute action and Jacobian.
   void SetParameters(double dt, const mfem::Vector *unk);
@@ -48,29 +47,71 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   ~PhaseFieldReducedOperator();
 };
 
-PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::BilinearForm *M, mfem::NonlinearForm *N)
-    : Operator(N->Height()), M_(M), N_(N), Jacobian(NULL), dt_(0.0), unk_(NULL), z(height) {}
+/**
+ * @brief Construct a new Phase Field Reduced Operator:: Phase Field Reduced Operator object
+ *
+ * @param M
+ * @param N
+ */
+PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBilinearForm *M,
+                                                     mfem::ParNonlinearForm *N,
+                                                     const mfem::Array<int> &ess_tdof)
+    : Operator(N->ParFESpace()->TrueVSize()),
+      M_(M),
+      N_(N),
+      Jacobian(NULL),
+      dt_(0.0),
+      unk_(NULL),
+      z(height),
+      ess_tdof_list(ess_tdof) {}
 
-/// Set current dt, unk values - needed to compute action and Jacobian.
+/**
+ * @brief  Set current dt, unk values - needed to compute action and Jacobian.
+ *
+ * @param dt
+ * @param unk
+ */
 void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk) {
   dt_ = dt;
   unk_ = unk;
 }
 
-/// Compute y = N(unk + dt*k) + M k
+/**
+ * @brief  Compute y = N(unk + dt*k) + M k
+ *
+ * @param k
+ * @param y
+ */
 void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
   add(*unk_, dt_, k, z);
   N_->Mult(z, y);
-  M_->AddMult(k, y);
+  M_->TrueAddMult(k, y);
+  y.SetSubVector(ess_tdof_list, 0.0);
 }
 
+/**
+ * @brief  Compute Jacobian
+ *
+ * @param k
+ * @return mfem::Operator&
+ */
 mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) const {
-  delete Jacobian;
-  Jacobian = Add(1.0, M_->SpMat(), 0.0, M_->SpMat());
+  if (Jacobian != nullptr) {
+    delete Jacobian;
+  }
+  std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
+
   add(*unk_, dt_, k, z);
-  mfem::SparseMatrix *grad_N = dynamic_cast<mfem::SparseMatrix *>(&N_->GetGradient(z));
-  Jacobian->Add(dt_, *grad_N);
+
+  localJ->Add(dt_, N_->GetLocalGradient(z));
+  Jacobian = M_->ParallelAssemble(localJ.get());
+
+  std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
   return *Jacobian;
 }
 
+/**
+ * @brief Destroy the Phase Field Reduced Operator:: Phase Field Reduced Operator object
+ *
+ */
 PhaseFieldReducedOperator::~PhaseFieldReducedOperator() { delete Jacobian; }

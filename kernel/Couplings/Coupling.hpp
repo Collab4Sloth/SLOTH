@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "Utils/UtilsForDebug.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 
@@ -25,12 +25,14 @@ class Coupling {
   std::tuple<Args...> problems_;
 
  public:
-  explicit Coupling(const std::string& name, Args&&... problems);
+  // explicit Coupling(const std::string& name, Args&&... problems);
+  explicit Coupling(const std::string& name, Args... problems);
   std::string get_name();
 
   void get_tree();
   void initialize(const int& iter, const double& initial_time);
-  std::vector<std::tuple<bool, double, mfem::Vector>> execute(const int& iter, double& current_time,
+  std::vector<std::tuple<bool, double, mfem::Vector>> execute(const int& iter, double& next_time,
+                                                              const double& current_time,
                                                               const double& current_time_step);
   void post_execute(const int& iter, const double& current_time, const double& current_time_step);
   void update();
@@ -46,8 +48,9 @@ class Coupling {
  * @tparam Args
  * @param problems
  */
+// Coupling<Args...>::Coupling(const std::string& name, Args&&... problems)
 template <class... Args>
-Coupling<Args...>::Coupling(const std::string& name, Args&&... problems)
+Coupling<Args...>::Coupling(const std::string& name, Args... problems)
     : name_(name), problems_(std::make_tuple(std::forward<Args>(problems)...)) {}
 
 /**
@@ -69,7 +72,7 @@ std::string Coupling<Args...>::get_name() {
 template <class... Args>
 void Coupling<Args...>::get_tree() {
   std::apply(
-      [](auto&... problem) { (SlothInfo::print("   - Problem: ", problem.get_name()), ...); },
+      [](auto&... problem) { (SlothInfo::verbose("   - Problem: ", problem.get_name()), ...); },
       this->problems_);
 }
 
@@ -100,15 +103,20 @@ void Coupling<Args...>::initialize(const int& iter, const double& initial_time) 
  */
 template <class... Args>
 std::vector<std::tuple<bool, double, mfem::Vector>> Coupling<Args...>::execute(
-    const int& iter, double& current_time, const double& current_time_step) {
-  SlothInfo::print(" ============================== ");
-  SlothInfo::print(" ==== Coupling : ", this->name_);
-  SlothInfo::print(" ============================== ");
+    const int& iter, double& next_time, const double& current_time,
+    const double& current_time_step) {
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    SlothInfo::verbose(" ============================== ");
+    SlothInfo::verbose(" ==== Coupling : ", this->name_);
+    SlothInfo::verbose(" ============================== ");
+  }
 
   std::vector<std::tuple<bool, double, mfem::Vector>> results;
   std::apply(
-      [iter, &current_time, current_time_step, &results](auto&... problem) {
-        (results.emplace_back(problem.execute(iter, current_time, current_time_step)), ...);
+      [iter, &next_time, current_time, current_time_step, &results](auto&... problem) {
+        (results.emplace_back(problem.execute(iter, next_time, current_time, current_time_step)),
+         ...);
       },
       problems_);
 

@@ -13,24 +13,7 @@
 #include <memory>
 #include <sstream>
 
-#include "BCs/BoundaryConditions.hpp"
-#include "Coefficients/EnergyCoefficient.hpp"
-#include "Convergence/PhysicalConvergence.hpp"
-#include "Couplings/Coupling.hpp"
-#include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Operators/PhaseFieldOperator.hpp"
-#include "Operators/ReducedOperator.hpp"
-#include "Parameters/Parameter.hpp"
-#include "Parameters/Parameters.hpp"
-#include "PostProcessing/postprocessing.hpp"
-#include "Problems/Problem.hpp"
-#include "Profiling/Profiling.hpp"
-#include "Spatial/Spatial.hpp"
-#include "Time/Time.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForDebug.hpp"
-#include "Variables/Variable.hpp"
-#include "Variables/Variables.hpp"
+#include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 ///---------------
@@ -38,12 +21,14 @@
 ///---------------
 int main(int argc, char* argv[]) {
   //---------------------------------------
-  // Initialize MPI
+  // Initialize MPI and HYPRE
   //---------------------------------------
-  MPI_Init(&argc, &argv);
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  mfem::Mpi::Init(argc, argv);
+  int size = mfem::Mpi::WorldSize();
+  int rank = mfem::Mpi::WorldRank();
+  mfem::Hypre::Init();
+  //
   //---------------------------------------
   // Profiling
   Profiling::getInstance().enable();
@@ -59,9 +44,10 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI>;
-  using OPE2 = PhaseFieldOperator<FECollection, DIM, NLFI2>;
-  using OPE3 = PhaseFieldOperator<FECollection, DIM, NLFI3>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
+  using OPE2 = PhaseFieldOperator<FECollection, DIM, NLFI2, PhaseFieldOperatorBase>;
+  using OPE3 = PhaseFieldOperator<FECollection, DIM, NLFI3, PhaseFieldOperatorBase>;
+
   using PB = Problem<OPE, VAR, PST>;
   using PB2 = Problem<OPE2, VAR, PST>;
   using PB3 = Problem<OPE3, VAR, PST>;
@@ -120,8 +106,12 @@ int main(int argc, char* argv[]) {
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
   auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
                                                       center_x, a_x, epsilon, radius);
-  auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi1", 2, initial_condition,
+                                              analytical_solution));
+  auto vars2 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi2", 2, initial_condition,
+                                               analytical_solution));
+  auto vars3 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi3", 2, initial_condition,
+                                               analytical_solution));
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -136,27 +126,27 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, vars);
+  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
-  PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
+  PB problem1("Problem 1", oper, vars, pst, convergence);
 
   // Problem 2:
   const auto crit_cvg_2 = 1.e-12;
-  OPE2 oper2(&spatial, params, vars);
+  OPE2 oper2(&spatial, params, TimeScheme::EulerExplicit);
   PhysicalConvergence convergence2(ConvergenceType::RELATIVE_MAX, crit_cvg_2);
   auto pst2 = PST(main_folder_path, "Problem2", &spatial, frequency, level_of_detail);
-  PB2 problem2("Problem 2 ", oper2, vars, pst2, TimeScheme::EulerExplicit, convergence2, params);
+  PB2 problem2("Problem 2 ", oper2, vars2, pst2, convergence2);
 
   // Problem 3:
   const auto crit_cvg_3 = 1.e-12;
-  OPE3 oper3(&spatial, params, vars);
+  OPE3 oper3(&spatial, params, TimeScheme::RungeKutta4);
   PhysicalConvergence convergence3(ConvergenceType::RELATIVE_MAX, crit_cvg_3);
   auto pst3 = PST(main_folder_path, "Problem3", &spatial, frequency, level_of_detail);
-  PB3 problem3("Problem 3 ", oper3, vars, pst3, TimeScheme::RungeKutta4, convergence3, params);
+  PB3 problem3("Problem 3 ", oper3, vars3, pst3, convergence3);
 
   // Coupling 1
-  auto cc = Coupling("coupling 1 ", std::move(problem1), std::move(problem2), std::move(problem3));
+  auto cc = Coupling("coupling 1 ", problem1, problem2, problem3);
 
   // ###########################################
   // ###########################################
@@ -168,7 +158,7 @@ int main(int argc, char* argv[]) {
   const auto& dt = 0.01;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
-  auto time = TimeDiscretization(time_params, std::move(cc));
+  auto time = TimeDiscretization(time_params, cc);
 
   time.solve();
   //---------------------------------------

@@ -37,6 +37,9 @@ include(MFEM4SLOTH)
 include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
 
+include(HEADER4SLOTH)
+
+
 # ########################
 # # Doc Configuration
 # ########################
@@ -62,7 +65,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Coverage)
   # Collect CodeCoverage analysis with gcovr
   add_custom_target(cc
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
-    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --sort --sort-reverse uncovered-percent --exclude-unreachable-branches --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
+    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --sort-uncovered --exclude-unreachable-branches --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
     COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
   )
 ENDIF()

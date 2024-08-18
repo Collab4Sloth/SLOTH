@@ -14,34 +14,23 @@
 #include <memory>
 #include <sstream>
 
-#include "BCs/BoundaryConditions.hpp"
-#include "Coefficients/EnergyCoefficient.hpp"
-#include "Couplings/Coupling.hpp"
-#include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Operators/PhaseFieldOperator.hpp"
-#include "Operators/ReducedOperator.hpp"
-#include "Parameters/Parameter.hpp"
-#include "Parameters/Parameters.hpp"
-#include "PostProcessing/postprocessing.hpp"
-#include "Profiling/Profiling.hpp"
-#include "Spatial/Spatial.hpp"
-#include "Time/Time.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Variables/Variable.hpp"
-#include "Variables/Variables.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "kernel/sloth.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 ///---------------
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
   //---------------------------------------
-  // Initialize MPI
+  // Initialize MPI and HYPRE
   //---------------------------------------
-  MPI_Init(&argc, &argv);
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  mfem::Mpi::Init(argc, argv);
+  int size = mfem::Mpi::WorldSize();
+  int rank = mfem::Mpi::WorldRank();
+  mfem::Hypre::Init();
+  //
+
   //---------------------------------------
   // Profiling
   Profiling::getInstance().enable();
@@ -53,8 +42,9 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
   using PB = Problem<OPE, VAR, PST>;
+  using PB1 = MPI_Problem<VAR, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -63,12 +53,12 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  //  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, "Mesh-examples/periodic.msh");
+  // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, 1, "periodic.msh", true);
 
-  std::vector<int> vect_NN{32};  // 16, 32, 64};
+  std::vector<int> vect_NN{16};  // 16, 32, 64};
   std::vector<std::string> vect_TimeScheme{"EulerImplicit", "EulerExplicit"};
 
-  auto refinement_level = 1;
+  auto refinement_level = 0;
   for (const auto& time_scheme : vect_TimeScheme) {
     for (const auto& NN : vect_NN) {
       auto L = 2. * M_PI;
@@ -104,10 +94,9 @@ int main(int argc, char* argv[]) {
       // ####################
       //     variables     //
       // ####################
-      auto initial_condition = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
       auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
 
-      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition,
+      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, analytical_solution,
                                                   analytical_solution));
 
       // ###########################################
@@ -125,15 +114,23 @@ int main(int argc, char* argv[]) {
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
       auto source_terme = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega);
-      OPE oper(&spatial, params, vars, source_terme);
+      OPE oper(&spatial, params, TimeScheme::from(time_scheme), source_terme);
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
       auto pst =
           PST(main_folder_path, "Problem1_" + time_scheme, &spatial, frequency, level_of_detail);
-      PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
+      PB problem1("AllenCahn", oper, vars, pst, convergence);
 
+      auto user_func = std::function<double(const mfem::Vector&, double)>(
+          [](const mfem::Vector& x, double time) { return 0.; });
+
+      auto initial_rank = AnalyticalFunctions<DIM>(user_func);
+      auto vars1 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "MPI rank", 2, initial_rank));
+      auto pst1 =
+          PST(main_folder_path, "ProblemMPI_" + time_scheme, &spatial, frequency, level_of_detail);
+      PB1 problem2("MPI", vars1, pst1, convergence);
       // Coupling 1
-      auto cc = Coupling("coupling 1 ", std::move(problem1));
+      auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
 
       // ###########################################
       // ###########################################
@@ -141,11 +138,11 @@ int main(int argc, char* argv[]) {
       // ###########################################
       // ###########################################
       const auto& t_initial = 0.0;
-      const auto& t_final = 1.;
-      const auto& dt = 0.25;
+      const auto& t_final = 0.5;
+      const auto& dt = 1. / std::pow(static_cast<double>(NN), 2.);
       auto time_params = Parameters(Parameter("initial_time", t_initial),
                                     Parameter("final_time", t_final), Parameter("time_step", dt));
-      auto time = TimeDiscretization(time_params, std::move(cc));
+      auto time = TimeDiscretization(time_params, cc);
 
       // time.get_tree();
       time.solve();

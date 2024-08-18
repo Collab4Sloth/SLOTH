@@ -21,8 +21,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "Utils/UtilsForDebug.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
  * @brief specialized_spatial_constructor
@@ -43,9 +45,9 @@ struct specialized_spatial_constructor {};
 template <class T, int DIM>
 class SpatialDiscretization {
  private:
-  int size_;
+  HYPRE_BigInt size_;
   std::string existing_mesh_name_;
-  mfem::FiniteElementSpace *fespace_;
+  mfem::ParFiniteElementSpace *fespace_;
   T *fecollection_;
 
  public:
@@ -72,23 +74,20 @@ class SpatialDiscretization {
 
   int fe_order_;
   int dimension_;
-  mfem::Mesh mesh_;
+  mfem::ParMesh mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
 
   void set_finite_element_space();
 
   mfem::Mesh &get_mesh();
-  mfem::FiniteElementSpace *get_finite_element_space();
+  mfem::ParFiniteElementSpace *get_finite_element_space() const;
 
-  std::size_t getSize();
-  std::size_t get_max_bdr_attributes();
-  int get_dimension();
+  std::size_t getSize() const;
+  std::size_t get_max_bdr_attributes() const;
+  int get_dimension() const;
 
   void apply_uniform_refinement(const int &level);
-
-  void make_periodic_mesh(std::vector<mfem::Vector>);
-  void make_periodic_line();
 
   bool is_periodic();
 
@@ -126,7 +125,14 @@ struct specialized_spatial_constructor<T, 1> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          // a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          // CCI
+          mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          a_my_class.mesh_ =
+              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+          tmp_mesh.Clear();
+
+          // CCI
           break;
         } else {
           throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
@@ -180,10 +186,9 @@ struct specialized_spatial_constructor<T, 1> {
   void operator()(SpatialDiscretization<T, 1> &a_my_class, const std::string &mesh_type,
                   const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args,
                   std::vector<mfem::Vector> translations) {
-    this->build_mesh(a_my_class, mesh_type, tup_args);
+    this->build_periodic_mesh(a_my_class, mesh_type, tup_args);
 
     a_my_class.apply_uniform_refinement(ref_level);
-    a_my_class.make_periodic_line();
 
     a_my_class.is_periodic_mesh_ = true;
     a_my_class.set_finite_element_space();
@@ -210,7 +215,67 @@ struct specialized_spatial_constructor<T, 1> {
         if (tup_size == 2) {
           const auto nx = std::get<0>(tup_args);
           const auto sx = std::get<1>(tup_args);
-          a_my_class.mesh_ = mfem::Mesh::MakeCartesian1D(nx, sx);
+          mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian1D(nx, sx);
+          a_my_class.mesh_ =
+              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+          tmp_mesh.Clear();
+        } else {
+          throw std::runtime_error(
+              "SpatialDiscretization::SpatialDiscretization: InlineLineWithSegments "
+              "requires "
+              "two "
+              "argument, the number of segments");
+        }
+        break;
+      }
+      default:
+        throw std::runtime_error(
+            "SpatialDiscretization::SpatialDiscretization: here, only "
+            "InlineLineWithSegments, "
+            "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
+        break;
+    }
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+  }
+
+  /**
+   * @brief Build a periodic one-dimensional mesh by using MFEM inline methods
+   *
+   * @tparam Args
+   * @param a_my_class
+   * @param mesh_type
+   * @param fe_order
+   * @param tup_args
+   */
+  template <typename... Args>
+  void build_periodic_mesh(SpatialDiscretization<T, 1> &a_my_class, const std::string &mesh_type,
+                           const int &fe_order, std::tuple<Args...> tup_args) {
+    a_my_class.fe_order_ = fe_order;
+    auto tup_size = std::tuple_size<decltype(tup_args)>::value;
+    a_my_class.dimension_ = 1;
+
+    switch (Meshes::from(mesh_type)) {
+      case Meshes::InlineLineWithSegments: {
+        if (tup_size == 2) {
+          const auto nx = std::get<0>(tup_args);
+          const auto sx = std::get<1>(tup_args);
+          mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian1D(nx, sx);
+
+          // Based on mfem.org example
+          // Create the vertex mapping. To begin, create the identity mapping.
+          std::vector<int> periodicMap(tmp_mesh.GetNV());
+          for (int i = 0; i < periodicMap.size(); ++i) {
+            periodicMap[i] = i;
+          }
+          // Modify the mapping so that the last vertex gets mapped to the first vertex.
+          periodicMap.back() = 0;
+          auto periodic_mesh = mfem::Mesh::MakePeriodic(tmp_mesh, periodicMap);
+          tmp_mesh.Clear();
+          mfem::Mesh tmp_mesh_periodic =
+              mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+          a_my_class.mesh_ =
+              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+          tmp_mesh_periodic.Clear();
         } else {
           throw std::runtime_error(
               "SpatialDiscretization::SpatialDiscretization: InlineLineWithSegments "
@@ -262,7 +327,10 @@ struct specialized_spatial_constructor<T, 2> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          a_my_class.mesh_ =
+              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+          tmp_mesh.Clear();
           break;
         } else {
           throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
@@ -317,10 +385,10 @@ struct specialized_spatial_constructor<T, 2> {
   void operator()(SpatialDiscretization<T, 2> &a_my_class, const std::string &mesh_type,
                   const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args,
                   std::vector<mfem::Vector> translations) {
-    this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
+    this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args, translations);
+
     a_my_class.apply_uniform_refinement(ref_level);
 
-    a_my_class.make_periodic_mesh(translations);
     a_my_class.is_periodic_mesh_ = true;
     a_my_class.set_finite_element_space();
   }
@@ -354,8 +422,7 @@ struct specialized_spatial_constructor<T, 2> {
       default:
         throw std::runtime_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
-            "InlineLineWithSegments, "
-            "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
+            "InlineSquareWithQuadrangles, InlineSquareWithTriangles mesh types are allowed");
         break;
     }
     if (tup_size == 4) {
@@ -363,13 +430,72 @@ struct specialized_spatial_constructor<T, 2> {
       const auto ny = std::get<1>(tup_args);
       const auto sx = std::get<2>(tup_args);
       const auto sy = std::get<3>(tup_args);
-      a_my_class.mesh_ = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
-
+      mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
+      a_my_class.mesh_ = mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel
+                                                                   // mesh
+      tmp_mesh.Clear();
     } else {
       throw std::runtime_error(
-          "SpatialDiscretization::SpatialDiscretization: InlineSquareWithQuadrangles "
-          "requires "
-          "four arguments, the number of nodes and the length along each direction");
+          "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
+          " requires 4 arguments, the number of nodes and the length along each direction");
+    }
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+  }
+
+  /**
+   * @brief Build a periodic two-dimensional mesh by using MFEM inline methods
+   *
+   * @tparam Args
+   * @param a_my_class
+   * @param mesh_type
+   * @param fe_order
+   * @param tup_args
+   */
+  template <typename... Args>
+  void build_periodic_mesh(SpatialDiscretization<T, 2> &a_my_class, const std::string &mesh_type,
+                           const int &fe_order, std::tuple<Args...> tup_args,
+                           std::vector<mfem::Vector> translations) {
+    a_my_class.fe_order_ = fe_order;
+    auto tup_size = std::tuple_size<decltype(tup_args)>::value;
+    a_my_class.dimension_ = 2;
+
+    auto element = mfem::Element::QUADRILATERAL;
+    switch (Meshes::from(mesh_type)) {
+      case Meshes::InlineSquareWithQuadrangles: {
+        element = mfem::Element::QUADRILATERAL;
+        break;
+      }
+      case Meshes::InlineSquareWithTriangles: {
+        element = mfem::Element::TRIANGLE;
+        break;
+      }
+      default:
+        throw std::runtime_error(
+            "SpatialDiscretization::SpatialDiscretization: here, only "
+            "InlineSquareWithQuadrangles, InlineSquareWithTriangles mesh types are allowed");
+        break;
+    }
+    if (tup_size == 4) {
+      const auto nx = std::get<0>(tup_args);
+      const auto ny = std::get<1>(tup_args);
+      const auto sx = std::get<2>(tup_args);
+      const auto sy = std::get<3>(tup_args);
+
+      mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
+
+      const auto tol = 1.e-6;
+      std::vector<int> periodicMap = tmp_mesh.CreatePeriodicVertexMapping(translations, tol);
+      auto periodic_mesh = mfem::Mesh::MakePeriodic(tmp_mesh, periodicMap);
+      tmp_mesh.Clear();
+      mfem::Mesh tmp_mesh_periodic =
+          mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+      a_my_class.mesh_ =
+          mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+      tmp_mesh_periodic.Clear();
+    } else {
+      throw std::runtime_error(
+          "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
+          " requires 4 arguments, the number of nodes and the length along each direction");
     }
     a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
   }
@@ -406,7 +532,11 @@ struct specialized_spatial_constructor<T, 3> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          a_my_class.mesh_ =
+              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+          tmp_mesh.Clear();
+          // CCI
           break;
         } else {
           throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
@@ -461,10 +591,9 @@ struct specialized_spatial_constructor<T, 3> {
   void operator()(SpatialDiscretization<T, 3> &a_my_class, const std::string &mesh_type,
                   const int &fe_order, const int &ref_level, std::tuple<Args...> tup_args,
                   std::vector<mfem::Vector> translations) {
-    this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
+    this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args, translations);
 
     a_my_class.apply_uniform_refinement(ref_level);
-    a_my_class.make_periodic_mesh(translations);
     a_my_class.is_periodic_mesh_ = true;
     a_my_class.set_finite_element_space();
   }
@@ -498,8 +627,7 @@ struct specialized_spatial_constructor<T, 3> {
       default:
         throw std::runtime_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
-            "InlineLineWithSegments, "
-            "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
+            "InlineSquareWithTetraedres, InlineSquareWithHexaedres mesh types are allowed");
         break;
     }
 
@@ -511,7 +639,72 @@ struct specialized_spatial_constructor<T, 3> {
       const auto sx = std::get<3>(tup_args);
       const auto sy = std::get<4>(tup_args);
       const auto sz = std::get<5>(tup_args);
-      a_my_class.mesh_ = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
+      mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
+      a_my_class.mesh_ = mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
+      tmp_mesh.Clear();
+    } else {
+      throw std::runtime_error(
+          "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
+          " requires six arguments, the number of nodes and the length along each direction");
+    }
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+  }
+
+  /**
+   * @brief Build a periodic two-dimensional mesh by using MFEM inline methods
+   *
+   * @tparam Args
+   * @param a_my_class
+   * @param mesh_type
+   * @param fe_order
+   * @param tup_args
+   */
+  template <typename... Args>
+  void build_periodic_mesh(SpatialDiscretization<T, 3> &a_my_class, const std::string &mesh_type,
+                           const int &fe_order, std::tuple<Args...> tup_args,
+                           std::vector<mfem::Vector> translations) {
+    a_my_class.fe_order_ = fe_order;
+    auto tup_size = std::tuple_size<decltype(tup_args)>::value;
+    a_my_class.dimension_ = 3;
+
+    auto element = mfem::Element::TETRAHEDRON;
+    switch (Meshes::from(mesh_type)) {
+      case Meshes::InlineSquareWithTetraedres: {
+        element = mfem::Element::TETRAHEDRON;
+        break;
+      }
+      case Meshes::InlineSquareWithHexaedres: {
+        element = mfem::Element::HEXAHEDRON;
+        break;
+      }
+      default:
+        throw std::runtime_error(
+            "SpatialDiscretization::SpatialDiscretization: here, only "
+            "InlineSquareWithTetraedres, InlineSquareWithHexaedres mesh types are allowed");
+        break;
+    }
+
+    if (tup_size == 6) {
+      a_my_class.dimension_ = 3;
+      const auto nx = std::get<0>(tup_args);
+      const auto ny = std::get<1>(tup_args);
+      const auto nz = std::get<2>(tup_args);
+      const auto sx = std::get<3>(tup_args);
+      const auto sy = std::get<4>(tup_args);
+      const auto sz = std::get<5>(tup_args);
+
+      mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
+
+      const auto tol = 1.e-6;
+      std::vector<int> periodicMap = tmp_mesh.CreatePeriodicVertexMapping(translations, tol);
+      auto periodic_mesh = mfem::Mesh::MakePeriodic(tmp_mesh, periodicMap);
+      tmp_mesh.Clear();
+      mfem::Mesh tmp_mesh_periodic =
+          mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+      a_my_class.mesh_ =
+          mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+      tmp_mesh_periodic.Clear();
+
     } else {
       throw std::runtime_error(
           "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
@@ -529,6 +722,8 @@ struct specialized_spatial_constructor<T, 3> {
  *
  * @tparam T
  * @return mfem::Mesh&
+ * @note This method returns a mfem::Mesh instead of a mfem::ParMesh because it is called in
+ *       the constructor of the PostProcessing objet.
  */
 template <class T, int DIM>
 mfem::Mesh &SpatialDiscretization<T, DIM>::get_mesh() {
@@ -539,23 +734,28 @@ mfem::Mesh &SpatialDiscretization<T, DIM>::get_mesh() {
  * @brief Set the FE_Collection, the FE_Space and associated size
  *
  * @tparam T
- * @return mfem::FiniteElementSpace*
+ * @return mfem::ParFiniteElementSpace*
  */
 template <class T, int DIM>
 void SpatialDiscretization<T, DIM>::set_finite_element_space() {
   this->fecollection_ = new T(this->fe_order_, this->dimension_);
-  this->fespace_ = new mfem::FiniteElementSpace(&this->mesh_, this->fecollection_);
+  this->fespace_ = new mfem::ParFiniteElementSpace(&this->mesh_, this->fecollection_);
+  // CCI
   this->size_ = this->fespace_->GetTrueVSize();
+  int rank = mfem::Mpi::WorldRank();
+  int taille = this->fespace_->GlobalTrueVSize();
+  SlothInfo::debug("My Id = ", rank, " TrueVSize = ", size_, " and GlobalTrueVSize = ", taille);
+  // CCI
 }
 
 /**
  * @brief return a pointer toward the finite element space
  *
  * @tparam T
- * @return mfem::FiniteElementSpace*
+ * @return mfem::ParFiniteElementSpace*
  */
 template <class T, int DIM>
-mfem::FiniteElementSpace *SpatialDiscretization<T, DIM>::get_finite_element_space() {
+mfem::ParFiniteElementSpace *SpatialDiscretization<T, DIM>::get_finite_element_space() const {
   return this->fespace_;
 }
 
@@ -566,7 +766,7 @@ mfem::FiniteElementSpace *SpatialDiscretization<T, DIM>::get_finite_element_spac
  * @return int
  */
 template <class T, int DIM>
-std::size_t SpatialDiscretization<T, DIM>::getSize() {
+std::size_t SpatialDiscretization<T, DIM>::getSize() const {
   return this->size_;
 }
 
@@ -577,7 +777,7 @@ std::size_t SpatialDiscretization<T, DIM>::getSize() {
  * @return int
  */
 template <class T, int DIM>
-std::size_t SpatialDiscretization<T, DIM>::get_max_bdr_attributes() {
+std::size_t SpatialDiscretization<T, DIM>::get_max_bdr_attributes() const {
   return this->mesh_max_bdr_attributes_;
 }
 
@@ -588,7 +788,7 @@ std::size_t SpatialDiscretization<T, DIM>::get_max_bdr_attributes() {
  * @return int
  */
 template <class T, int DIM>
-int SpatialDiscretization<T, DIM>::get_dimension() {
+int SpatialDiscretization<T, DIM>::get_dimension() const {
   return this->dimension_;
 }
 
@@ -603,41 +803,6 @@ void SpatialDiscretization<T, DIM>::apply_uniform_refinement(const int &nb_ref) 
   for (auto l = 0; l < nb_ref; l++) {
     this->mesh_.UniformRefinement();
   }
-}
-
-/**
- * @brief Create the periodic mesh using the vertex mapping defined by the translations vector
- *
- * @tparam T
- * @tparam DIM
- * @param translations
- */
-template <class T, int DIM>
-void SpatialDiscretization<T, DIM>::make_periodic_mesh(std::vector<mfem::Vector> translations) {
-  const auto tol = 1.e-6;
-  std::vector<int> periodicMap = this->mesh_.CreatePeriodicVertexMapping(translations, tol);
-  auto periodic_mesh = mfem::Mesh::MakePeriodic(this->mesh_, periodicMap);
-  this->mesh_ = mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
-}
-
-/**
- * @brief Create a periodic line segment
- *
- * @tparam T
- * @tparam DIM
- */
-template <class T, int DIM>
-void SpatialDiscretization<T, DIM>::make_periodic_line() {
-  // Based on mfem.org example
-  // Create the vertex mapping. To begin, create the identity mapping.
-  std::vector<int> periodicMap(this->mesh_.GetNV());
-  for (int i = 0; i < periodicMap.size(); ++i) {
-    periodicMap[i] = i;
-  }
-  // Modify the mapping so that the last vertex gets mapped to the first vertex.
-  periodicMap.back() = 0;
-  auto periodic_mesh = mfem::Mesh::MakePeriodic(this->mesh_, periodicMap);
-  this->mesh_ = mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
 }
 
 /**

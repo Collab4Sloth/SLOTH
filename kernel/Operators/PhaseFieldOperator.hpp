@@ -12,13 +12,13 @@
  * \author ci230846
  * \date 12/01/2022
  */
-
 #include <algorithm>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "BCs/BoundaryConditions.hpp"
@@ -35,7 +35,7 @@
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 
@@ -43,23 +43,19 @@
  * @brief PhaseFieldOperator class
  *
  */
-template <class T, int DIM, class NLFI>
-class PhaseFieldOperator final : public PhaseFieldOperatorBase<T, DIM, NLFI> {
+template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
+class PhaseFieldOperator final : public OPEBASE<T, DIM, NLFI> {
  private:
-  double mobility_coeff_, omega_, lambda_;
+  double omega_, lambda_;
+  const Parameters &params_;
 
  public:
-  PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Variables<T, DIM> &vars);
-  PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Variables<T, DIM> &vars, Variables<T, DIM> &auxvars);
-
-  PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Variables<T, DIM> &vars, AnalyticalFunctions<DIM> source_term_name);
-
-  PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Variables<T, DIM> &vars, Variables<T, DIM> &auxvars,
-                     AnalyticalFunctions<DIM> source_term_name);
+  template <typename... Args>
+  PhaseFieldOperator(SpatialDiscretization<T, DIM> const *spatial, const Parameters &params,
+                     Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatial, params, std::forward<Args>(args)...), params_(params) {
+    this->get_parameters(params);
+  }
 
   NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override;
   void get_parameters(const Parameters &vectr_param) override;
@@ -75,155 +71,82 @@ class PhaseFieldOperator final : public PhaseFieldOperatorBase<T, DIM, NLFI> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new Phase Field Operator< T,  DIM,  NLFI>:: Phase Field Operator object
+ * @brief Destroy the PhaseFieldOperator< T, DIM, NLFI>:: Phase Field Operator object
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
- * @param spatial
- * @param params
- * @param vars
- * @param auxvars
+ * @tparam OPEBASE
  */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial,
-                                                     const Parameters &params,
-                                                     Variables<T, DIM> &vars,
-                                                     Variables<T, DIM> &auxvars)
-    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars, auxvars) {
-  this->get_parameters(params);
-}
-
-/**
- * @brief Construct a new Phase Field Operator< T,  DIM,  NLFI>:: Phase Field Operator object
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @param spatial
- * @param params
- * @param vars
- */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial,
-                                                     const Parameters &params,
-                                                     Variables<T, DIM> &vars)
-    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars) {
-  this->get_parameters(params);
-}
-
-/**
- * @brief Construct a new Phase Field Operator< T,  DIM,  NLFI>:: Phase Field Operator object
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @param spatial
- * @param params
- * @param vars
- */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial,
-                                                     const Parameters &params,
-                                                     Variables<T, DIM> &vars,
-                                                     AnalyticalFunctions<DIM> source_term_name)
-    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars, source_term_name) {
-  this->get_parameters(params);
-}
-
-/**
- * @brief Construct a new Phase Field Operator<T, DIM, NLFI>:: Phase Field Operator object
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @param spatial
- * @param params
- * @param vars
- * @param auxvars
- * @param source_term_name
- */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperator<T, DIM, NLFI>::PhaseFieldOperator(SpatialDiscretization<T, DIM> *spatial,
-                                                     const Parameters &params,
-                                                     Variables<T, DIM> &vars,
-                                                     Variables<T, DIM> &auxvars,
-                                                     AnalyticalFunctions<DIM> source_term_name)
-    : PhaseFieldOperatorBase<T, DIM, NLFI>(spatial, params, vars, auxvars, source_term_name) {
-  this->get_parameters(params);
-}
-
-/**
- * @brief Destroy the Phase Field Operator Melting< T,  DIM,  NLFI>:: Phase Field Operator
- * object
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperator<T, DIM, NLFI>::~PhaseFieldOperator() {}
+template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
+PhaseFieldOperator<T, DIM, NLFI, OPEBASE>::~PhaseFieldOperator() {}
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Set the NonLinearFormIntegrator dedicated to standard AllenCahn calculation
+ * @brief Set the NonLinearFormIntegrator dedicated to AllenCahn
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
+ * @tparam OPEBASE
  * @param dt
  * @param u
  * @return NLFI*
  */
-template <class T, int DIM, class NLFI>
-NLFI *PhaseFieldOperator<T, DIM, NLFI>::set_nlfi_ptr(const double dt, const mfem::Vector &u) {
+template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
+NLFI *PhaseFieldOperator<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt,
+                                                              const mfem::Vector &u) {
   Catch_Time_Section("PhaseFieldOperator::set_nlfi_ptr");
 
-  mfem::GridFunction un(this->fespace_);
+  mfem::ParGridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
-  NLFI *nlfi_ptr = new NLFI(un, this->omega_, this->lambda_, this->mobility_coeff_);
+  NLFI *nlfi_ptr = new NLFI(un, this->params_);
 
   return nlfi_ptr;
 }
 
 /**
- * @brief Get parameters values for the given Operator
+ * @brief Get parameters for use in the current operator
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
+ * @tparam OPEBASE
  * @param params
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperator<T, DIM, NLFI>::get_parameters(const Parameters &params) {
+template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
+void PhaseFieldOperator<T, DIM, NLFI, OPEBASE>::get_parameters(const Parameters &params) {
   this->omega_ = params.get_param_value<double>("omega");
   this->lambda_ = params.get_param_value<double>("lambda");
-  this->mobility_coeff_ = params.get_param_value<double>("mobility");
 }
 
 /**
- * @brief Compute Energy contribution at the end of time step
+ * @brief  Compute Energy contribution at the end of time step
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
- * @param iter
+ * @tparam OPEBASE
+ * @param it
+ * @param dt
+ * @param t
  * @param u
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperator<T, DIM, NLFI>::ComputeEnergies(const int &it, const double &dt,
-                                                       const double &t, const mfem::Vector &u) {
+template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
+void PhaseFieldOperator<T, DIM, NLFI, OPEBASE>::ComputeEnergies(const int &it, const double &dt,
+                                                                const double &t,
+                                                                const mfem::Vector &u) {
   Catch_Time_Section("PhaseFieldOperator::ComputeEnergies");
 
-  mfem::GridFunction un_gf(this->fespace_);
+  mfem::ParGridFunction un_gf(this->fespace_);
   un_gf.SetFromTrueDofs(u);
-  mfem::GridFunction gf(this->fespace_);
+  mfem::ParGridFunction gf(this->fespace_);
   EnergyCoefficient g(&un_gf, 0.5 * this->lambda_, this->omega_);
   gf.ProjectCoefficient(g);
-  mfem::GridFunction sigf(this->fespace_);
+  mfem::ParGridFunction sigf(this->fespace_);
   EnergyCoefficient sig(&un_gf, this->lambda_, 0.);
   sigf.ProjectCoefficient(sig);
 

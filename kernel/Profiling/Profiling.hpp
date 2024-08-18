@@ -39,7 +39,7 @@ std::string line(char c, size_t length) { return std::string(length, c); }
 struct TimerTuple {
   int order;
   std::string function_name;
-  int call_nmbrCalls;
+  std::uint64_t call_nmbrCalls;
   double total_time;
 
   /**
@@ -245,7 +245,7 @@ void Profiling::print() {
           break;
         }
       }
-      int global_calls;
+      std::uint64_t global_calls;
       MPI_Reduce(&timer.call_nmbrCalls, &global_calls, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
       double global_time;
       MPI_Reduce(&timer.total_time, &global_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);

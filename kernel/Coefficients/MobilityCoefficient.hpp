@@ -16,12 +16,12 @@ template <Mobility MOBI>
 class MobilityCoefficient : public mfem::Coefficient {
  private:
   double mobility_;
-  const mfem::GridFunction gf;
+  const mfem::ParGridFunction gf;
   int degenerate_order_;
 
  public:
   explicit MobilityCoefficient(const double &mob_c);
-  MobilityCoefficient(const double &mob_c, mfem::GridFunction mob_gf, const int &order);
+  MobilityCoefficient(const double &mob_c, mfem::ParGridFunction mob_gf, const int &order);
 
   double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
 };
@@ -44,7 +44,7 @@ MobilityCoefficient<MOBI>::MobilityCoefficient(const double &mob_c) : mobility_(
  * @param order
  */
 template <Mobility MOBI>
-MobilityCoefficient<MOBI>::MobilityCoefficient(const double &mob_c, mfem::GridFunction mob_gf,
+MobilityCoefficient<MOBI>::MobilityCoefficient(const double &mob_c, mfem::ParGridFunction mob_gf,
                                                const int &order)
     : mobility_(mob_c), gf(mob_gf), degenerate_order_(order) {}
 

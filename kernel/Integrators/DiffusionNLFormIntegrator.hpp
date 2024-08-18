@@ -13,8 +13,10 @@
 
 #include "Coefficients/DiffusionCoeffients.hpp"
 #include "Coefficients/SourceTermCoefficient.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Parameters/Parameters.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 
@@ -23,7 +25,7 @@ using FuncType = std::function<double(const double&, const double&)>;
 template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
 class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  private:
-  mfem::GridFunction u_old_;
+  mfem::ParGridFunction u_old_;
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
@@ -35,10 +37,10 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 
  protected:
   double alpha_, kappa_;
+  virtual void get_parameters(const Parameters& vectr_param);
 
  public:
-  DiffusionNLFormIntegrator(const mfem::GridFunction& u_old, const double& alpha,
-                            const double& kappa);
+  DiffusionNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params);
   ~DiffusionNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
@@ -51,7 +53,11 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-
+template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
+void DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::get_parameters(const Parameters& params) {
+  this->alpha_ = params.get_param_value<double>("alpha");
+  this->kappa_ = params.get_param_value<double>("kappa");
+}
 /**
  * @brief Diffusion coefficient (or derivative)
  *
@@ -91,8 +97,10 @@ FuncType DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::diffusion(const int ord
  */
 template <DiffusionCoefficientDiscretization SCHEME, DiffusionCoefficients COEFFICIENT>
 DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::DiffusionNLFormIntegrator(
-    const mfem::GridFunction& u_old, const double& alpha, const double& kappa)
-    : u_old_(u_old), alpha_(alpha), kappa_(kappa) {}
+    const mfem::ParGridFunction& u_old, const Parameters& params)
+    : u_old_(u_old) {
+  this->get_parameters(params);
+}
 
 /**
  * @brief Residual part of the non linear problem

@@ -27,19 +27,21 @@
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 ///---------------
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
   //---------------------------------------
-  // Initialize MPI
+  // Initialize MPI and HYPRE
   //---------------------------------------
-  MPI_Init(&argc, &argv);
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  mfem::Mpi::Init(argc, argv);
+  int size = mfem::Mpi::WorldSize();
+  int rank = mfem::Mpi::WorldRank();
+  mfem::Hypre::Init();
+  //
   //---------------------------------------
   // Profiling start
   Profiling::getInstance().enable();
@@ -51,7 +53,7 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI>;
+  using OPE = DiffusionOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
   using PB = Problem<OPE, VAR, PST>;
   // ###########################################
   // ###########################################
@@ -111,13 +113,13 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, vars);
+  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
-  PB problem1("Problem 1", oper, vars, pst, TimeScheme::EulerImplicit, convergence, params);
+  PB problem1("Problem 1", oper, vars, pst, convergence);
 
   // Coupling 1
-  auto cc = Coupling("coupling 1 ", std::move(problem1));
+  auto cc = Coupling("coupling 1 ", problem1);
 
   // ###########################################
   // ###########################################
@@ -129,7 +131,7 @@ int main(int argc, char* argv[]) {
   const auto& dt = 0.01;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
-  auto time = TimeDiscretization(time_params, std::move(cc));
+  auto time = TimeDiscretization(time_params, cc);
 
   time.solve();
   //---------------------------------------

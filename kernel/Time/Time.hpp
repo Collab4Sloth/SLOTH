@@ -22,12 +22,12 @@
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Utils/UtilsForDebug.hpp"
 #include "Variables/Variable.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 template <class... Args>
 class TimeDiscretization {
  private:
-  std::tuple<Args...> couplings_;
   Parameters params_;
+  std::tuple<Args...> couplings_;
   double initial_time_{0.};
   double final_time_;
   double time_step_;
@@ -50,21 +50,22 @@ class TimeDiscretization {
   void time_info(const int& iter);
 
  public:
-  explicit TimeDiscretization(const Parameters& params, Args&&... couplings);
+  // explicit TimeDiscretization(const Parameters& params, Args&&... couplings);
+  explicit TimeDiscretization(const Parameters& params, Args... couplings);
   void solve();
   void get_tree();
   ~TimeDiscretization();
 };
 
 /**
- * @brief Construct a new Time Discretization:: Time Discretization object
+ * @brief Construct a new Time Discretization< Args...>:: Time Discretization object
  *
- * @param ode_solver
- * @param unknown
- * @param with_save
+ * @tparam Args
+ * @param params
+ * @param couplings
  */
 template <class... Args>
-TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args&&... couplings)
+TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args... couplings)
     : params_(params), couplings_(std::make_tuple(std::forward<Args>(couplings)...)) {
   this->set_parameters(params_);
 }
@@ -90,6 +91,33 @@ void TimeDiscretization<Args...>::set_parameters(const Parameters& params) {
 template <class... Args>
 void TimeDiscretization<Args...>::initialize() {
   Catch_Time_Section("TimeDiscretization::initialize");
+
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    SlothInfo::verbose(R"(@@@@@@@@@@@@@@@@%#+--=*%@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@%#+-:::--:::-+*%@@@@@@@@@@@@
+@@@@@@@@%*+-:::-+#%@@%#*=:::-=*#@@@@@@@@
+@@@@@%+-:::-+#%@@@@@@@@@@@#*=::::=@@@@@@
+@@@@@=::+#%@@@@@@%%%%@@@@@@@@@%*::+@@@@@
+@@@@*::#@@@@@#+--::::-=+*%@@@@@@*::#@@@@
+@@@%::+@@@@*-:::::::::::::-+%@@@@=:-%@@@
+@@@=:-@@@%=::::::::::::::--::=#@@%-:=@@@
+@@*::#@@@-:::::::--:::::+*==:::-*@#::*@@
+@#::+@@@#+#=::::+##+::::-%-+:::::-%+::%@
+%-:=@@@@#==-%@#::::::::::--*:::::::*=:-@
+*::#@@@@@+:-*#*===::::::::#*:::::::-#::*
+@-:-@@@@@@#=---:::::::::=#@*:::::::#=:-@
+@%::+@@@@@@@*++===+++*#%@@@#::::::**::%@
+@@*::#@@@@#-::--:::--=+*%@@@=::::=#::*@@
+@@@+::%@@%:::::::::::::::=#@%::::%-:=@@@
+@@@@=:=@@@+::::::::::::::::=##::*+:-%@@@
+@@@@%::=*%@%+-::::::::--==---##++::#@@@@
+@@@@@#=::::=*##*+++*#%@@@@%*=-:::=*@@@@@
+@@@@@@@@%*=-:::=+#%@@@#*=:::-=*#@@@@@@@@
+@@@@@@@@@@@@%#+-:::-=:::-+*%@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@%#+--+#%@@@@@@@@@@@@@@@@
+  )");
+  }
 
   const auto& tt = this->initial_time_;
   this->current_time_ = tt;
@@ -143,13 +171,19 @@ TimeDiscretization<Args...>::execute(const int& iter) {
 
   std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>> results;
   auto current_time = this->current_time_;
+  auto next_time = this->current_time_;
   const auto& current_time_step = this->current_time_step_;
+
   std::apply(
-      [iter, &current_time, current_time_step, &results](auto&... coupling) {
-        (results.emplace_back(coupling.execute(iter, current_time, current_time_step)), ...);
+      [iter, &next_time, current_time, current_time_step, &results](auto&... coupling) {
+        (results.emplace_back(coupling.execute(iter, next_time, current_time, current_time_step)),
+         ...);
       },
       couplings_);
-  this->current_time_ = current_time;
+
+  // TODO(cci): ici c'est le dernier current_time. A améliorer dans le cadre d'une gestion du pas de
+  // temps
+  this->current_time_ = next_time;
 
   return results;
 }
@@ -211,11 +245,14 @@ void TimeDiscretization<Args...>::time_management() {
  */
 template <class... Args>
 void TimeDiscretization<Args...>::time_info(const int& iter) {
-  SlothInfo::print("============================== ");
-  SlothInfo::print("==== Iteration : ", iter);
-  SlothInfo::print("     - time : ", this->current_time_);
-  SlothInfo::print("     - time-step requested : ", this->time_step_);
-  SlothInfo::print("     - time-step accepted  : ", this->current_time_step_);
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    SlothInfo::verbose("============================== ");
+    SlothInfo::verbose("==== Iteration : ", iter);
+    SlothInfo::verbose("     - time : ", this->current_time_);
+    SlothInfo::verbose("     - time-step requested : ", this->time_step_);
+    SlothInfo::verbose("     - time-step accepted  : ", this->current_time_step_);
+  }
 }
 
 /**
@@ -280,19 +317,23 @@ void TimeDiscretization<Args...>::solve() {
 template <class... Args>
 void TimeDiscretization<Args...>::get_tree() {
   // TODO(cci): pas terrible, il faudrait un get_info, get_dod...
-  SlothInfo::print(" ============================== ");
-  SlothInfo::print(" ====  Solving algorithm   ==== ");
-  SlothInfo::print(" ============================== ");
-  SlothInfo::print(" >> Time discretization: ");
-  SlothInfo::print("    - Initial time: ", this->initial_time_);
-  SlothInfo::print("    - Final time: ", this->final_time_);
-  SlothInfo::print("    - Maximum time-step: ", this->time_step_);
-  std::apply(
-      [](auto&... coupling) {
-        (SlothInfo::print(" >> Coupling: ", coupling.get_name()), ...);
-        (coupling.get_tree(), ...);
-      },
-      couplings_);
+
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    SlothInfo::verbose(" ============================== ");
+    SlothInfo::verbose(" ====  Solving algorithm   ==== ");
+    SlothInfo::verbose(" ============================== ");
+    SlothInfo::verbose(" >> Time discretization: ");
+    SlothInfo::verbose("    - Initial time: ", this->initial_time_);
+    SlothInfo::verbose("    - Final time: ", this->final_time_);
+    SlothInfo::verbose("    - Maximum time-step: ", this->time_step_);
+    std::apply(
+        [](auto&... coupling) {
+          (SlothInfo::verbose(" >> Coupling: ", coupling.get_name()), ...);
+          (coupling.get_tree(), ...);
+        },
+        couplings_);
+  }
 }
 /**
  * @brief Destroy the Time Discretization:: Time Discretization object

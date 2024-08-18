@@ -37,7 +37,7 @@ class Variables {
   std::vector<Variable<T, DIM>> getVariables() const;
   Variable<T, DIM>& getIVariable(const int& i);
   Variable<T, DIM>& get_variable(const std::string& name);
-  std::map<std::string, mfem::GridFunction> get_map_gridfunction() const;
+  std::map<std::string, mfem::ParGridFunction> get_map_gridfunction() const;
   std::map<std::string, Variable<T, DIM>> get_map_variable() const;
   ~Variables();
 };
@@ -95,11 +95,11 @@ Variable<T, DIM>& Variables<T, DIM>::getIVariable(const int& i) {
 /**
  * @brief return a map of GridFunction for each variable name
  *
- * @return std::map<std::string, mfem::GridFunction>
+ * @return std::map<std::string, mfem::ParGridFunction>
  */
 template <class T, int DIM>
-std::map<std::string, mfem::GridFunction> Variables<T, DIM>::get_map_gridfunction() const {
-  std::map<std::string, mfem::GridFunction> map_var;
+std::map<std::string, mfem::ParGridFunction> Variables<T, DIM>::get_map_gridfunction() const {
+  std::map<std::string, mfem::ParGridFunction> map_var;
   for (auto vv : this->vect_variables_) {
     const std::string& name = vv.getVariableName();
     auto gf = vv.get_gf();

@@ -19,6 +19,7 @@
 #include <vector>
 
 #pragma once
+
 /**
  * @brief Custom IterationKey for specialized map
  *
@@ -74,7 +75,15 @@ mmap<EType>::mmap(const std::initializer_list<typename mmap::mpair>& values)
 template <typename EType>
 EType mmap<EType>::find(const char* const n, const std::string& v) {
   const auto pe = this->end();
-  const auto p = std::find_if(this->begin(), pe, [&v](const mpair& e) { return v == e.first; });
+  const auto p = std::find_if(this->begin(), pe, [&v](const mpair& e) {
+    // Convert in uppercase for sake of generality
+    std::string s1 = v;
+    std::string s2 = e.first;
+    transform(s1.begin(), s1.end(), s1.begin(), ::toupper);
+    transform(s2.begin(), s2.end(), s2.begin(), ::toupper);
+
+    return s1 == s2;
+  });
   if (p == pe) {
     std::runtime_error(
         "EnumNotFound::EnumNotFound : "
@@ -128,19 +137,26 @@ struct ConvergenceType {
 ///////////////////////////////////////////////////
 //////// SOLVER
 ///////////////////////////////////////////////////
-enum class SolverType { NEWTON, BICGSTAB, GMRES, CG };
+enum class NLSolverType { NEWTON };
+enum class SolverType { BICGSTAB, GMRES, CG, MINRES, UMFPACK };
+enum class IterativeSolverType { BICGSTAB, GMRES, CG, MINRES };
+enum class DirectSolverType { UMFPACK };
+enum class HypreSolverType { HYPRE_PCG, HYPRE_GMRES, HYPRE_FGMRES };
 
-enum class PreconditionerType { SMOOTHER, UMFPACK };
+enum class PreconditionerType { SMOOTHER, NO };
+enum class HyprePreconditionerType {
+  HYPRE_ILU,
+  HYPRE_BOOMER_AMG,
+  HYPRE_DIAG_SCALE,
+  HYPRE_SMOOTHER,
+  NO
+};
 
 ///////////////////////////////////////////////////
 //////// ODE SOLVER
 ///////////////////////////////////////////////////
 struct TimeScheme {
-  enum value {
-    EulerImplicit,
-    EulerExplicit,
-    RungeKutta4,
-  };
+  enum value { EulerImplicit, EulerExplicit, RungeKutta4 };
   static value from(const std::string&);
 };
 

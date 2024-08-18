@@ -24,7 +24,7 @@ class Parameters {
   std::vector<Parameter> vect_params_;
 
  public:
-  template <class... Args>
+  template <typename... Args>
   explicit Parameters(Args&&... args);
   std::optional<Parameter> get_parameter(const std::string& name) const;
   template <typename T>
@@ -41,7 +41,7 @@ class Parameters {
  * @tparam Args
  * @param args
  */
-template <class... Args>
+template <typename... Args>
 Parameters::Parameters(Args&&... args) {
   this->vect_params_ = std::vector<Parameter>{std::forward<Args>(args)...};
 }
@@ -53,7 +53,7 @@ Parameters::Parameters(Args&&... args) {
  * @return Parameter
  */
 std::optional<Parameter> Parameters::get_parameter(const std::string& name) const {
-  for (const auto& param : vect_params_) {
+  for (const auto& param : this->vect_params_) {
     if (param.get_name() == name) {
       return param;
     }

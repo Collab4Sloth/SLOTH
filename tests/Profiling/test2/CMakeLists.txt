@@ -1,3 +1,3 @@
 
 
-create_test("Profilingtest2" "Profilingtest2" FALSE "PROF")
+create_test("Profilingtest2" "Profilingtest2" FALSE "PROF" 2)

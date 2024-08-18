@@ -18,11 +18,11 @@
 //--------------------------
 class InterfacialCoefficient : public mfem::Coefficient {
  private:
-  mfem::GridFunction *gfu;
+  mfem::ParGridFunction *gfu;
   double lambda;
 
  public:
-  InterfacialCoefficient(mfem::GridFunction *gfu_, const double &lambda_)
+  InterfacialCoefficient(mfem::ParGridFunction *gfu_, const double &lambda_)
       : gfu(gfu_), lambda(lambda_) {}
   double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
 };
@@ -40,12 +40,12 @@ double InterfacialCoefficient::Eval(mfem::ElementTransformation &T,
 //--------------------------
 class EnergyCoefficient : public mfem::Coefficient {
  private:
-  mfem::GridFunction *gfu;
+  mfem::ParGridFunction *gfu;
   double lambda;
   double omega;
 
  public:
-  EnergyCoefficient(mfem::GridFunction *gfu_, const double &lambda_, const double &omega_)
+  EnergyCoefficient(mfem::ParGridFunction *gfu_, const double &lambda_, const double &omega_)
       : gfu(gfu_), lambda(lambda_), omega(omega_) {}
   double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
 };

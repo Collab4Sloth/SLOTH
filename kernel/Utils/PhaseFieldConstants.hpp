@@ -10,8 +10,11 @@
  */
 #pragma once
 
+//////////////////////////////////////////////////////
+//// ALGORITHM
+//////////////////////////////////////////////////////
 /**
- * @brief Default constant used by Newton Solver
+ * @brief Default constant used by Newton algorithm
  *
  */
 namespace NewtonDefaultConstant {
@@ -19,19 +22,22 @@ const auto iter_max = 100;
 const auto abs_tol = 1.e-13;
 const auto rel_tol = 1.e-13;
 const bool iterative_mode = false;
-const auto print_level = 1;
+const auto print_level = -1;
 }  // namespace NewtonDefaultConstant
 
+//////////////////////////////////////////////////////
+//// SOLVERS
+//////////////////////////////////////////////////////
 /**
  * @brief Default constant used by BICGSTAB Solver
  *
  */
 namespace BICGSTABDefaultConstant {
-const auto iter_max = 100;
-const auto abs_tol = 1.e-13;
-const auto rel_tol = 1.e-13;
+const auto iter_max = 1000;
+const auto abs_tol = 1.e-24;
+const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 1;
+const auto print_level = -1;
 }  // namespace BICGSTABDefaultConstant
 
 /**
@@ -39,33 +45,149 @@ const auto print_level = 1;
  *
  */
 namespace CGDefaultConstant {
-const auto iter_max = 100;
-const auto abs_tol = 1.e-13;
-const auto rel_tol = 1.e-13;
+const auto iter_max = 1000;
+const auto abs_tol = 1.e-24;
+const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 1;
+const auto print_level = -1;
 }  // namespace CGDefaultConstant
+
+/**
+ * @brief Default constant used by MINRES  Solver
+ *
+ */
+namespace MINRESDefaultConstant {
+const auto iter_max = 1000;
+const auto abs_tol = 1.e-24;
+const auto rel_tol = 1.e-12;
+const bool iterative_mode = false;
+const auto print_level = -1;
+}  // namespace MINRESDefaultConstant
 
 /**
  * @brief Default constant used by GMRES Solver
  *
  */
 namespace GMRESDefaultConstant {
-const auto iter_max = 100;
-const auto abs_tol = 1.e-13;
-const auto rel_tol = 1.e-13;
+const auto kdim = 50;
+const auto iter_max = 1000;
+const auto abs_tol = 1.e-24;
+const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 1;
+const auto print_level = -1;
 }  // namespace GMRESDefaultConstant
 
 /**
  * @brief Default constant used by Mass Solver
  *
  */
-namespace MassDefaultConstant {
-const auto iter_max = 30;
-const auto abs_tol = 1.e-15;
-const auto rel_tol = 1.e-15;
-const bool iterative_mode = false;
+namespace UMFPACK_DefaultConstant {
+const auto print_level = 1;
+}  // namespace UMFPACK_DefaultConstant
+
+//////////////////////////////////////////
+//  PRECONDITIONERS
+//////////////////////////////////////////
+/**
+ * @brief Default constant used by DSMOOTHER  Preconditioner
+ *
+ */
+namespace DSMOOTHER_DefaultConstant {
+const auto type = 0;  // 0, 1, 2 - scaled Jacobi, scaled l1-Jacobi, scaled lumped-Jacobi
+const bool positive_diagonal = false;
 const auto print_level = -1;
-}  // namespace MassDefaultConstant
+}  // namespace DSMOOTHER_DefaultConstant
+
+//////////////////////////////////////////
+// HYPRE SOLVERS
+//////////////////////////////////////////
+
+/**
+ * @brief Default constant used by HYPRE_PCG Solver
+ *
+ */
+namespace HYPRE_PCG_DefaultConstant {
+const auto iter_max = 100;
+const auto tol = 1.e-6;
+// const auto abs_tol = 1.e-6;
+const auto print_level = 0;
+}  // namespace HYPRE_PCG_DefaultConstant
+
+/**
+ * @brief Default constant used by HYPRE_GMRES Solver
+ *
+ */
+namespace HYPRE_GMRES_DefaultConstant {
+const auto iter_max = 100;
+const auto tol = 1.e-6;
+// const auto abs_tol = 1.e-6;
+const auto kdim = 50;
+const auto print_level = 0;
+}  // namespace HYPRE_GMRES_DefaultConstant
+
+/**
+ * @brief Default constant used by HYPRE_FGMRES Solver
+ *
+ */
+namespace HYPRE_FGMRES_DefaultConstant {
+const auto iter_max = 100;
+const auto tol = 1.e-6;
+// const auto abs_tol = 1.e-6;
+const auto kdim = 50;
+const auto print_level = 0;
+}  // namespace HYPRE_FGMRES_DefaultConstant
+
+//////////////////////////////////////////
+// HYPRE PRECONDITIONERS
+//////////////////////////////////////////
+/**
+ * @brief Default constant used by HYPRE_ILU  Preconditioner
+ *
+ */
+namespace HYPRE_ILU_DefaultConstant {
+const auto type = 0;  // ILU(k) locally and block Jacobi globally
+const auto iter_max = 1;
+const auto tol = 0.;
+const auto print_level = 0;
+const auto reorder_type = 0;  // 0 = no reordering, 1 = reverse Cuthill-McKee
+}  // namespace HYPRE_ILU_DefaultConstant
+
+/**
+ * @brief Default constant used by HYPRE_SMOOTHER  Preconditioner
+ *
+ */
+namespace HYPRE_SMOOTHER_DefaultConstant {
+const auto type = 0;
+// Taken from MFEM doc
+//   Jacobi = 0,       ///< Jacobi
+//   l1Jacobi = 1,     ///< l1-scaled Jacobi
+//   l1GS = 2,         ///< l1-scaled block Gauss-Seidel/SSOR
+//   l1GStr = 4,       ///< truncated l1-scaled block Gauss-Seidel/SSOR
+//   lumpedJacobi = 5, ///< lumped Jacobi
+//   GS = 6,           ///< Gauss-Seidel
+//   OPFS = 10,        /**< On-processor forward solve for matrix w/ triangular
+//                          structure */
+//   Chebyshev = 16,   ///< Chebyshev
+//   Taubin = 1001,    ///< Taubin polynomial smoother
+//   FIR = 1002        ///< FIR polynomial smoother
+
+const auto positive_diagonal = true;
+}  // namespace HYPRE_SMOOTHER_DefaultConstant
+
+/**
+ * @brief Default constant used by HYPRE_BOOMER_AMG  Preconditioner
+ *
+ */
+namespace HYPRE_BOOMER_AMG_DefaultConstant {
+const auto iter_max = 100;
+const auto tol = 1.e-16;
+const auto print_level = 0;
+}  // namespace HYPRE_BOOMER_AMG_DefaultConstant
+
+/**
+ * @brief Default constant used by HYPRE_DIAG_SCALE  Preconditioner
+ *
+ */
+namespace HYPRE_DIAG_SCALE_DefaultConstant {
+// No options
+}  // namespace HYPRE_DIAG_SCALE_DefaultConstant
