@@ -71,7 +71,7 @@ std::function<double(const double&)> PhaseChangeFunction<PHASECHANGE>::getConsta
 template <PhaseChange PHASECHANGE>
 template <typename... Args>
 std::function<double(const double&)> PhaseChangeFunction<PHASECHANGE>::getCalphad(Args... args) {
-  throw std::runtime_error("PhaseChangeFunction::getCalphad: not implemented yet");
+  mfem::mfem_error("PhaseChangeFunction::getCalphad: not implemented yet");
 }
 
 /**
@@ -92,7 +92,7 @@ std::function<double(const double&)> PhaseChangeFunction<PHASECHANGE>::getPhaseC
     case PhaseChange::Calphad:
       return this->getCalphad(args...);
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "PhaseChangeFunction::getPhaseChangeFunction: only constant and calphad mobilities "
           " are available");
       break;

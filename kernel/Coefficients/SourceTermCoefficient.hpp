@@ -9,7 +9,7 @@
 #include <string>
 
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 class SourceTermCoefficient : public mfem::Coefficient {
@@ -51,7 +51,7 @@ double SourceTermCoefficient::Eval(mfem::ElementTransformation &T,
       return -1. * src_value / (0.09);
     }
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "SourceTermCoefficient::Eval: only Null, Sinusoide2D source term are available");
       break;
   }

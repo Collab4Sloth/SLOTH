@@ -48,13 +48,12 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   const auto DIM = 2;
-  using NLFI = DiffusionNLFormIntegrator<DiffusionCoefficientDiscretization::Implicit,
-                                         DiffusionCoefficients::Linear>;
+  using NLFI = DiffusionNLFormIntegrator<CoefficientDiscretization::Implicit, Diffusion::Linear>;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
+  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
   using PB = Problem<OPE, VAR, PST>;
   // ###########################################
   // ###########################################
@@ -83,16 +82,15 @@ int main(int argc, char* argv[]) {
   // ####################
   const auto& alpha(1.e-2);
   const auto& kappa(0.5);
-  auto params = Parameters(Parameter("kappa", kappa), Parameter("alpha", alpha));
   // ####################
   //     variables     //
   // ####################
   auto user_func =
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
         if (x.Norml2() < 0.5) {
-          return 2.0;
-        } else {
           return 1.0;
+        } else {
+          return 0.0;
         }
       });
 
@@ -108,15 +106,23 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
+  std::string calculation_path = "Problem1";
+  auto p_pst =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail));
   // ####################
   //     operators     //
   // ####################
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  OPE oper(&spatial, TimeScheme::EulerImplicit);
+  oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
+
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-  auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
+  auto pst = PST(&spatial, p_pst);
+
   PB problem1("Problem 1", oper, vars, pst, convergence);
 
   // Coupling 1

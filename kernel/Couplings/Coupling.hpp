@@ -115,7 +115,11 @@ std::vector<std::tuple<bool, double, mfem::Vector>> Coupling<Args...>::execute(
   std::vector<std::tuple<bool, double, mfem::Vector>> results;
   std::apply(
       [iter, &next_time, current_time, current_time_step, &results](auto&... problem) {
-        (results.emplace_back(problem.execute(iter, next_time, current_time, current_time_step)),
+        double pp_next_time = current_time;
+        ((pp_next_time = current_time,
+          results.emplace_back(
+              problem.execute(iter, pp_next_time, current_time, current_time_step)),
+          next_time = pp_next_time),
          ...);
       },
       problems_);

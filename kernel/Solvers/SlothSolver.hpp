@@ -92,7 +92,7 @@ VSharedMFEMSolver SlothSolver::get_value() {
               return hh.create_solver(arg, params_);
             }
             default:
-              throw std::runtime_error("Unhandled DirectSolverType enum value");
+              mfem::mfem_error("Unhandled DirectSolverType enum value");
           }
         } else if constexpr (std::is_same_v<T, IterativeSolverType>) {
           switch (arg) {
@@ -113,7 +113,7 @@ VSharedMFEMSolver SlothSolver::get_value() {
               return hh.create_solver(arg, params_);
             }
             default:
-              throw std::runtime_error("Unhandled IterativeSolverType enum value");
+              mfem::mfem_error("Unhandled IterativeSolverType enum value");
           }
         } else if constexpr (std::is_same_v<T, HypreSolverType>) {
           switch (arg) {
@@ -130,7 +130,7 @@ VSharedMFEMSolver SlothSolver::get_value() {
               return hh.create_solver(arg, params_);
             }
             default:
-              throw std::runtime_error("Unhandled HypreSolverType enum value");
+              mfem::mfem_error("Unhandled HypreSolverType enum value");
           }
         } else if constexpr (std::is_same_v<T, HyprePreconditionerType>) {
           switch (arg) {
@@ -154,7 +154,7 @@ VSharedMFEMSolver SlothSolver::get_value() {
               return std::make_shared<std::monostate>();
             }
             default:
-              throw std::runtime_error("Unhandled HyprePreconditionerType enum value");
+              mfem::mfem_error("Unhandled HyprePreconditionerType enum value");
           }
         } else if constexpr (std::is_same_v<T, PreconditionerType>) {
           switch (arg) {
@@ -166,10 +166,10 @@ VSharedMFEMSolver SlothSolver::get_value() {
               return std::make_shared<std::monostate>();
             }
             default:
-              throw std::runtime_error("Unhandled PreconditionerType enum value");
+              mfem::mfem_error("Unhandled PreconditionerType enum value");
           }
         } else {
-          throw std::runtime_error("Unsupported type");
+          mfem::mfem_error("Unsupported type");
         }
       },
       value_);

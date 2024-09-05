@@ -68,7 +68,7 @@ std::shared_ptr<mfem::NewtonSolver> NLSolverBase::create_solver(NLSolverType NLS
       return ss;
     }
     default:
-      throw std::runtime_error("Solver::create_precond: SMOOTHER, UMFPACK are available");
+      mfem::mfem_error("Solver::create_precond: SMOOTHER, UMFPACK are available");
       break;
   }
 }

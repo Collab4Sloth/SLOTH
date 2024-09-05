@@ -29,16 +29,23 @@
 template <class T, class DC, int DIM>
 class PostProcessing : public DC {
  private:
-  std::map<std::string, mfem::ParGridFunction> fields_to_save_;
+  std::string main_folder_path_;
+  std::string calculation_path_;
   int frequency_;
+  int level_of_detail_;
   bool enable_save_specialized_at_iter_;
+  bool force_clean_output_dir_;
+
+  const Parameters& params_;
+  std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   std::string post_processing_directory_;
+  void get_parameters();
   bool need_to_be_saved(const int& iteration);
 
+  void clean_output_directory();
+
  public:
-  PostProcessing(const std::string& main_folder_path, const std::string& calculation_path,
-                 SpatialDiscretization<T, DIM>* space, const int& frequency,
-                 const int& level_of_detail, const bool& enable_save_specialized_at_iter = false);
+  PostProcessing(SpatialDiscretization<T, DIM>* space, const Parameters& params);
   void save_variables(const Variables<T, DIM>& vars, const int& iter, const double& time);
   void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results);
   int get_frequency();
@@ -60,19 +67,39 @@ class PostProcessing : public DC {
  * @param level_of_detail
  */
 template <class T, class DC, int DIM>
-PostProcessing<T, DC, DIM>::PostProcessing(const std::string& main_folder_path,
-                                           const std::string& calculation_path,
-                                           SpatialDiscretization<T, DIM>* space,
-                                           const int& frequency, const int& level_of_detail,
-                                           const bool& enable_save_specialized_at_iter)
-    : DC(calculation_path, &space->get_mesh()),
-      frequency_(frequency),
-      enable_save_specialized_at_iter_(enable_save_specialized_at_iter) {
-  this->SetPrefixPath(main_folder_path);
-  this->SetLevelsOfDetail(level_of_detail);
+PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
+                                           const Parameters& params)
+    : DC(params.get_param_value<std::string>("calculation_path"), &space->get_mesh()),
+      params_(params) {
+  this->get_parameters();
+
+  this->clean_output_directory();
+
+  this->SetPrefixPath(this->main_folder_path_);
+  this->SetLevelsOfDetail(this->level_of_detail_);
   this->SetDataFormat(mfem::VTKFormat::BINARY);
   this->SetHighOrderOutput(true);
-  this->post_processing_directory_ = main_folder_path + "/" + calculation_path;
+  this->post_processing_directory_ = this->main_folder_path_ + "/" + this->calculation_path_;
+}
+
+/**
+ * @brief Get parameters for PostProcessing object
+ *
+ * @tparam T
+ * @tparam DC
+ * @tparam DIM
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::get_parameters() {
+  this->main_folder_path_ = this->params_.template get_param_value<std::string>("main_folder_path");
+  this->calculation_path_ = this->params_.template get_param_value<std::string>("calculation_path");
+  this->frequency_ = this->params_.template get_param_value<int>("frequency");
+
+  this->level_of_detail_ = this->params_.template get_param_value<int>("level_of_detail");
+  this->enable_save_specialized_at_iter_ = this->params_.template get_param_value_or_default<bool>(
+      "enable_save_specialized_at_iter", false);
+  this->force_clean_output_dir_ =
+      this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
 }
 
 /**
@@ -157,7 +184,8 @@ void PostProcessing<T, DC, DIM>::save_specialized(
   std::ofstream fic(file, std::ios::out | std::ios::trunc);
 
   if (!fic.is_open()) {
-    throw std::runtime_error("Unable to open file: " + filename);
+    std::string msg = "Unable to open file: " + filename;
+    mfem::mfem_error(msg.c_str());
   }
 
   std::ostringstream text2fic;
@@ -192,6 +220,29 @@ void PostProcessing<T, DC, DIM>::save_specialized(
   }
 
   fic << text2fic.str();
+}
+
+/**
+ * @brief Clean output_directory before calculation
+ *
+ * @tparam T
+ * @tparam DC
+ * @tparam DIM
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::clean_output_directory() {
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    if (this->force_clean_output_dir_) {
+      auto output_dir_path = std::filesystem::path(this->main_folder_path_);
+      std::error_code ec;
+      std::filesystem::remove_all(output_dir_path, ec);
+      if (ec) {
+        auto msg = ec.message();
+        mfem::mfem_error(msg.c_str());
+      }
+    }
+  }
 }
 
 /**

@@ -93,12 +93,12 @@ struct multidimension_function<1> {
   // Sinusoide
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getSinusoide(Args... args) {
-    throw std::runtime_error("Not implemented");
+    mfem::mfem_error("Not implemented");
   }
   // Sinusoide2
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getSinusoide2(Args... args) {
-    throw std::runtime_error("Not implemented");
+    mfem::mfem_error("Not implemented");
   }
 
   // TANH
@@ -118,7 +118,7 @@ struct multidimension_function<1> {
             return func;
           });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "multidimension_function::getHyperbolicTangent: four arguments are expected (1- "
           "center_x, 2-  a_x, 3- thickness, 4- radius");
     }
@@ -143,7 +143,7 @@ struct multidimension_function<1> {
             return func;
           });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "multidimension_function::getParabolic: three arguments are expected (1- "
           "maximum radius, 2-  initial temperature, 3- lineic power, 4- conductivity");
     }
@@ -159,8 +159,7 @@ struct multidimension_function<1> {
       return std::function<double(const mfem::Vector &, double)>(
           [value](const mfem::Vector &x, double time) { return value; });
     } else {
-      throw std::runtime_error(
-          "multidimension_function::getUniform: only one argument is expected");
+      mfem::mfem_error("multidimension_function::getUniform: only one argument is expected");
     }
   }
 };
@@ -193,7 +192,7 @@ struct multidimension_function<2> {
             return mult_fact * sinusoide;
           });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "multidimension_function::getSinusoide: one argument is expected : multiplicative "
           "factor");
     }
@@ -212,7 +211,7 @@ struct multidimension_function<2> {
             return mult_fact * sinusoide;
           });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "multidimension_function::getSinusoide2: one argument is expected : multiplicative "
           "factor");
     }
@@ -240,7 +239,7 @@ struct multidimension_function<2> {
             return func;
           });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "multidimension_function::getHyperbolicTangent: six arguments are expected (1- center_x, "
           "2- center_y, 3- a_x, 4- a_y, 5- thickness, 6- radius");
     }
@@ -248,7 +247,7 @@ struct multidimension_function<2> {
   // PARABOLIC
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
-    throw std::runtime_error("Not implemented");
+    mfem::mfem_error("Not implemented");
   }
 
   // Uniform
@@ -261,8 +260,7 @@ struct multidimension_function<2> {
       return std::function<double(const mfem::Vector &, double)>(
           [value](const mfem::Vector &x, double time) { return value; });
     } else {
-      throw std::runtime_error(
-          "multidimension_function::getUniform: only one argument is expected");
+      mfem::mfem_error("multidimension_function::getUniform: only one argument is expected");
     }
   }
 };
@@ -286,13 +284,13 @@ struct multidimension_function<3> {
   // Sinusoide
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getSinusoide(Args... args) {
-    throw std::runtime_error("Not implemented");
+    mfem::mfem_error("Not implemented");
   }
 
   // Sinusoide2
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getSinusoide2(Args... args) {
-    throw std::runtime_error("Not implemented");
+    mfem::mfem_error("Not implemented");
   }
 
   // TANH
@@ -321,7 +319,7 @@ struct multidimension_function<3> {
             return func;
           });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "multidimension_function::getHyperbolicTangent: height arguments are expected (1- "
           "center_x, "
           "2- center_y, 3- center_z, 4- a_x, 5- a_y, 6- a_z, 7- thickness, 8- radius");
@@ -330,7 +328,7 @@ struct multidimension_function<3> {
   // PARABOLIC
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
-    throw std::runtime_error("Not implemented");
+    mfem::mfem_error("Not implemented");
   }
   // Uniform
   template <typename... Args>
@@ -342,8 +340,7 @@ struct multidimension_function<3> {
       return std::function<double(const mfem::Vector &, double)>(
           [value](const mfem::Vector &x, double time) { return value; });
     } else {
-      throw std::runtime_error(
-          "multidimension_function::getUniform: only one argument is expected");
+      mfem::mfem_error("multidimension_function::getUniform: only one argument is expected");
     }
   }
 };
@@ -413,7 +410,7 @@ AnalyticalFunctions<DIM>::getAnalyticalFunctions(AnalyticalFunctionsType::value 
     case AnalyticalFunctionsType::Uniform:
       return this->getUniform(args...);
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "AnalyticalFunctions::getAnalyticalFunctions: Heaviside, Sinusoide, HyperbolicTangent, "
           "Parabolic, Uniform "
           "analytical function  are available");

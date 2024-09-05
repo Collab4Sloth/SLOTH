@@ -9,7 +9,6 @@
  *
  */
 
-#pragma once
 #include <functional>
 #include <memory>
 #include <string>
@@ -23,10 +22,13 @@
 #include "Utils/UtilsForDebug.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+#pragma once
+
 template <class... Args>
 class TimeDiscretization {
  private:
-  Parameters params_;
+  const Parameters& params_;
   std::tuple<Args...> couplings_;
   double initial_time_{0.};
   double final_time_;
@@ -36,15 +38,15 @@ class TimeDiscretization {
   bool last_step_{false};
 
   std::vector<std::tuple<bool, double, mfem::Vector>> vect_tup_pb_convergence_;
-  void set_parameters(const Parameters& params);
+  void get_parameters();
 
   void check_data_before_execute();
 
   void initialize();
   std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>> execute(const int& iter);
   void post_execute(const int& iter);
-  void post_processing(const int& iter);
   void update();
+  void post_processing(const int& iter);
   void finalize();
   void time_management();
   void time_info(const int& iter);
@@ -67,7 +69,7 @@ class TimeDiscretization {
 template <class... Args>
 TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args... couplings)
     : params_(params), couplings_(std::make_tuple(std::forward<Args>(couplings)...)) {
-  this->set_parameters(params_);
+  this->get_parameters();
 }
 
 /**
@@ -77,10 +79,11 @@ TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args..
  * @param params
  */
 template <class... Args>
-void TimeDiscretization<Args...>::set_parameters(const Parameters& params) {
-  this->initial_time_ = params.get_param_value_or_default<double>("initial_time", 0.);
-  this->final_time_ = params.get_param_value<double>("final_time");
-  this->time_step_ = params.get_param_value<double>("time_step");
+void TimeDiscretization<Args...>::get_parameters() {
+  this->initial_time_ =
+      this->params_.template get_param_value_or_default<double>("initial_time", 0.);
+  this->final_time_ = this->params_.template get_param_value<double>("final_time");
+  this->time_step_ = this->params_.template get_param_value<double>("time_step");
   this->current_time_step_ = this->initial_time_;
 }
 
@@ -176,7 +179,11 @@ TimeDiscretization<Args...>::execute(const int& iter) {
 
   std::apply(
       [iter, &next_time, current_time, current_time_step, &results](auto&... coupling) {
-        (results.emplace_back(coupling.execute(iter, next_time, current_time, current_time_step)),
+        double cc_next_time = current_time;
+        ((cc_next_time = current_time,
+          results.emplace_back(
+              coupling.execute(iter, cc_next_time, current_time, current_time_step)),
+          next_time = cc_next_time),
          ...);
       },
       couplings_);
@@ -287,6 +294,11 @@ void TimeDiscretization<Args...>::solve() {
     // Check convergence
     //------------
     // TODO(cci): à implémenter pour ne faire l'update qu'à ce moment là
+
+    //------------
+    //  Post Execute
+    //------------
+    this->post_execute(iter);
 
     //------------
     //  Update

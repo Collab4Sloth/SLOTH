@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 class PhysicalConvergence {
  private:
@@ -75,7 +75,7 @@ PhysicalConvergence::getPhysicalConvergenceCriterion(
       return this->getAbsoluteMax(given_criterion);
     }
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "PhysicalConvergence::getPhysicalConvergenceCriterion:  RELATIVE_MAX, ABSOLUTE_MAX "
           "criterion are  available");
       break;

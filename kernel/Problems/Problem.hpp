@@ -28,25 +28,33 @@ class Problem : public ProblemBase<VAR, PST> {
   std::shared_ptr<std::function<double(const mfem::Vector&, double)> > analytical_solution_{
       nullptr};
 
-  void post_execute(const int& iter, const double& current_time_step, const double& current_time);
-
- protected:
-  // Virtual methods override
-  void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
-                    double current_time_step, const int iter) override;
-
  public:
+  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence);
+
+  Problem(const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
+          const PhysicalConvergence& convergence);
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
           const PhysicalConvergence& convergence);
 
   Problem(const std::string& name, const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
           const PhysicalConvergence& convergence);
 
-  // Virtual methods override
+  /////////////////////////////////////////////////////
   void initialize(const double& initial_time) override;
-  void post_processing(const int& iter, const double& current_time_step,
-                       const double& current_time) override;
+
+  void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
+                    double current_time_step, const int iter) override;
+
+  void post_execute(const int& iter, const double& current_time,
+                    const double& current_time_step) override;
+  /////////////////////////////////////////////////////
+
+  void post_processing(const int& iter, const double& current_time,
+                       const double& current_time_step) override;
+
   void finalize() override;
+
+  /////////////////////////////////////////////////////
 
   ~Problem();
 };
@@ -61,12 +69,48 @@ class Problem : public ProblemBase<VAR, PST> {
  * @param convergence
  */
 template <class OPE, class VAR, class PST>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
+                                const PhysicalConvergence& convergence)
+    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence), oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @param name
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param convergence
+ */
+template <class OPE, class VAR, class PST>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
                                 const PhysicalConvergence& convergence)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence), oper_(oper) {}
 
 /**
  * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @param name
+ * @param oper
+ * @param variables
+ * @param auxvariables
+ * @param pst
+ * @param convergence
+ */
+template <class OPE, class VAR, class PST>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
+                                const PhysicalConvergence& convergence)
+    : ProblemBase<VAR, PST>("AllenCahn problem", variables, auxvariables, pst, convergence),
+      oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>::Problem object
  *
  * @tparam OPE
  * @tparam VAR
@@ -107,18 +151,8 @@ void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
  * @param unk
  */
 template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current_time_step,
-                                          const double& current_time) {
-  auto vv = this->variables_.getIVariable(0);
-  auto unk = vv.get_unknown();
-  auto solution = vv.get_analytical_solution();
-  if (solution != nullptr) {
-    auto solution_func = solution.get();
-
-    this->oper_.ComputeError(iter, current_time_step, current_time, unk, *solution_func);
-  }
-  this->oper_.ComputeEnergies(iter, current_time_step, current_time, unk);
-}
+void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current_time,
+                                          const double& current_time_step) {}
 
 /**
  * @brief Show calculation information
@@ -153,7 +187,18 @@ void Problem<OPE, VAR, PST>::finalize() {
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time,
                                              const double& current_time_step) {
-  this->post_execute(iter, current_time_step, current_time);
+  ////
+  auto vv = this->variables_.getIVariable(0);
+  auto unk = vv.get_unknown();
+  auto solution = vv.get_analytical_solution();
+  if (solution != nullptr) {
+    auto solution_func = solution.get();
+
+    this->oper_.ComputeError(iter, current_time, current_time_step, unk, *solution_func);
+  }
+  this->oper_.ComputeEnergies(iter, current_time, current_time_step, unk);
+  ////
+
   // Save for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
   if (this->pst_.get_enable_save_specialized_at_iter()) {

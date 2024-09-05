@@ -1,4 +1,3 @@
-
 #=============================================
 #=============================================
 function Print {
@@ -6,6 +5,7 @@ function Print {
 }
 #=============================================
 #=============================================
+
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     spack load mfem
     export HYPRE_DIR=$(spack location -i hypre)
@@ -28,7 +28,11 @@ DEPS_ALLOWED_OPTIONS=" --with-petsc "
 BUILD_ALLOWED_OPTIONS="  --coverage, --release, --debug"
 built_code="Release"
 clean_build="No"
-for arg in "$@"; do
+for argument; do
+
+    arg=$(echo $argument | cut -f1 -d'=')
+    value=$(echo $argument | cut -f2 -d'=')
+
     case "$arg" in
     --release)
         built_code="Release"
@@ -52,6 +56,9 @@ for arg in "$@"; do
         ;;
     esac
 done
+
+#=============================================
+#=============================================
 #=============================================
 #=============================================
 if [[ "$clean_build" == "Yes" ]]; then

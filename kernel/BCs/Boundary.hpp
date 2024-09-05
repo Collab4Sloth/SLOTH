@@ -69,7 +69,7 @@ Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
       this->is_essential_boundary_ = false;
       break;
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "Boundary::Boundary(): only Dirichlet, Neumann, Periodic and Robin BoundaryConditionType "
           "are available");
       break;
@@ -104,7 +104,7 @@ Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
       this->is_essential_boundary_ = false;
       break;
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "Boundary::Boundary(): only Dirichlet, Neumann, Periodic and Robin BoundaryConditionType "
           "are available");
       break;

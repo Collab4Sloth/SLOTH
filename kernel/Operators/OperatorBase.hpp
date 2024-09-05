@@ -57,9 +57,13 @@ class OperatorBase : public mfem::Operator {
   Parameters solver_params_;
   Parameters precond_params_;
   void set_default_solver();
-  Variables<T, DIM> *auxvariables_;
 
  protected:
+  Variables<T, DIM> *auxvariables_;
+  std::string description_{"UNKNOWN OPERATOR"};
+
+  const Parameters default_params_ = Parameters(Parameter("default parameter", false));
+  const Parameters &params_;
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
 
@@ -81,22 +85,31 @@ class OperatorBase : public mfem::Operator {
   double current_time_;
   int height_;
   mutable mfem::Vector z;  // auxiliary vector
+  NLFI *nlfi_ptr_;
   void build_nonlinear_form(const double dt, const mfem::Vector &u);
   void SetNewtonAlgorithm(mfem::Operator *oper);
 
+  std::vector<mfem::ParGridFunction> get_auxiliary_gf();
+
  public:
+  explicit OperatorBase(SpatialDiscretization<T, DIM> const *spatial);
+
+  OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+               AnalyticalFunctions<DIM> source_term_name);
   OperatorBase(SpatialDiscretization<T, DIM> const *spatial, const Parameters &params);
 
   OperatorBase(SpatialDiscretization<T, DIM> const *spatial, const Parameters &params,
                AnalyticalFunctions<DIM> source_term_name);
 
-  void ComputeError(const int &it, const double &dt, const double &t, const mfem::Vector &u,
+  void ComputeError(const int &it, const double &t, const double &dt, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
   void get_source_term(mfem::Vector &source_term, mfem::ParLinearForm *RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
 
   virtual ~OperatorBase();
+
+  std::string get_description() { return this->description_; }
 
   // User-defined Solvers
   void overload_nl_solver(NLSolverType NLSOLVER, const Parameters &nl_params);
@@ -111,12 +124,13 @@ class OperatorBase : public mfem::Operator {
                           Variables<T, DIM> *auxvars);
 
   // Pure virtual methods
+  virtual void set_default_properties() = 0;
   virtual void SetConstantParameters(const double dt, mfem::Vector &u) = 0;
   virtual void SetTransientParameters(const double dt, const mfem::Vector &u) = 0;
   virtual void solve(mfem::Vector &unk, double &next_time, const double &current_time,
                      double current_time_step, const int iter) = 0;
   virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;
-  virtual void get_parameters(const Parameters &vectr_param) = 0;
+  virtual void get_parameters() = 0;
   virtual void ComputeEnergies(const int &it, const double &dt, const double &t,
                                const mfem::Vector &u) = 0;
 };
@@ -125,8 +139,54 @@ class OperatorBase : public mfem::Operator {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief  Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
- * Base object
+ * @brief Construct a new OperatorBase object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ */
+template <class T, int DIM, class NLFI>
+OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial)
+    : mfem::Operator(spatial->getSize()),
+      params_(default_params_),
+      N(NULL),
+      nlfi_ptr_(nullptr),
+      current_dt_(0.0),
+      current_time_(0.0),
+      height_(height),
+      z(height) {
+  this->fespace_ = spatial->get_finite_element_space();
+  this->set_default_solver();
+}
+
+/**
+ * @brief Construct a new OperatorBase object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param source_term_name
+ */
+template <class T, int DIM, class NLFI>
+OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+                                         AnalyticalFunctions<DIM> source_term_name)
+    : mfem::Operator(spatial->getSize()),
+      params_(default_params_),
+      N(NULL),
+      nlfi_ptr_(nullptr),
+      current_dt_(0.0),
+      current_time_(0.0),
+      height_(height),
+      z(height) {
+  this->fespace_ = spatial->get_finite_element_space();
+  this->src_func_ = source_term_name.getFunction();
+  this->set_default_solver();
+}
+
+/**
+ * @brief Construct a new OperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -138,7 +198,9 @@ template <class T, int DIM, class NLFI>
 OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
                                          const Parameters &params)
     : mfem::Operator(spatial->getSize()),
+      params_(params),
       N(NULL),
+      nlfi_ptr_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -146,9 +208,6 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
   this->fespace_ = spatial->get_finite_element_space();
   this->set_default_solver();
 }
-
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
 
 /**
  * @brief  Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
@@ -167,7 +226,9 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
                                          const Parameters &params,
                                          AnalyticalFunctions<DIM> source_term_name)
     : mfem::Operator(spatial->getSize()),
+      params_(params),
       N(NULL),
+      nlfi_ptr_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -234,8 +295,13 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt, const mfe
   mfem::ParGridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
-  NLFI *nlfi_ptr = set_nlfi_ptr(dt, u);
-  N->AddDomainIntegrator(nlfi_ptr);
+  // if (this->nlfi_ptr_ != nullptr) {
+  //   delete this->nlfi_ptr_;
+  // }
+  // NLFI *this->nlfi_ptr_  = set_this->nlfi_ptr_ (dt, u);
+  this->nlfi_ptr_ = set_nlfi_ptr(dt, u);
+
+  N->AddDomainIntegrator(this->nlfi_ptr_);
   N->SetEssentialTrueDofs(this->ess_tdof_list_);
 }
 
@@ -275,7 +341,7 @@ void OperatorBase<T, DIM, NLFI>::SetNewtonAlgorithm(mfem::Operator *oper) {
  */
 template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::ComputeError(
-    const int &it, const double &dt, const double &t, const mfem::Vector &u,
+    const int &it, const double &t, const double &dt, const mfem::Vector &u,
     std::function<double(const mfem::Vector &, double)> solution_func) {
   Catch_Time_Section("OperatorBase::ComputeError");
 
@@ -428,6 +494,25 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
 }
 
 /**
+ * @brief Return the vector of grid functions associated with the auxiliary variables
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ */
+template <class T, int DIM, class NLFI>
+std::vector<mfem::ParGridFunction> OperatorBase<T, DIM, NLFI>::get_auxiliary_gf() {
+  std::vector<mfem::ParGridFunction> aux_gf;
+  if (this->auxvariables_) {
+    for (const auto &auxvar : this->auxvariables_->getVariables()) {
+      auto gf = auxvar.get_gf();
+      aux_gf.emplace_back(gf);
+    }
+  }
+  return aux_gf;
+}
+
+/**
  * @brief Destroy the Operator Base<T, DIM,  NLFI>:: Operator Base object
  *
  * @tparam T
@@ -435,4 +520,8 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::~OperatorBase() {}
+OperatorBase<T, DIM, NLFI>::~OperatorBase() {
+  if (this->nlfi_ptr_ != nullptr) {
+    delete this->nlfi_ptr_;
+  }
+}

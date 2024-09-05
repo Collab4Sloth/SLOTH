@@ -1,5 +1,5 @@
 /**
- * @file EnergyCoefficient.hpp
+ * @file HomogeneousEnergyCoefficient.hpp
  * @author ci230846 (clement.introini@cea.fr)
  * @brief
  * @version 0.1
@@ -10,54 +10,112 @@
  */
 #include <numeric>
 
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "Coefficients/PhaseFieldPotentials.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 //--------------------------
 //--------------------------
 //--------------------------
-class InterfacialCoefficient : public mfem::Coefficient {
+class GradientEnergyCoefficient : public mfem::Coefficient {
  private:
-  mfem::ParGridFunction *gfu;
-  double lambda;
+  mfem::ParGridFunction *gfu_;
+  double lambda_;
 
  public:
-  InterfacialCoefficient(mfem::ParGridFunction *gfu_, const double &lambda_)
-      : gfu(gfu_), lambda(lambda_) {}
+  GradientEnergyCoefficient(mfem::ParGridFunction *gfu, const double &lambda);
   double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
+  ~GradientEnergyCoefficient();
 };
 
-double InterfacialCoefficient::Eval(mfem::ElementTransformation &T,
-                                    const mfem::IntegrationPoint &ip) {
+/**
+ * @brief Construct a new GradientEnergyCoefficient::GradientEnergyCoefficient
+ * object
+ *
+ * @param gfu
+ * @param lambda
+ */
+GradientEnergyCoefficient::GradientEnergyCoefficient(mfem::ParGridFunction *gfu,
+                                                     const double &lambda)
+    : gfu_(gfu), lambda_(lambda) {}
+
+/**
+ * @brief Evaluate the GradientEnergyCoefficient at integration point
+ *
+ * @param T
+ * @param ip
+ * @return double
+ */
+double GradientEnergyCoefficient::Eval(mfem::ElementTransformation &T,
+                                       const mfem::IntegrationPoint &ip) {
   mfem::Vector gradu;
-  gfu->GetGradient(T, gradu);
+  this->gfu_->GetGradient(T, gradu);
+  const auto phi = this->gfu_->GetValue(T.ElementNo, ip);
+
   const auto &value = std::inner_product(gradu.begin(), gradu.end(), gradu.begin(), 0.);
-  return lambda * value;
+  return this->lambda_ * value;
 }
+
+/**
+ * @brief Destroy the GradientEnergyCoefficient::GradientEnergyCoefficient object
+ *
+ */
+GradientEnergyCoefficient::~GradientEnergyCoefficient() {}
 
 //--------------------------
 //--------------------------
 //--------------------------
-class EnergyCoefficient : public mfem::Coefficient {
+
+template <ThermodynamicsPotentials ENERGY>
+class HomogeneousEnergyCoefficient : public mfem::Coefficient {
  private:
-  mfem::ParGridFunction *gfu;
-  double lambda;
-  double omega;
+  PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit, ENERGY> energy_potential_;
+  std::function<double(const double &)> energy_function_;
+  mfem::ParGridFunction *gfu_;
+  double omega_;
 
  public:
-  EnergyCoefficient(mfem::ParGridFunction *gfu_, const double &lambda_, const double &omega_)
-      : gfu(gfu_), lambda(lambda_), omega(omega_) {}
+  HomogeneousEnergyCoefficient(mfem::ParGridFunction *gfu, const double &omega);
   double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
+  ~HomogeneousEnergyCoefficient();
 };
 
-double EnergyCoefficient::Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip) {
-  mfem::Vector gradu;
-  gfu->GetGradient(T, gradu);
-  const auto phi = gfu->GetValue(T.ElementNo, ip);
-
-  const auto &value = std::inner_product(gradu.begin(), gradu.end(), gradu.begin(), 0.);
-  const auto f_int = lambda * value;
-  const auto f_o = omega * phi * phi * (1. - phi) * (1. - phi);
-  const auto energy = f_o + f_int;
-  return energy;
+/**
+ * @brief Construct a new HomogeneousEnergyCoefficient< ENERGY>::HomogeneousEnergyCoefficient
+ * object
+ *
+ * @tparam ENERGY
+ * @param omega_
+ */
+template <ThermodynamicsPotentials ENERGY>
+HomogeneousEnergyCoefficient<ENERGY>::HomogeneousEnergyCoefficient(mfem::ParGridFunction *gfu,
+                                                                   const double &omega)
+    : gfu_(gfu), omega_(omega) {
+  this->energy_function_ = this->energy_potential_.getPotentialFunction();
 }
+
+/**
+ * @brief Evaluate the HomogeneousEnergyCoefficient at integration point
+ *
+ * @tparam ENERGY
+ * @param T
+ * @param ip
+ * @return double
+ */
+template <ThermodynamicsPotentials ENERGY>
+double HomogeneousEnergyCoefficient<ENERGY>::Eval(mfem::ElementTransformation &T,
+                                                  const mfem::IntegrationPoint &ip) {
+  const auto phi = this->gfu_->GetValue(T.ElementNo, ip);
+
+  return this->omega_ * this->energy_function_(phi);
+}
+
+/**
+ * @brief Destroy the HomogeneousEnergyCoefficient< ENERGY>::HomogeneousEnergyCoefficient
+ * object
+ *
+ * @tparam SCHEME
+ * @tparam ENERGY
+ */
+template <ThermodynamicsPotentials ENERGY>
+HomogeneousEnergyCoefficient<ENERGY>::~HomogeneousEnergyCoefficient() {}

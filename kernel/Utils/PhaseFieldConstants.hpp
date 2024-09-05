@@ -8,7 +8,16 @@
  *  Created on: 20 March 2023
  *      Author: ci230846
  */
+#include <limits>
+#include <string>
+#include <tuple>
+#include <vector>
 #pragma once
+
+using FuncType = std::function<double(const double&, const double&)>;
+using FType = std::function<double(const double&)>;
+using triplet = std::tuple<std::string, double, std::string>;
+using vtriplet = std::vector<triplet>;
 
 //////////////////////////////////////////////////////
 //// ALGORITHM

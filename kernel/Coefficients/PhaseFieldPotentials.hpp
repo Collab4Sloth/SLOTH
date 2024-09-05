@@ -10,6 +10,7 @@
 // TODO(ci) mettre de l'ordre dans ce qui est autorisé et non pour la manipulation des potentiels
 
 #pragma once
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <vector>
@@ -23,6 +24,11 @@ template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME,
           ThermodynamicsPotentials POTENTIAL>
 class PotentialFunctions {
  private:
+  template <class... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    potential_function<ORDER, SCHEME> func;
+    return func.getLog(args...);
+  }
   template <class... Args>
   std::function<double(const double&)> getW(Args... args) {
     potential_function<ORDER, SCHEME> func;
@@ -64,6 +70,22 @@ class PotentialFunctions {
 ///////////////////////
 template <>
 struct potential_function<0, ThermodynamicsPotentialDiscretization::Implicit> {
+  /**
+   * @brief Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto eps = 1.e-6;
+      const auto xx = std::min(std::max(x, eps), 1. - eps);
+      const auto pot = xx * log(xx) + (1.0 - xx) * log(1.0 - xx);
+      return pot;
+    });
+  }
   /**
    * @brief Double Well potential W(x)=x² * (1-x)²
    *
@@ -127,6 +149,23 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Implicit> {
 template <>
 struct potential_function<1, ThermodynamicsPotentialDiscretization::Implicit> {
   /**
+   * @brief First derivative of the Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto eps = 1.e-6;
+      const auto xx = std::min(std::max(x, eps), 1. - eps);
+      const auto pot = log(xx) - log(1.0 - xx);
+      return pot;
+    });
+  }
+
+  /**
    * @brief First derivative of the double Well potential W(x)=x² * (1-x)²
    *
    * @tparam Args
@@ -188,6 +227,22 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Implicit> {
 ///////////////////////
 template <>
 struct potential_function<2, ThermodynamicsPotentialDiscretization::Implicit> {
+  /**
+   * @brief Second derivative of the Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto eps = 1.e-6;
+      const auto xx = std::min(std::max(x, eps), 1. - eps);
+      const auto pot = 1. / (xx * (1. - xx));
+      return pot;
+    });
+  }
   /**
    * @brief Second derivative of the double Well potential W(x)=x² * (1-x)²
    *
@@ -254,6 +309,17 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Implicit> {
 template <>
 struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
   /**
+   * @brief Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    mfem::mfem_error("potential_function::getLog: explicit scheme not available");
+  }
+  /**
    * @brief Double Well potential W(x)=x² * (1-x)²
    *
    * @tparam Args
@@ -271,7 +337,7 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getW: only one argument is expected for explicit scheme");
     }
   }
@@ -293,7 +359,7 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getF: only one argument is expected for explicit scheme");
     }
   }
@@ -315,7 +381,7 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getH: only one argument is expected for explicit scheme");
     }
   }
@@ -337,7 +403,7 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getX: only one argument is expected for explicit scheme");
     }
   }
@@ -347,6 +413,17 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
 ///////////////////////
 template <>
 struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
+  /**
+   * @brief First derivative Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    mfem::mfem_error("potential_function::getLog: explicit scheme not available");
+  }
   /**
    * @brief First derivative of the double Well potential W(x)=x² * (1-x)²
    *        with explicit scheme (as implicit scheme)
@@ -366,7 +443,7 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getW: only one argument is expected for explicit scheme");
     }
   }
@@ -389,7 +466,7 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getF: only one argument is expected for explicit scheme");
     }
   }
@@ -412,7 +489,7 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getH: only one argument is expected for explicit scheme");
     }
   }
@@ -437,6 +514,17 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
 ///////////////////////
 template <>
 struct potential_function<2, ThermodynamicsPotentialDiscretization::Explicit> {
+  /**
+   * @brief Second derivative Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    mfem::mfem_error("potential_function::getLog: explicit scheme not available");
+  }
   /**
    * @brief Second derivative of the double Well potential W(x)=x² * (1-x)²
    *        with explicit scheme (as implicit scheme)
@@ -506,6 +594,18 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Explicit> {
 template <>
 struct potential_function<0, ThermodynamicsPotentialDiscretization::SemiImplicit> {
   /**
+   * @brief Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    mfem::mfem_error("potential_function::getLog: semi-explicit scheme not available");
+  }
+
+  /**
    * @brief Double Well potential W(x)=x² * (1-x)²
    *        with semi-implicit scheme (as implicit/explicit schemes)
    *
@@ -571,6 +671,17 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::SemiImplicit
 template <>
 struct potential_function<1, ThermodynamicsPotentialDiscretization::SemiImplicit> {
   /**
+   * @brief First derivative of Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    mfem::mfem_error("potential_function::getLog: semi-explicit scheme not available");
+  }
+  /**
    * @brief First derivative of the double Well potential W(x)=x² * (1-x)²
    *        with semi-implicit scheme
    *
@@ -589,7 +700,7 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::SemiImplicit
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getW: only one argument is expected for smei-implicit scheme");
     }
   }
@@ -644,6 +755,17 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::SemiImplicit
 template <>
 struct potential_function<2, ThermodynamicsPotentialDiscretization::SemiImplicit> {
   /**
+   * @brief Second derivative of Logarithmic potential W(x)=x*log(x) + (1-x)*log(1-x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getLog(Args... args) {
+    mfem::mfem_error("potential_function::getLog: semi-explicit scheme not available");
+  }
+  /**
    * @brief Second derivative of the double Well potential W(x)=x² * (1-x)²
    *        with semi-implicit scheme
    *
@@ -662,7 +784,7 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::SemiImplicit
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getW: only one argument is expected for smei-implicit scheme");
     }
   }
@@ -699,7 +821,7 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::SemiImplicit
         return pot;
       });
     } else {
-      throw std::runtime_error(
+      mfem::mfem_error(
           "potential_function::getH: only one argument is expected for smei-implicit scheme");
     }
   }
@@ -749,6 +871,8 @@ template <class... Args>
 std::function<double(const double&)>
 PotentialFunctions<ORDER, SCHEME, POTENTIAL>::getPotentialFunction(Args... args) {
   switch (POTENTIAL) {
+    case ThermodynamicsPotentials::LOG:
+      return this->getLog(args...);
     case ThermodynamicsPotentials::W:
       return this->getW(args...);
     case ThermodynamicsPotentials::F:
@@ -758,7 +882,7 @@ PotentialFunctions<ORDER, SCHEME, POTENTIAL>::getPotentialFunction(Args... args)
     case ThermodynamicsPotentials::X:
       return this->getX(args...);
     default:
-      throw std::runtime_error(
+      mfem::mfem_error(
           "PotentialFunctions::getPotentialFunctions: double well, H interpolation and identity "
           "potential function  are available");
       break;
@@ -772,4 +896,3 @@ PotentialFunctions<ORDER, SCHEME, POTENTIAL>::getPotentialFunction(Args... args)
 template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME,
           ThermodynamicsPotentials POTENTIAL>
 PotentialFunctions<ORDER, SCHEME, POTENTIAL>::~PotentialFunctions() {}
-

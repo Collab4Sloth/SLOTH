@@ -12,10 +12,15 @@
 #include <limits>
 #include <set>
 #include <string>
+#include <tuple>
 #include <variant>
+#include <vector>
+
+#include "Utils/PhaseFieldConstants.hpp"
+
 #pragma once
 
-using param_type = std::variant<int, double, std::string, bool>;
+using param_type = std::variant<int, double, std::string, bool, vtriplet>;
 class Parameter {
  private:
   std::string name_;
@@ -35,7 +40,7 @@ class Parameter {
   void print() const;
 
   // Fonction membre qui ne modifie la valeur de retour
-  // Le type est spécifiquement indiqué malgré le auu
+  // Le type est spécifiquement indiqué malgré le auto
   auto get_value() const -> param_type;
 
   ~Parameter() {}
@@ -61,10 +66,11 @@ auto Parameter::get_value() const -> param_type {
       [](auto&& arg) -> param_type {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double> ||
-                      std::is_same_v<T, std::string> || std::is_same_v<T, bool>) {
+                      std::is_same_v<T, std::string> || std::is_same_v<T, bool> ||
+                      std::is_same_v<T, vtriplet>) {
           return arg;
         } else {
-          throw std::runtime_error("Unsupported type");
+          mfem::mfem_error("Unsupported type");
         }
       },
       this->value_);

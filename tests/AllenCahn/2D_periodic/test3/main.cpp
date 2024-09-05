@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, SteadyPhaseFieldOperatorBase>;
+  using OPE = SteadyAllenCahnOperator<FECollection, DIM, NLFI>;
 
   using PB = Problem<OPE, VAR, PST>;
   // ###########################################
@@ -133,6 +133,13 @@ int main(int argc, char* argv[]) {
           "Saves_order_" + std::to_string(order) + "_Nx" + std::to_string(NN);
       const auto& level_of_detail = 1;
       const auto& frequency = 1;
+      std::string calculation_path = "Problem1";
+
+      auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
+                              Parameter("calculation_path", calculation_path),
+                              Parameter("frequency", frequency),
+                              Parameter("level_of_detail", level_of_detail),
+                              Parameter("force_clean_output_dir", false));
       // ####################
       //     operators     //
       // ####################
@@ -141,8 +148,9 @@ int main(int argc, char* argv[]) {
       const auto crit_cvg_1 = 1.e-12;
       auto src_term = AnalyticalFunctions<DIM>(user_func_source_term);
       OPE oper(&spatial, params, src_term);
+      oper.overload_mobility(Parameters(Parameter("mob", mob)));
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-      auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
+      auto pst = PST(&spatial, p_pst);
       PB problem1("PSteady AllenCahn", oper, vars, pst, convergence);
 
       // Coupling 1

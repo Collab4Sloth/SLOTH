@@ -147,7 +147,7 @@ ctest -N
 ```
 
 - Each test can be run independently by using the `-R` option:
-- 
+
 ```shell
 ctest -R monTest
 ```

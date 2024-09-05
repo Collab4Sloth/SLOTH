@@ -15,7 +15,7 @@
 #include "BCs/Boundary.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 /**
@@ -75,13 +75,13 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
   }
 
   if (!must_be_periodic && exist_periodic_bdr) {
-    throw std::runtime_error(
+    mfem::mfem_error(
         "BoundaryConditions::BoundaryConditions(): mesh is not defined as periodic but at least "
         "one boundary is flagged periodic. Please check your data");
   }
 
   if (must_be_periodic && !exist_periodic_bdr) {
-    throw std::runtime_error(
+    mfem::mfem_error(
         "BoundaryConditions::BoundaryConditions(): mesh is defined as periodic but no boundary is "
         "flagged periodic. Please check your data");
   }
@@ -99,11 +99,12 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
     }
     this->fespace_->GetEssentialTrueDofs(this->Dirichlet_bdr_, this->ess_tdof_list_);
   } else {
-    throw std::runtime_error(
+    std::string msg =
         "BoundaryConditions::BoundaryConditions(): user-defined boundaries  " +
         std::to_string(bdrs.size()) +
         " are unconsistent with the total number of boundaries associated to the mesh " +
-        std::to_string(mesh_max_bdr_attributes));
+        std::to_string(mesh_max_bdr_attributes);
+    mfem::mfem_error(msg.c_str());
   }
 }
 

@@ -21,21 +21,20 @@
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+#pragma once
+
 template <class VAR, class PST>
 class ProblemBase {
  private:
-  std::string name_{"UNKNOWN PROBLEM"};
   std::tuple<bool, double> check_convergence(const mfem::Vector& unk, const mfem::Vector& prev_unk);
 
  protected:
+  std::string description_{"UNKNOWN PROBLEM"};
   VAR& variables_;
   VAR* auxvariables_;
   PST& pst_;
   mfem::Vector unknown_;
   PhysicalConvergence convergence_;
-  // Virtual methods
-  virtual void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
-                            double current_time_step, const int iterp) = 0;
 
  public:
   ProblemBase(const std::string& name, VAR& variables, PST& pst,
@@ -43,38 +42,44 @@ class ProblemBase {
   ProblemBase(const std::string& name, VAR& variables, VAR& auxvariables, PST& pst,
               const PhysicalConvergence& convergence);
 
-  const std::string get_name();
+  std::string get_description();
   VAR get_problem_variables();
 
+  /////////////////////////////////////////////////////
+
+  virtual void initialize(const double& initial_time);
+
+  /////////////////////////////////////////////////////
   std::tuple<bool, double, mfem::Vector> execute(const int& iter, double& next_time,
                                                  const double& current_time,
                                                  const double& current_time_step);
+
+  virtual void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
+                            double current_time_step, const int iterp) = 0;
+
+  virtual void post_execute(const int& iter, const double& current_time,
+                            const double& current_time_step);
+
+  /////////////////////////////////////////////////////
+
   void update();
+
+  /////////////////////////////////////////////////////
+  virtual void post_processing(const int& iter, const double& current_time,
+                               const double& current_time_step);
+
   void save(const int& iter, const double& current_time);
+  /////////////////////////////////////////////////////
 
-  // Virtual methods
-
-  virtual void initialize(const double& initial_time);
-  virtual void post_processing(const int& iter, const double& current_time_step,
-                               const double& current_time);
   virtual void finalize();
+
   ~ProblemBase();
 };
 
-/**
- * @brief Construct a new ProblemBase<VAR, PST>::ProblemBase object
- *
- * @tparam VAR
- * @tparam PST
- * @param name
- * @param variables
- * @param pst
- * @param convergence
- */
 template <class VAR, class PST>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
                                    const PhysicalConvergence& convergence)
-    : name_(name),
+    : description_(name),
       variables_(variables),
       auxvariables_(nullptr),
       pst_(pst),
@@ -94,7 +99,7 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 template <class VAR, class PST>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, VAR& auxvariables,
                                    PST& pst, const PhysicalConvergence& convergence)
-    : name_(name),
+    : description_(name),
       variables_(variables),
       auxvariables_(&auxvariables),
       pst_(pst),
@@ -108,8 +113,8 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, VAR&
  * @return const std::string
  */
 template <class VAR, class PST>
-const std::string ProblemBase<VAR, PST>::get_name() {
-  return this->name_;
+std::string ProblemBase<VAR, PST>::get_description() {
+  return this->description_;
 }
 
 /**
@@ -123,6 +128,19 @@ template <class VAR, class PST>
 VAR ProblemBase<VAR, PST>::get_problem_variables() {
   return this->variables_;
 }
+
+/**
+ * @brief Action done after execute method
+ *
+ * @tparam VAR
+ * @tparam PST
+ * @param iter
+ * @param current_time
+ * @param current_time_step
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::post_execute(const int& iter, const double& current_time,
+                                         const double& current_time_step) {}
 
 /**
  * @brief Update the variables associated with the problem
@@ -165,7 +183,7 @@ std::tuple<bool, double, mfem::Vector> ProblemBase<VAR, PST>::execute(
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
     SlothInfo::verbose("   ============================== ");
-    SlothInfo::verbose("   ==== Problem : ", this->name_);
+    SlothInfo::verbose("   ==== Problem : ", this->description_);
     SlothInfo::verbose("   ============================== ");
   }
   auto& var = this->variables_.getIVariable(0);

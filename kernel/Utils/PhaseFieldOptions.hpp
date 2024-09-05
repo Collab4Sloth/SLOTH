@@ -8,7 +8,6 @@
  * @copyright Copyright (c) 2024
  *
  */
-
 #include <algorithm>
 #include <iostream>
 #include <limits>
@@ -18,7 +17,42 @@
 #include <variant>
 #include <vector>
 
+#include "Utils/UtilsForDebug.hpp"
+
 #pragma once
+
+/*!
+ * \brief Lambda expression used to manage exception
+ * \param[in] b: boolean variable used in a conditional test
+ * \param[in] method: string variable specifying the method concerned by the
+ * exception
+ * \param[in] msg: string variable specifying the error message written on the
+ * screen
+ */
+static auto throw_if = [](const bool b, const std::string& method, const std::string& msg) {
+  if (b) {
+    SlothInfo::error(method, ": ", msg);
+    mfem::mfem_error("Error message");
+  }
+};
+
+static auto throw_iff = [](const bool b, const std::string& msg, int& errorLevel) {
+  try {
+    if (b) {
+      throw msg;
+    }
+  } catch (std::string const& error) {
+    std::cerr << error << std::endl;
+    errorLevel++;
+  }
+};
+
+static auto stringfindInVectorOfString = [](const std::vector<std::string> v, const std::string w) {
+  return find(v.begin(), v.end(), w) != v.end();
+};
+
+/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Custom IterationKey for specialized map
@@ -55,7 +89,6 @@ struct IterationKey {
            std::tie(user_key.iter_, user_key.time_step_, user_key.time_);
   }
 };
-
 using SpecializedValue = std::pair<std::string, double>;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -85,47 +118,71 @@ EType mmap<EType>::find(const char* const n, const std::string& v) {
     return s1 == s2;
   });
   if (p == pe) {
-    std::runtime_error(
+    std::string msg =
         "EnumNotFound::EnumNotFound : "
         "string '" +
-        v +
+        std::string(n) +
         "' "
         "is not a valid value for '" +
-        std::string(n) + "' keyword. See documentation");
+        v + "' keyword. See documentation";
+    mfem::mfem_error(msg.c_str());
   }
   return p->second;
 }
 }  // namespace PhaseFieldPrivate
 
-///////////////////////////////////////////////////
-//////// Thermodynamics
-///////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct SourceTerm {
   enum value { Null, Sinusoide2D };
   static value from(const std::string&);
 };
 
-enum class Mobility { Constant, Degenerated };
+SourceTerm::value SourceTerm::from(const std::string& v) {
+  static PhaseFieldPrivate::mmap<SourceTerm::value> m{{"Null", SourceTerm::Null},
+                                                      {"Sinusoide2D", SourceTerm::Sinusoide2D}};
+  return m.find("SourceTerm", v);
+}
+
 enum class PhaseChange { Null, Constant, Calphad };
 // struct ThermodynamicsPotentials {
 //   enum value { W, F, H, X };
 //   static value from(const std::string&);
 // };
 
-enum class ThermodynamicsPotentials { W, F, H, X };
+enum class ThermodynamicsPotentials { W, F, H, X, LOG };
 enum class ThermodynamicsPotentialDiscretization { Implicit, Explicit, SemiImplicit };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct AnalyticalFunctionsType {
   enum value { Heaviside, Sinusoide, Sinusoide2, HyperbolicTangent, Parabolic, Uniform };
   static value from(const std::string&);
 };
+AnalyticalFunctionsType::value AnalyticalFunctionsType::from(const std::string& v) {
+  static PhaseFieldPrivate::mmap<AnalyticalFunctionsType::value> m{
+      {"Heaviside", AnalyticalFunctionsType::Heaviside},
+      {"Sinusoide", AnalyticalFunctionsType::Sinusoide},
+      {"Sinusoide2", AnalyticalFunctionsType::Sinusoide2},
+      {"HyperbolicTangent", AnalyticalFunctionsType::HyperbolicTangent},
+      {"Parabolic", AnalyticalFunctionsType::Parabolic},
+      {"Uniform", AnalyticalFunctionsType::Uniform}};
+  return m.find("AnalyticalFunctionsType", v);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
 //////// Diffusion
 ///////////////////////////////////////////////////
 enum class DiffusionCoefficients { Linear };
-enum class DiffusionCoefficientDiscretization { Implicit, Explicit, SemiImplicit };
+enum class CoefficientDiscretization {
+  Implicit,
+  Explicit,
+};
 
 ///////////////////////////////////////////////////
 //////// SOLVER
@@ -159,6 +216,15 @@ struct TimeScheme {
   enum value { EulerImplicit, EulerExplicit, RungeKutta4 };
   static value from(const std::string&);
 };
+TimeScheme::value TimeScheme::from(const std::string& v) {
+  static PhaseFieldPrivate::mmap<TimeScheme::value> m{{"EulerImplicit", TimeScheme::EulerImplicit},
+                                                      {"EulerExplicit", TimeScheme::EulerExplicit},
+                                                      {"RungeKutta4", TimeScheme::RungeKutta4}};
+  return m.find("TimeScheme", v);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
 //////// MESHES
@@ -175,69 +241,6 @@ struct Meshes {
   static value from(const std::string&);
 };
 
-///////////////////////////////////////////////////
-//////// Boundary conditions
-///////////////////////////////////////////////////
-struct BoundaryConditionType {
-  enum value { Dirichlet, Neumann, Periodic, Robin };
-  static value from(const std::string&);
-};
-
-///////////////////////////////////////////////////
-//////// PROBLEMS
-///////////////////////////////////////////////////
-struct Problems {
-  enum value { Diffusion, AllenCahn, CahnHilliard };
-  static value from(const std::string&);
-};
-
-struct VariableType {
-  enum value { Primary, Auxiliary };
-  static value from(const std::string&);
-};
-
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-
-//////////////////////////
-// Conversion de l'option SourceTerm
-SourceTerm::value SourceTerm::from(const std::string& v) {
-  static PhaseFieldPrivate::mmap<SourceTerm::value> m{{"Null", SourceTerm::Null},
-                                                      {"Sinusoide2D", SourceTerm::Sinusoide2D}};
-  return m.find("SourceTerm", v);
-}
-
-//////////////////////////
-// Conversion de l'option BoundaryConditionType
-BoundaryConditionType::value BoundaryConditionType::from(const std::string& v) {
-  static PhaseFieldPrivate::mmap<BoundaryConditionType::value> m{
-      {"Dirichlet", BoundaryConditionType::Dirichlet},
-      {"Neumann", BoundaryConditionType::Neumann},
-      {"Robin", BoundaryConditionType::Robin},
-      {"Periodic", BoundaryConditionType::Periodic}};
-  return m.find("BoundaryConditionType", v);
-}
-
-//////////////////////////
-// Conversion de l'option Problems
-Problems::value Problems::from(const std::string& v) {
-  static PhaseFieldPrivate::mmap<Problems::value> m{{"Diffusion", Problems::Diffusion},
-                                                    {"AllenCahn", Problems::AllenCahn},
-                                                    {"CahnHilliard", Problems::CahnHilliard}};
-  return m.find("Problems", v);
-}
-
-//////////////////////////
-// Conversion de l'option  TimeScheme
-TimeScheme::value TimeScheme::from(const std::string& v) {
-  static PhaseFieldPrivate::mmap<TimeScheme::value> m{{"EulerImplicit", TimeScheme::EulerImplicit},
-                                                      {"EulerExplicit", TimeScheme::EulerExplicit},
-                                                      {"RungeKutta4", TimeScheme::RungeKutta4}};
-  return m.find("TimeScheme", v);
-}
-
-//////////////////////////
-// Conversion de l'option  Meshes
 Meshes::value Meshes::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<Meshes::value> m{
       {"InlineLineWithSegments", Meshes::InlineLineWithSegments},
@@ -248,120 +251,91 @@ Meshes::value Meshes::from(const std::string& v) {
       {"GMSH", Meshes::GMSH}};
   return m.find("Meshes", v);
 }
-//////////////////////////
-// Conversion de l'option  AnalyticalFunctionsType
-AnalyticalFunctionsType::value AnalyticalFunctionsType::from(const std::string& v) {
-  static PhaseFieldPrivate::mmap<AnalyticalFunctionsType::value> m{
-      {"Heaviside", AnalyticalFunctionsType::Heaviside},
-      {"Sinusoide", AnalyticalFunctionsType::Sinusoide},
-      {"Sinusoide2", AnalyticalFunctionsType::Sinusoide2},
-      {"HyperbolicTangent", AnalyticalFunctionsType::HyperbolicTangent},
-      {"Parabolic", AnalyticalFunctionsType::Parabolic},
-      {"Uniform", AnalyticalFunctionsType::Uniform}};
-  return m.find("AnalyticalFunctionsType", v);
-}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
-//////// Static methods
+//////// Boundary conditions
 ///////////////////////////////////////////////////
-static auto throw_if = [](const bool b, const std::string& msg, int& errorLevel) {
-  try {
-    if (b) {
-      throw msg;
-    }
-  } catch (std::string const& error) {
-    std::cerr << error << std::endl;
-    errorLevel++;
-  }
+struct BoundaryConditionType {
+  enum value { Dirichlet, Neumann, Periodic, Robin };
+  static value from(const std::string&);
 };
+BoundaryConditionType::value BoundaryConditionType::from(const std::string& v) {
+  static PhaseFieldPrivate::mmap<BoundaryConditionType::value> m{
+      {"Dirichlet", BoundaryConditionType::Dirichlet},
+      {"Neumann", BoundaryConditionType::Neumann},
+      {"Robin", BoundaryConditionType::Robin},
+      {"Periodic", BoundaryConditionType::Periodic}};
+  return m.find("BoundaryConditionType", v);
+}
 
-static auto stringfindInVectorOfString = [](const std::vector<std::string> v, const std::string w) {
-  return find(v.begin(), v.end(), w) != v.end();
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+//////// Variables
+///////////////////////////////////////////////////
+
+struct VariableType {
+  enum value { Primary, Auxiliary, Internal };
+  static value from(const std::string&);
 };
+VariableType::value VariableType::from(const std::string& v) {
+  static PhaseFieldPrivate::mmap<VariableType::value> m{{"Primary", VariableType::Primary},
+                                                        {"Auxiliary", VariableType::Auxiliary},
+                                                        {"Inetrnal", VariableType::Internal}};
+  return m.find("VariableType", v);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
-////////
+//////// Problems
 ///////////////////////////////////////////////////
-namespace utils {
 
-void getInfo() {
-  std::cout << " ################################\n";
-  std::cout << " ## PF-MFEM small application    \n";
-  std::cout << " ################################\n";
-  std::cout << " - Available problems :\n";
-  std::cout << "    * AnalyticalPoisson \n";
-  std::cout << "    * Diffusion1D \n";
-  std::cout << "    * AllenCahn1D \n";
-  std::cout << "    * Diffusion2D \n";
-  std::cout << "    * AllenCahn2D \n";
-  std::cout << " - Available meshes :\n";
-  std::cout << "    * InlineSquareWithTriangles \n";
-  std::cout << "    * InlineSquareWithQuadrangles \n";
-  std::cout << "    * InlineLineWithSegments \n";
-  std::cout << "    * Camembert \n";
+struct Problems {
+  enum value { Diffusion, AllenCahn, Calphad };
+  static value from(const std::string&);
+};
+Problems::value Problems::from(const std::string& v) {
+  static PhaseFieldPrivate::mmap<Problems::value> m{{"Diffusion", Problems::Diffusion},
+                                                    {"AllenCahn", Problems::AllenCahn},
+                                                    {"Calphad", Problems::Calphad}};
+  return m.find("Problems", v);
 }
 
-void checkOptions(const std::string& meshType, const std::string& targetedProblem) {
-  int errorLevel = 0;
-  // Meshes
-  std::vector<std::string> availableMeshes{"InlineSquareWithTriangles", "InlineLineWithSegments",
-                                           "InlineSquareWithQuadrangles", "Camembert"};
-  throw_if(!stringfindInVectorOfString(availableMeshes, meshType),
-           "\n>>> Error:  available meshes are InlineSquareWithTriangles, InlineLineWithSegments,  "
-           "InlineSquareWithQuadrangles, Camembert",
-           errorLevel);
-  // Problems
-  std::vector<std::string> availableProblems{"AnalyticalPoisson", "Diffusion1D", "Diffusion2D",
-                                             "AllenCahn1D", "AllenCahn2D"};
-  throw_if(!stringfindInVectorOfString(availableProblems, targetedProblem),
-           "\n>>> Error:  available problems are AnalyticalPoisson, "
-           "Diffusion1D, Diffusion2D, "
-           "AllenCahn1D, AllenCahn2D",
-           errorLevel);
-  ////////////////////////////////
-  // Check global level of errors
-  ////////////////////////////////
-  try {
-    if (errorLevel > 0) {
-      throw std::string("\n>>> Please check arguments: ") + std::to_string(errorLevel) +
-          std::string(" errors detected");
-    }
-  } catch (std::string const& error) {
-    std::cerr << error << std::endl;
-    exit(1);
-  }
-}
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::tuple<Meshes::value, Problems> transformOptions(const std::string& meshType,
-                                                     const std::string& targetedProblem) {
-  Meshes::value m;
-  Problems p;
+///////////////////////////////////////////////////
+//////// Properties
+///////////////////////////////////////////////////
+enum class Property { Conductivity, Density, HeatCapacity, Diffusion, Mobility };
 
-  // if (targetedProblem == "AnalyticalPoisson") {
-  //   p = Problems::AnalyticalPoisson;
-  // } else if (targetedProblem == "Diffusion2D") {
-  //   p = Problems::Diffusion2D;
-  // } else if (targetedProblem == "Diffusion1D") {
-  //   p = Problems::Diffusion1D;
-  // } else if (targetedProblem == "AllenCahn2D") {
-  //   p = Problems::AllenCahn2D;
-  // } else if (targetedProblem == "AllenCahn1D") {
-  //   p = Problems::AllenCahn1D;
-  // } else {
-  //   //
-  // }
-  if (meshType == "InlineLineWithSegments") {
-    m = Meshes::InlineLineWithSegments;
-  } else if (meshType == "InlineSquareWithTriangles") {
-    m = Meshes::InlineSquareWithTriangles;
-  } else if (meshType == "InlineSquareWithQuadrangles") {
-    m = Meshes::InlineSquareWithQuadrangles;
-  } else if (meshType == "Camembert") {
-    m = Meshes::GMSH;
-  } else {
-    //
-  }
+////////////////////////
+//// Conductivity
+///////////////////////
+enum class Conductivity { Constant, Linear };
 
-  return std::make_tuple(m, p);
-}
-}  // namespace utils
+////////////////////////
+//// Density
+///////////////////////
+enum class Density { Constant, Linear };
+
+////////////////////////
+//// HeatCapacity
+///////////////////////
+enum class HeatCapacity { Constant, Linear };
+
+////////////////////////
+//// Diffusion
+///////////////////////
+enum class Diffusion { Constant, Linear };
+
+////////////////////////
+//// Mobility
+///////////////////////
+enum class Mobility { Constant, Degenerated };

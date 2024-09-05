@@ -44,9 +44,9 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
-  using OPE2 = PhaseFieldOperator<FECollection, DIM, NLFI2, PhaseFieldOperatorBase>;
-  using OPE3 = PhaseFieldOperator<FECollection, DIM, NLFI3, PhaseFieldOperatorBase>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE2 = AllenCahnOperator<FECollection, DIM, NLFI2>;
+  using OPE3 = AllenCahnOperator<FECollection, DIM, NLFI3>;
 
   using PB = Problem<OPE, VAR, PST>;
   using PB2 = Problem<OPE2, VAR, PST>;
@@ -84,9 +84,9 @@ int main(int argc, char* argv[]) {
   const auto& mob(1.e-5);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                           Parameter("mobility", mob), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega));
+  auto params =
+      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
+                 Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
@@ -123,27 +123,45 @@ int main(int argc, char* argv[]) {
   // ####################
   //     operators     //
   // ####################
+  std::string calculation_path = "Problem1";
+  auto p_pst1 =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail));
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  oper.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-  auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
-  PB problem1("Problem 1", oper, vars, pst, convergence);
+  auto pst = PST(&spatial, p_pst1);
+  PB problem1(oper, vars, pst, convergence);
 
   // Problem 2:
   const auto crit_cvg_2 = 1.e-12;
+  calculation_path = "Problem2";
+  auto p_pst2 =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail));
   OPE2 oper2(&spatial, params, TimeScheme::EulerExplicit);
+  oper2.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence2(ConvergenceType::RELATIVE_MAX, crit_cvg_2);
-  auto pst2 = PST(main_folder_path, "Problem2", &spatial, frequency, level_of_detail);
-  PB2 problem2("Problem 2 ", oper2, vars2, pst2, convergence2);
+  auto pst2 = PST(&spatial, p_pst2);
+  PB2 problem2(oper2, vars2, pst2, convergence2);
 
   // Problem 3:
+  calculation_path = "Problem3";
+  auto p_pst3 =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail));
   const auto crit_cvg_3 = 1.e-12;
   OPE3 oper3(&spatial, params, TimeScheme::RungeKutta4);
+  oper3.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence3(ConvergenceType::RELATIVE_MAX, crit_cvg_3);
-  auto pst3 = PST(main_folder_path, "Problem3", &spatial, frequency, level_of_detail);
-  PB3 problem3("Problem 3 ", oper3, vars3, pst3, convergence3);
+  auto pst3 = PST(&spatial, p_pst3);
+  PB3 problem3(oper3, vars3, pst3, convergence3);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1, problem2, problem3);

@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VAR, PST>;
   using PB1 = MPI_Problem<VAR, PST>;
   // ###########################################
@@ -89,8 +89,7 @@ int main(int argc, char* argv[]) {
       const auto& mob(1.);
       const auto& lambda = 1.;
       const auto& omega = 1. / (epsilon * epsilon);
-      auto params = Parameters(Parameter("mobility", mob), Parameter("lambda", lambda),
-                               Parameter("omega", omega));
+      auto params = Parameters(Parameter("lambda", lambda), Parameter("omega", omega));
       // ####################
       //     variables     //
       // ####################
@@ -107,6 +106,12 @@ int main(int argc, char* argv[]) {
       const std::string& main_folder_path = "Saves";
       const auto& level_of_detail = 1;
       const auto& frequency = 1;
+      std::string calculation_path = "Problem1_" + time_scheme;
+      auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
+                              Parameter("calculation_path", calculation_path),
+                              Parameter("frequency", frequency),
+                              Parameter("level_of_detail", level_of_detail),
+                              Parameter("force_clean_output_dir", false));
       // ####################
       //     operators     //
       // ####################
@@ -115,10 +120,10 @@ int main(int argc, char* argv[]) {
       const auto crit_cvg_1 = 1.e-12;
       auto source_terme = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega);
       OPE oper(&spatial, params, TimeScheme::from(time_scheme), source_terme);
+      oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-      auto pst =
-          PST(main_folder_path, "Problem1_" + time_scheme, &spatial, frequency, level_of_detail);
+      auto pst = PST(&spatial, p_pst);
       PB problem1("AllenCahn", oper, vars, pst, convergence);
 
       auto user_func = std::function<double(const mfem::Vector&, double)>(
@@ -126,9 +131,13 @@ int main(int argc, char* argv[]) {
 
       auto initial_rank = AnalyticalFunctions<DIM>(user_func);
       auto vars1 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "MPI rank", 2, initial_rank));
-      auto pst1 =
-          PST(main_folder_path, "ProblemMPI_" + time_scheme, &spatial, frequency, level_of_detail);
-      PB1 problem2("MPI", vars1, pst1, convergence);
+      calculation_path = "ProblemMPI_";
+      auto p_pst2 = Parameters(Parameter("main_folder_path", main_folder_path),
+                               Parameter("calculation_path", calculation_path),
+                               Parameter("frequency", frequency),
+                               Parameter("level_of_detail", level_of_detail));
+      auto pst2 = PST(&spatial, p_pst2);
+      PB1 problem2(vars1, pst2, convergence);
       // Coupling 1
       auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
 

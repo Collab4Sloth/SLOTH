@@ -47,6 +47,11 @@
 template <class T, int DIM, class NLFI>
 class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI> {
  public:
+  explicit SteadyPhaseFieldOperatorBase(SpatialDiscretization<T, DIM> const *spatial);
+
+  SteadyPhaseFieldOperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+                               AnalyticalFunctions<DIM> source_term_name);
+
   SteadyPhaseFieldOperatorBase(SpatialDiscretization<T, DIM> const *spatial,
                                const Parameters &params);
 
@@ -61,6 +66,8 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI> {
   virtual ~SteadyPhaseFieldOperatorBase();
 
   // Virtual methods
+  void set_default_properties() override = 0;
+
   // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
   void initialize(const double &initial_time, Variables<T, DIM> &vars,
                   Variables<T, DIM> *auxvars) override;
@@ -70,8 +77,8 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI> {
   void solve(mfem::Vector &unk, double &next_time, const double &current_time, double dt,
              const int iter) override;
   NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override = 0;
-  void get_parameters(const Parameters &vectr_param) override = 0;
-  void ComputeEnergies(const int &it, const double &dt, const double &t,
+  void get_parameters() override = 0;
+  void ComputeEnergies(const int &it, const double &t, const double &dt,
                        const mfem::Vector &u) override = 0;
 };
 
@@ -79,8 +86,42 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new Steady Phase Field Operator Base< T,  D I M,  N L F I>:: Steady Phase
- * Field Operator Base object
+ * @brief Construct a new SteadyPhaseFieldOperatorBase object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ */
+template <class T, int DIM, class NLFI>
+SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
+    SpatialDiscretization<T, DIM> const *spatial)
+    : OperatorBase<T, DIM, NLFI>(spatial) {
+  this->overload_nl_solver(
+      NLSolverType::NEWTON,
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
+}
+
+/**
+ * @brief Construct a new SteadyPhaseFieldOperatorBase object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param spatial
+ * @param source_term_name
+ */
+template <class T, int DIM, class NLFI>
+SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
+    SpatialDiscretization<T, DIM> const *spatial, AnalyticalFunctions<DIM> source_term_name)
+    : OperatorBase<T, DIM, NLFI>(spatial, source_term_name) {
+  this->overload_nl_solver(
+      NLSolverType::NEWTON,
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
+}
+
+/**
+ * @brief Construct a new SteadyPhaseFieldOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -97,12 +138,8 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
 }
 
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-
 /**
- * @brief Construct a new Steady Phase Field Operator Base< T,  D I M,  N L F I>:: Steady Phase
- * Field Operator Base object
+ * @brief Construct a new SteadyPhaseFieldOperatorBase object
  *
  * @tparam T
  * @tparam DIM

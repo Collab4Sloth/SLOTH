@@ -108,6 +108,7 @@ class Variable {
   // mfem::ParGridFunction get_analytical_solution();
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
   BoundaryConditions<T, DIM>* get_boundary_conditions();
+  mfem::ParFiniteElementSpace* get_fespace();
 
   ~Variable();
 };
@@ -582,12 +583,20 @@ void Variable<T, DIM>::setVariableDepth(const int& depth) {
 //       this->variable_type_ = VariableType::Unconserved;
 //       break;
 //     default:
-//       throw std::runtime_error(
+//       mfem::mfem_error(
 //           "Variable::getVariableType() : only conserved and unconserved type are allowed");
 //       break;
 //   }
 // }
 
+/**
+ * @brief Return the pointer towards the FiniteElementSpace
+ *
+ */
+template <class T, int DIM>
+mfem::ParFiniteElementSpace* Variable<T, DIM>::get_fespace() {
+  return this->fespace_;
+}
 /**
  * @brief Destroy the Variable:: Variable object
  *

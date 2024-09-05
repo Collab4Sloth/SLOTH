@@ -1,80 +1,90 @@
-/*
- * Copyright © CEA 2023
+/**
+ * @file MobilityCoefficient.hpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief Class dedicated to Mobility coefficient
+ * @version 0.1
+ * @date 2024-09-03
  *
- * MobilityCoefficient.hpp
+ * @copyright Copyright (c) 2024
  *
- *  Created on: 7 fev. 2023
- *      Author: ci230846
  */
-#include <algorithm>
+#include <limits>
+#include <numeric>
+#include <string>
+#include <vector>
 
-#include "Utils/PhaseFieldOptions.hpp"
-#include "mfem.hpp" // NOLINT [no include the directory when naming mfem include file]
+#include "Coefficients/MobilityFunctions.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Parameters/Parameters.hpp"
+#include "Utils/PhaseFieldConstants.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
-template <Mobility MOBI>
+//--------------------------
+//--------------------------
+template <int ORDER, Mobility NAME>
 class MobilityCoefficient : public mfem::Coefficient {
  private:
-  double mobility_;
-  const mfem::ParGridFunction gf;
-  int degenerate_order_;
+  MobilityFunctions<ORDER, NAME> property_;
+  FType property_function_;
+  mfem::ParGridFunction *gfu_;
+  double dble_gfu_{std::numeric_limits<double>::max()};
 
  public:
-  explicit MobilityCoefficient(const double &mob_c);
-  MobilityCoefficient(const double &mob_c, mfem::ParGridFunction mob_gf, const int &order);
+  MobilityCoefficient(mfem::ParGridFunction *gfu, const Parameters &params);
+
+  MobilityCoefficient(const double gfu, const Parameters &params);
 
   double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
+  ~MobilityCoefficient();
 };
 
 /**
- * @brief Construct a new Mobility Coefficient< MOBI>:: Mobility Coefficient object
+ * @brief Construct a new MobilityCoefficient object
  *
- * @tparam MOBI
- * @param mob_c
+ * @tparam ORDER
+ * @tparam NAME
+ * @tparam Args
+ * @param gfu
+ * @param args
  */
-template <Mobility MOBI>
-MobilityCoefficient<MOBI>::MobilityCoefficient(const double &mob_c) : mobility_(mob_c) {}
+template <int ORDER, Mobility NAME>
+MobilityCoefficient<ORDER, NAME>::MobilityCoefficient(mfem::ParGridFunction *gfu,
+                                                      const Parameters &params)
+    : gfu_(gfu) {
+  this->property_function_ = this->property_.getFunction(params);
+}
+
+template <int ORDER, Mobility NAME>
+MobilityCoefficient<ORDER, NAME>::MobilityCoefficient(const double gfu, const Parameters &params)
+    : gfu_(nullptr), dble_gfu_(gfu) {
+  this->property_function_ = this->property_.getFunction(params);
+}
 
 /**
- * @brief Construct a new Mobility Coefficient< MOBI>:: Mobility Coefficient object
+ * @brief Return the value of the Mobility coefficient at integration point
  *
- * @tparam MOBI
- * @param mob_c
- * @param mob_gf
- * @param order
- */
-template <Mobility MOBI>
-MobilityCoefficient<MOBI>::MobilityCoefficient(const double &mob_c, mfem::ParGridFunction mob_gf,
-                                               const int &order)
-    : mobility_(mob_c), gf(mob_gf), degenerate_order_(order) {}
-
-/**
- * @brief Evaluation of the mobility coefficient at integration point
- *
- * @tparam MOBI
+ * @tparam ORDER
+ * @tparam NAME
  * @param T
  * @param ip
- * @return double
  */
-template <Mobility MOBI>
-double MobilityCoefficient<MOBI>::Eval(mfem::ElementTransformation &T,
-                                       const mfem::IntegrationPoint &ip) {
-  switch (MOBI) {
-    case Mobility::Constant:
-      return this->mobility_;
-
-    case Mobility::Degenerated: {
-      const auto xx = gf.GetValue(T.ElementNo, ip);
-      const auto a_xx = std::max(std::min(xx, 1.), 0.);
-      const auto degenerated_mob_func = this->mobility_ *
-                                        std::pow(1. - a_xx, this->degenerate_order_) *
-                                        std::pow(a_xx, this->degenerate_order_);
-      return degenerated_mob_func;
-    }
-
-    default:
-      throw std::runtime_error(
-          "MobilityCoefficient::Eval: only constant and degenerated mobilities  are available");
-      break;
+template <int ORDER, Mobility NAME>
+double MobilityCoefficient<ORDER, NAME>::Eval(mfem::ElementTransformation &T,
+                                              const mfem::IntegrationPoint &ip) {
+  auto var_at_ip = this->dble_gfu_;
+  if (this->gfu_) {
+    var_at_ip = this->gfu_->GetValue(T.ElementNo, ip);
   }
+
+  return this->property_function_(var_at_ip);
 }
+
+/**
+ * @brief Destroy the MobilityCoefficient object
+ *
+ * @tparam ORDER
+ * @tparam NAME
+ */
+template <int ORDER, Mobility NAME>
+MobilityCoefficient<ORDER, NAME>::~MobilityCoefficient() {}

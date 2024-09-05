@@ -135,12 +135,13 @@ struct specialized_spatial_constructor<T, 1> {
           // CCI
           break;
         } else {
-          throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
-                                   " doesn't exist. Please check your data.");
+          std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
+                            " doesn't exist. Please check your data.";
+          mfem::mfem_error(msg.c_str());
         }
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only GMSH mesh type is "
             "allowed");
         break;
@@ -220,7 +221,7 @@ struct specialized_spatial_constructor<T, 1> {
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
         } else {
-          throw std::runtime_error(
+          mfem::mfem_error(
               "SpatialDiscretization::SpatialDiscretization: InlineLineWithSegments "
               "requires "
               "two "
@@ -229,7 +230,7 @@ struct specialized_spatial_constructor<T, 1> {
         break;
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
             "InlineLineWithSegments, "
             "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
@@ -277,7 +278,7 @@ struct specialized_spatial_constructor<T, 1> {
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
           tmp_mesh_periodic.Clear();
         } else {
-          throw std::runtime_error(
+          mfem::mfem_error(
               "SpatialDiscretization::SpatialDiscretization: InlineLineWithSegments "
               "requires "
               "two "
@@ -286,7 +287,7 @@ struct specialized_spatial_constructor<T, 1> {
         break;
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
             "InlineLineWithSegments, "
             "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
@@ -333,12 +334,13 @@ struct specialized_spatial_constructor<T, 2> {
           tmp_mesh.Clear();
           break;
         } else {
-          throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
-                                   " doesn't exist. Please check your data.");
+          std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
+                            " doesn't exist. Please check your data.";
+          mfem::mfem_error(msg.c_str());
         }
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only GMSH mesh type is "
             "allowed");
         break;
@@ -420,7 +422,7 @@ struct specialized_spatial_constructor<T, 2> {
         break;
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
             "InlineSquareWithQuadrangles, InlineSquareWithTriangles mesh types are allowed");
         break;
@@ -435,9 +437,10 @@ struct specialized_spatial_constructor<T, 2> {
                                                                    // mesh
       tmp_mesh.Clear();
     } else {
-      throw std::runtime_error(
+      std::string msg =
           "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
-          " requires 4 arguments, the number of nodes and the length along each direction");
+          " requires 4 arguments, the number of nodes and the length along each direction";
+      mfem::mfem_error(msg.c_str());
     }
     a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
   }
@@ -470,7 +473,8 @@ struct specialized_spatial_constructor<T, 2> {
         break;
       }
       default:
-        throw std::runtime_error(
+
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
             "InlineSquareWithQuadrangles, InlineSquareWithTriangles mesh types are allowed");
         break;
@@ -493,9 +497,10 @@ struct specialized_spatial_constructor<T, 2> {
           mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();
     } else {
-      throw std::runtime_error(
+      std::string msg =
           "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
-          " requires 4 arguments, the number of nodes and the length along each direction");
+          " requires 4 arguments, the number of nodes and the length along each direction";
+      mfem::mfem_error(msg.c_str());
     }
     a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
   }
@@ -539,12 +544,13 @@ struct specialized_spatial_constructor<T, 3> {
           // CCI
           break;
         } else {
-          throw std::runtime_error("SpatialDiscretization::SpatialDiscretization: " + file +
-                                   " doesn't exist. Please check your data.");
+          std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
+                            " doesn't exist. Please check your data.";
+          mfem::mfem_error(msg.c_str());
         }
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only GMSH mesh type is "
             "allowed");
         break;
@@ -625,7 +631,7 @@ struct specialized_spatial_constructor<T, 3> {
         break;
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
             "InlineSquareWithTetraedres, InlineSquareWithHexaedres mesh types are allowed");
         break;
@@ -643,9 +649,10 @@ struct specialized_spatial_constructor<T, 3> {
       a_my_class.mesh_ = mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
       tmp_mesh.Clear();
     } else {
-      throw std::runtime_error(
+      std::string msg =
           "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
-          " requires six arguments, the number of nodes and the length along each direction");
+          " requires six arguments, the number of nodes and the length along each direction";
+      mfem::mfem_error(msg.c_str());
     }
     a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
   }
@@ -678,7 +685,7 @@ struct specialized_spatial_constructor<T, 3> {
         break;
       }
       default:
-        throw std::runtime_error(
+        mfem::mfem_error(
             "SpatialDiscretization::SpatialDiscretization: here, only "
             "InlineSquareWithTetraedres, InlineSquareWithHexaedres mesh types are allowed");
         break;
@@ -706,9 +713,10 @@ struct specialized_spatial_constructor<T, 3> {
       tmp_mesh_periodic.Clear();
 
     } else {
-      throw std::runtime_error(
+      std::string msg =
           "SpatialDiscretization::SpatialDiscretization: " + mesh_type +
-          " requires six arguments, the number of nodes and the length along each direction");
+          " requires six arguments, the number of nodes and the length along each direction";
+      mfem::mfem_error(msg.c_str());
     }
     a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
   }

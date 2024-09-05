@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, PhaseFieldOperatorBase>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VAR, PST>;
   // ###########################################
   // ###########################################
@@ -78,8 +78,7 @@ int main(int argc, char* argv[]) {
   const auto& mob(1.e-5);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                           Parameter("mobility", mob), Parameter("sigma", sigma),
+  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
                            Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
@@ -110,6 +109,11 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
+  std::string calculation_path = "Problem1";
+  auto p_pst =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail));
   // ####################
   //     operators     //
   // ####################
@@ -117,8 +121,9 @@ int main(int argc, char* argv[]) {
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  oper.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-  auto pst = PST(main_folder_path, "Problem1", &spatial, frequency, level_of_detail);
+  auto pst = PST(&spatial, p_pst);
   PB problem1("AllenCahn", oper, vars, pst, convergence);
 
   // Coupling 1
