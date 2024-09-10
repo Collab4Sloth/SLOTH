@@ -27,7 +27,8 @@ spack compiler find find
 spack external find openmpi
 spack external find cmake
 spack external find openssh
-spack install gcc@11.2.0 mfem+mpi+debug+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist%gcc@11.2.0
+spack external find gmake
+spack install mfem+mpi+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist
 cd $WORK_DIR/sloth
 mkdir build && cd build
 spack load mfem
