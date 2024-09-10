@@ -192,7 +192,11 @@ int main(int argc, char* argv[]) {
 
   // AllenCahn:
   OPE oper(&spatial, ac_params, TimeScheme::EulerImplicit);
+
+  auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
+                              Parameter("abs_tol", 1.e-20), Parameter("rel_tol", 1.e-20));
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
 
   PB allencahn_pb("AllenCahn", oper, ac_vars, heat_vars, pst, convergence);
 
