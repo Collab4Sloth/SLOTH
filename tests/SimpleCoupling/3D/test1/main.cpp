@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
   // Profiling
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
+  const auto DIM = 3;
 
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
@@ -61,19 +61,24 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;
-  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level, "camembert2D.msh",
+  auto refinement_level = 4;
+  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level, "camembert3D.msh",
                                                    false);
 
   // ##############################
   //     Boundary conditions     //
   // ##############################
   // ALLEN-CAHN
-  auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Neumann", 0.),
-                     Boundary("upper", 1, "Neumann", 0.)};
-  auto Tboundaries = {Boundary("lower", 0, "Neumann", 0.),
-                      Boundary("external", 2, "Dirichlet", 1073.15),
-                      Boundary("upper", 1, "Neumann", 0.)};
+  auto boundaries = {
+      Boundary("InterPelletPlane", 0, "Neumann", 0.), Boundary("MidPelletPlane", 1, "Neumann", 0.),
+      Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 2, "Neumann", 0.),
+      Boundary("ExternalSurface", 3, "Neumann", 0.)};
+
+  auto Tboundaries = {Boundary("InterPelletPlane", 0, "Neumann", 0.),
+                      Boundary("MidPelletPlane", 1, "Neumann", 0.),
+                      Boundary("FrontSurface", 3, "Neumann", 0.),
+                      Boundary("ExternalSurface", 4, "Dirichlet", 1073.15),
+                      Boundary("BehindSurface", 2, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
   auto Tbcs = BoundaryConditions<FECollection, DIM>(&spatial, Tboundaries);
 
@@ -111,15 +116,28 @@ int main(int argc, char* argv[]) {
   // ###########################
   // ALLEN-CAHN
   const auto& pellet_radius = 0.00465;
+  const auto& pellet_height = 0.01;
   const auto& center_x = 0.;
   const auto& center_y = 0.;
+  const auto& center_z = 0.25 * pellet_height;
   const auto& a_x = 1.;
   const auto& a_y = 1.;
+  const auto& a_z = 1.;
   const auto& thickness = 5.e-5;
   const auto& radius = 1.e-2 * pellet_radius;
 
-  auto ac_ic = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x,
-                                        center_y, a_x, a_y, thickness, radius);
+  auto user_func = std::function<double(const mfem::Vector&, double)>(
+      [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](const mfem::Vector& x,
+                                                                       double time) {
+        const auto xx = a_x * (x[0] - center_x);
+        const auto yy = a_y * (x[1] - center_y);
+        const auto zz = a_z * (x[2] - center_z);
+        const auto r = std::sqrt(xx * xx + yy * yy + zz * zz);
+        const auto f = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);
+        return f;
+      });
+  auto ac_ic = AnalyticalFunctions<DIM>(user_func);
+
   auto ac_vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, ac_ic));
 
   // Heat
@@ -128,6 +146,8 @@ int main(int argc, char* argv[]) {
   auto src_func = std::function<double(const mfem::Vector&, double)>(
       [pl, pellet_radius](const mfem::Vector& vcoord, double time) {
         const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
+        // Rayon identique par cote z
+        // std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1] + vcoord[2] * vcoord[2]);
         auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
         auto chia = chi * pellet_radius;
         auto I1_chia = std::cyl_bessel_i(1, chia);
@@ -146,9 +166,9 @@ int main(int argc, char* argv[]) {
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-  const std::string& main_folder_path = "Saves";
+  const std::string& main_folder_path = "SavesBigR4";
   const auto& level_of_detail = 1;
-  const auto& frequency = 1;
+  const auto& frequency = 50;
   // Allen-Cahn
   std::string calculation_path = "AllenCahn";
   auto p_pst1 =
@@ -163,16 +183,6 @@ int main(int argc, char* argv[]) {
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
   auto pst2 = PST(&spatial, p_pst2);
-
-  // MPI
-
-  // auto vars3 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "MPI rank", 2, 0.));
-  // calculation_path = "MPI";
-  // auto p_pst3 =
-  //     Parameters(Parameter("main_folder_path", main_folder_path),
-  //                Parameter("calculation_path", calculation_path), Parameter("frequency",
-  //                frequency), Parameter("level_of_detail", level_of_detail));
-  // auto pst3 = PST(&spatial, p_pst3);
 
   // ####################
   //     Probelms      //
@@ -220,7 +230,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 100.;
+  const auto& t_final = 200.;
   const auto& dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
