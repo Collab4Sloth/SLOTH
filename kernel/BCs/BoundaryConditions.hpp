@@ -10,6 +10,7 @@
 #include <limits>
 #include <map>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "BCs/Boundary.hpp"
@@ -87,9 +88,27 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
   }
 
   bool test_standard_bdr = mesh_max_bdr_attributes == bdrs.size();
+
   if (exist_periodic_bdr || test_standard_bdr) {
+    std::unordered_set<int> id_seen;
+
     for (const auto &bdr : bdrs) {
       const auto &id = bdr.get_boundary_index();
+      // Check index value
+      if (id >= mesh_max_bdr_attributes) {
+        std::string msg = "BoundaryConditions::BoundaryConditions(): bad index " +
+                          std::to_string(id) + ". Index should be lower than " +
+                          std::to_string(mesh_max_bdr_attributes);
+        mfem::mfem_error(msg.c_str());
+      }
+
+      // Check unicity
+      if (!id_seen.insert(id).second) {
+        std::string msg = "BoundaryConditions::BoundaryConditions(): duplicated index " +
+                          std::to_string(id) + ". Index should be unique";
+        mfem::mfem_error(msg.c_str());
+      }
+
       if (bdr.is_essential_boundary()) {
         Dirichlet_bdr_[id] = 1;
       } else {

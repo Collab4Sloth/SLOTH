@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
   auto boundaries = {
       Boundary("InterPelletPlane", 0, "Neumann", 0.), Boundary("MidPelletPlane", 1, "Neumann", 0.),
       Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 2, "Neumann", 0.),
-      Boundary("ExternalSurface", 3, "Neumann", 0.)};
+      Boundary("ExternalSurface", 4, "Neumann", 0.)};
 
   auto Tboundaries = {Boundary("InterPelletPlane", 0, "Neumann", 0.),
                       Boundary("MidPelletPlane", 1, "Neumann", 0.),
@@ -192,11 +192,11 @@ int main(int argc, char* argv[]) {
 
   // AllenCahn:
   OPE oper(&spatial, ac_params, TimeScheme::EulerImplicit);
+  oper.overload_nl_solver(NLSolverType::NEWTON,
+                          Parameters(Parameter("description", "Newton solver "),
+                                     Parameter("print_level", 1), Parameter("abs_tol", 1.e-20)));
 
-  auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
-                              Parameter("abs_tol", 1.e-20), Parameter("rel_tol", 1.e-20));
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
 
   PB allencahn_pb("AllenCahn", oper, ac_vars, heat_vars, pst, convergence);
 
