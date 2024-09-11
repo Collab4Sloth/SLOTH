@@ -50,7 +50,6 @@ double GradientEnergyCoefficient::Eval(mfem::ElementTransformation &T,
                                        const mfem::IntegrationPoint &ip) {
   mfem::Vector gradu;
   this->gfu_->GetGradient(T, gradu);
-  const auto phi = this->gfu_->GetValue(T.ElementNo, ip);
 
   const auto &value = std::inner_product(gradu.begin(), gradu.end(), gradu.begin(), 0.);
   return this->lambda_ * value;

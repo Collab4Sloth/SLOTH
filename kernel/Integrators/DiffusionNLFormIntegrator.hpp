@@ -193,9 +193,6 @@ void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementGrad(
     mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
   int dim = el.GetDim();
-  int spaceDim = Tr.GetSpaceDim();
-  bool square = (dim == spaceDim);
-  double w;
 
   Psi.SetSize(nd);
   gradPsi.SetSize(nd, dim);

@@ -151,11 +151,11 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
     : mfem::Operator(spatial->getSize()),
       params_(default_params_),
       N(NULL),
-      nlfi_ptr_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      nlfi_ptr_(nullptr) {
   this->fespace_ = spatial->get_finite_element_space();
   this->set_default_solver();
 }
@@ -175,11 +175,11 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
     : mfem::Operator(spatial->getSize()),
       params_(default_params_),
       N(NULL),
-      nlfi_ptr_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      nlfi_ptr_(nullptr) {
   this->fespace_ = spatial->get_finite_element_space();
   this->src_func_ = source_term_name.getFunction();
   this->set_default_solver();
@@ -200,11 +200,11 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
     : mfem::Operator(spatial->getSize()),
       params_(params),
       N(NULL),
-      nlfi_ptr_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      nlfi_ptr_(nullptr) {
   this->fespace_ = spatial->get_finite_element_space();
   this->set_default_solver();
 }
@@ -228,11 +228,11 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
     : mfem::Operator(spatial->getSize()),
       params_(params),
       N(NULL),
-      nlfi_ptr_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      nlfi_ptr_(nullptr) {
   this->fespace_ = spatial->get_finite_element_space();
   this->src_func_ = source_term_name.getFunction();
   this->set_default_solver();

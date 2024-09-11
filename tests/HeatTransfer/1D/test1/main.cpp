@@ -9,7 +9,6 @@
  *
  */
 
-#include <boost/math/special_functions/bessel.hpp>
 #include <iostream>
 #include <map>
 #include <memory>

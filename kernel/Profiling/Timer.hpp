@@ -65,7 +65,7 @@ void get_indent() {
  *
  * @param name
  */
-Timer::Timer(std::string name) : accum_time_(0.0), name_(name) {}
+Timer::Timer(std::string name) : name_(name), accum_time_(0.0) {}
 
 /**
  * @brief Increase the indentation level
@@ -80,7 +80,7 @@ void Timer::indentation() { this->indentation_level_++; }
  */
 void Timer::lose_indentation(std::string func) {
   bool inside = false;
-  for (int i = 0; i < this->indentation_list_.size(); i++) {
+  for (std::size_t i = 0; i < this->indentation_list_.size(); i++) {
     if (std::get<1>(this->indentation_list_[i]) == func) {
       inside = true;
       break;

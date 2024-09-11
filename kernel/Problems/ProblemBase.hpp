@@ -73,7 +73,7 @@ class ProblemBase {
 
   virtual void finalize();
 
-  ~ProblemBase();
+  virtual ~ProblemBase();
 };
 
 template <class VAR, class PST>

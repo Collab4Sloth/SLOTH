@@ -51,8 +51,8 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
                                const mfem::IntegrationPoint& ir);
 
  protected:
-  std::vector<mfem::ParGridFunction> aux_gf_;
   mfem::ParGridFunction u_old_;
+  std::vector<mfem::ParGridFunction> aux_gf_;
   double omega_, lambda_;
 
   virtual FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
@@ -176,7 +176,7 @@ template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials
 AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params,
     const std::vector<mfem::ParGridFunction>& aux_gf)
-    : u_old_(u_old), mobility_params_(params), aux_gf_(aux_gf) {
+    : mobility_params_(params), u_old_(u_old), aux_gf_(aux_gf) {
   this->get_parameters(params);
 }
 

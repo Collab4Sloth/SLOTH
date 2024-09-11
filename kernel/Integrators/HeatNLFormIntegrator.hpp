@@ -138,7 +138,7 @@ template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 HeatNLFormIntegrator<SCHEME, COND_NAME>::HeatNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params,
     const std::vector<mfem::ParGridFunction>& aux_gf)
-    : u_old_(u_old), conductivity_params_(params), aux_gf_(aux_gf) {
+    : conductivity_params_(params), u_old_(u_old), aux_gf_(aux_gf) {
   // this->get_parameters(params);
 }
 
@@ -199,9 +199,6 @@ void HeatNLFormIntegrator<SCHEME, COND_NAME>::AssembleElementGrad(const mfem::Fi
                                                                   mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
   int dim = el.GetDim();
-  int spaceDim = Tr.GetSpaceDim();
-  bool square = (dim == spaceDim);
-  double w;
 
   Psi.SetSize(nd);
   gradPsi.SetSize(nd, dim);

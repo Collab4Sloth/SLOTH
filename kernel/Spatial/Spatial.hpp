@@ -265,9 +265,10 @@ struct specialized_spatial_constructor<T, 1> {
           // Based on mfem.org example
           // Create the vertex mapping. To begin, create the identity mapping.
           std::vector<int> periodicMap(tmp_mesh.GetNV());
-          for (int i = 0; i < periodicMap.size(); ++i) {
-            periodicMap[i] = i;
-          }
+          std::iota(periodicMap.begin(), periodicMap.end(), 0);
+          // for (std::size_t i = 0; i < periodicMap.size(); ++i) {
+          //   periodicMap[i] = i;
+          // }
           // Modify the mapping so that the last vertex gets mapped to the first vertex.
           periodicMap.back() = 0;
           auto periodic_mesh = mfem::Mesh::MakePeriodic(tmp_mesh, periodicMap);

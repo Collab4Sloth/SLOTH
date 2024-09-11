@@ -61,7 +61,6 @@ class Profiling {
  private:
   std::string name;
   int order_{0};
-  int level_{0};
 
   void save(std::string name_func, Timer& func);
   void get_indentation();
@@ -149,7 +148,7 @@ void Profiling::print() {
   // serial case
   if (size == 1) {
     max_timer = (timerlist[0]).total_time;
-    for (int i = 1; i < timerlist.size(); i++) {
+    for (std::size_t i = 1; i < timerlist.size(); i++) {
       if (max_timer < (timerlist[i]).total_time) {
         max_timer = (timerlist[i]).total_time;
       }
@@ -160,7 +159,7 @@ void Profiling::print() {
     if (rank == 0) {
       max_timer = glob_time / size;
     }
-    for (int i = 1; i < timerlist.size(); i++) {
+    for (std::size_t i = 1; i < timerlist.size(); i++) {
       MPI_Reduce(&(timerlist[i]).total_time, &glob_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
       if (rank == 0) {
         if (max_timer < (glob_time / size)) {
@@ -325,7 +324,7 @@ void Profiling::get_lose_indentation(std::string func) {
   }
 
   bool inside = false;
-  for (int i = 0; i < indentationlist.size(); i++) {
+  for (std::size_t i = 0; i < indentationlist.size(); i++) {
     if (std::get<1>(indentationlist[i]) == func) {
       inside = true;
       break;
@@ -353,7 +352,7 @@ struct APITimer {
   Timer m_timer;
   std::string m_name;
 
-  explicit APITimer(std::string name) : m_name(name), m_timer(name) { m_timer.start(); }
+  explicit APITimer(std::string name) : m_timer(name), m_name(name) { m_timer.start(); }
 
   ~APITimer() {
     m_timer.stop();
