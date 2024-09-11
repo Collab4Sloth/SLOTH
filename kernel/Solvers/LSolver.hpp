@@ -55,9 +55,11 @@ LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRE
   this->variant_solver_ = ss->get_value();
 
   std::visit(
-      [&ope, PRECOND, this](const auto& arg) {
+      [&ope, PRECOND, p_params, this](const auto& arg) {
         using TT = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<TT, mfem::IterativeSolver>) {
+          pp = std::make_shared<SlothSolver>(PRECOND, p_params);
+          this->variant_precond_ = pp->get_value();
           std::visit(
               [&arg](auto&& prec) {
                 using PP = std::decay_t<decltype(arg)>;
