@@ -274,7 +274,7 @@ void HeatOperator<T, DIM, NLFI, RHO, CP>::get_mass_coefficient(const mfem::Vecto
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
-  if (this->mass_gf_) {
+  if (this->mass_gf_ != nullptr) {
     delete this->mass_gf_;
   }
   this->mass_gf_ = new mfem::ParGridFunction(this->fespace_);

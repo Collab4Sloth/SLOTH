@@ -273,7 +273,7 @@ void DiffusionOperator<T, DIM, NLFI, DENS>::get_mass_coefficient(const mfem::Vec
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
-  if (this->mass_gf_) {
+  if (this->mass_gf_ != nullptr) {
     delete this->mass_gf_;
   }
   this->mass_gf_ = new mfem::ParGridFunction(this->fespace_);

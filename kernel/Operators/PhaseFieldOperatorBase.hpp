@@ -68,8 +68,8 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   /// Mass operator
 
   mfem::ParGridFunction *mass_gf_;
-  mfem::ProductCoefficient *MassCoeff_;  // mass coefficient
   mfem::ParBilinearForm *M;              // mass operator
+  mfem::ProductCoefficient *MassCoeff_;  // mass coefficient
   std::shared_ptr<LSolver> mass_matrix_solver_;
   VSharedMFEMSolver M_solver_;  // Krylov solver for inverting the mass matrix M
 
@@ -146,6 +146,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
     SpatialDiscretization<T, DIM> const *spatial, TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI>(spatial),
       mfem::TimeDependentOperator(spatial->getSize(), 0.0),
+      mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL) {
@@ -169,6 +170,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
     AnalyticalFunctions<DIM> source_term_name)
     : OperatorBase<T, DIM, NLFI>(spatial, source_term_name),
       mfem::TimeDependentOperator(spatial->getSize(), 0.0),
+      mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL) {
@@ -191,6 +193,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
     SpatialDiscretization<T, DIM> const *spatial, const Parameters &params, TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI>(spatial, params),
       mfem::TimeDependentOperator(spatial->getSize(), 0.0),
+      mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL) {
@@ -216,6 +219,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
     AnalyticalFunctions<DIM> source_term_name)
     : OperatorBase<T, DIM, NLFI>(spatial, params, source_term_name),
       mfem::TimeDependentOperator(spatial->getSize(), 0.0),
+      mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL) {
