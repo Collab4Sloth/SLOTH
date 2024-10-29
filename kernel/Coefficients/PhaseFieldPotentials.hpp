@@ -101,7 +101,7 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Implicit> {
     });
   }
   /**
-   * @brief F potential F(x)=(x² -1)/4
+   * @brief F potential F(x)=(x^4 -2x^2)/4
    *
    * @tparam Args
    * @param args
@@ -180,7 +180,7 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Implicit> {
     });
   }
   /**
-   * @brief First derivative of the F potential F(x)=(x² -1)/4
+   * @brief First derivative of the F potential F(x)=(x^4 -2x^2)/4
    *
    * @tparam Args
    * @param args
@@ -258,7 +258,7 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Implicit> {
     });
   }
   /**
-   * @brief Second derivative of the F potential F(x)=(x² -1)/4
+   * @brief Second derivative of the F potential F(x)=(x^4 -2x^2)/4
    *
    * @tparam Args
    * @param args
