@@ -59,7 +59,7 @@ class OperatorBase : public mfem::Operator {
   void set_default_solver();
 
  protected:
-  Variables<T, DIM> *auxvariables_;
+  std::vector<Variables<T, DIM> *> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
 
   const Parameters default_params_ = Parameters(Parameter("default parameter", false));
@@ -121,7 +121,7 @@ class OperatorBase : public mfem::Operator {
   // Virtual methods
   // virtual void initialize(const double &initial_time, Variables<T, DIM> &vars);
   virtual void initialize(const double &initial_time, Variables<T, DIM> &vars,
-                          Variables<T, DIM> *auxvars);
+                          std::vector<Variables<T, DIM> *> auxvars);
 
   // Pure virtual methods
   virtual void set_default_properties() = 0;
@@ -249,7 +249,7 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
  */
 template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variables<T, DIM> &vars,
-                                            Variables<T, DIM> *auxvars) {
+                                            std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("OperatorBase::initialize");
 
   this->auxvariables_ = auxvars;
@@ -503,10 +503,12 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
 template <class T, int DIM, class NLFI>
 std::vector<mfem::ParGridFunction> OperatorBase<T, DIM, NLFI>::get_auxiliary_gf() {
   std::vector<mfem::ParGridFunction> aux_gf;
-  if (this->auxvariables_) {
-    for (const auto &auxvar : this->auxvariables_->getVariables()) {
+  if (this->auxvariables_.size() > 0) {
+    for (const auto &auxvar_vec : this->auxvariables_) {
+      for (const auto &auxvar : auxvar_vec->getVariables()) {
       auto gf = auxvar.get_gf();
       aux_gf.emplace_back(gf);
+      }
     }
   }
   return aux_gf;

@@ -10,10 +10,13 @@
  */
 
 #pragma once
+#include <list>
 #include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
+#include <utility>
+#include <vector>
 
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
@@ -31,16 +34,21 @@ class ProblemBase {
  protected:
   std::string description_{"UNKNOWN PROBLEM"};
   VAR& variables_;
-  VAR* auxvariables_;
+  std::vector<VAR*> auxvariables_;
   PST& pst_;
+  const std::list<int> pop_elem_;
   mfem::Vector unknown_;
   PhysicalConvergence convergence_;
 
  public:
+  template <class... Args>
   ProblemBase(const std::string& name, VAR& variables, PST& pst,
-              const PhysicalConvergence& convergence);
-  ProblemBase(const std::string& name, VAR& variables, VAR& auxvariables, PST& pst,
-              const PhysicalConvergence& convergence);
+              const PhysicalConvergence& convergence, std::list<int> pop_elem,
+              Args&&... auxvariables);
+
+  template <class... Args>
+  ProblemBase(const std::string& name, VAR& variables, PST& pst,
+              const PhysicalConvergence& convergence, Args&&... auxvariables);
 
   std::string get_description();
   VAR get_problem_variables();
@@ -76,14 +84,6 @@ class ProblemBase {
   virtual ~ProblemBase();
 };
 
-template <class VAR, class PST>
-ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   const PhysicalConvergence& convergence)
-    : description_(name),
-      variables_(variables),
-      auxvariables_(nullptr),
-      pst_(pst),
-      convergence_(convergence) {}
 
 /**
  * @brief Construct a new ProblemBase<VAR, PST>::ProblemBase object
@@ -97,13 +97,44 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
  * @param convergence
  */
 template <class VAR, class PST>
-ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, VAR& auxvariables,
-                                   PST& pst, const PhysicalConvergence& convergence)
+template <class... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
+                                   const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                   Args&&... auxvariables)
     : description_(name),
       variables_(variables),
-      auxvariables_(&auxvariables),
       pst_(pst),
-      convergence_(convergence) {}
+      convergence_(convergence),
+      pop_elem_(pop_elem) {
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.resize(0);
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+
+    if (pop_elem.size() > 0) {
+      for (const auto& pp : pop_elem_) {
+        if (pp < this->auxvariables_.size()) {
+          this->auxvariables_.erase(std::next(this->auxvariables_.begin(), pp),
+                                    std::next(this->auxvariables_.begin(), pp + 1));
+        } else {
+          std::string msg = "ProblemBase: Error with index use to pop element ";
+          mfem::mfem_error(msg.c_str());
+        }
+      }
+    }
+  }
+}
+template <class VAR, class PST>
+template <class... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
+                                   const PhysicalConvergence& convergence, Args&&... auxvariables)
+    : description_(name), variables_(variables), pst_(pst), convergence_(convergence) {
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.resize(0);
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
+}
 
 /**
  * @brief Return the name of the problem

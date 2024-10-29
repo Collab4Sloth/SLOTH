@@ -70,7 +70,7 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI> {
 
   // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
   void initialize(const double &initial_time, Variables<T, DIM> &vars,
-                  Variables<T, DIM> *auxvars) override;
+                  std::vector<Variables<T, DIM> *> auxvars) override;
   // Pure virtual methods
   void SetConstantParameters(const double dt, mfem::Vector &u) override;
   void SetTransientParameters(const double dt, const mfem::Vector &u) override;
@@ -168,9 +168,8 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
  * @param vars
  */
 template <class T, int DIM, class NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time,
-                                                            Variables<T, DIM> &vars,
-                                                            Variables<T, DIM> *auxvars) {
+void SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::initialize(
+    const double &initial_time, Variables<T, DIM> &vars, std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("SteadyPhaseFieldOperatorBase::initialize");
 
   OperatorBase<T, DIM, NLFI>::initialize(initial_time, vars, auxvars);

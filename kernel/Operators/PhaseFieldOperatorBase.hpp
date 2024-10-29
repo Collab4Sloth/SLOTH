@@ -117,7 +117,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
 
   // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
   void initialize(const double &initial_time, Variables<T, DIM> &vars,
-                  Variables<T, DIM> *auxvars) override;
+                  std::vector<Variables<T, DIM> *> auxvars) override;
   // Pure virtual methods
   void SetConstantParameters(const double dt, mfem::Vector &u) override;
   void SetTransientParameters(const double dt, const mfem::Vector &u) override;
@@ -271,7 +271,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time,
                                                       Variables<T, DIM> &vars,
-                                                      Variables<T, DIM> *auxvars) {
+                                                      std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("PhaseFieldOperatorBase::initialize");
 
   this->SetTime(initial_time);

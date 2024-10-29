@@ -45,6 +45,11 @@ class PostProcessing : public DC {
   void clean_output_directory();
 
  public:
+  // Explicitly default the move constructor and move assignment operator
+  // Usefull to define several PostProcessing objects in std::vector over a loop
+  PostProcessing(PostProcessing&&) = default;
+  PostProcessing& operator=(PostProcessing&&) = default;
+
   PostProcessing(SpatialDiscretization<T, DIM>* space, const Parameters& params);
   void save_variables(const Variables<T, DIM>& vars, const int& iter, const double& time);
   void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results);

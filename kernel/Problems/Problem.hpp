@@ -10,9 +10,11 @@
  */
 
 #pragma once
+#include <list>
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
@@ -29,15 +31,21 @@ class Problem : public ProblemBase<VAR, PST> {
       nullptr};
 
  public:
-  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence);
+  template <class... Args>
+  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
+          std::list<int> pop_elem, Args&&... auxvariable);
 
-  Problem(const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
-          const PhysicalConvergence& convergence);
+  template <class... Args>
+  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
+          Args&&... auxvariable);
+
+  template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          const PhysicalConvergence& convergence);
+          const PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
 
-  Problem(const std::string& name, const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
-          const PhysicalConvergence& convergence);
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          const PhysicalConvergence& convergence, Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
   void initialize(const double& initial_time) override;
@@ -59,36 +67,7 @@ class Problem : public ProblemBase<VAR, PST> {
   ~Problem();
 };
 
-/**
- * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
- *
- * @tparam OPE
- * @tparam SOLVER
- * @param oper
- * @param solver
- * @param convergence
- */
-template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence)
-    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence), oper_(oper) {}
 
-/**
- * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @param name
- * @param oper
- * @param variables
- * @param pst
- * @param convergence
- */
-template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence)
-    : ProblemBase<VAR, PST>(name, variables, pst, convergence), oper_(oper) {}
 
 /**
  * @brief Construct a new Problem< OPE, VAR, PST>::Problem object
@@ -104,9 +83,19 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
  * @param convergence
  */
 template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, VAR& auxvariables, PST& pst,
-                                const PhysicalConvergence& convergence)
-    : ProblemBase<VAR, PST>("AllenCahn problem", variables, auxvariables, pst, convergence),
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
+                                const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence, pop_elem,
+                            auxvariables...),
+      oper_(oper) {}
+
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
+                                const PhysicalConvergence& convergence, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence, auxvariables...),
       oper_(oper) {}
 
 /**
@@ -123,9 +112,18 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, VAR& auxvariabl
  * @param convergence
  */
 template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables,
-                                VAR& auxvariables, PST& pst, const PhysicalConvergence& convergence)
-    : ProblemBase<VAR, PST>(name, variables, auxvariables, pst, convergence), oper_(oper) {}
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
+      oper_(oper) {}
+
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                const PhysicalConvergence& convergence, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), oper_(oper) {}
 
 /**
  * @brief  Initialize the calculation : operator + ODE
