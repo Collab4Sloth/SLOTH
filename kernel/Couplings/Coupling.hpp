@@ -25,7 +25,6 @@ class Coupling {
   std::tuple<Args...> problems_;
 
  public:
-  // explicit Coupling(const std::string& name, Args&&... problems);
   explicit Coupling(const std::string& name, Args... problems);
   std::string get_name();
 
