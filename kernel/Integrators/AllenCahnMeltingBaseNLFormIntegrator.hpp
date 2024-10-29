@@ -35,7 +35,7 @@ class AllenCahnMeltingBaseNLFormIntegrator
  protected:
   FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
                            const mfem::IntegrationPoint& ir) override;
-  virtual void get_parameters(const Parameters& vectr_param) override;
+  void get_parameters(const Parameters& vectr_param) override;
   virtual double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                         const mfem::IntegrationPoint& ir) = 0;
 

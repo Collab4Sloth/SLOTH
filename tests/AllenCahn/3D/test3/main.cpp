@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 4.e-6; //0.012;
+  const auto& t_final = 4.e-6;  //  0.012;
   const auto& dt = 2.e-6;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
