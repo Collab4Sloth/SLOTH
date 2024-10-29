@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 4;
+  auto refinement_level = 0;
   SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level, "camembert3D.msh",
                                                    false);
 
@@ -148,13 +148,13 @@ int main(int argc, char* argv[]) {
         const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
         // Rayon identique par cote z
         // std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1] + vcoord[2] * vcoord[2]);
-        auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
-        auto chia = chi * pellet_radius;
-        auto I1_chia = std::cyl_bessel_i(1, chia);
-        auto chir =
-            chi * (pellet_radius - radius);  //  radius;  //  (Radius[_nnodes - 1] - Radius[i]);1
-        auto I0_chir = std::cyl_bessel_i(0, chir);
-        const auto bess = chia * I0_chir / (2. * I1_chia);
+        // auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
+        // auto chia = chi * pellet_radius;
+        // auto I1_chia = std::cyl_bessel_i(1, chia);
+        // auto chir =
+        //     chi * (pellet_radius - radius);  //  radius;  //  (Radius[_nnodes - 1] - Radius[i]);1
+        // auto I0_chir = std::cyl_bessel_i(0, chir);
+        const auto bess = 1.;  // chia * I0_chir / (2. * I1_chia);
 
         const auto func = pl * bess / (M_PI * 2. * pellet_radius * pellet_radius);
 
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
 
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PB allencahn_pb("AllenCahn", oper, ac_vars, heat_vars, pst, convergence);
+  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, convergence, heat_vars);
 
   // Heat:
   auto source_term = AnalyticalFunctions<DIM>(src_func);
@@ -234,7 +234,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 200.;
+  const auto& t_final = 0.5;//200.;
   const auto& dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
