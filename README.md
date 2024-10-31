@@ -15,7 +15,7 @@ A straightforward way to install MFEM is to use [spack](https://spack.readthedoc
 ```shell
 $SPACK/share/spack/setup-env.sh
 
-spack install mfem+mpi+debug+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist
+spack install mfem+mpi+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist
 ```
 
 ### Compiling SLOTH
