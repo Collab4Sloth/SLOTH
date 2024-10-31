@@ -52,6 +52,10 @@ endif(NOT TARGET doc)
 # ########################
 # # Test Configuration
 # ########################
+include(COMPILE4SLOTH)
+
+
+
 include(TEST4SLOTH)
 
 include(CTest)
