@@ -11,7 +11,7 @@
  */
 #include <mpi.h>
 
-#include <filesystem>
+#include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <fstream>
 #include <iomanip>
 #include <iostream>

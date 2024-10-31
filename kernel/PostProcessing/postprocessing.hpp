@@ -9,7 +9,7 @@
  */
 
 #pragma once
-#include <filesystem>
+#include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <fstream>
 #include <functional>
 #include <iostream>
