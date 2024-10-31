@@ -1,0 +1,37 @@
+name: Build and Test SLOTH on UNIX 
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Spack
+      uses: spack/setup-spack@v2
+      with:
+        ref: develop      # Spack version (examples: develop, releases/v0.21)
+        buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
+        color: true       # Force color output (SPACK_COLOR=always)
+        path: ${{github.workspace}}/spack       # Where to clone Spack
+
+    - name: Install mpich
+      run: sudo apt-get install mpich
+
+    - name: Install Packages
+      run: |
+        spack external find openmpi mpich
+        spack install mfem+mpi+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist@4.7.0
+
+    - name: Build SLOTH [Optim]
+      run: | 
+        mkdir build
+        cd build
+        source ../envSloth.sh --optim
+        make
