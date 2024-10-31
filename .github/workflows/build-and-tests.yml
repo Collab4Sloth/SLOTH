@@ -7,10 +7,8 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
-
+  build-linux:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Set up Spack
@@ -21,13 +19,25 @@ jobs:
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
 
-    - name: Install mpich
-      run: sudo apt-get install mpich
 
     - name: Install Packages
       run: |
-        spack external find openmpi mpich
         spack install mfem+mpi+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist@4.7.0
+
+    - name: Build SLOTH [Optim]
+      run: | 
+        mkdir build
+        cd build
+        source ../envSloth.sh --optim
+        make
+
+  build-MacOS:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Packages
+      run: brew install mfem
 
     - name: Build SLOTH [Optim]
       run: | 
