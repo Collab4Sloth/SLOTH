@@ -37,8 +37,9 @@ template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials
 class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  private:
   const Parameters mobility_params_;
-  mfem::DenseMatrix dshape, dshapedxt, invdfdx;
-  mfem::Vector shape, vec, pointflux;
+
+  mfem::DenseMatrix gradPsi;
+  mfem::Vector Psi, gradU;
 
   PotentialFunctions<1, SCHEME, ENERGY> energy_first_derivative_potential_;
   PotentialFunctions<2, SCHEME, ENERGY> energy_second_derivative_potential_;
@@ -153,6 +154,14 @@ FType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::double_well_derivative(
   });
 }
 
+/**
+ * @brief Get all parameters associated with this Integrator
+ *
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ * @param params
+ */
 template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_parameters(const Parameters& params) {
@@ -197,45 +206,35 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementVector(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::Vector& elvect) {
   Catch_Time_Section("AllenCahnNLFormIntegrator:AssembleElementVector");
-
   int nd = el.GetDof();
   int dim = el.GetDim();
-  int spaceDim = Tr.GetSpaceDim();
-  dshape.SetSize(nd, dim);
-  shape.SetSize(nd);
-  invdfdx.SetSize(dim, spaceDim);
-  vec.SetSize(dim);
-  pointflux.SetSize(spaceDim);
-
+  gradPsi.SetSize(nd, dim);
+  Psi.SetSize(nd);
+  gradU.SetSize(dim);
   elvect.SetSize(nd);
+
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
   elvect = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcDShape(ip, dshape);  // dphi
-    el.CalcShape(ip, shape);    // phi
+    el.CalcShape(ip, Psi);  //
     Tr.SetIntPoint(&ip);
 
-    const auto& u = elfun * shape;
-    // const auto& un = this->u_old_.GetValue(Tr, ip);
+    const auto& u = elfun * Psi;
 
-    // Given phi, compute (w'(phi), v), v is shape function
-    const double& ww = this->mobility(Tr, ip, u, this->mobility_params_) * ip.weight * Tr.Weight() *
-                       this->energy_derivatives(1, Tr, ip)(u);
-    add(elvect, ww, shape, elvect);
+    // Laplacian : given u, compute (grad(u), grad(psi)), psi is shape function.
+    // given u (elfun), compute grad(u)
+    el.CalcPhysDShape(Tr, gradPsi);
+    gradPsi.MultTranspose(elfun, gradU);
+    const double coef_mob =
+        this->mobility(Tr, ip, u, this->mobility_params_) * ip.weight * Tr.Weight();
+    gradU *= coef_mob * this->lambda_;
+    gradPsi.AddMult(gradU, elvect);
 
-    // Laplacian : given u, compute (grad(u), grad(v)), v is shape function.
-    CalcAdjugate(Tr.Jacobian(), invdfdx);  // invdfdx = adj(J)
-    dshape.MultTranspose(elfun, vec);
-    invdfdx.MultTranspose(vec, pointflux);
-    double w =
-        this->mobility(Tr, ip, u, this->mobility_params_) * this->lambda_ * ip.weight / Tr.Weight();
-    pointflux *= w;
-    invdfdx.Mult(pointflux, vec);
-
-    //
-    dshape.AddMult(vec, elvect);
+    // Given u, compute (w'(u), psi), psi is shape function
+    const double ww = coef_mob * this->energy_derivatives(1, Tr, ip)(u);
+    add(elvect, ww, Psi, elvect);
   }
 }
 
@@ -259,13 +258,9 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementGrad(
 
   int nd = el.GetDof();
   int dim = el.GetDim();
-  int spaceDim = Tr.GetSpaceDim();
-  bool square = (dim == spaceDim);
-  double w;
 
-  shape.SetSize(nd);
-  dshape.SetSize(nd, dim);
-  dshapedxt.SetSize(nd, spaceDim);
+  gradPsi.SetSize(nd, dim);
+  Psi.SetSize(nd);
   elmat.SetSize(nd);
 
   const mfem::IntegrationRule* ir =
@@ -274,31 +269,19 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementGrad(
   elmat = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcDShape(ip, dshape);  // dphi
-    const auto& u = elfun * shape;
-    // const auto& un = this->u_old_.GetValue(Tr, ip);
-
+    el.CalcShape(ip, Psi);
+    const auto& u = elfun * Psi;
     Tr.SetIntPoint(&ip);
-    w = Tr.Weight();  // det(J)
-    // std::cout << " SQUARE  ? " << square << std::endl;
-    w = ip.weight / (square ? w : w * w * w);
-    // AdjugateJacobian = / adj(J),         if J is square
-    //                    \ adj(J^t.J).J^t, otherwise
 
-    // Tr.AdjugateJacobian() det(J)J-1
+    // Laplacian : compute (grad(u), grad(psi)), psi is shape function.
+    const double coef_mob =
+        this->mobility(Tr, ip, u, this->mobility_params_) * ip.weight * Tr.Weight();
+    el.CalcPhysDShape(Tr, gradPsi);
+    AddMult_a_AAt(coef_mob * this->lambda_, gradPsi, elmat);
 
-    w *= this->mobility(Tr, ip, u, this->mobility_params_) * this->lambda_;
-
-    // dshapedxt =  det(J)J-1 dshape
-    Mult(dshape, Tr.AdjugateJacobian(), dshapedxt);
-    // elmat += w * dshapedxt * dshapedxt^T
-    AddMult_a_AAt(w, dshapedxt, elmat);
-
-    // Compute w'(u)*(du,v), v is shape function ( // w''(u))
-    double fun_val = this->mobility(Tr, ip, u, this->mobility_params_) *
-                     this->energy_derivatives(2, Tr, ip)(u) * ip.weight * Tr.Weight();
-    // elmat += fun_val * shape * shape^T
-    AddMult_a_VVt(fun_val, shape, elmat);  // w'(u)*(du, v)
+    // Compute w'(u)*(du,psi), psi is shape function ( // w''(u))
+    double fun_val = coef_mob * this->energy_derivatives(2, Tr, ip)(u);
+    AddMult_a_VVt(fun_val, Psi, elmat);  // w'(u)*(du, psi)
   }
 }
 
