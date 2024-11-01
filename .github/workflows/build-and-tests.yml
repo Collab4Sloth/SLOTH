@@ -8,7 +8,16 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        gcc_version: [11, 14]
+        exclude:
+          - os: ubuntu-22.04
+            gcc_version: 14  
+          - os: ubuntu-24.04
+            gcc_version: 11 
     steps:
     - uses: actions/checkout@v4
     - name: Set up Spack
@@ -20,15 +29,15 @@ jobs:
         path: ${{github.workspace}}/spack       # Where to clone Spack
 
 
-    - name: Install Packages
+    - name: Install MFEM
       run: |
-        spack install mfem+mpi+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist@4.7.0
+        spack install mfem+mpi+strumpack+suite-sparse+sundials+superlu-dist@4.7.0 %gcc@${{ matrix.gcc_version }}
 
-    - name: Build SLOTH [Optim]
+    - name: Build SLOTH [Release]
       run: | 
         mkdir build
         cd build
-        source ../envSloth.sh --optim
+        source ../envSloth.sh 
         make
 
   build-MacOS:
@@ -39,9 +48,9 @@ jobs:
     - name: Install Packages
       run: brew install mfem
 
-    - name: Build SLOTH [Optim]
+    - name: Build SLOTH [Release]
       run: | 
         mkdir build
         cd build
-        source ../envSloth.sh --optim
+        source ../envSloth.sh
         make
