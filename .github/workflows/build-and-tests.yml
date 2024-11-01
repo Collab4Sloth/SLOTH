@@ -9,6 +9,8 @@ on:
 jobs:
   build-linux:
     runs-on: ${{ matrix.os }}
+    env: 
+      CORES: $(nproc)
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
@@ -27,21 +29,21 @@ jobs:
         buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
-
-
     - name: Install MFEM
       run: |
-        spack install mfem+mpi+strumpack+suite-sparse+sundials+superlu-dist@4.7.0 %gcc@${{ matrix.gcc_version }}
+        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0 %gcc@${{ matrix.gcc_version }}
 
     - name: Build SLOTH [Release]
       run: | 
         mkdir build
         cd build
         source ../envSloth.sh 
-        make
+        make -j ${{env.CORES}}
 
   build-MacOS:
     runs-on: macos-latest
+    env: 
+      CORES: $(sysctl -n hw.ncpu)
     steps:
     - uses: actions/checkout@v4
 
@@ -53,4 +55,4 @@ jobs:
         mkdir build
         cd build
         source ../envSloth.sh
-        make
+        make -j ${{env.CORES}}
