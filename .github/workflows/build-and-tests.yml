@@ -1,4 +1,4 @@
-name: Build and Test SLOTH on UNIX 
+name: Build and Test SLOTH on Linux and MacOS
 
 on:
   push:
@@ -13,13 +13,14 @@ jobs:
       CORES: $(nproc)
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
-        gcc_version: [11, 14]
-        exclude:
-          - os: ubuntu-22.04
-            gcc_version: 14  
-          - os: ubuntu-24.04
-            gcc_version: 11 
+        os: [ubuntu-latest]
+        # os: [ubuntu-22.04, ubuntu-24.04]
+        # gcc_version: [11, 14]
+        # exclude:
+        #   - os: ubuntu-22.04
+        #     gcc_version: 14  
+        #   - os: ubuntu-24.04
+        #     gcc_version: 11 
     steps:
     - uses: actions/checkout@v4
     - name: Set up Spack
@@ -31,12 +32,12 @@ jobs:
         path: ${{github.workspace}}/spack       # Where to clone Spack
     - name: Install MFEM
       run: |
-        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0 %gcc@${{ matrix.gcc_version }}
+        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0 
 
-    - name: Build SLOTH [Release]
+    - name: Build SLOTH 
       run: | 
-        mkdir build
-        cd build
+        mkdir -p  ${{github.workspace}}/build
+        cd ${{github.workspace}}/build
         source ../envSloth.sh 
         make -j ${{env.CORES}}
 
@@ -47,12 +48,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install Packages
+    - name: Install MFEM
       run: brew install mfem
 
-    - name: Build SLOTH [Release]
+    - name: Build SLOTH 
       run: | 
-        mkdir build
-        cd build
+        mkdir -p  ${{github.workspace}}/build
+        cd ${{github.workspace}}/build
         source ../envSloth.sh
         make -j ${{env.CORES}}
+
+    - name: Test SLOTH 
+      run: | 
+        cd ${{github.workspace}}/build
+        ctest -j ${{env.CORES}}
+
+    - name: Code Coverage Analysis 
+      run: | 
+        cd ${{github.workspace}}/build
+        make cc
+
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage-report
+        path: ${{github.workspace}}/Coverage/coverage.html
+
