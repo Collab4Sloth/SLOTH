@@ -87,7 +87,7 @@ def plot_data(orders_dict):
                 print("Order " + str(order) + ", exponant coefficient = " +
                       str(slope) + ", proportional coefficient = " + str(intercept))
                 plt.plot(x_fit, np.exp(intercept)*x_fit**(slope),
-                         color=color[i], linestyle='--', label=f'{order} fit: $\propto h^{{{slope:.4f}}}$')
+                         color=color[i], linestyle='--', label=f'{order} fit: $\\propto h^{{{slope:.4f}}}$')
             except Exception as e:
                 print(f"Error fitting curve for {order}: {e}")
             i += 1
