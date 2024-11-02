@@ -127,6 +127,15 @@ jobs:
       run: | 
         cd ${{ github.workspace }}/build
         make cc
+    - name: Code Coverage Report
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      with:
+        filename: ${{ github.workspace }}/build/Coverage/coverage.xml
+        badge: true
+        hide_branch_rate: true
+        hide_complexity: true
+        indicators: true
+        output: both
 
     - name: Archive code coverage results
       if: ${{ always() }}
