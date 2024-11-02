@@ -31,6 +31,9 @@ jobs:
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
 
+    - name: Install mpich
+      run: sudo apt-get install mpich
+      
     - name: Install MFEM
       run: |
         spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
