@@ -5,8 +5,6 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-env:
-    VMFEM: 4.7
 jobs:
   build-linux:
     runs-on: ${{ matrix.os }}
@@ -33,7 +31,7 @@ jobs:
         path: ${{github.workspace}}/spack       # Where to clone Spack
     - name: Install MFEM
       run: |
-        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@${{env.VMFEM}} 
+        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
 
     - name: Build SLOTH 
       run: | 
@@ -94,8 +92,8 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install MFEM
-      run: brew install mfem@${{env.VMFEM}} 
-
+      run: brew install mfem
+      
     - name: Build SLOTH 
       run: | 
         mkdir -p ${{ github.workspace }}/build
