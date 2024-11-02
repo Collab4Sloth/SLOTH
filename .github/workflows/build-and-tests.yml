@@ -35,6 +35,7 @@ jobs:
         spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0 
 
     - name: Build SLOTH 
+      shell: spack-sh {0}   
       run: | 
         mkdir -p  ${{github.workspace}}/build
         cd ${{github.workspace}}/build
