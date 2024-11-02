@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "master" ]
 env:
-    VMFEM: 4.7.0
+    VMFEM: 4.7
 jobs:
   build-linux:
     runs-on: ${{ matrix.os }}
