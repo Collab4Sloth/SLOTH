@@ -22,6 +22,7 @@ jobs:
         #     gcc_version: 11 
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Spack
       uses: spack/setup-spack@v2
       with:
@@ -29,12 +30,13 @@ jobs:
         buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
+
     - name: Install MFEM
       run: |
         spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
 
     - name: Build SLOTH 
-      shell: spack-sh {0}    
+      shell: spack-bash {0}    
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
