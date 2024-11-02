@@ -51,7 +51,7 @@ jobs:
       run: brew install mfem
 
     - name: Call Build SLOTH Workflow
-      uses: Collab4Sloth/SLOTH/.github/workflows/sloth-compile-and-test.yml@${{ github.head_ref || github.ref_name }}
+      uses: Collab4Sloth/SLOTH/.github/workflows/sloth-compile-and-test.yml@master
       with:
         cores: ${{ env.CORES }}
         workspace: ${{ github.workspace }}
