@@ -34,11 +34,49 @@ jobs:
       run: |
         spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0 
 
-    - name: Call Build SLOTH Workflow
-      uses: ./.github/workflows/sloth-compile-and-test.yml
+        - name: Build SLOTH 
+        run: | 
+          mkdir -p ${{ github.workspace }}/build
+          cd ${{ github.workspace }}/build
+          bash ../envSloth.sh --coverage
+          make -j${{ env.CORES }}
+
+    - name: Setup Python 
+      uses: actions/setup-python@v5
       with:
-        cores: ${{ env.CORES }}
-        workspace: ${{ github.workspace }}
+        python-version: '3.10'
+
+    - name: Install Python dependencies 
+      run: python -m pip install --upgrade pip pandas numpy scipy
+
+    - name: Test SLOTH 
+      run: | 
+        cd ${{ github.workspace }}/build
+        ctest -j${{ env.CORES }}
+
+    - name: Archive test reports
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: ${{ github.workspace }}/build/tests
+        retention-days: 1
+
+    - name: Code Coverage Analysis 
+      if: ${{ always() }}
+      run: | 
+        cd ${{ github.workspace }}/build
+        make cc
+
+    - name: Archive code coverage results
+      if: ${{ success() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage-report
+        path: ${{ github.workspace }}/build/Coverage/coverage.html
+        retention-days: 1
+  
+
 
   build-MacOS:
     runs-on: macos-latest
@@ -50,9 +88,45 @@ jobs:
     - name: Install MFEM
       run: brew install mfem
 
-    - name: Call Build SLOTH Workflow
-      uses: Collab4Sloth/SLOTH/.github/workflows/sloth-compile-and-test.yml@master
-      with:
-        cores: ${{ env.CORES }}
-        workspace: ${{ github.workspace }}
+    - name: Build SLOTH 
+      run: | 
+        mkdir -p ${{ github.workspace }}/build
+        cd ${{ github.workspace }}/build
+        bash ../envSloth.sh --coverage
+        make -j${{ env.CORES }}
 
+    - name: Setup Python 
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Python dependencies 
+      run: python -m pip install --upgrade pip pandas numpy scipy
+
+    - name: Test SLOTH 
+      run: | 
+        cd ${{ github.workspace }}/build
+        ctest -j${{ env.CORES }}
+
+    - name: Archive test reports
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: ${{ github.workspace }}/build/tests
+        retention-days: 1
+
+    - name: Code Coverage Analysis 
+      if: ${{ always() }}
+      run: | 
+        cd ${{ github.workspace }}/build
+        make cc
+
+    - name: Archive code coverage results
+      if: ${{ success() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage-report
+        path: ${{ github.workspace }}/build/Coverage/coverage.html
+        retention-days: 1
+  
