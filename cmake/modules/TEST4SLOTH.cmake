@@ -1,14 +1,4 @@
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
-
-set(WARNINGS -Wall -Wextra -Wno-deprecated -Wparentheses -Wreturn-type -Wmissing-declarations -fmessage-length=0 -Wunused -Wfatal-errors -Wpointer-arith -Wcast-align -Wwrite-strings -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wfloat-equal -Wno-endif-labels -Wsign-compare -Wmissing-format-attribute -Wno-multichar -Wno-deprecated-declarations -Wpacked -Wredundant-decls -Wdisabled-optimization -Wunknown-pragmas -Wundef -Wreorder)
-set(DEBUG_OPTIONS -g -O0 -gdwarf-4 -ffpe-trap=invalid,zero,overflow,underflow -fcheck=all ${WARNINGS})
-
-set(OPTIM_OPTIONS -g -O2 ${WARNINGS})
-set(COVERAGE_OPTIONS -g -O0 --coverage)
-set(COVERAGE_LINK_OPTIONS --coverage)
 
 # COMPARISON test
 function(create_col_comparison test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label)
@@ -51,24 +41,6 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
   set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 
-  IF(CMAKE_BUILD_TYPE MATCHES Debug)
-    message("Debug build.")
-    target_compile_options(${CURRENT_EXE} PRIVATE ${DEBUG_OPTIONS})
-
-  ELSEIF(CMAKE_BUILD_TYPE MATCHES Optim)
-    message("Optim build.")
-    set_target_properties(${CURRENT_EXE} PROPERTIES COMPILE_FLAGS ${OPTIM_OPTIONS})
-
-  ELSEIF(CMAKE_BUILD_TYPE MATCHES Coverage)
-    message("Coverage build.")
-
-    target_compile_options(${CURRENT_EXE} PRIVATE ${COVERAGE_OPTIONS})
-    link_libraries(gcov)
-    set_target_properties(${CURRENT_EXE} PROPERTIES LINK_FLAGS ${COVERAGE_LINK_OPTIONS})
-
-  ELSE()
-    message("Default build : Release ")
-  ENDIF()
-
+  set_compile_options(${CURRENT_EXE})
   install(TARGETS ${CURRENT_EXE})
 endfunction(create_test)

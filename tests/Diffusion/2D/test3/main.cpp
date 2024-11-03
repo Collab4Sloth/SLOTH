@@ -13,20 +13,9 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <string>
 
-#include "BCs/BoundaryConditions.hpp"
-#include "Coefficients/EnergyCoefficient.hpp"
-#include "Couplings/Coupling.hpp"
-#include "Integrators/DiffusionNLFormIntegrator.hpp"
-#include "Operators/DiffusionOperator.hpp"
-#include "Parameters/Parameter.hpp"
-#include "Parameters/Parameters.hpp"
-#include "PostProcessing/postprocessing.hpp"
-#include "Spatial/Spatial.hpp"
-#include "Time/Time.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Variables/Variable.hpp"
-#include "Variables/Variables.hpp"
+#include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 ///---------------

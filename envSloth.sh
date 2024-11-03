@@ -25,7 +25,7 @@ fi
 #=============================================
 #=============================================
 DEPS_ALLOWED_OPTIONS=" --with-petsc "
-BUILD_ALLOWED_OPTIONS="  --coverage, --release, --debug"
+BUILD_ALLOWED_OPTIONS="  --coverage, --release, --optim, --debug"
 built_code="Release"
 clean_build="No"
 for argument; do
@@ -45,6 +45,10 @@ for argument; do
     --coverage)
         built_code="Coverage"
         Print "Sloth built with Coverage compiler options "
+        ;;
+    --optim)
+        built_code="Optim"
+        Print "Sloth built with Optim compiler options "
         ;;
     --clean)
         clean_build="Yes"
