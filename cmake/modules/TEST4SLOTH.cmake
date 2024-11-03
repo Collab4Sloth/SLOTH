@@ -47,7 +47,7 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
   add_executable(${CURRENT_EXE} main.cpp)
   target_link_libraries(${CURRENT_EXE} Sloth)
 
-  add_test(NAME ${test_name} COMMAND mpirun -np ${test_cpu} ${CURRENT_EXE})
+  add_test(NAME ${test_name} COMMAND mpirun -np ${test_cpu} ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE})
   set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 
