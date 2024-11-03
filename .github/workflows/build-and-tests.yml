@@ -55,6 +55,7 @@ jobs:
       run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy
 
     - name: Test SLOTH 
+      shell: spack-bash {0}    
       run: | 
         cd ${{ github.workspace }}/build
         ctest -j${{ env.CORES }} --output-on-failure
