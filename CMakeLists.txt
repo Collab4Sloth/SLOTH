@@ -5,6 +5,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
 
 # Check GCC version
@@ -51,6 +52,10 @@ endif(NOT TARGET doc)
 # ########################
 # # Test Configuration
 # ########################
+include(COMPILE4SLOTH)
+
+
+
 include(TEST4SLOTH)
 
 include(CTest)

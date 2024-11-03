@@ -10,6 +10,7 @@
  */
 #include <sys/resource.h>
 
+#include <iostream>
 #include <string>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]

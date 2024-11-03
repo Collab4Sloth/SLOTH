@@ -59,10 +59,12 @@ def find_and_read_csv(base_dir):
                         orders_dict[key].extend(data)
 
     # Trier les données pour chaque ordre par la première colonne (pi/n)
-    for key in orders_dict:
-        orders_dict[key] = sorted(orders_dict[key], key=lambda x: x[0])
+    sorted_orders_dict = {
+        key: sorted(orders_dict[key], key=lambda x: x[0])
+        for key in sorted(orders_dict, reverse=True)
+    }
 
-    return orders_dict
+    return sorted_orders_dict
 
 
 def plot_data(orders_dict):

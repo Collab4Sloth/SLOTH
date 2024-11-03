@@ -101,10 +101,24 @@ struct mmap : private std::vector<std::pair<const char* const, EType>> {
   EType find(const char* const, const std::string&);
 };
 
+/**
+ * @brief Construct a new mmap<E Type>::mmap object
+ *
+ * @tparam EType
+ * @param values
+ */
 template <typename EType>
 mmap<EType>::mmap(const std::initializer_list<typename mmap::mpair>& values)
     : std::vector<typename mmap::mpair>(values) {}
 
+/**
+ * @brief
+ *
+ * @tparam EType
+ * @param n
+ * @param v
+ * @return EType
+ */
 template <typename EType>
 EType mmap<EType>::find(const char* const n, const std::string& v) {
   const auto pe = this->end();

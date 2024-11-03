@@ -14,7 +14,7 @@
  */
 
 #pragma once
-#include <filesystem>
+#include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <memory>
 #include <string>
