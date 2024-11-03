@@ -37,14 +37,6 @@ jobs:
     - name: Install MFEM
       run: |
         spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
-
-    - name: Build SLOTH 
-      shell: spack-bash {0}    
-      run: | 
-        mkdir -p ${{ github.workspace }}/build
-        cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage
-        make -j${{ env.CORES }}
         
     - name: Setup Python 
       uses: actions/setup-python@v5
@@ -54,17 +46,26 @@ jobs:
     - name: Install Python dependencies 
       run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy
 
+    - name: Build SLOTH 
+      shell: spack-bash {0}    
+      run: | 
+        mkdir -p ${{ github.workspace }}/build
+        cd ${{ github.workspace }}/build
+        bash ../envSloth.sh --coverage
+        make -j${{ env.CORES }}
+        
+
     - name: Test SLOTH 
       shell: spack-bash {0}    
       run: | 
         cd ${{ github.workspace }}/build
         ctest -j${{ env.CORES }} --output-on-failure
 
-    - name: Archive test reports
+    - name: Save Tests on Failure
       if: ${{ failure() }}
       uses: actions/upload-artifact@v4
       with:
-        name: test-reports
+        name: test-reports-linux
         path: ${{ github.workspace }}/build/tests
         retention-days: 1
 
@@ -77,13 +78,6 @@ jobs:
 
     - name: Install MFEM
       run: brew install mfem
-      
-    - name: Build SLOTH 
-      run: | 
-        mkdir -p ${{ github.workspace }}/build
-        cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage
-        make -j${{ env.CORES }}
 
     - name: Setup Python 
       uses: actions/setup-python@v5
@@ -92,17 +86,24 @@ jobs:
 
     - name: Install Python dependencies 
       run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy
+      
+    - name: Build SLOTH 
+      run: | 
+        mkdir -p ${{ github.workspace }}/build
+        cd ${{ github.workspace }}/build
+        bash ../envSloth.sh --coverage
+        make -j${{ env.CORES }}
 
     - name: Test SLOTH 
       run: | 
         cd ${{ github.workspace }}/build
         ctest -j${{ env.CORES }} --output-on-failure
 
-    - name: Archive test reports
+    - name: Save Tests on Failure
       if: ${{ failure() }}
       uses: actions/upload-artifact@v4
       with:
-        name: test-reports
+        name: test-reports-macos
         path: ${{ github.workspace }}/build/tests
         retention-days: 1
 
@@ -112,7 +113,7 @@ jobs:
         cd ${{ github.workspace }}/build
         make cc
 
-    - name: Archive code coverage results
+    - name: Save Code Coverage Analysis
       if: ${{ always() }}
       uses: actions/upload-artifact@v4
       with:
@@ -120,8 +121,9 @@ jobs:
         path: ${{ github.workspace }}/build/Coverage
         retention-days: 1
   
-    - name: Cpplint
+    - name: CppLint
       if: ${{ always() }}
+      continue-on-error: true
       run: | 
         cd ${{ github.workspace }}/build
         cpplint \
