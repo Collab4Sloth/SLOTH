@@ -10,11 +10,11 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 def calculate_error(a, b, error_type):
     if error_type == 'relativeEpsilon':
         epsilon = 1.e-20
-        return abs((a - b) / max(a, b, epsilon))
+        return abs((b - a) / max(a, epsilon))
     elif error_type == 'relative':
-        return abs((a - b) / max(a, b))
+        return abs((b - a) / a)
     elif error_type == 'absolute':
-        return abs(a - b)
+        return abs(b - a)
     else:
         raise ValueError(
             "Error type must be either 'relative', 'relativeEpsilon', or 'absolute'")
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Increase output verbosity")
     parser.add_argument("-f", "--files", nargs=2,
-                        required=True, help="List of files to compare")
+                        required=True, help="List of files to compare : reference, prediction")
     parser.add_argument("-c", "--columns", nargs='*', type=int, required=True,
                         help="List of columns to compare (0-indexed, negative value for all)")
     parser.add_argument("-e", "--error", required=True, choices=['relative', 'relativeEpsilon', 'absolute'],
