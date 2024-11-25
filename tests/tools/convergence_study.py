@@ -7,7 +7,7 @@ import csv
 from argparse import ArgumentParser, RawTextHelpFormatter
 
 
-def find_and_read_csv(base_dir):
+def find_and_read_csv(base_dir, val):
     # Créer un dictionnaire pour stocker les données organisées par ordre
     orders_dict = {}
 
@@ -27,7 +27,7 @@ def find_and_read_csv(base_dir):
                     continue  # Ignorer si la partie n'est pas un entier valide
 
                 # Extraire la valeur de Nx
-                nx_part = parts[-1]  # 'Nx...'
+                nx_part = parts[3]  # 'Nx...'
                 try:
                     nx_value = int(nx_part.replace('Nx', ''))
                 except ValueError:
@@ -41,14 +41,21 @@ def find_and_read_csv(base_dir):
                     if df.shape[1] >= 4:  # Vérifier s'il y a au moins 4 colonnes
                         # Extraire la 4ème colonne
                         fourth_column = df.iloc[:, 3].tolist()
-
+                        third_column = df.iloc[:, 2].tolist()
+                        # Cherche l'index de la valeur pour laquelle on veut réaliser l'étude de convergence
+                        # Si la valeur n'est pas dans les pas de temps, on réalise l'étude au dernier pas de temps
+                        try:
+                            index_val = third_column.index(val)
+                        except ValueError: 
+                            index_val = -1                                  
+                            print("Convergence done for the last timestep")
                         # Calculer pi/n
                         pi_over_n = LL / nx_value
 
                         # Préparer les données sous forme de tableau
                         data = []
-                        # TODO ici on trace la dernière ligne du csv, faire en sorte que l'utilistaeur puisse choisir
-                        data.append([pi_over_n, fourth_column[-1]])
+                        # Trace l'erreur L2 pour la valeur de temps voulue (val)
+                        data.append([pi_over_n, fourth_column[index_val]])
 
                         # Ajouter les données au dictionnaire sous la clé 'order <ordre>'
                         key = f'order {order}'
@@ -108,11 +115,16 @@ if __name__ == "__main__":
                             formatter_class=RawTextHelpFormatter)
     parser.add_argument("-l", "--domainSize", type=float,
                          default=1., help="Domain Size")
+    parser.add_argument("-t", "--timeStep", type=float,
+                         default=-1, help="Time Step")
+
     args = parser.parse_args()
     LL = args.domainSize
+    val = args.timeStep
     # Remplacer './' par le chemin vers votre répertoire de base
     base_directory = './'
-    result = find_and_read_csv(base_directory)
+    result = find_and_read_csv(base_directory,val)
 
     # Tracer les données
     plot_data(result)
+
