@@ -4,7 +4,7 @@ TO DO
 
 
 ## Statement of the problem
-Test case from PFHUB (https://pages.nist.gov/pfhub/benchmarks/benchmark7.ipynb/)
+Test case from [PFHUB](https://pages.nist.gov/pfhub/benchmarks/benchmark7.ipynb/)
 
 
 ### __Governing equation__
@@ -35,7 +35,7 @@ $$
 
 
 ### __Parameters__
-cf. PFHUB
+cf. [PFHUB](https://pages.nist.gov/pfhub/benchmarks/benchmark7.ipynb/)
 
 
 ### __Numerical scheme__
@@ -70,17 +70,14 @@ make AllenCahn2Dtest6_coverage
 ```
 
 
-## Post-processing
-
-(to be written)
-
 ## Files & Dependencies
 
 Source file : `main.cpp`
 
 ## References
 
-PFHUB : https://pages.nist.gov/pfhub/benchmarks/benchmark7.ipynb/
+[ PFHub: The Phase Field Community Hub ](https://pages.nist.gov/pfhub/) 
+
 
 ## Intellectual Property
 
