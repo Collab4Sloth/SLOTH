@@ -8,65 +8,47 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 
 
 def find_and_read_csv(base_dir, val):
-    # Créer un dictionnaire pour stocker les données organisées par ordre
     orders_dict = {}
 
-    # Parcourir tous les dossiers dans le répertoire de base
-    for root, dirs, files in os.walk(base_dir):
-        # Vérifier si le dossier contient un fichier 'time_specialized.csv'
-        if 'Problem1' in root and 'time_specialized.csv' in files:
-            # Extraire la partie order et Nx du chemin du dossier
-            base_folder = os.path.basename(os.path.dirname(root))
+    for root, dirs, files in os.walk(base_dir):                                 # Loop through folders
+        if 'Problem1' in root and 'time_specialized.csv' in files:              
+            base_folder = os.path.basename(os.path.dirname(root))               # Extract informations : FE order and number of elements
             parts = base_folder.split('_')
-
-            # Assumer que le dossier est de la forme 'Saves_order_<order>_Nx<value>'
-            if len(parts) > 2 and parts[0] == 'Saves' and parts[1] == 'order':
+            if len(parts) > 2 and parts[0] == 'Saves' and parts[1] == 'order':  # Check if folder name is Saves_order_XX_Nx_YY_*
                 try:
-                    order = int(parts[2])  # Extraire l'ordre
+                    order = int(parts[2])                                       # Extract order
                 except ValueError:
-                    continue  # Ignorer si la partie n'est pas un entier valide
-
-                # Extraire la valeur de Nx
-                nx_part = parts[3]  # 'Nx...'
+                    continue  
+                nx_part = parts[3]                                              # Extract Nx and convert it to int
                 try:
                     nx_value = int(nx_part.replace('Nx', ''))
                 except ValueError:
-                    continue  # Ignorer si la partie n'est pas un entier valide
+                    continue 
 
-                # Définir le chemin vers 'time_specialized.csv' dans 'Problem1'
-                csv_path = os.path.join(root, 'time_specialized.csv')
+                csv_path = os.path.join(root, 'time_specialized.csv')           # Check if 'time_specialized.csv' exist
                 if os.path.isfile(csv_path):
-                    # Lire le fichier CSV
-                    df = pd.read_csv(csv_path)
-                    if df.shape[1] >= 4:  # Vérifier s'il y a au moins 4 colonnes
-                        # Extraire la 4ème colonne
-                        fourth_column = df.iloc[:, 3].tolist()
-                        third_column = df.iloc[:, 2].tolist()
-                        # Cherche l'index de la valeur pour laquelle on veut réaliser l'étude de convergence
-                        # Si la valeur n'est pas dans les pas de temps, on réalise l'étude au dernier pas de temps
+                    df = pd.read_csv(csv_path)                                  # Read the CSV
+                    if df.shape[1] >= 4:                                        # Check the validity of the file
+                        fourth_column = df.iloc[:, 3].tolist()                  # Extract 4th col : L2 error value
+                        third_column = df.iloc[:, 2].tolist()                   # Extract 3th col : time value
                         try:
-                            index_val = third_column.index(val)
-                        except ValueError: 
-                            index_val = -1                                  
+                            index_val = third_column.index(val)                 # Find index of time value in file
+                        except ValueError:  
+                            index_val = -1                                      # Last time step if value don't exist                                
                             print("Convergence done for the last timestep")
-                        # Calculer pi/n
+
                         pi_over_n = LL / nx_value
 
-                        # Préparer les données sous forme de tableau
                         data = []
-                        # Trace l'erreur L2 pour la valeur de temps voulue (val)
-                        data.append([pi_over_n, fourth_column[index_val]])
+                        data.append([pi_over_n, fourth_column[index_val]])      # create list of list : [elements size, L2_error at the wanted time]
 
-                        # Ajouter les données au dictionnaire sous la clé 'order <ordre>'
                         key = f'order {order}'
                         if key not in orders_dict:
                             orders_dict[key] = []
 
-                        # Ajouter les données au tableau
-                        orders_dict[key].extend(data)
+                        orders_dict[key].extend(data)                           # add list to a dictionnary for the specified order
 
-    # Trier les données pour chaque ordre par la première colonne (pi/n)
-    sorted_orders_dict = {
+    sorted_orders_dict = {                                                      # sort data
         key: sorted(orders_dict[key], key=lambda x: x[0])
         for key in sorted(orders_dict, reverse=True)
     }
@@ -88,11 +70,10 @@ def plot_data(orders_dict):
             print(color[i])
             plt.loglog(x_values, y_values, marker='.', markersize=12,
                        linestyle="none", color=color[i], label=f'{order}')
-            # Ajustement du modèle
             try:
                 x_fit = np.linspace(min(x_values), max(x_values), 100)
                 slope, intercept, r_value, p_value, std_err = linregress(
-                    np.log(x_values), np.log(y_values))
+                    np.log(x_values), np.log(y_values))                         # fit curve to find convergence order
                 print("Order " + str(order) + ", exponant coefficient = " +
                       str(slope) + ", proportional coefficient = " + str(intercept))
                 plt.plot(x_fit, np.exp(intercept)*x_fit**(slope),
@@ -106,7 +87,6 @@ def plot_data(orders_dict):
         plt.legend()
         plt.grid(True, which="both", ls="--")
         plt.savefig('convergence_output.png')
-        # plt.show()
         plt.close()
 
 
@@ -121,10 +101,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     LL = args.domainSize
     val = args.timeStep
-    # Remplacer './' par le chemin vers votre répertoire de base
     base_directory = './'
     result = find_and_read_csv(base_directory,val)
 
-    # Tracer les données
     plot_data(result)
 
