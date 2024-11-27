@@ -16,7 +16,7 @@ function(create_col_comparison test_name reference_file results_file cols criter
 endfunction() # COMPARISON test
 
 # COMPARISON test for convergence study
-function(create_col_comparison_convergence test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label domaine_size)
+function(create_col_comparison_convergence test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label domaine_size time_step_to_study)
   set(DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/ref_${test_name})
   file(GLOB_RECURSE REF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/ref/${reference_file})
   file(MAKE_DIRECTORY ${DEST_DIR})
@@ -24,7 +24,8 @@ function(create_col_comparison_convergence test_name reference_file results_file
   configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
   configure_file(${CMAKE_SOURCE_DIR}/tests/tools/col_compare.py ${CMAKE_CURRENT_BINARY_DIR}/col_compare.py COPYONLY)
 
-  add_test(NAME ${test_name} COMMAND bash -c "python3 convergence_study.py -l ${domaine_size} && python3 col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1" )
+	
+  add_test(NAME ${test_name} COMMAND bash -c "python3 convergence_study.py -l ${domaine_size} -t ${time_step_to_study} && python3 col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1" )
   set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES DEPENDS ${test_depend})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
