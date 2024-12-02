@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, TimeScheme::EulerExplicit);
+  OPE oper(&spatial, TimeScheme::EulerImplicit);
   oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
 
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   const auto& t_initial = 0.0;
   const auto& t_final = 0.1;  // 0.5;
-  const auto& dt = 0.001;
+  const auto& dt = 0.01;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
