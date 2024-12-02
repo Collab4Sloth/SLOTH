@@ -1,18 +1,20 @@
 /**
  * @file main.cpp
- * @author ci230846  (clement.introini@cea.fr)
- * @brief Diffusion problem solved in a square (similar to the test 16 in mfem.org page)
+ * @author cp273896  (clement.plumecocq@cea.fr)
+ * @brief Comparaison analytical and numerical solution
  * @version 0.1
- * @date 2024-06-06
+ * @date 2024-11-28
  *
  * Copyright CEA (c) 2024
  *
  */
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -34,8 +36,9 @@ int main(int argc, char* argv[]) {
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using NLFI = DiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Linear>;
+  const auto DIM = 1;
+  using NLFI =
+      ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
@@ -50,13 +53,15 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 2;
-  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 2, refinement_level, "star2D.msh",
-                                                   false);
+  auto refinement_level = 0;
+  double L = 1e-3;
+  int NN = 5;
+  SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", 1, refinement_level,
+                                                   std::make_tuple(NN, L));
   // ##############################
   //     Boundary conditions     //
   // // ##############################
-  auto boundaries = {Boundary("lower", 0, "Neumann", 0.)};
+  auto boundaries = {Boundary("left", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
   // ###########################################
@@ -67,30 +72,31 @@ int main(int argc, char* argv[]) {
   // ####################
   //     parameters    //
   // ####################
-  const auto& alpha(1.e-2);
-  const auto& kappa(0.5);
+  const auto& diffusionCoeff(1e-8);
   // ####################
   //     variables     //
   // ####################
+
   auto user_func =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
-        if (x.Norml2() < 0.5) {
-          return 1.0;
-        } else {
-          return 0.0;
-        }
+      std::function<double(const mfem::Vector&, double)>([L](const mfem::Vector& x, double time) {
+        const auto xx = x[0];
+        const auto epsilon = 1e-4;
+        auto func = 0.5 * (1 + std::tanh((xx - L / 2) / epsilon));
+        return func;
       });
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
+  auto analytical_solution = AnalyticalFunctions<DIM>(user_func);
 
-  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "c", 2, initial_condition));
+  auto vars = VAR(
+      Variable<FECollection, DIM>(&spatial, bcs, "c", 2, initial_condition, analytical_solution));
 
   // ###########################################
   // ###########################################
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-  const std::string& main_folder_path = "Saves";
+  const std::string& main_folder_path = "Saves_Nx_" + std::to_string(NN);
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
   std::string calculation_path = "Problem1";
@@ -104,8 +110,8 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, TimeScheme::EulerExplicit);
-  oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
+  OPE oper(&spatial, TimeScheme::EulerImplicit);
+  oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
 
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
@@ -121,8 +127,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.1;  // 0.5;
-  const auto& dt = 0.001;
+  const auto& t_final = 0.5;
+  const auto& dt = 0.1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
