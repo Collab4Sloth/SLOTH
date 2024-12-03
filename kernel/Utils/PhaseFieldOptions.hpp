@@ -347,7 +347,7 @@ enum class HeatCapacity { Constant, Linear };
 ////////////////////////
 //// Diffusion
 ///////////////////////
-enum class Diffusion { Constant, Linear };
+enum class Diffusion { Constant, Linear, Log };
 
 ////////////////////////
 //// Mobility
