@@ -32,10 +32,10 @@ template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  private:
   const Parameters diffusion_params_;
-  mfem::ParGridFunction u_old_;
+  mfem::ParGridFunction u_old_, mu_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   mfem::DenseMatrix gradPsi, gradPsiOld;
-  mfem::Vector Psi, gradU, gradUOld, elfunOld;
+  mfem::Vector Psi, gradU, gradUOld, gradmu, elfunOld;
 
   template <typename... Args>
   double diffusion(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
@@ -57,6 +57,8 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 
   virtual void AssembleElementGrad(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
                                    const mfem::Vector& elfun, mfem::DenseMatrix& elmat);
+  
+  void computeMu();
 
   std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
       mfem::ParGridFunction* gfu, const double diffu);
@@ -134,9 +136,28 @@ template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::ThermoDiffusionNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params,
     const std::vector<mfem::ParGridFunction>& aux_gf)
-    : u_old_(u_old), diffusion_params_(params), aux_gf_(aux_gf) {
+    : u_old_(u_old), diffusion_params_(params), aux_gf_(aux_gf), mu_(u_old) {
   // this->get_parameters(params);
 }
+
+/**
+ * @brief Residual part of the non linear problem
+ *
+ * @param el
+ * @param Tr
+ * @param elfun
+ * @param elvect
+ */
+
+template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::computeMu() {
+    for (int i = 0; i < this->u_old_.Size(); i++)
+    {
+      this->mu_[i] = std::log(std::max(this->u_old_[i],1e-10)) + 1;
+      this->mu_[i] = this->u_old_[i];
+    }
+    }
+
 
 /**
  * @brief Residual part of the non linear problem
@@ -161,33 +182,45 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
   this->gradU.SetSize(dim);
   this->gradUOld.SetSize(dim);
   elvect.SetSize(nd);
+  this->gradmu.SetSize(dim);
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
   elvect = 0.0;
-
+  this->computeMu();
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+    this->mu_.GetGradient(Tr,this->gradmu);
+
     el.CalcShape(ip, Psi);
     this->u_old_.GetElementDofValues(nElement, this->elfunOld);
     Tr.SetIntPoint(&ip);
 
     const auto& u = elfun * Psi;
 
+  
     el.CalcPhysDShape(Tr, this->gradPsi);  // Compute derivative of shape function
 
     this->gradPsi.MultTranspose(elfun, this->gradU);
-    this->gradPsi.MultTranspose(this->elfunOld, this->gradUOld);
+    this->gradPsi.MultTranspose(this->elfunOld, this->gradUOld);   // possible de passer par GetGradient pour pouvoir eviter de definir elfunUOld
 
-    // std::cout  << std::fixed << std::setprecision(15) << "Element n° = " << nElement << "
-    // var_u_old = " << this->u_old_.GetValue(Tr,ip) << "    vector_u_old * Psi  = "  << elfunOld *
-    // Psi  << "   u = " << u  << std::endl;
-
+    // std::cout  << std::fixed << std::setprecision(15) << "Element n° = " << nElement << " var_u_old = " << this->u_old_.GetValue(Tr,ip) << "    vector_u_old * Psi  = "  << elfunOld * Psi  << "   u = " << u  << std::endl;
+    // std::cout  << std::fixed << std::setprecision(15) << "Element n° = " << nElement << "     " <<  this->gradUOld[0] << "     " << this->gradU[0] << "   " << this->gradUOld[0] - this->gradU[0] <<  std::endl;
+    // std::cout << "  uold   " << this->u_old_ << std::endl;
+    // std::cout << "  mu   "<< this->mu_ << std::endl;
+    // std::cout << std::fixed << std::setprecision(15) << "   grad_mu" << gradmu[0] << "   gradUOld  " << this->gradUOld[0] << "   gradU  " << this->gradU[0] << std::endl;
     const double coeff_diffu =
         this->diffusion(Tr, ip, u, this->diffusion_params_) * ip.weight * Tr.Weight();
 
-    this->gradU -= this->gradUOld;
-    this->gradU *= coeff_diffu;
-    gradPsi.AddMult(this->gradU, elvect);
+    //this->gradU.Add(-1.0,this->gradUOld);
+    this->gradU *= 1e-8* ip.weight * Tr.Weight();
+    this->gradUOld *= 1e-8* ip.weight * Tr.Weight();
+    this->gradmu *= coeff_diffu;
+
+    std::cout << this->gradmu[0] << "   " << this->gradUOld[0] << "   " << this->gradU[0] << std::endl;
+    this->gradPsi.AddMult(this->gradU, elvect,1.0);
+    this->gradPsi.AddMult(this->gradUOld, elvect,-1.0);
+    this->gradPsi.AddMult(this->gradmu, elvect,1.0);
+    // this->gradPsi.AddMult(this->gradU, elvect,1.0);
   }
 }
 
