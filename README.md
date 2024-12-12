@@ -1,5 +1,12 @@
 SLOTH 
-=============
+=====
+
+# Some useful links
+
+- [Documentation](https://collab4sloth.github.io/Documentation/)
+- [Galery](https://github.com/Collab4Sloth/Gallery)
+- [Sloth project and Team members](https://collab4sloth.github.io/Documentation/About/index.html)
+- [Installation guidelines](https://collab4sloth.github.io/Documentation/Started/Installation/linux.html)
 
 # How To install Sloth with cmake and spack
 
