@@ -4,6 +4,8 @@ import numpy as np
 import os
 import xml.etree.ElementTree as ET
 from cycler import cycler
+import sys
+from scipy.interpolate import interp1d
 
 class SLOTHVisu:
 
@@ -28,8 +30,9 @@ class SLOTHVisu:
         self._figLabelSize = 10
         self._figLegendFontSize = 10
         self._problemName = "Problem1"
-        self._isNotebook = True
-        self.fig, self.ax = plt.subplots()
+        self.fig = ""
+        self.ax = ""
+        self._xlim = None
         plt.rc(
             "axes",
             prop_cycle=cycler(
@@ -46,9 +49,19 @@ class SLOTHVisu:
                 ]
             ),
         )
+        if "ipykernel" in sys.modules:
+            self._isNotebook = True
+        else:
+            self._isNotebook = False
+
+    def set_problemName(self, val):
+        self._problemName = val
 
     def set_figName(self, val):
         self._figName = val
+
+    def set_xlim(self, val):
+        self._xlim = val
 
     def set_figLegendFontSize(self, val):
         self._figLegendFontSize = val
@@ -167,8 +180,8 @@ class SLOTHVisu:
         folderWithDataToPlot = self.loopOnFolder()
         self.fig, self.ax = self.createPlot()
         for case in folderWithDataToPlot:
-            x, val = self.readPVTU(case + "/data.pvtu", "c")
-            self.ax.plot(x, val, "-o", label="c")
+            x, val = self.readPVTU(case + "/data.pvtu", self._field)
+            self.ax.plot(x, val, "-o", label= self._field)
             self.ax.legend()
         plt.show()
 
@@ -189,7 +202,6 @@ class SLOTHVisu:
 
                 timesteps.append(timestep)
                 PVTUFiles.append(file_name)
-
             return timesteps, PVTUFiles
 
         except Exception as e:
@@ -197,6 +209,7 @@ class SLOTHVisu:
             return [], []
 
     def createPlot(self):
+        self.fig, self.ax = plt.subplots()
         self.fig.set_size_inches(self._plotLength, self._plotHeight)
         self.ax.tick_params(axis="x", labelsize=self._figLabelSize)
         self.ax.tick_params(axis="y", labelsize=self._figLabelSize)
@@ -205,6 +218,8 @@ class SLOTHVisu:
         if self._figTitle != "":
             self.ax.set_title(self._figTitle, fontsize=self._figFontSize)
         self.ax.grid(True)
+        if self._xlim != None:
+            self.ax.set_xlim(self._xlim)
         
 
     def addDataToPlot(self, x, y, lab=""):
@@ -219,7 +234,7 @@ class SLOTHVisu:
 
     def finishPlot(self):
         self.ax.legend(fontsize=self._figLegendFontSize)
-        self.fig.savefig(self._figName + ".png")
+        self.fig.savefig(self._figName + ".png",bbox_inches='tight')
         if not(self._isNotebook):
             self.fig.show()
             plt.close(self.fig)       
@@ -229,7 +244,7 @@ class SLOTHVisu:
         self.createPlot()
         for i in range(0, len(ts), 1):
             if ts[i] in self._timestepsToPlot:
-                x, val = self.readPVTU(self._pathPVD + files[i], "c")
+                x, val = self.readPVTU(self._pathPVD + files[i], self._field)
                 self.addDataToPlot(x, val, "t=" + str(ts[i]) + "s")
         self.finishPlot()
 
@@ -238,7 +253,7 @@ class SLOTHVisu:
         for i in range(0, len(ts), 1):
             if ts[i] in self._timestepsToPlot:
                 self._xData[str(ts[i])], self._yData[str(ts[i])] = self.readPVTU(
-                    self._pathPVD + files[i], "c"
+                    self._pathPVD + files[i], self._field
                 )
         return (self._xData, self._yData)
     
@@ -247,14 +262,118 @@ class SLOTHVisu:
         self.createPlot()
         for i in range(0, len(ts), 1):
             if ts[i] in self._timestepsToPlot:
-                x, val = self.readPVTU(self._pathPVD + files[i], "c")
+                x, val = self.readPVTU(self._pathPVD + files[i], self._field)
                 self.addDataToPlot(x, val, "t=" + str(ts[i]) + "s")
                 lines = self.ax.get_lines()
                 color = lines[-1].get_color()
-                self.ax.plot(pos,[lambda_function(x_,ts[i]) for x_ in pos],color = color,linewidth = self._figLw, linestyle = "-")
+                self.ax.plot(pos,[lambda_function(x_,ts[i]) for x_ in pos],color = color, lw = self._figLw, ls = "-")
+        self.finishPlot()
+
+    
+    def plotWithTransformation(self,lambda_function):
+        ts, files = self.readPVD()
+        self.createPlot()
+        for i in range(0, len(ts), 1):
+            if ts[i] in self._timestepsToPlot:
+                x, val = self.readPVTU(self._pathPVD + files[i],self._field)
+                self.ax.plot(x,lambda_function(val), label = "t=" + str(ts[i]) + "s", lw = self._figLw, ls = self._figLs)
+        self.finishPlot()
+
+    def plotWithTransformationAndResize(self,lambda_function):
+        ts, files = self.readPVD()
+        self.createPlot()
+        x_plot = []
+        for i in range(0, len(ts), 1):
+            if ts[i] in self._timestepsToPlot:
+                x, val = self.readPVTU(self._pathPVD + files[i], self._field)
+                y_plot = lambda_function(val)
+                x_plot = x[:len(y_plot)]
+                self.ax.plot(x_plot, y_plot, label = "t=" + str(ts[i]) + "s", lw = self._figLw, ls = self._figLs)
+        self.finishPlot()
+
+    def plotErrorComparaison(self,xData1,yData1,xData2,yData2):
+        self.createPlot()
+        keys1 = [float(key) for key in xData1.keys()]
+        keys2 = [float(key) for key in xData2.keys()]
+        err = []
+        for i in range(0,len(keys1),1):
+            if keys1[i] in keys2:
+                err = abs((yData1[str(keys1[i])][:] - yData2[str(keys1[i])][:]) / yData1[str(keys1[i])][:])
+                self.ax.semilogy(xData1[str(keys1[i])], err, label = "t=" + str(keys1[i]) + "s", lw = self._figLw, ls = self._figLs)
+        self.finishPlot()
+    
+    def plotComparaison(self,xData1,yData1,xData2,yData2):
+        self.createPlot()
+        keys1 = [float(key) for key in xData1.keys()]
+        keys2 = [float(key) for key in xData2.keys()]
+        for i in range(0,len(keys1),1):
+            if keys1[i] in keys2:
+                self.ax.plot(xData1[str(keys1[i])], yData1[str(keys1[i])], label = "t=" + str(keys1[i]) + "s", lw = self._figLw, ls = "solid")
+                lines = self.ax.get_lines()
+                color = lines[-1].get_color()
+                self.ax.plot(xData2[str(keys1[i])], yData2[str(keys1[i])], label = "t=" + str(keys1[i]) + "s", lw = self._figLw, ls = "dashdot",color=color)
+        self.finishPlot()
+
+    def plotIsoValues(self, targetIso):
+        ts, files = self.readPVD()
+        self.createPlot()
+        ts_ = []
+        pos = []
+        for i in range(0, len(ts), 1):
+            if ts[i] in self._timestepsToPlot:
+                x, val = self.readPVTU(self._pathPVD + files[i], self._field)
+                f = interp1d(val, x, kind='linear', bounds_error=False, fill_value="extrapolate")
+                ts_.append(ts[i])
+                pos.append(f(targetIso))
+        self.addDataToPlot(ts_, pos)
+        self.finishPlot()
+
+    
+    def plotIsoValuesForMultipleSim(self,x_,y_,targetIso, label = 'None'):
+        self.createPlot()
+        if label == 'None':
+            label = ['' for i in range(len(x_))]
+        for i in range(len(x_)):
+            pos = []
+            time = []
+            for key in x_[i].keys():
+                f = interp1d(y_[i][key], x_[i][key], kind='linear', bounds_error=False, fill_value="extrapolate")
+                pos.append(float(f(targetIso)))
+                time.append(float(key))
+            self.addDataToPlot(time, pos, lab=label[i])
+        self.finishPlot()
+
+    def plotErrorIsoValues(self,x_ref,y_ref,x_,y_,targetIso, label = 'None'):
+        self.createPlot()
+        self.ax.semilogy([], [], label = '', lw = 0, ls = self._figLs)
+        if label == 'None':
+            label = ['' for i in range(len(x_))]
+        for i in range(len(x_)):
+            error = []
+            time = []
+            for key in x_[i].keys():
+                if (key in x_ref.keys() and float(key) !=0):
+                    f = interp1d(y_[i][key], x_[i][key], kind='linear', bounds_error=False, fill_value="extrapolate")
+                    f_ref = interp1d(y_ref[key], x_ref[key], kind='linear', bounds_error=False, fill_value="extrapolate")
+                    curr_error = abs(float(f(targetIso)) - float(f_ref(targetIso))) / abs(float(f_ref(targetIso)))
+                    error.append(curr_error)
+                    time.append(float(key))
+            self.ax.semilogy(time, error, label = label[i], lw = self._figLw, ls = self._figLs)
+            print(label[i] + "    " + str(error[-1]))
         self.finishPlot()
 
 
-
-
+    def plotMultipleData(self,x,y,ls = None):
+        if ls == None :
+            ls = ['-' for i in range(len(x))] 
+        self.createPlot()
+        for key in x[0].keys():
+            ts = float(key)
+            if ts in self._timestepsToPlot:
+                self.ax.plot(x[0][key], y[0][key], label = "t=" + key + "s", lw = self._figLw, ls = "solid")
+                lines = self.ax.get_lines()
+                color = lines[-1].get_color()
+                for i in range(len(x)):
+                    self.ax.plot(x[i][key], y[i][key], lw = self._figLw, ls = ls[i], color=color)
+        self.finishPlot()
 
