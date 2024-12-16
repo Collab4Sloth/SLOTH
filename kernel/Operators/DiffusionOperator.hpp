@@ -203,7 +203,7 @@ class SteadyDiffusionOperator final
  */
 template <class T, int DIM, class NLFI>
 void SteadyDiffusionOperator<T, DIM, NLFI>::set_default_properties() {
-  this->diffusion_params_ = Parameters(Parameter("D", 1.0));
+  this->diffusion_params_ = Parameters(Parameter("D", 1.0), Parameter("D_stab", 0.0));
 }
 
 /**
