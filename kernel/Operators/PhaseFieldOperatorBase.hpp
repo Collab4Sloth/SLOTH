@@ -55,6 +55,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
                                public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver *ode_solver_;
+  bool isExplicit_{false};
   void set_ODE_solver(const TimeScheme::value &ode_solver);
 
   VSolverType mass_solver_;
@@ -241,14 +242,17 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
       this->ode_solver_ = new mfem::ForwardEulerSolver;
+      this->isExplicit_ = false;
       break;
     }
     case TimeScheme::EulerImplicit: {
       this->ode_solver_ = new mfem::BackwardEulerSolver;
+      this->isExplicit_ = false;
       break;
     }
     case TimeScheme::RungeKutta4: {
       this->ode_solver_ = new mfem::SDIRK33Solver;
+      this->isExplicit_ = false;
       break;
     }
     default:
@@ -331,7 +335,11 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::build_mass_matrix(const mfem::Vector 
   ////////////////
   M = new mfem::ParBilinearForm(this->fespace_);
 
-  M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
+  if (!this->isExplicit_) {
+    M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
+  } else {
+    M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(*this->MassCoeff_)));
+  }
   M->Assemble(0);
   M->Finalize(0);
 
