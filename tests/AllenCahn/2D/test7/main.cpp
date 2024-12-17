@@ -36,13 +36,15 @@ int main(int argc, char* argv[]) {
   const auto DIM = 2;
   using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
+  using NLFI2 = DiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
   using VAR = Variables<FECollection, DIM>;
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE2 = DiffusionOperator<FECollection, DIM, NLFI2, Density::Constant>;
   using PB = Problem<OPE, VAR, PST>;
-  using PB1 = MPI_Problem<VAR, PST>;
+  using PB2 = Problem<OPE2, VAR, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -53,14 +55,15 @@ int main(int argc, char* argv[]) {
   // ##############################
   auto refinement_level = 0;
   int order = 1;
-  int NN = 16;
+  int NN = 20;
+  double L = 1.;
   SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
-      "InlineSquareWithQuadrangles", order, refinement_level, std::make_tuple(NN, NN, 1., 1.));
+      "InlineSquareWithQuadrangles", order, refinement_level, std::make_tuple(NN, NN, L, L));
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
   // ###########################################
@@ -72,7 +75,7 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //  Interface thickness
-  const auto& epsilon(5.e-4);
+  const auto& epsilon(1.);
   // Interfacial energy
   const auto& sigma(6.e-2);
   // Two-phase mobility
@@ -100,9 +103,20 @@ int main(int argc, char* argv[]) {
         }
       });
   auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
+  auto ex_func_solution =
+      std::function<double(const mfem::Vector&, double)>([&](const mfem::Vector& x, double time) {
+        double Lc = std::sqrt(4. * mob * time);
+        double exact = 0.5 + 0.5 * std::erf((x[0] - L * 0.5) / Lc);
 
-  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 1, initial_condition));
+        return exact;
+      });
+  auto exact_condition = AnalyticalFunctions<DIM>(ex_func_solution);
 
+  auto vars =
+      VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 1, initial_condition, exact_condition));
+
+  auto vars2 =
+      VAR(Variable<FECollection, DIM>(&spatial, bcs, "c", 1, initial_condition, exact_condition));
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -117,6 +131,11 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
+  std::string calculation_path2 = "Problem2";
+  auto p_pst2 =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path2),
+                 Parameter("frequency", frequency), Parameter("level_of_detail", level_of_detail));
   // ####################
   //     operators     //
   // ####################
@@ -130,8 +149,15 @@ int main(int argc, char* argv[]) {
   auto pst = PST(&spatial, p_pst);
   PB problem1(oper, vars, pst, convergence);
 
+  // Problem 2:
+
+  OPE2 oper2(&spatial, TimeScheme::EulerExplicit);
+  oper2.overload_diffusion(Parameters(Parameter("D", mob)));
+  auto pst2 = PST(&spatial, p_pst2);
+  PB2 problem2(oper2, vars2, pst2, convergence);
+
   // Coupling 1
-  auto cc = Coupling("AllenCahn Coupling", problem1);
+  auto cc = Coupling("AllenCahn + Diffusion", problem1, problem2);
 
   // ###########################################
   // ###########################################
@@ -139,14 +165,13 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 10.;
+  const auto& t_final = 1.;
   double c = 0.5;
   const auto& dt = c * (1 / (static_cast<double>(NN * NN))) / (4. * mob * order * order);
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
 
-  // time.get_tree();
   time.solve();
   //---------------------------------------
   // Profiling stop
