@@ -242,7 +242,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
       this->ode_solver_ = new mfem::ForwardEulerSolver;
-      this->isExplicit_ = false;
+      this->isExplicit_ = true;
       break;
     }
     case TimeScheme::EulerImplicit: {
@@ -257,7 +257,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
     }
     default:
       mfem::mfem_error(
-          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, Rungekutta4 are "
+          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4 are "
           "available");
       break;
   }
