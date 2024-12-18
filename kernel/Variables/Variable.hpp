@@ -7,6 +7,7 @@
  * \author ci230846
  * \date 19/01/2022
  */
+#include <algorithm>
 #include <any>
 #include <limits>
 #include <map>
