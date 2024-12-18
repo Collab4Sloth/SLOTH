@@ -295,10 +295,6 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt, const mfe
   mfem::ParGridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
-  // if (this->nlfi_ptr_ != nullptr) {
-  //   delete this->nlfi_ptr_;
-  // }
-  // NLFI *this->nlfi_ptr_  = set_this->nlfi_ptr_ (dt, u);
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u);
 
   N->AddDomainIntegrator(this->nlfi_ptr_);
@@ -322,10 +318,7 @@ void OperatorBase<T, DIM, NLFI>::SetNewtonAlgorithm(mfem::Operator *oper) {
   this->rhs_solver_ =
       new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_, this->solver_params_,
                    this->precond_, this->precond_params_, *oper);
-  // } else {
-  //   this->rhs_solver_ = new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_,
-  //                                    this->solver_params_, *oper);
-  // }
+
   this->newton_solver_ = this->rhs_solver_->get_nl_solver();
 }
 
@@ -375,21 +368,7 @@ void OperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_term,
   source_term.SetSize(this->fespace_->GetTrueVSize());
   RHSS->ParallelAssemble(source_term);
 
-  // source_term = *RHSS.get();
   source_term.SetSubVector(this->ess_tdof_list_, 0.);
-
-  // this->RHS = std::make_unique<mfem::ParLinearForm>(this->fespace_);
-  // mfem::FunctionCoefficient src(this->src_func_);
-
-  // src.SetTime(this->current_time_);
-  // this->RHS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
-  // this->RHS->Assemble();
-
-  // // BCs
-  // source_term.SetSize(this->fespace_->GetTrueVSize());
-  // this->RHS->ParallelAssemble(source_term);
-
-  // source_term.SetSubVector(this->ess_tdof_list_, 0.);
 }
 
 /**
@@ -506,8 +485,8 @@ std::vector<mfem::ParGridFunction> OperatorBase<T, DIM, NLFI>::get_auxiliary_gf(
   if (this->auxvariables_.size() > 0) {
     for (const auto &auxvar_vec : this->auxvariables_) {
       for (const auto &auxvar : auxvar_vec->getVariables()) {
-      auto gf = auxvar.get_gf();
-      aux_gf.emplace_back(gf);
+        auto gf = auxvar.get_gf();
+        aux_gf.emplace_back(gf);
       }
     }
   }
