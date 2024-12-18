@@ -554,6 +554,7 @@ VariableType::value Variable<T, DIM>::getVariableType() {
 
 /**
  * @brief Set the variable depth and initialize at the given initial condition
+ * @remark By default, 2 levels are considered. Not optimal in term of memory?
  *
  * @tparam T
  * @tparam DIM
@@ -561,7 +562,7 @@ VariableType::value Variable<T, DIM>::getVariableType() {
  */
 template <class T, int DIM>
 void Variable<T, DIM>::setVariableDepth(const int& depth) {
-  this->depth_ = depth;
+  this->depth_ = std::max(2, depth);
 
   for (auto id = 0; id < depth; id++) {
     this->map_of_unk_.insert(std::pair<int, mfem::Vector>(id, this->unk_));
