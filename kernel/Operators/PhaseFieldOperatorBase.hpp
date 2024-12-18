@@ -55,6 +55,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
                                public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver *ode_solver_;
+  bool isExplicit_{false};
   void set_ODE_solver(const TimeScheme::value &ode_solver);
 
   VSolverType mass_solver_;
@@ -75,7 +76,6 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
 
   // CCI
   //  mfem::SparseMatrix Mmat;
-
   mfem::HypreParMatrix *Mmat;
   // CCI
   void build_mass_matrix(const mfem::Vector &u);
@@ -109,6 +109,8 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   void overload_mass_solver(VSolverType SOLVER, const Parameters &s_params, VSolverType PRECOND,
                             const Parameters &p_params);
   void overload_mass_preconditioner(VSolverType PRECOND, const Parameters &p_params);
+
+  void SetExplicitTransientParameters(const mfem::Vector &un);
 
   // Virtual methods
   void set_default_properties() override = 0;
@@ -241,19 +243,22 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
       this->ode_solver_ = new mfem::ForwardEulerSolver;
+      this->isExplicit_ = true;
       break;
     }
     case TimeScheme::EulerImplicit: {
       this->ode_solver_ = new mfem::BackwardEulerSolver;
+      this->isExplicit_ = false;
       break;
     }
     case TimeScheme::RungeKutta4: {
       this->ode_solver_ = new mfem::SDIRK33Solver;
+      this->isExplicit_ = false;
       break;
     }
     default:
       mfem::mfem_error(
-          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, Rungekutta4 are "
+          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4 are "
           "available");
       break;
   }
@@ -296,7 +301,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(mfem::Vector &unk, double &next
                                                  const double &current_time,
                                                  double current_time_step, const int iter) {
   this->current_time_ = current_time;
-
   this->ode_solver_->Step(unk, next_time, current_time_step);
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -331,7 +335,11 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::build_mass_matrix(const mfem::Vector 
   ////////////////
   M = new mfem::ParBilinearForm(this->fespace_);
 
-  M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
+  if (!this->isExplicit_) {
+    M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
+  } else {
+    M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(*this->MassCoeff_)));
+  }
   M->Assemble(0);
   M->Finalize(0);
 
@@ -377,6 +385,28 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
   ////////////////////////////////////////////
   this->SetNewtonAlgorithm(reduced_oper);
 }
+/**
+ * @brief Compute the mass matrix and the non linear form with the solution at the previous time
+ * step
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ */
+template <class T, int DIM, class NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI>::SetExplicitTransientParameters(const mfem::Vector &un) {
+  Catch_Time_Section("PhaseFieldOperatorBase::SetExplicitTransientParameters");
+  ////////////////////////////////////////////
+  // Variable mass matrix
+  ////////////////////////////////////////////
+  if (!this->constant_mass_matrix_) {
+    this->build_mass_matrix(un);
+  }
+  ////////////////////////////////////////////
+  // PhaseField non linear form
+  ////////////////////////////////////////////
+  this->build_nonlinear_form(0., un);
+}
 
 /**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
@@ -409,6 +439,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
+
+  // Todo(cci) : try to do different because of not satisfying
+  const_cast<PhaseFieldOperatorBase<T, DIM, NLFI> *>(this)->SetExplicitTransientParameters(v);
 
   this->N->Mult(v, this->z);
 
