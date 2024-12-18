@@ -85,9 +85,8 @@ int main(int argc, char* argv[]) {
   const auto& mob(1.e-5);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params =
-      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                 Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
+  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
+                           Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
