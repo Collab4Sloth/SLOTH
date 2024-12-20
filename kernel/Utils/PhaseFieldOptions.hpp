@@ -199,21 +199,23 @@ enum class CoefficientDiscretization {
 };
 
 ///////////////////////////////////////////////////
-//////// SOLVER
+//////// CONVERGENCE
 ///////////////////////////////////////////////////
 struct ConvergenceType {
   enum value { RELATIVE_MAX, ABSOLUTE_MAX };
   static value from(const std::string&);
 };
 ///////////////////////////////////////////////////
-//////// SOLVER
+//////// SOLVERS
 ///////////////////////////////////////////////////
 enum class NLSolverType { NEWTON };
-enum class SolverType { BICGSTAB, GMRES, CG, MINRES, UMFPACK };
 enum class IterativeSolverType { BICGSTAB, GMRES, CG, MINRES };
 enum class DirectSolverType { UMFPACK };
 enum class HypreSolverType { HYPRE_PCG, HYPRE_GMRES, HYPRE_FGMRES };
 
+///////////////////////////////////////////////////
+//////// PRECONDITIONERS
+///////////////////////////////////////////////////
 enum class PreconditionerType { SMOOTHER, NO };
 enum class HyprePreconditionerType {
   HYPRE_ILU,
