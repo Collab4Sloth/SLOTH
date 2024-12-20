@@ -3,7 +3,7 @@ SLOTH
 
 Phase-field methods represent a versatile and effective approach to modelling the spatiotemporal evolution of complex physical systems that exhibit significant heterogeneities, such as phase transitions, coalescence, and cracking. These methods have found extensive application in the field of materials science, including in the modelling of the behaviour of nuclear fuels. 
 
-The phase-field approach has also been employed in recent studies conducted with the multiphysics computational tools of the PLEIADES platform. Broadly speaking, the `PLEIADES`/Fuel Performance Codes aim at providing a state-of-the-art multiphysics multiscale description of the fuel under irradiated conditions. The inclusion of an advanced multiphysics and multiscale modelling such as phase-field, is a logical step forward.
+The phase-field approach has also been employed in recent studies conducted with the multiphysics computational tools of the PLEIADES platform. Broadly speaking, the `PLEIADES`/Fuel Performance Codes aim at providing a state-of-the-art multiphysics multiscale description of the fuel under irradiated conditions. The inclusion of advanced multiphysics and multiscale modelling such as phase-field, is a logical step forward.
 Consequently, the CEA is developing **`SLOTH`**, a **multiphase-field multicomponent framework**, dedicated to the study of fuel behaviour at different scales of description, from nominal operating conditions to severe accident conditions. 
 
 `PLEIADES/SLOTH` is developed at CEA under LPGL license (Version 3). It is based on the the `MFEM` Finite Element library, which already includes the main features to have a robust, flexible and **massively parallel** implementation of the solution algorithms.
@@ -42,7 +42,7 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md). Main guidelines are:
     ---
     - [Alessandro Scapini (PhD 2024-2027)]()
     - [Clément Plumecocq (PhD 2023-2026)]()
-    - [Mouad Bakhkakh (Master 2024)]()
+    - [Mouad Bakhkhakh (Master 2024)]()
     - [Etienne Delobre (Master 2023)]()
 
 
