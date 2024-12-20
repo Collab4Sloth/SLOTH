@@ -97,9 +97,9 @@ template <class T, int DIM, class NLFI>
 SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
     SpatialDiscretization<T, DIM> const *spatial)
     : OperatorBase<T, DIM, NLFI>(spatial) {
-  this->overload_nl_solver(
-      NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
+  const Parameters nl_parameters =
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
+  this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
 }
 
 /**
@@ -115,9 +115,9 @@ template <class T, int DIM, class NLFI>
 SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
     SpatialDiscretization<T, DIM> const *spatial, AnalyticalFunctions<DIM> source_term_name)
     : OperatorBase<T, DIM, NLFI>(spatial, source_term_name) {
-  this->overload_nl_solver(
-      NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
+  const Parameters nl_parameters =
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
+  this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
 }
 
 /**
@@ -133,9 +133,9 @@ template <class T, int DIM, class NLFI>
 SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
     SpatialDiscretization<T, DIM> const *spatial, const Parameters &params)
     : OperatorBase<T, DIM, NLFI>(spatial, params) {
-  this->overload_nl_solver(
-      NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
+  const Parameters nl_parameters =
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
+  this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
 }
 
 /**
@@ -153,9 +153,9 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::SteadyPhaseFieldOperatorBase(
     SpatialDiscretization<T, DIM> const *spatial, const Parameters &params,
     AnalyticalFunctions<DIM> source_term_name)
     : OperatorBase<T, DIM, NLFI>(spatial, params, source_term_name) {
-  this->overload_nl_solver(
-      NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true)));
+  const Parameters nl_parameters =
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
+  this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
 }
 
 /**

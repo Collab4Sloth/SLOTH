@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
@@ -112,10 +113,13 @@ class OperatorBase : public mfem::Operator {
   std::string get_description() { return this->description_; }
 
   // User-defined Solvers
+  void overload_nl_solver(NLSolverType NLSOLVER);
   void overload_nl_solver(NLSolverType NLSOLVER, const Parameters &nl_params);
+
+  void overload_solver(VSolverType SOLVER);
   void overload_solver(VSolverType SOLVER, const Parameters &s_params);
-  void overload_solver(VSolverType SOLVER, const Parameters &s_params, VSolverType PRECOND,
-                       const Parameters &p_params);
+
+  void overload_preconditioner(VSolverType PRECOND);
   void overload_preconditioner(VSolverType PRECOND, const Parameters &p_params);
 
   // Virtual methods
@@ -409,7 +413,20 @@ void OperatorBase<T, DIM, NLFI>::set_default_solver() {
 }
 
 /**
- * @brief Overload the default options for the non linear algorithm
+ * @brief Overload  the non linear algorithm
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param NLSOLVER
+ */
+template <class T, int DIM, class NLFI>
+void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER) {
+  this->nl_solver_ = NLSOLVER;
+}
+
+/**
+ * @brief Overload  the non linear algorithm with Parameters
  *
  * @tparam T
  * @tparam DIM
@@ -421,11 +438,26 @@ template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER,
                                                     const Parameters &nl_params) {
   this->nl_solver_ = NLSOLVER;
+
   this->nl_solver_params_ = nl_params;
 }
 
 /**
- * @brief  Overload the default options for solvers
+ * @brief  Overload the default linear solver
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param SOLVER
+ * @param s_params
+ */
+template <class T, int DIM, class NLFI>
+void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER) {
+  this->solver_ = SOLVER;
+}
+
+/**
+ * @brief   Overload the default linear solver with parameters
  *
  * @tparam T
  * @tparam DIM
@@ -440,24 +472,20 @@ void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER, const Param
 }
 
 /**
- * @brief  Overload the default options for solvers with preconditionners
+ * @brief Overload the preconditioner
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
  * @param PRECOND
- * @param p_params
  */
 template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER, const Parameters &s_params,
-                                                 VSolverType PRECOND, const Parameters &p_params) {
-  this->overload_solver(SOLVER, s_params);
+void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND) {
   this->precond_ = PRECOND;
-  this->precond_params_ = p_params;
 }
 
 /**
- * @brief  Overload the default options for preconditionners
+ * @brief Overload the preconditioner with parameters
  *
  * @tparam T
  * @tparam DIM
@@ -469,6 +497,7 @@ template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
                                                          const Parameters &p_params) {
   this->precond_ = PRECOND;
+
   this->precond_params_ = p_params;
 }
 
