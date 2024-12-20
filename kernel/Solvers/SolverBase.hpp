@@ -22,6 +22,7 @@ template <class T, class S>
 class SolverBase {
  public:
   std::string solver_description_;
+
   virtual std::shared_ptr<T> create_solver(S SOLVER, const Parameters& params) = 0;
 
   virtual ~SolverBase() = default;

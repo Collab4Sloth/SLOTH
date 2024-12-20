@@ -51,29 +51,66 @@ class LSolver {
  */
 LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
                  const Parameters& p_params, mfem::Operator& ope) {
+  SlothInfo::debug("LSolver::LSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
 
+  pp = std::make_shared<SlothSolver>(PRECOND, p_params);
+  this->variant_precond_ = pp->get_value();
+
   std::visit(
-      [&ope, PRECOND, p_params, this](const auto& arg) {
+      [&ope, this](const auto& arg) {
         using TT = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<TT, mfem::IterativeSolver>) {
-          pp = std::make_shared<SlothSolver>(PRECOND, p_params);
-          this->variant_precond_ = pp->get_value();
+        if constexpr (is_in_variant_v<TT, VIterativeSolver>) {
           std::visit(
-              [&arg](auto&& prec) {
-                using PP = std::decay_t<decltype(arg)>;
+              [&](auto&& prec) {
+                using PP = std::decay_t<decltype(prec)>;
+
                 if constexpr (!std::is_same_v<PP, std::shared_ptr<std::monostate>>) {
-                  arg->SetPreconditioner(*prec);
+                  MFEM_VERIFY((is_in_variant_v<PP, VIterativePrecond>),
+                              "LSolver:: IterativeSolver objects  can only be associated with an "
+                              "IterativePreconditionner objects");
+                  if constexpr (is_in_variant_v<PP, VIterativePrecond>) {
+                    SlothInfo::debug("LSolver::LSolver setting iterative preconditionner");
+
+                    std::shared_ptr<mfem::Solver> aaPrec =
+                        std::dynamic_pointer_cast<mfem::Solver>(prec);
+                    arg->SetPreconditioner(*aaPrec);
+                  }
                 }
               },
               this->variant_precond_);
         }
+        if constexpr (is_in_variant_v<TT, VHypreSolver>) {
+          std::visit(
+              [&](auto&& prec) {
+                using PP = std::decay_t<decltype(prec)>;
+
+                if constexpr (!std::is_same_v<PP, std::shared_ptr<std::monostate>>) {
+                  MFEM_VERIFY((is_in_variant_v<PP, VHyprePrecond>),
+                              "LSolver:: HypreSolver objects  can only be associated with an "
+                              "HyprePreconditionner objects");
+
+                  if constexpr (is_in_variant_v<PP, VHyprePrecond>) {
+                    SlothInfo::debug(
+                        "LSolver::LSolver setting hypre preconditionner (not hypre smoother)");
+
+                    std::shared_ptr<mfem::HypreSolver> aaPrec =
+                        std::dynamic_pointer_cast<mfem::HypreSolver>(prec);
+                    arg->SetPreconditioner(*aaPrec);
+                  }
+                }
+              },
+              this->variant_precond_);
+        }
+
         if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
+          SlothInfo::debug("LSolver::LSolver setting operator ");
           arg->SetOperator(ope);
         }
       },
       this->variant_solver_);
+  SlothInfo::debug("LSolver::LSolver end");
 }
 
 /**
@@ -84,16 +121,20 @@ LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRE
  * @param ope
  */
 LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope) {
+  SlothInfo::debug("LSolver::LSolver start");
+
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
   std::visit(
       [&](auto&& arg) {
         using TT = std::decay_t<decltype(arg)>;
         if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
+          SlothInfo::debug("LSolver::LSolver setting operator ");
           arg->SetOperator(ope);
         }
       },
       this->variant_solver_);
+  SlothInfo::debug("LSolver::LSolver end");
 }
 
 /**
