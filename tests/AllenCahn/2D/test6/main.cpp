@@ -214,19 +214,6 @@ int main(int argc, char* argv[]) {
 
       OPE oper(&spatial, params, TimeScheme::EulerImplicit, src_term);
 
-      auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
-                                  Parameter("iterative_mode", false));
-      auto s_params =
-          Parameters(Parameter("description", "MINRES solver "), Parameter("print_level", 1));
-      auto p_params =
-          Parameters(Parameter("description", "Jacobi preconditionner"), Parameter("type", 1));
-
-      oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
-      oper.overload_solver(HypreSolverType::HYPRE_GMRES, s_params,
-                           HyprePreconditionerType::HYPRE_ILU, p_params);
-      oper.overload_mass_solver(HypreSolverType::HYPRE_GMRES, s_params,
-                                HyprePreconditionerType::HYPRE_ILU, p_params);
-
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
       auto pst = PST(&spatial, p_pst);
@@ -245,7 +232,6 @@ int main(int argc, char* argv[]) {
                                     Parameter("final_time", t_final), Parameter("time_step", dt));
       auto time = TimeDiscretization(time_params, cc);
 
-      // time.get_tree();
       time.solve();
       //---------------------------------------
       // Profiling stop

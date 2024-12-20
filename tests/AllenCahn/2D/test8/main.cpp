@@ -1,11 +1,11 @@
 /**
  * @file main.cpp
- * @author ci230846 (clement.introini@cea.fr)
- * @brief Allen-Cahn problem solved in a square
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief Allen-Cahn problem solved in a square : assessment of hypre solvers
  * @version 0.1
- * @date 2024-05-23
+ * @date 2024-12-18
  *
- * @copyright Copyright (c) 2024
+ * Copyright CEA (c) 2024
  *
  */
 #include <iostream>
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
   // Interfacial energy
   const auto& sigma(6.e-2);
   // Two-phase mobility
-  const auto& mob(1.e-5);
+  const auto& mob(1.e-4);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
   auto params =
@@ -108,53 +108,58 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
-  std::string calculation_path = "Problem1";
-  auto p_pst =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  // ####################
-  //     operators     //
-  // ####################
 
-  // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-  auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
+  std::vector<HypreSolverType> vect_solver{
+      HypreSolverType::HYPRE_FGMRES, HypreSolverType::HYPRE_GMRES, HypreSolverType::HYPRE_PCG};
+  std::vector<HyprePreconditionerType> vect_precond{HyprePreconditionerType::HYPRE_ILU,
+                                                    HyprePreconditionerType::HYPRE_BOOMER_AMG,
+                                                    HyprePreconditionerType::HYPRE_DIAG_SCALE};
 
-  auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [](const mfem::Vector& x, double time) { return 0.; });
+  int is = 0;
+  for (const auto& solver : vect_solver) {
+    int ip = 0;
+    for (const auto& precond : vect_precond) {
+      std::string calculation_path = "Problem_" + std::to_string(is) + "_" + std::to_string(ip);
+      auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
+                              Parameter("calculation_path", calculation_path),
+                              Parameter("frequency", frequency),
+                              Parameter("level_of_detail", level_of_detail));
+      // ####################
+      //     operators     //
+      // ####################
 
-  auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-  auto vars1 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "MPI rank", 2, initial_rank));
+      // Problem 1:
+      const auto crit_cvg_1 = 1.e-12;
+      OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+      oper.overload_mobility(Parameters(Parameter("mob", mob)));
+      oper.overload_solver(solver);
+      oper.overload_preconditioner(precond);
 
-  calculation_path = "ProblemMPI_";
-  auto p_pst1 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  auto pst1 = PST(&spatial, p_pst1);
-  PB1 problem2(vars1, pst1, convergence);
-  // Coupling 1
-  auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
+      PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
+      auto pst = PST(&spatial, p_pst);
+      PB problem1(oper, vars, pst, convergence);
 
-  // ###########################################
-  // ###########################################
-  //            Time-integration              //
-  // ###########################################
-  // ###########################################
-  const auto& t_initial = 0.0;
-  const auto& t_final = 1.;
-  const auto& dt = 0.25;
-  auto time_params = Parameters(Parameter("initial_time", t_initial),
-                                Parameter("final_time", t_final), Parameter("time_step", dt));
-  auto time = TimeDiscretization(time_params, cc);
+      // Coupling
+      auto cc = Coupling("AllenCahn with ", problem1);
 
-  // time.get_tree();
-  time.solve();
+      // ###########################################
+      // ###########################################
+      //            Time-integration              //
+      // ###########################################
+      // ###########################################
+      const auto& t_initial = 0.0;
+      const auto& t_final = 30.;
+      const auto& dt = 0.25;
+      auto time_params = Parameters(Parameter("initial_time", t_initial),
+                                    Parameter("final_time", t_final), Parameter("time_step", dt));
+      auto time = TimeDiscretization(time_params, cc);
+
+      time.solve();
+
+      ip++;
+    }
+    is++;
+  }
   //---------------------------------------
   // Profiling stop
   //---------------------------------------
