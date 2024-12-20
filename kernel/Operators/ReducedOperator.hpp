@@ -99,6 +99,7 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
+
   std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
 
   add(*unk_, dt_, k, z);
@@ -107,6 +108,7 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
   Jacobian = M_->ParallelAssemble(localJ.get());
 
   std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
+
   return *Jacobian;
 }
 
