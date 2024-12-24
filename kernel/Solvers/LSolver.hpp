@@ -155,7 +155,6 @@ struct SetPreconditioner
       SlothInfo::debug("LSolver::LSolver setting operator ");
       solv->SetOperator(this->op);
     }
-    SlothInfo::debug("Error, this couplue solv/preconditionner is not available");
   };
 };
 
