@@ -121,16 +121,8 @@ int main(int argc, char* argv[]) {
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
 
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
-                              Parameter("print_level", 1), Parameter("abs_tol", 1.e-8));
-  auto s_params = Parameters(Parameter("description", " solver "), Parameter("print_level", 0));
-  auto p_params = Parameters(Parameter("description", " preconditionner"), Parameter("type", 0));
 
-  oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
-  oper.overload_solver(HypreSolverType::HYPRE_GMRES, s_params, HyprePreconditionerType::HYPRE_ILU,
-                       p_params);
-  oper.overload_mass_solver(HypreSolverType::HYPRE_GMRES, s_params,
-                            HyprePreconditionerType::HYPRE_SMOOTHER, p_params);
+  SlothInfo::setVerbosity(Verbosity::Debug);
 
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   // ####################

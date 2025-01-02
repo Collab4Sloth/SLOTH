@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
@@ -105,9 +106,9 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   virtual ~PhaseFieldOperatorBase();
 
   // User-defined Solvers
+  void overload_mass_solver(VSolverType SOLVER);
   void overload_mass_solver(VSolverType SOLVER, const Parameters &s_params);
-  void overload_mass_solver(VSolverType SOLVER, const Parameters &s_params, VSolverType PRECOND,
-                            const Parameters &p_params);
+  void overload_mass_preconditioner(VSolverType PRECOND);
   void overload_mass_preconditioner(VSolverType PRECOND, const Parameters &p_params);
 
   void SetExplicitTransientParameters(const mfem::Vector &un);
@@ -481,9 +482,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
-  // // Solve the equation:
-  // //    du_dt = M^{-1}*[-K(u + dt*du_dt)]
-  // // for du_dt
 
   this->bcs_->SetBoundaryConditions(v);
   this->SetTransientParameters(dt, v);
@@ -511,7 +509,20 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
 }
 
 /**
- * @brief  Overload the default options for solver used to invert the mass matrix
+ * @brief Overload the solver used to invert the mass matrix
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param SOLVER
+ */
+template <class T, int DIM, class NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLVER) {
+  this->mass_solver_ = SOLVER;
+}
+
+/**
+ * @brief Overload the solver used to invert the mass matrix with its parameters
  *
  * @tparam T
  * @tparam DIM
@@ -527,28 +538,21 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLV
 }
 
 /**
- * @brief  Overload the default options for solver used to invert the mass matrix with
- * preconditionners
+ * @brief Overload the preconditioner for the solver used to invert the mass matrix
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
  * @param PRECOND
- * @param p_params
  */
 template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLVER,
-                                                                const Parameters &s_params,
-                                                                VSolverType PRECOND,
-                                                                const Parameters &p_params) {
-  this->overload_solver(SOLVER, s_params);
+void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(VSolverType PRECOND) {
   this->mass_precond_ = PRECOND;
-  this->mass_precond_params_ = p_params;
 }
 
 /**
- * @brief  Overload the default options for preconditionners associated with the solver used to
- * invert the mass matrix
+ * @brief Overload the preconditioner for the solver used to invert the mass matrix and its
+ * parameters
  *
  * @tparam T
  * @tparam DIM
@@ -572,8 +576,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::set_default_mass_solver() {
-  auto s_params = Parameters(Parameter("description", "CG Solver"));
-  auto p_params = Parameters(Parameter("description", "HYPRE_SMOOTHER preconditioner"));
+  auto s_params = Parameters(Parameter("description", "Default CG Solver"));
+  auto p_params = Parameters(Parameter("description", "Default HYPRE_SMOOTHER preconditioner"));
 
   this->mass_solver_ = IterativeSolverType::CG;
   this->mass_solver_params_ = s_params;

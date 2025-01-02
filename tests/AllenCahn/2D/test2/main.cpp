@@ -124,18 +124,6 @@ int main(int argc, char* argv[]) {
   const auto crit_cvg_1 = 1.e-12;
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  auto nl_params =
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", false));
-  auto s_params =
-      Parameters(Parameter("description", "MINRES solver "), Parameter("print_level", -1));
-  auto p_params =
-      Parameters(Parameter("description", "Jacobi preconditionner"), Parameter("type", 1));
-
-  oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
-  oper.overload_solver(HypreSolverType::HYPRE_GMRES, s_params, HyprePreconditionerType::HYPRE_ILU,
-                       p_params);
-  oper.overload_mass_solver(HypreSolverType::HYPRE_GMRES, s_params,
-                            HyprePreconditionerType::HYPRE_ILU, p_params);
 
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 

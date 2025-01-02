@@ -36,8 +36,10 @@ class Parameters {
   T get_param_value(const std::string& name) const;
   std::vector<Parameter> get_vector() const;
   int get_size() const;
+
   /**
-   * @brief Add two parameters
+   * @brief Add two Parameters with a priority given to the second Parameters to overwrite
+   * Parameter objets in the first Parameters if already exist.
    *
    * @param params
    * @return Parameters
@@ -46,23 +48,51 @@ class Parameters {
     auto initial_vect = this->get_vector();
     auto add_vect = params.get_vector();
     std::vector<Parameter> sum;
-    if (initial_vect.size() > 0) {
+    if (!std::empty(initial_vect)) {
       sum.insert(sum.begin(), initial_vect.begin(), initial_vect.end());
     }
-    if (add_vect.size() > 0) {
-      sum.insert(sum.end(), add_vect.begin(), add_vect.end());
+    if (!std::empty(add_vect)) {
+      for (const auto& add_param : add_vect) {
+        sum.erase(std::remove_if(
+                      sum.begin(), sum.end(),
+                      [&add_param](const auto& v) { return v.get_name() == add_param.get_name(); }),
+                  sum.end());
+        sum.emplace_back(add_param);
+      }
     }
     return Parameters(sum);
   }
   /**
-   * @brief Add a parameter inside a Parameters
+   * @brief Add a parameter inside a Parameters. If param already exists, the given parameters
+   * overwrites the existing one.
    *
    * @param param
    * @return Parameters
    */
   Parameters operator+(const Parameter& param) const {
     auto initial_vect = this->get_vector();
+    // Remove a parameter inside a Parameters if exists
+    initial_vect.erase(
+        std::remove_if(initial_vect.begin(), initial_vect.end(),
+                       [&param](const auto& v) { return v.get_name() == param.get_name(); }),
+        initial_vect.end());
+
     initial_vect.emplace_back(param);
+
+    return Parameters(initial_vect);
+  }
+  /**
+   * @brief Remove a parameter inside a Parameters if exists
+   *
+   * @param param
+   * @return Parameters
+   */
+  Parameters operator-(const Parameter& param) const {
+    auto initial_vect = this->get_vector();
+    initial_vect.erase(
+        std::remove_if(initial_vect.begin(), initial_vect.end(),
+                       [&param](const auto& v) { return v.get_name() == param.get_name(); }),
+        initial_vect.end());
 
     return Parameters(initial_vect);
   }

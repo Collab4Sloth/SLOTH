@@ -45,6 +45,7 @@ std::shared_ptr<mfem::DSmoother> PrecondDSmoother::create_solver(PreconditionerT
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   const int type = params.get_param_value_or_default<int>("type", 1);
   const double scale = params.get_param_value_or_default<double>("scale", 1.);

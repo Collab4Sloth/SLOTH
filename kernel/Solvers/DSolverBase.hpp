@@ -45,6 +45,7 @@ std::shared_ptr<mfem::UMFPackSolver> SolverUMFPACK::create_solver(DirectSolverTy
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   const int print_level =
       params.get_param_value_or_default<int>("print_level", UMFPACK_DefaultConstant::print_level);

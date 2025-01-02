@@ -24,27 +24,32 @@ class SlothInfo {
 
   template <typename... Args>
   static void debug(Args... args) {
-    if (Verbosity::Debug <= verbosityLevel) {
+    int rank = mfem::Mpi::WorldRank();
+
+    if (Verbosity::Debug <= verbosityLevel && rank == 0) {
       (std::cout << ... << args) << "\n";
     }
   }
   template <typename... Args>
   static void error(Args... args) {
-    if (Verbosity::Error <= verbosityLevel) {
+    int rank = mfem::Mpi::WorldRank();
+    if (Verbosity::Error <= verbosityLevel && rank == 0) {
       (std::cout << ... << args) << "\n";
     }
   }
 
   template <typename... Args>
   static void verbose(Args... args) {
-    if (Verbosity::Verbose <= verbosityLevel) {
+    int rank = mfem::Mpi::WorldRank();
+    if (Verbosity::Verbose <= verbosityLevel && rank == 0) {
       (std::cout << ... << args) << "\n";
     }
   }
 
   template <typename... Args>
   static void print(Args... args) {
-    if (Verbosity::Normal <= verbosityLevel) {
+    int rank = mfem::Mpi::WorldRank();
+    if (Verbosity::Normal <= verbosityLevel && rank == 0) {
       (std::cout << ... << args) << "\n";
     }
   }
@@ -53,7 +58,7 @@ class SlothInfo {
   static Verbosity verbosityLevel;
 };
 
-Verbosity SlothInfo::verbosityLevel = Verbosity::Verbose;
+Verbosity SlothInfo::verbosityLevel = Verbosity::Quiet;
 
 /**
  * @brief

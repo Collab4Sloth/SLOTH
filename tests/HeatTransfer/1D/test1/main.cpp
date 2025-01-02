@@ -122,19 +122,10 @@ int main(int argc, char* argv[]) {
   oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));
 
-  oper2.overload_nl_solver(NLSolverType::NEWTON,
-                           Parameters(Parameter("description", "Newton solver "),
-                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-6)));
-  oper2.overload_solver(
-      DirectSolverType::UMFPACK,
-      Parameters(Parameter("description", "Linear solver "), Parameter("print_level", 1)),
-      PreconditionerType::SMOOTHER,
-      Parameters(Parameter("description", "Linear preconditionner"), Parameter("type", 1)));
-  oper2.overload_mass_solver(
-      IterativeSolverType::CG,
-      Parameters(Parameter("description", "Mass matrix solver "), Parameter("print_level", 1)),
-      PreconditionerType::SMOOTHER,
-      Parameters(Parameter("description", "Mass matrix preconditionner"), Parameter("type", 1)));
+  Parameters nl_params = Parameters(Parameter("description", "Newton solver "),
+                                    Parameter("print_level", 1), Parameter("abs_tol", 1.e-6));
+
+  oper2.overload_nl_solver(NLSolverType::NEWTON, nl_params);
   PB2 Heat_pb("Heat", oper2, heat_vars, pst2, convergence);
 
   // MPI_Problem<VAR, PST> mpi(vars3, pst3, convergence);

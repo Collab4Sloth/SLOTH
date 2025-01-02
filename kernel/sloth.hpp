@@ -64,5 +64,6 @@
 #include "Utils/PhaseFieldConstants.hpp"
 #include "Utils/PhaseFieldOptions.hpp"
 #include "Utils/UtilsForDebug.hpp"
+#include "Utils/UtilsForVariants.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"

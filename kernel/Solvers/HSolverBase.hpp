@@ -46,6 +46,7 @@ std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(HypreSolverType SO
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   auto ss = std::make_shared<mfem::HyprePCG>(MPI_COMM_WORLD);
   return ss;
@@ -86,7 +87,7 @@ std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverTyp
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
-
+  SlothInfo::debug(" Create ", this->get_description());
   auto ss = std::make_shared<mfem::HypreGMRES>(MPI_COMM_WORLD);
   return ss;
 }
@@ -126,6 +127,7 @@ std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverT
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   auto ss = std::make_shared<mfem::HypreFGMRES>(MPI_COMM_WORLD);
   return ss;

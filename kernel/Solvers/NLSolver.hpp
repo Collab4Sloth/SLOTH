@@ -9,6 +9,8 @@
  *
  */
 #include <memory>
+#include <type_traits>
+#include <variant>
 
 #include "Solvers/DSolverBase.hpp"
 #include "Solvers/IPrecondBase.hpp"
@@ -59,57 +61,37 @@ NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverTy
                    const Parameters& s_params, VSolverType PRECOND, const Parameters& p_params,
                    mfem::Operator& ope)
     : nl_solver_(NLSolverBase_.create_solver(NLSOLVER, nl_params)) {
+  SlothInfo::debug("NLSolver::NLSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
 
   pp = std::make_shared<SlothSolver>(PRECOND, p_params);
   this->variant_precond_ = pp->get_value();
-  std::visit(
-      [this](auto&& arg) {
-        using TT = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<TT, mfem::IterativeSolver> &&
-                      !std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-          std::visit(
-              [&](auto&& prec) {
-                using PP = std::decay_t<decltype(arg)>;
-                if constexpr (!std::is_same_v<PP, std::shared_ptr<std::monostate>>) {
-                  arg->SetPreconditioner(*prec);
-                }
-              },
-              this->variant_precond_);
-        }
-      },
-      this->variant_solver_);
 
-  this->nl_solver_->SetOperator(ope);
-
-  std::visit(
-      [this](auto&& arg) {
-        using TT = std::decay_t<decltype(arg)>;
-        if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-          auto solver = arg.get();
-          this->nl_solver_->SetSolver(*solver);
-        }
-      },
-      this->variant_solver_);
+  SetPrecondNLSolver func_prec = {ope, nl_solver_};
+  std::visit(func_prec, this->variant_solver_, this->variant_precond_);
 }
 
+/**
+ * @brief Construct a new NLSolver::NLSolver object
+ *
+ * @param NLSOLVER
+ * @param nl_params
+ * @param SOLVER
+ * @param s_params
+ * @param ope
+ */
 NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
                    const Parameters& s_params, mfem::Operator& ope)
     : nl_solver_(NLSolverBase_.create_solver(NLSOLVER, nl_params)) {
+  SlothInfo::debug("NLSolver::NLSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
-  this->nl_solver_->SetOperator(ope);
 
-  std::visit(
-      [&](auto&& arg) {
-        using TT = std::decay_t<decltype(arg)>;
-        if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-          auto solver = arg.get();
-          this->nl_solver_->SetSolver(*solver);
-        }
-      },
-      this->variant_solver_);
+  this->variant_precond_ = std::make_shared<std::monostate>();
+
+  SetPrecondNLSolver func_prec = {ope, nl_solver_};
+  std::visit(func_prec, this->variant_solver_, this->variant_precond_);
 }
 
 /**
