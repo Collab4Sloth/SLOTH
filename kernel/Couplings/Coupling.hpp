@@ -30,9 +30,9 @@ class Coupling {
 
   void get_tree();
   void initialize(const int& iter, const double& initial_time);
-  std::vector<std::tuple<bool, double, mfem::Vector>> execute(const int& iter, double& next_time,
-                                                              const double& current_time,
-                                                              const double& current_time_step);
+  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> execute(
+      const int& iter, double& next_time, const double& current_time,
+      const double& current_time_step);
   void post_execute(const int& iter, const double& current_time, const double& current_time_step);
   void update();
   void post_processing(const int& iter, const double& current_time,
@@ -101,7 +101,7 @@ void Coupling<Args...>::initialize(const int& iter, const double& initial_time) 
  * @return std::vector<std::tuple<bool, double, mfem::Vector>>
  */
 template <class... Args>
-std::vector<std::tuple<bool, double, mfem::Vector>> Coupling<Args...>::execute(
+std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> Coupling<Args...>::execute(
     const int& iter, double& next_time, const double& current_time,
     const double& current_time_step) {
   int rank = mfem::Mpi::WorldRank();
@@ -111,7 +111,7 @@ std::vector<std::tuple<bool, double, mfem::Vector>> Coupling<Args...>::execute(
     SlothInfo::verbose(" ============================== ");
   }
 
-  std::vector<std::tuple<bool, double, mfem::Vector>> results;
+  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> results;
   std::apply(
       [iter, &next_time, current_time, current_time_step, &results](auto&... problem) {
         double pp_next_time = current_time;

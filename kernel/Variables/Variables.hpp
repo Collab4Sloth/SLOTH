@@ -8,14 +8,15 @@
  * \date 28/03/2023
  */
 #include <any>
+#include <functional>
 #include <limits>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
+
 #include "Variables/Variable.hpp"
 #pragma once
-
 
 /**
  * @brief Class used to manage a list of Variable
@@ -35,6 +36,7 @@ class Variables {
 
   void add(Variable<T, DIM> var);
   std::vector<Variable<T, DIM>> getVariables() const;
+  size_t get_variables_number() const;
   Variable<T, DIM>& getIVariable(const int& i);
   Variable<T, DIM>& get_variable(const std::string& name);
   std::map<std::string, mfem::ParGridFunction> get_map_gridfunction() const;
@@ -79,6 +81,18 @@ void Variables<T, DIM>::add(Variable<T, DIM> var) {
 template <class T, int DIM>
 std::vector<Variable<T, DIM>> Variables<T, DIM>::getVariables() const {
   return this->vect_variables_;
+}
+
+/**
+ * @brief Return the number of variables
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return size_t
+ */
+template <class T, int DIM>
+size_t Variables<T, DIM>::get_variables_number() const {
+  return this->vect_variables_.size();
 }
 
 /**
