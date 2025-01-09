@@ -10,6 +10,7 @@
  */
 #include <memory>
 
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Solvers/DSolverBase.hpp"
@@ -17,9 +18,7 @@
 #include "Solvers/HSolverBase.hpp"
 #include "Solvers/IPrecondBase.hpp"
 #include "Solvers/ISolverBase.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForVariants.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once

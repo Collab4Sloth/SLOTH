@@ -15,7 +15,7 @@
 
 #include "BCs/Boundary.hpp"
 #include "Spatial/Spatial.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
@@ -95,7 +95,7 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
     for (const auto &bdr : bdrs) {
       const auto &id = bdr.get_boundary_index();
       // Check index value
-      if (id >= mesh_max_bdr_attributes) {
+      if (id >= static_cast<int>(mesh_max_bdr_attributes)) {
         std::string msg = "BoundaryConditions::BoundaryConditions(): bad index " +
                           std::to_string(id) + ". Index should be lower than " +
                           std::to_string(mesh_max_bdr_attributes);

@@ -12,13 +12,13 @@
 #include <type_traits>
 #include <variant>
 
+#include "Options/Options.hpp"
 #include "Solvers/DSolverBase.hpp"
 #include "Solvers/IPrecondBase.hpp"
 #include "Solvers/ISolverBase.hpp"
 #include "Solvers/NLSolverBase.hpp"
 #include "Solvers/SlothSolver.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once

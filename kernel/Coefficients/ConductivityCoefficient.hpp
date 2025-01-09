@@ -14,9 +14,9 @@
 #include <vector>
 
 #include "Coefficients/ConductivityFunctions.hpp"
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 

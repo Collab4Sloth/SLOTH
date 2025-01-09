@@ -12,9 +12,9 @@
 #include <memory>
 #include <string>
 
+#include "Options/Options.hpp"
 #include "Solvers/SolverBase.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
@@ -151,7 +151,7 @@ class PrecondHypreDiagScale : public SolverBase<mfem::HypreDiagScale, HyprePreco
  *
  * @param PRECOND
  * @param params
- * @return std::shared_ptr<mfem::Solver>
+ * @return std::shared_ptr<mfem::HypreDiagScale>
  */
 std::shared_ptr<mfem::HypreDiagScale> PrecondHypreDiagScale::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
