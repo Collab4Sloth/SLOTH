@@ -7,7 +7,7 @@
  *
  * Copyright CEA (c) 2024
  *
- */
+*/
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
@@ -41,6 +41,7 @@
 #include "Operators/ReducedOperator.hpp"
 #include "Operators/SteadyPhaseFieldOperatorBase.hpp"
 #include "Options/AnalyticalFunctionOptions.hpp"
+#include "Options/CalphadOptions.hpp"
 #include "Options/DiffusionOptions.hpp"
 #include "Options/Options.hpp"
 #include "Options/PhaseFieldOptions.hpp"
@@ -53,6 +54,7 @@
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "PostProcessing/postprocessing.hpp"
+#include "Problems/Calphad_problem.hpp"
 #include "Problems/MPIProblem.hpp"
 #include "Problems/Problem.hpp"
 #include "Problems/ProblemBase.hpp"
