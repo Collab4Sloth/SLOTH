@@ -14,10 +14,10 @@
 #include <string>
 #include <vector>
 
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 
 template <int ORDER>
 struct density_function {};

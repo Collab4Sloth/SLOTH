@@ -17,7 +17,7 @@
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
@@ -134,7 +134,7 @@ template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params,
     const std::vector<mfem::ParGridFunction>& aux_gf)
-    : u_old_(u_old), diffusion_params_(params), aux_gf_(aux_gf) {
+    : diffusion_params_(params), u_old_(u_old), aux_gf_(aux_gf) {
   // this->get_parameters(params);
 }
 

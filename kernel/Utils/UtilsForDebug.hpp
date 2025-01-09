@@ -9,56 +9,17 @@
  *
  */
 #include <sys/resource.h>
+#include <unistd.h>
 
+#include <cstdio>
+#include <fstream>
+#include <functional>
 #include <iostream>
 #include <string>
+#include <utility>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
-
-enum class Verbosity { Quiet, Normal, Verbose, Debug, Error };
-
-class SlothInfo {
- public:
-  static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
-
-  template <typename... Args>
-  static void debug(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
-
-    if (Verbosity::Debug <= verbosityLevel && rank == 0) {
-      (std::cout << ... << args) << "\n";
-    }
-  }
-  template <typename... Args>
-  static void error(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
-    if (Verbosity::Error <= verbosityLevel && rank == 0) {
-      (std::cout << ... << args) << "\n";
-    }
-  }
-
-  template <typename... Args>
-  static void verbose(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
-    if (Verbosity::Verbose <= verbosityLevel && rank == 0) {
-      (std::cout << ... << args) << "\n";
-    }
-  }
-
-  template <typename... Args>
-  static void print(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
-    if (Verbosity::Normal <= verbosityLevel && rank == 0) {
-      (std::cout << ... << args) << "\n";
-    }
-  }
-
- private:
-  static Verbosity verbosityLevel;
-};
-
-Verbosity SlothInfo::verbosityLevel = Verbosity::Quiet;
 
 /**
  * @brief
@@ -95,3 +56,18 @@ void UtilsForDebug::memory_checkpoint(const std::string& msg) {
   std::cout << "<<<" << msg << ">>>" << std::endl;
   std::cout << "Memory footprint " << mem.ru_maxrss * 1e-6 << " GB" << std::endl;
 }
+
+/*!
+ * \brief Lambda expression used to manage exception
+ * \param[in] b: boolean variable used in a conditional test
+ * \param[in] method: string variable specifying the method concerned by the
+ * exception
+ * \param[in] msg: string variable specifying the error message written on the
+ * screen
+ */
+static auto throw_if = [](const bool b, const std::string& method, const std::string& msg) {
+  if (b) {
+    SlothInfo::error(method, ": ", msg);
+    mfem::mfem_error("Error message");
+  }
+};

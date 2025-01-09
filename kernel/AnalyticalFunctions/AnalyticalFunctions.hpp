@@ -1,11 +1,12 @@
-/*
- * Copyright © CEA 2023
+/**
+ * @file AnalyticalFunctions.hpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief List of Analytical functions used by phase-field models
+ * @version 0.1
+ * @date 2025-01-09
  *
- * \brief Analytical functions used by phase-field models
+ * Copyright CEA (c) 2025
  *
- * \file AnalyticalFunctions.hpp
- * \author ci230846
- * \date 20/03/2023
  */
 
 #pragma once
@@ -15,7 +16,8 @@
 #include <utility>  // std::forward
 #include <vector>
 
-#include "../Utils/PhaseFieldOptions.hpp"
+#include "Options/Options.hpp"
+#include "Utils/Utils.hpp"
 
 template <int DIM>
 struct multidimension_function {};
@@ -247,7 +249,27 @@ struct multidimension_function<2> {
   // PARABOLIC
   template <typename... Args>
   std::function<double(const mfem::Vector &, double)> getParabolic(Args... args) {
-    mfem::mfem_error("Not implemented");
+    // mfem::mfem_error("Not implemented");
+    auto v = std::vector<double>{args...};
+    if (v.size() == 4) {
+      const auto rmax = v[0];
+      const auto fo = v[1];
+      const auto lin_pow = v[2];
+      const auto cond = v[3];
+
+      return std::function<double(const mfem::Vector &, double)>(
+          [rmax, fo, cond, lin_pow](const mfem::Vector &x, double time) {
+            const auto r2 = x[0] * x[0];
+            const auto rmax2 = rmax * rmax;
+
+            const auto func = fo + lin_pow * (rmax2 - r2) / (4.0 * M_PI * cond * rmax2);
+            return func;
+          });
+    } else {
+      mfem::mfem_error(
+          "multidimension_function::getParabolic: three arguments are expected (1- "
+          "maximum radius, 2-  initial temperature, 3- lineic power, 4- conductivity");
+    }
   }
 
   // Uniform

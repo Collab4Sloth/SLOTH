@@ -16,7 +16,7 @@
 #include <tuple>
 #include <vector>
 
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 class PhysicalConvergence {

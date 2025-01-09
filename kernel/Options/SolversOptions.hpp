@@ -1,23 +1,37 @@
-
-
-/*
- * Copyright © CEA 2023
+/**
+ * @file SolversOptions.hpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief Options for solvers and preconditioners
+ * @version 0.1
+ * @date 2025-01-09
  *
- * pf_constants.hpp
+ * Copyright CEA (c) 2025
  *
- *  Created on: 20 March 2023
- *      Author: ci230846
  */
-#include <limits>
-#include <string>
-#include <tuple>
-#include <vector>
+
+#include "Utils/Utils.hpp"
+
 #pragma once
 
-using FuncType = std::function<double(const double&, const double&)>;
-using FType = std::function<double(const double&)>;
-using triplet = std::tuple<std::string, double, std::string>;
-using vtriplet = std::vector<triplet>;
+///////////////////////////////////////////////////
+//////// SOLVERS
+///////////////////////////////////////////////////
+enum class NLSolverType { NEWTON };
+enum class IterativeSolverType { BICGSTAB, GMRES, CG, MINRES };
+enum class DirectSolverType { UMFPACK };
+enum class HypreSolverType { HYPRE_PCG, HYPRE_GMRES, HYPRE_FGMRES };
+
+///////////////////////////////////////////////////
+//////// PRECONDITIONERS
+///////////////////////////////////////////////////
+enum class PreconditionerType { SMOOTHER, NO };
+enum class HyprePreconditionerType {
+  HYPRE_ILU,
+  HYPRE_BOOMER_AMG,
+  HYPRE_DIAG_SCALE,
+  HYPRE_SMOOTHER,
+  NO
+};
 
 //////////////////////////////////////////////////////
 //// ALGORITHM

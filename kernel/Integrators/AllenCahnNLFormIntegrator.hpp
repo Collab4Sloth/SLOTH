@@ -16,11 +16,10 @@
 
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
-#include "Coefficients/SourceTermCoefficient.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Profiling/Profiling.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
