@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
 
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  SlothInfo::setVerbosity(Verbosity::Debug);
+  setVerbosity(Verbosity::Debug);
 
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   // ####################
