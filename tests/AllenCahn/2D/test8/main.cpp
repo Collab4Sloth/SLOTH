@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  SlothInfo::setVerbosity(Verbosity::Debug);
+  setVerbosity(Verbosity::Debug);
 
   mfem::Mpi::Init(argc, argv);
   int size = mfem::Mpi::WorldSize();
@@ -97,9 +97,6 @@ int main(int argc, char* argv[]) {
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
 
-  auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
-
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -120,6 +117,8 @@ int main(int argc, char* argv[]) {
   for (const auto& solver : vect_solver) {
     int ip = 0;
     for (const auto& precond : vect_precond) {
+      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition,
+                                                  analytical_solution));
       std::string calculation_path = "Problem_" + std::to_string(is) + "_" + std::to_string(ip);
       auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
                               Parameter("calculation_path", calculation_path),
