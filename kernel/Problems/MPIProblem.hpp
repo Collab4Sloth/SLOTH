@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
@@ -27,8 +28,9 @@ class MPI_Problem : public ProblemBase<VAR, PST> {
   MPI_Problem(VAR& variables, PST& pst, const PhysicalConvergence& convergence);
 
   /////////////////////////////////////////////////////
-  void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
-                    double current_time_step, const int iter) override;
+  void do_time_step(double& next_time, const double& current_time, double current_time_step,
+                    const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                    const std::vector<std::vector<std::string>>& unks_info) override;
 
   /////////////////////////////////////////////////////
 
@@ -58,14 +60,17 @@ MPI_Problem<VAR, PST>::MPI_Problem(VAR& variables, PST& pst, const PhysicalConve
  * @param current_time_step
  */
 template <class VAR, class PST>
-void MPI_Problem<VAR, PST>::do_time_step(mfem::Vector& unk, double& next_time,
-                                         const double& current_time, double current_time_step,
-                                         const int iter) {
+void MPI_Problem<VAR, PST>::do_time_step(double& next_time, const double& current_time,
+                                         double current_time_step, const int iter,
+                                         std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+                                         const std::vector<std::vector<std::string>>& unks_info) {
   int rank = mfem::Mpi::WorldRank();
-  unk = rank;
+
+  auto& unk = *(vect_unk[0]);
+  unk = static_cast<double>(rank);
   // Store the solution into a temporary mfem::Vector that will be used during updating stage,
   // TODO(cci) : utile? à voir avec le restart de paraview dan mfem et peut etre l'AMR
-  this->unknown_ = unk;
+  this->unknown_.emplace_back(unk);
 }
 
 /**

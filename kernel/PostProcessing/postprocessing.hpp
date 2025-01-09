@@ -22,7 +22,7 @@
 #include <tuple>
 
 #include "Spatial/Spatial.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -120,11 +120,11 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
   if (this->need_to_be_saved(iter)) {
     this->SetCycle(iter);
     this->SetTime(time);
-    auto map_var = vars.get_map_gridfunction();
-    for (auto [name, gf] : map_var) {
+    std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
+    for (auto& [name, gf] : map_var) {
       this->RegisterField(name, &gf);
-      this->Save();
     }
+    this->Save();
   }
 }
 

@@ -16,11 +16,12 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <vector>
 
+#include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Spatial/Spatial.hpp"
-#include "Utils/AnalyticalFunctions.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
@@ -30,7 +31,6 @@ class Variable {
   T* fecollection_;
   BoundaryConditions<T, DIM> bcs_;
   std::string variable_name_;
-  VariableType::value variable_type_;
   mfem::ParFiniteElementSpace* fespace_;
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
   std::map<int, mfem::Vector> map_of_unk_;
@@ -40,8 +40,11 @@ class Variable {
 
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
+  std::vector<std::string> additional_variable_info_;
+
   void setVariableDepth(const int& depth);
 
+  void add_variable_info(const std::string& var);
   std::function<double(const mfem::Vector&, double)> buildAnalyticalFunction(
       const int& dim, const AnalyticalFunctions<DIM>& analytical_function);
 
@@ -97,12 +100,15 @@ class Variable {
            const double& initial_condition_value,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
-  mfem::Vector get_last();
+  template <class... Args>
+  void set_additional_information(Args&&... add_var_info);
+
+  mfem::Vector get_last() const;
   std::string getVariableName() const;
-  VariableType::value getVariableType();
+  std::vector<std::string> get_additional_variable_info() const;
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
   void update(const mfem::Vector& unk);
-  mfem::Vector get_unknown();
+  mfem::Vector get_unknown() const;
   std::map<int, mfem::Vector> get_map_unknown();
   mfem::ParGridFunction get_gf() const;
   mfem::ParGridFunction get_igf() const;
@@ -123,6 +129,7 @@ class Variable {
  * @param initial_condition_name
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name)
@@ -134,9 +141,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   const auto dim = spatial->get_dimension();
 
   Variable<T, DIM>::setInitialCondition(dim, initial_condition_name);
-  // mfem::ConstantCoefficient cc(0.);
-  // this->uh_.ProjectCoefficient(cc);
-  // this->uh_.GetTrueDofs(this->unk_);
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -149,6 +155,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_name
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
@@ -165,6 +172,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   // std::apply([dim, analytical_solution_name, this]() {
   this->setAnalyticalSolution(dim, analytical_solution_name);
   // });
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -177,6 +186,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_function
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
@@ -192,6 +202,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   });
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -203,6 +215,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param initial_condition_function
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth,
@@ -213,6 +226,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
   this->setVariableDepth(depth);
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -225,6 +240,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_name
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth,
@@ -240,6 +256,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   std::apply([dim, analytical_solution_name, this]() {
     this->setAnalyticalSolution(dim, analytical_solution_name);
   });
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -252,6 +270,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_function
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth,
@@ -264,6 +283,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->setInitialCondition(initial_condition_function);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -275,6 +296,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param initial_condition_value
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const double& initial_condition_value)
@@ -283,6 +305,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
+
+  this->additional_variable_info_.resize(0);
 }
 /**
  * @brief Construct a new Variable<T>:: Variable object
@@ -294,6 +318,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_name
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const double& initial_condition_value,
@@ -308,6 +333,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   std::apply([dim, analytical_solution_name, this]() {
     this->setAnalyticalSolution(dim, analytical_solution_name);
   });
+
+  this->additional_variable_info_.resize(0);
 }
 
 /**
@@ -320,6 +347,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
  * @param analytical_solution_function
  */
 template <class T, int DIM>
+
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            const int& depth, const double& initial_condition_value,
@@ -331,6 +359,26 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
+
+  this->additional_variable_info_.resize(0);
+}
+
+/**
+ * @brief Associate additional information to the variable
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam Args
+ * @param add_var_info
+ */
+template <class T, int DIM>
+template <class... Args>
+void Variable<T, DIM>::set_additional_information(Args&&... add_var_info) {
+  if constexpr (sizeof...(add_var_info) == 0) {
+    this->additional_variable_info_.resize(0);
+  } else {
+    (add_variable_info(std::forward<Args>(add_var_info)), ...);
+  }
 }
 
 /**
@@ -421,7 +469,7 @@ void Variable<T, DIM>::setAnalyticalSolution(
  * @return mfem::Vector
  */
 template <class T, int DIM>
-mfem::Vector Variable<T, DIM>::get_last() {
+mfem::Vector Variable<T, DIM>::get_last() const {
   return std::prev(this->map_of_unk_.end())->second;
 }
 
@@ -437,10 +485,6 @@ void Variable<T, DIM>::update(const mfem::Vector& unk) {
 
   auto current_solution = std::prev(this->map_of_unk_.end());
   current_solution->second = this->unk_;
-  // for (const auto& [k, v] : this->map_of_unk_) {
-  //   std::cout << " value at it = " << k << std::endl;
-  //   v.Print();
-  // }
 }
 
 /**
@@ -456,7 +500,7 @@ void Variable<T, DIM>::saveBeforeUpdate() {
   ++begin;
   for (auto it = begin; it != end; ++it) {
     auto itm = (it->first) - 1;
-    this->map_of_unk_[itm] = it->second;
+    this->map_of_unk_.at(itm) = it->second;
   }
 }
 
@@ -467,8 +511,20 @@ void Variable<T, DIM>::saveBeforeUpdate() {
  *
  */
 template <class T, int DIM>
-mfem::Vector Variable<T, DIM>::get_unknown() {
+mfem::Vector Variable<T, DIM>::get_unknown() const {
   return this->unk_;
+}
+
+/**
+ * @brief Return the additionnal information associated to variable
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return std::vector<std::string>
+ */
+template <class T, int DIM>
+std::vector<std::string> Variable<T, DIM>::get_additional_variable_info() const {
+  return this->additional_variable_info_;
 }
 
 /**
@@ -492,16 +548,6 @@ template <class T, int DIM>
 mfem::ParGridFunction Variable<T, DIM>::get_gf() const {
   return this->uh_;
 }
-
-/**
- * @brief return the gridfunction associated to the analytical solution
- *
- * @return mfem::ParGridFunction
- */
-// template <class T, int DIM>
-// mfem::ParGridFunction Variable<T, DIM>::get_analytical_solution() {
-//   return this->uh_ex_;
-// }
 
 /**
  * @brief return the function associated to the analytical solution
@@ -539,21 +585,6 @@ std::string Variable<T, DIM>::getVariableName() const {
 }
 
 /**
- * @brief Get the Type of the Variable
- *
- * @return VariableType::value type of the variable
- */
-template <class T, int DIM>
-VariableType::value Variable<T, DIM>::getVariableType() {
-  return this->variable_type_;
-}
-
-// template <class T, int DIM>
-// std::shared_ptr<const AnalyticalFunctions<DIM>&> Variable<T, DIM>::getInitialCondition() {
-//   return std::shared_ptr<const AnalyticalFunctions<DIM>&>(this->ics_);
-// }
-
-/**
  * @brief Set the variable depth and initialize at the given initial condition
  * @remark By default, 2 levels are considered. Not optimal in term of memory?
  *
@@ -570,26 +601,17 @@ void Variable<T, DIM>::setVariableDepth(const int& depth) {
   }
 }
 
-// /**
-//  * @brief Set the VariableType from string
-//  *
-//  * @param depth string defining the type of the variable
-//  */
-// template <class T, int DIM>
-// void Variable<T, DIM>::setVariableType(const int& depth) {
-//   switch (VariableType::from(type)) {
-//     case VariableType::Conserved:
-//       this->variable_type_ = VariableType::Conserved;
-//       break;
-//     case VariableType::Unconserved:
-//       this->variable_type_ = VariableType::Unconserved;
-//       break;
-//     default:
-//       mfem::mfem_error(
-//           "Variable::getVariableType() : only conserved and unconserved type are allowed");
-//       break;
-//   }
-// }
+/**
+ * @brief
+ *
+ * @tparam T
+ * @tparam DIM
+ * @param var
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::add_variable_info(const std::string& var) {
+  additional_variable_info_.emplace_back(var);
+}
 
 /**
  * @brief Return the pointer towards the FiniteElementSpace
