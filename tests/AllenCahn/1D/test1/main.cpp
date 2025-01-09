@@ -104,8 +104,8 @@ int main(int argc, char* argv[]) {
       });
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
-  auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
-                                                      center_x, a_x, epsilon, radius);
+  auto analytical_solution = AnalyticalFunctions<DIM>(
+      AnalyticalFunctionsType::from("HyperbolicTangent"), center_x, a_x, epsilon, radius);
   auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi1", 2, initial_condition,
                                               analytical_solution));
   auto vars2 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi2", 2, initial_condition,
