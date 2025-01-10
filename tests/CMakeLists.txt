@@ -3,3 +3,7 @@ add_subdirectory(Diffusion)
 add_subdirectory(Profiling)
 add_subdirectory(HeatTransfer)
 add_subdirectory(SimpleCoupling)
+# EXTERNAL ??
+if(SLOTH_USE_EXTERNAL AND NOT "$ENV{EXT_TEST}" STREQUAL "")
+    add_subdirectory($ENV{EXT_TEST} "external")
+endif()
