@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 
 template <PhaseChange PHASECHANGE>
 class PhaseChangeFunction {

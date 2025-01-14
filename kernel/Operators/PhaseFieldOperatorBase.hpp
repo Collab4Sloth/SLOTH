@@ -16,30 +16,29 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/DensityCoefficient.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
-#include "Coefficients/SourceTermCoefficient.hpp"
 #include "Operators/OperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Profiling/Profiling.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Solvers/NLSolver.hpp"
 #include "Spatial/Spatial.hpp"
-#include "Utils/AnalyticalFunctions.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForDebug.hpp"
+#include "Utils/Utils.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -55,6 +54,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
                                public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver *ode_solver_;
+  bool isExplicit_{false};
   void set_ODE_solver(const TimeScheme::value &ode_solver);
 
   VSolverType mass_solver_;
@@ -75,7 +75,6 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
 
   // CCI
   //  mfem::SparseMatrix Mmat;
-
   mfem::HypreParMatrix *Mmat;
   // CCI
   void build_mass_matrix(const mfem::Vector &u);
@@ -105,10 +104,12 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   virtual ~PhaseFieldOperatorBase();
 
   // User-defined Solvers
+  void overload_mass_solver(VSolverType SOLVER);
   void overload_mass_solver(VSolverType SOLVER, const Parameters &s_params);
-  void overload_mass_solver(VSolverType SOLVER, const Parameters &s_params, VSolverType PRECOND,
-                            const Parameters &p_params);
+  void overload_mass_preconditioner(VSolverType PRECOND);
   void overload_mass_preconditioner(VSolverType PRECOND, const Parameters &p_params);
+
+  void SetExplicitTransientParameters(const mfem::Vector &un);
 
   // Virtual methods
   void set_default_properties() override = 0;
@@ -241,19 +242,22 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
       this->ode_solver_ = new mfem::ForwardEulerSolver;
+      this->isExplicit_ = true;
       break;
     }
     case TimeScheme::EulerImplicit: {
       this->ode_solver_ = new mfem::BackwardEulerSolver;
+      this->isExplicit_ = false;
       break;
     }
     case TimeScheme::RungeKutta4: {
       this->ode_solver_ = new mfem::SDIRK33Solver;
+      this->isExplicit_ = false;
       break;
     }
     default:
       mfem::mfem_error(
-          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, Rungekutta4 are "
+          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4 are "
           "available");
       break;
   }
@@ -296,7 +300,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(mfem::Vector &unk, double &next
                                                  const double &current_time,
                                                  double current_time_step, const int iter) {
   this->current_time_ = current_time;
-
   this->ode_solver_->Step(unk, next_time, current_time_step);
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -331,7 +334,11 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::build_mass_matrix(const mfem::Vector 
   ////////////////
   M = new mfem::ParBilinearForm(this->fespace_);
 
-  M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
+  if (!this->isExplicit_) {
+    M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
+  } else {
+    M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(*this->MassCoeff_)));
+  }
   M->Assemble(0);
   M->Finalize(0);
 
@@ -377,6 +384,28 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(const double d
   ////////////////////////////////////////////
   this->SetNewtonAlgorithm(reduced_oper);
 }
+/**
+ * @brief Compute the mass matrix and the non linear form with the solution at the previous time
+ * step
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ */
+template <class T, int DIM, class NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI>::SetExplicitTransientParameters(const mfem::Vector &un) {
+  Catch_Time_Section("PhaseFieldOperatorBase::SetExplicitTransientParameters");
+  ////////////////////////////////////////////
+  // Variable mass matrix
+  ////////////////////////////////////////////
+  if (!this->constant_mass_matrix_) {
+    this->build_mass_matrix(un);
+  }
+  ////////////////////////////////////////////
+  // PhaseField non linear form
+  ////////////////////////////////////////////
+  this->build_nonlinear_form(0., un);
+}
 
 /**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
@@ -409,6 +438,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
+
+  // Todo(cci) : try to do different because of not satisfying
+  const_cast<PhaseFieldOperatorBase<T, DIM, NLFI> *>(this)->SetExplicitTransientParameters(v);
 
   this->N->Mult(v, this->z);
 
@@ -448,9 +480,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
-  // // Solve the equation:
-  // //    du_dt = M^{-1}*[-K(u + dt*du_dt)]
-  // // for du_dt
 
   this->bcs_->SetBoundaryConditions(v);
   this->SetTransientParameters(dt, v);
@@ -478,7 +507,20 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
 }
 
 /**
- * @brief  Overload the default options for solver used to invert the mass matrix
+ * @brief Overload the solver used to invert the mass matrix
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param SOLVER
+ */
+template <class T, int DIM, class NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLVER) {
+  this->mass_solver_ = SOLVER;
+}
+
+/**
+ * @brief Overload the solver used to invert the mass matrix with its parameters
  *
  * @tparam T
  * @tparam DIM
@@ -494,28 +536,21 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLV
 }
 
 /**
- * @brief  Overload the default options for solver used to invert the mass matrix with
- * preconditionners
+ * @brief Overload the preconditioner for the solver used to invert the mass matrix
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
  * @param PRECOND
- * @param p_params
  */
 template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLVER,
-                                                                const Parameters &s_params,
-                                                                VSolverType PRECOND,
-                                                                const Parameters &p_params) {
-  this->overload_solver(SOLVER, s_params);
+void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(VSolverType PRECOND) {
   this->mass_precond_ = PRECOND;
-  this->mass_precond_params_ = p_params;
 }
 
 /**
- * @brief  Overload the default options for preconditionners associated with the solver used to
- * invert the mass matrix
+ * @brief Overload the preconditioner for the solver used to invert the mass matrix and its
+ * parameters
  *
  * @tparam T
  * @tparam DIM
@@ -539,8 +574,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::set_default_mass_solver() {
-  auto s_params = Parameters(Parameter("description", "CG Solver"));
-  auto p_params = Parameters(Parameter("description", "HYPRE_SMOOTHER preconditioner"));
+  auto s_params = Parameters(Parameter("description", "Default CG Solver"));
+  auto p_params = Parameters(Parameter("description", "Default HYPRE_SMOOTHER preconditioner"));
 
   this->mass_solver_ = IterativeSolverType::CG;
   this->mass_solver_params_ = s_params;

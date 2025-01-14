@@ -10,6 +10,7 @@
  */
 
 #pragma once
+#include <functional>
 #include <list>
 #include <memory>
 #include <optional>
@@ -37,7 +38,7 @@ class ProblemBase {
   std::vector<VAR*> auxvariables_;
   PST& pst_;
   const std::list<int> pop_elem_;
-  mfem::Vector unknown_;
+  std::vector<mfem::Vector> unknown_;
   PhysicalConvergence convergence_;
 
  public:
@@ -58,12 +59,13 @@ class ProblemBase {
   virtual void initialize(const double& initial_time);
 
   /////////////////////////////////////////////////////
-  std::tuple<bool, double, mfem::Vector> execute(const int& iter, double& next_time,
-                                                 const double& current_time,
-                                                 const double& current_time_step);
+  std::tuple<bool, double, std::vector<mfem::Vector>> execute(const int& iter, double& next_time,
+                                                              const double& current_time,
+                                                              const double& current_time_step);
 
-  virtual void do_time_step(mfem::Vector& unk, double& next_time, const double& current_time,
-                            double current_time_step, const int iterp) = 0;
+  virtual void do_time_step(double& next_time, const double& current_time, double current_time_step,
+                            const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                            const std::vector<std::vector<std::string>>& unks_info) = 0;
 
   virtual void post_execute(const int& iter, const double& current_time,
                             const double& current_time_step);
@@ -84,17 +86,18 @@ class ProblemBase {
   virtual ~ProblemBase();
 };
 
-
 /**
- * @brief Construct a new ProblemBase<VAR, PST>::ProblemBase object
+ * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
  *
  * @tparam VAR
  * @tparam PST
+ * @tparam Args
  * @param name
  * @param variables
- * @param auxvariables
  * @param pst
  * @param convergence
+ * @param pop_elem
+ * @param auxvariables
  */
 template <class VAR, class PST>
 template <class... Args>
@@ -104,8 +107,8 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
     : description_(name),
       variables_(variables),
       pst_(pst),
-      convergence_(convergence),
-      pop_elem_(pop_elem) {
+      pop_elem_(pop_elem),
+      convergence_(convergence) {
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -124,6 +127,19 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
     }
   }
 }
+
+/**
+ * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ *
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param variables
+ * @param pst
+ * @param convergence
+ * @param auxvariables
+ */
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
@@ -181,10 +197,14 @@ void ProblemBase<VAR, PST>::post_execute(const int& iter, const double& current_
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::update() {
-  // auto& var = this->variables_.get_variable("phi");
-  // TODO(cci) généraliser pour avoir plusieurs variables (eg CALPHAD)
-  auto& var = this->variables_.getIVariable(0);
-  var.update(this->unknown_);
+  MFEM_VERIFY(this->variables_.get_variables_number() == this->unknown_.size(),
+              "Error while updating the variables: the number of variables must be equal to the "
+              "size of the unknown vector");
+  for (std::size_t i = 0; i < this->variables_.get_variables_number(); i++) {
+    auto& var = this->variables_.getIVariable(i);
+    var.update(this->unknown_[i]);
+  }
+  this->unknown_.clear();
 }
 
 /**
@@ -208,7 +228,7 @@ void ProblemBase<VAR, PST>::initialize(const double& initial_time) {}
  * @return std::tuple<bool, double, mfem::Vector>
  */
 template <class VAR, class PST>
-std::tuple<bool, double, mfem::Vector> ProblemBase<VAR, PST>::execute(
+std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execute(
     const int& iter, double& next_time, const double& current_time,
     const double& current_time_step) {
   int rank = mfem::Mpi::WorldRank();
@@ -217,19 +237,38 @@ std::tuple<bool, double, mfem::Vector> ProblemBase<VAR, PST>::execute(
     SlothInfo::verbose("   ==== Problem : ", this->description_);
     SlothInfo::verbose("   ============================== ");
   }
-  auto& var = this->variables_.getIVariable(0);
-  auto unk = var.get_unknown();
-  this->do_time_step(unk, next_time, current_time, current_time_step, iter);
+
+  std::vector<std::unique_ptr<mfem::Vector>> vect_unk;
+  std::vector<std::vector<std::string>> vect_unk_info;
+
+  size_t num_vars = this->variables_.getVariables().size();
+  vect_unk.reserve(num_vars);
+  vect_unk_info.reserve(num_vars);
+
+  for (auto& var : this->variables_.getVariables()) {
+    vect_unk.push_back(std::make_unique<mfem::Vector>(var.get_unknown()));
+
+    auto& unk_info = vect_unk_info.emplace_back(var.get_additional_variable_info());
+    unk_info.insert(unk_info.begin(), var.getVariableName());
+  }
+
+  this->do_time_step(next_time, current_time, current_time_step, iter, vect_unk, vect_unk_info);
 
   bool is_converged = true;
   auto criterion = 0.;
+  std::vector<mfem::Vector> vunk;
   if (iter > 1) {
-    const auto& prev_unk = var.get_last();
-    const auto& [is_converged_iter, criterion_iter] = this->check_convergence(unk, prev_unk);
-    is_converged = is_converged_iter;
-    criterion = criterion_iter;
+    int j = 0;
+    for (auto& var : this->variables_.getVariables()) {
+      const auto& prev_unk = var.get_last();
+      mfem::Vector& unk = *(vect_unk[j]);
+      vunk.emplace_back(unk);
+      const auto& [is_converged_iter, criterion_iter] = this->check_convergence(unk, prev_unk);
+      is_converged = is_converged_iter;
+      criterion = criterion_iter;
+    }
   }
-  return std::make_tuple(is_converged, criterion, unk);
+  return std::make_tuple(is_converged, criterion, vunk);
 }
 
 /**
@@ -269,9 +308,10 @@ void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& curre
  * @param current_time_step
  */
 template <class VAR, class PST>
-void ProblemBase<VAR, PST>::do_time_step(mfem::Vector& unk, double& next_time,
-                                         const double& current_time, double current_time_step,
-                                         const int iter) {}
+void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& current_time,
+                                         double current_time_step, const int iter,
+                                         std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                                         const std::vector<std::vector<std::string>>& unks_info) {}
 
 /**
  * @brief Check convergence at the current iteration

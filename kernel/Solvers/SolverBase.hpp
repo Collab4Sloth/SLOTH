@@ -12,8 +12,8 @@
 #include <memory>
 #include <string>
 
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Options/Options.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
@@ -22,6 +22,7 @@ template <class T, class S>
 class SolverBase {
  public:
   std::string solver_description_;
+
   virtual std::shared_ptr<T> create_solver(S SOLVER, const Parameters& params) = 0;
 
   virtual ~SolverBase() = default;

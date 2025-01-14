@@ -1,92 +1,54 @@
 SLOTH 
-=============
+=====
 
-# How To install Sloth with cmake and spack
+Phase-field methods represent a versatile and effective approach to modelling the spatiotemporal evolution of complex physical systems that exhibit significant heterogeneities, such as phase transitions, coalescence, and cracking. These methods have found extensive application in the field of materials science, including in the modelling of the behaviour of nuclear fuels. 
 
-The installation of SLOTH consists of installing MFEM first and then, to compile SLOTH 
+The phase-field approach has also been employed in recent studies conducted with the multiphysics computational tools of the PLEIADES platform. Broadly speaking, the `PLEIADES`/Fuel Performance Codes aim at providing a state-of-the-art multiphysics multiscale description of the fuel under irradiated conditions. The inclusion of advanced multiphysics and multiscale modelling such as phase-field, is a logical step forward.
+Consequently, the CEA is developing **`SLOTH`**, a **multiphase-field multicomponent framework**, dedicated to the study of fuel behaviour at different scales of description, from nominal operating conditions to severe accident conditions. 
 
-### Installing MFEM
+`PLEIADES/SLOTH` is developed at CEA under LPGL license (Version 3). It is based on the the `MFEM` Finite Element library, which already includes the main features to have a robust, flexible and **massively parallel** implementation of the solution algorithms.
 
-A straightforward way to install MFEM is to use [spack](https://spack.readthedocs.io/en/latest/getting_started.html)
+# Some useful links
 
-- First, clone spack and install it into `$SPACK` directory (see [spack](https://spack.readthedocs.io/en/latest/getting_started.html))
-- Second, run the following commands to install mfem with right additional packages
+- Documentation
+  - [Website](https://collab4sloth.github.io/Documentation/) 
+  - [GitHub repository](https://github.com/Collab4Sloth/Documentation) 
 
-```shell
-$SPACK/share/spack/setup-env.sh
+- [Gallery](https://github.com/Collab4Sloth/Gallery)
+- [Sloth project and Team members](https://collab4sloth.github.io/Documentation/About/index.html)
+- [Installation guidelines](https://collab4sloth.github.io/Documentation/Started/Installation/linux.html)
 
-spack install mfem+mpi+openmp+petsc+strumpack+suite-sparse+sundials+superlu-dist
-```
+# Community Guidelines 
 
-### Compiling SLOTH
+For more details, see [CONTRIBUTING.md](CONTRIBUTING.md). Main guidelines are:
 
-- First, create a dedicated directory to build SLOTH
-```shell
-mkdir build && cd build
-```
+- For any bug, please create an issue and add the label "bug". We welcome all feedback to make `SLOTH` as robust as possible.
+- If you would like to participate and add functionality to `SLOTH`, you can find instructions for coding style, tests and pull request process in [CONTRIBUTING.md](CONTRIBUTING.md).
+- If you have any support-related / collaboration questions, please contact the team at clement.introini@cea.fr.
 
-- Second, load mfem as SLOTH's prerequisite using `spack`
-```shell
-spack load mfem
-```
 
-- Third, export `HYPRE` and `MPI`  location into environment variables used during compilation process
+# Contributors
 
-```shell
-export HYPRE_DIR=`spack location -i hypre`
-export MPI_DIR=`spack location -i mpi`
-```
-
-- Fourth, run `cmake` with `PETSc` directives
-
-```shell
-cmake .. -DMFEM_USE_PETSC=ON -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH="" -DPETSC_INCLUDES=${PETSC_DIR}/include -DPETSC_LIBRARIES=${PETSC_DIR}/lib -DPETSC_EXECUTABLE_RUNS=${PETSC_DIR}/bin
-```
-- Finally, compile (i.e. build all examples)
-
-```shell
-make
-```
-
-## Building documentation
-
-- To build documentation, run 
-
-```shell
-make doc
-```
-
-The documentation is built with [MKdocs](https://www.mkdocs.org/) and, for code documentation, with Doxygen. 
-
-[MKdocs](https://www.mkdocs.org/) is used to generate a global documentation under HTML format. A PDF file is also generated. 
-To do it, a set of packages are needed. Please refer to the following list (may be not complete):
-```shell
-
-pip3 install mkdocs                           # for the use of MkDocs
-pip3 install mkdocs-material                  # for the graphical environment Material
-pip3 install mkdocs-material-extensions       # for additional functionalities of Material
-pip3 install mkdocs-with-pdf                  # for the plugin with-pdf
-
-pip3 install markdown                         # for the extensions attr_list, md_in_html, def_list
-pip3 install pymdown-extensions               # for the extensions highlight, inlinehilite, snippets, superfences, tasklist, arithmatex
+-   __Modelling & Development Team__
+  
+    ---    
+    - [Clément Introïni](https://www.researchgate.net/profile/Clement-Introini) (Phase-Field, Computer Science, Material Science)
+    - [Raphaël Prat]() (Computer Science, HPC)
 
 
 
-pip3 install  mkdocs-git-revision-date-plugin  # to include Git revision....
-pip3 install  mkdocs-material[imaging]         # to use additional graphical features of  Material.
-pip3 install  mkdocs-pdf-export-plugin         # To export documentation under PDF format
-pip3 install  python-markdown-math             # To take into account mathematical formula in markdown
-pip3 install  WeasyPrint==52.5                 # Used by the plugin with-pdf.
+-   __Students Team__
+
+    ---
+    - [Alessandro Scapini (PhD 2024-2027)]()
+    - [Clément Plumecocq (PhD 2023-2026)]()
+    - [Mouad Bakhkhakh (Master 2024)]()
+    - [Etienne Delobre (Master 2023)]()
 
 
-```
+# Acknowledgment
 
+`SLOTH` is part of the `PLEIADES` platform jointly developed by the French Atomic Energy Commission in collaboration with its industrial partners, mainly EDF and Framatome.
 
-<!-- ## Building documentation
-
-To deploy the project, run 
-
-```shell
-make install 
-``` -->
-
+# License
+The code is developed under [GNU LESSER GENERAL PUBLIC LICENSE Version 3](LICENSE)

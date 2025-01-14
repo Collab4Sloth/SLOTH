@@ -85,9 +85,8 @@ int main(int argc, char* argv[]) {
   const auto& mob(1.e-5);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params =
-      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                 Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
+  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
+                           Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
@@ -105,8 +104,8 @@ int main(int argc, char* argv[]) {
       });
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
-  auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent,
-                                                      center_x, a_x, epsilon, radius);
+  auto analytical_solution = AnalyticalFunctions<DIM>(
+      AnalyticalFunctionsType::from("HyperbolicTangent"), center_x, a_x, epsilon, radius);
   auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi1", 2, initial_condition,
                                               analytical_solution));
   auto vars2 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi2", 2, initial_condition,

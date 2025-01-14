@@ -11,27 +11,26 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
-#include "Coefficients/SourceTermCoefficient.hpp"
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Profiling/Profiling.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Solvers/NLSolver.hpp"
 #include "Spatial/Spatial.hpp"
-#include "Utils/AnalyticalFunctions.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForDebug.hpp"
+#include "Utils/Utils.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -112,10 +111,13 @@ class OperatorBase : public mfem::Operator {
   std::string get_description() { return this->description_; }
 
   // User-defined Solvers
+  void overload_nl_solver(NLSolverType NLSOLVER);
   void overload_nl_solver(NLSolverType NLSOLVER, const Parameters &nl_params);
+
+  void overload_solver(VSolverType SOLVER);
   void overload_solver(VSolverType SOLVER, const Parameters &s_params);
-  void overload_solver(VSolverType SOLVER, const Parameters &s_params, VSolverType PRECOND,
-                       const Parameters &p_params);
+
+  void overload_preconditioner(VSolverType PRECOND);
   void overload_preconditioner(VSolverType PRECOND, const Parameters &p_params);
 
   // Virtual methods
@@ -295,10 +297,6 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt, const mfe
   mfem::ParGridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
-  // if (this->nlfi_ptr_ != nullptr) {
-  //   delete this->nlfi_ptr_;
-  // }
-  // NLFI *this->nlfi_ptr_  = set_this->nlfi_ptr_ (dt, u);
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u);
 
   N->AddDomainIntegrator(this->nlfi_ptr_);
@@ -322,10 +320,7 @@ void OperatorBase<T, DIM, NLFI>::SetNewtonAlgorithm(mfem::Operator *oper) {
   this->rhs_solver_ =
       new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_, this->solver_params_,
                    this->precond_, this->precond_params_, *oper);
-  // } else {
-  //   this->rhs_solver_ = new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_,
-  //                                    this->solver_params_, *oper);
-  // }
+
   this->newton_solver_ = this->rhs_solver_->get_nl_solver();
 }
 
@@ -384,21 +379,7 @@ void OperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_term,
   source_term.SetSize(this->fespace_->GetTrueVSize());
   RHSS->ParallelAssemble(source_term);
 
-  // source_term = *RHSS.get();
   source_term.SetSubVector(this->ess_tdof_list_, 0.);
-
-  // this->RHS = std::make_unique<mfem::ParLinearForm>(this->fespace_);
-  // mfem::FunctionCoefficient src(this->src_func_);
-
-  // src.SetTime(this->current_time_);
-  // this->RHS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
-  // this->RHS->Assemble();
-
-  // // BCs
-  // source_term.SetSize(this->fespace_->GetTrueVSize());
-  // this->RHS->ParallelAssemble(source_term);
-
-  // source_term.SetSubVector(this->ess_tdof_list_, 0.);
 }
 
 /**
@@ -439,7 +420,20 @@ void OperatorBase<T, DIM, NLFI>::set_default_solver() {
 }
 
 /**
- * @brief Overload the default options for the non linear algorithm
+ * @brief Overload  the non linear algorithm
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param NLSOLVER
+ */
+template <class T, int DIM, class NLFI>
+void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER) {
+  this->nl_solver_ = NLSOLVER;
+}
+
+/**
+ * @brief Overload  the non linear algorithm with Parameters
  *
  * @tparam T
  * @tparam DIM
@@ -451,11 +445,26 @@ template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER,
                                                     const Parameters &nl_params) {
   this->nl_solver_ = NLSOLVER;
+
   this->nl_solver_params_ = nl_params;
 }
 
 /**
- * @brief  Overload the default options for solvers
+ * @brief  Overload the default linear solver
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param SOLVER
+ * @param s_params
+ */
+template <class T, int DIM, class NLFI>
+void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER) {
+  this->solver_ = SOLVER;
+}
+
+/**
+ * @brief   Overload the default linear solver with parameters
  *
  * @tparam T
  * @tparam DIM
@@ -470,24 +479,20 @@ void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER, const Param
 }
 
 /**
- * @brief  Overload the default options for solvers with preconditionners
+ * @brief Overload the preconditioner
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
  * @param PRECOND
- * @param p_params
  */
 template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER, const Parameters &s_params,
-                                                 VSolverType PRECOND, const Parameters &p_params) {
-  this->overload_solver(SOLVER, s_params);
+void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND) {
   this->precond_ = PRECOND;
-  this->precond_params_ = p_params;
 }
 
 /**
- * @brief  Overload the default options for preconditionners
+ * @brief Overload the preconditioner with parameters
  *
  * @tparam T
  * @tparam DIM
@@ -499,6 +504,7 @@ template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
                                                          const Parameters &p_params) {
   this->precond_ = PRECOND;
+
   this->precond_params_ = p_params;
 }
 
@@ -515,8 +521,8 @@ std::vector<mfem::ParGridFunction> OperatorBase<T, DIM, NLFI>::get_auxiliary_gf(
   if (this->auxvariables_.size() > 0) {
     for (const auto &auxvar_vec : this->auxvariables_) {
       for (const auto &auxvar : auxvar_vec->getVariables()) {
-      auto gf = auxvar.get_gf();
-      aux_gf.emplace_back(gf);
+        auto gf = auxvar.get_gf();
+        aux_gf.emplace_back(gf);
       }
     }
   }

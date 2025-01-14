@@ -37,3 +37,15 @@ target_link_libraries(Sloth INTERFACE mfem mpi z HYPRE SuiteSparse::suitesparse 
 if(MFEM_USE_PETSC)
     target_link_libraries(Sloth INTERFACE petsc )
 endif(MFEM_USE_PETSC)
+
+
+# EXTERNAL ??
+option(SLOTH_USE_EXTERNAL "Enable the use of an external package" OFF)
+if(SLOTH_USE_EXTERNAL)
+    file(GLOB_RECURSE EXT_SRC_FILES $ENV{EXT_SRC}/*.hpp)
+    add_library(SlothExternal INTERFACE ${EXT_SRC_FILES})
+
+    target_link_directories(Sloth INTERFACE $ENV{EXT_LIBDIR} )
+    target_link_libraries(Sloth INTERFACE SlothExternal $ENV{EXT_LIBNAME})
+endif(SLOTH_USE_EXTERNAL)
+

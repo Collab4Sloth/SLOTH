@@ -12,9 +12,9 @@
 #include <memory>
 #include <string>
 
+#include "Options/Options.hpp"
 #include "Solvers/SolverBase.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
@@ -38,6 +38,8 @@ class PrecondHypreILU : public SolverBase<mfem::HypreILU, HyprePreconditionerTyp
 std::shared_ptr<mfem::HypreILU> PrecondHypreILU::create_solver(HyprePreconditionerType PRECOND,
                                                                const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
+
   const int print_level =
       params.get_param_value_or_default<int>("print_level", HYPRE_ILU_DefaultConstant::print_level);
   const HYPRE_Int type = static_cast<HYPRE_Int>(
@@ -80,6 +82,7 @@ class PrecondHypreSmoother : public SolverBase<mfem::HypreSmoother, HyprePrecond
 std::shared_ptr<mfem::HypreSmoother> PrecondHypreSmoother::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   const mfem::HypreSmoother::Type type = static_cast<mfem::HypreSmoother::Type>(
       params.get_param_value_or_default<int>("type", HYPRE_SMOOTHER_DefaultConstant::type));
@@ -115,6 +118,7 @@ class PrecondHypreBoomerAMG : public SolverBase<mfem::HypreBoomerAMG, HyprePreco
 std::shared_ptr<mfem::HypreBoomerAMG> PrecondHypreBoomerAMG::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   const int print_level = params.get_param_value_or_default<int>(
       "print_level", HYPRE_BOOMER_AMG_DefaultConstant::print_level);
@@ -147,11 +151,12 @@ class PrecondHypreDiagScale : public SolverBase<mfem::HypreDiagScale, HyprePreco
  *
  * @param PRECOND
  * @param params
- * @return std::shared_ptr<mfem::Solver>
+ * @return std::shared_ptr<mfem::HypreDiagScale>
  */
 std::shared_ptr<mfem::HypreDiagScale> PrecondHypreDiagScale::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
+  SlothInfo::debug(" Create ", this->get_description());
 
   auto pp = std::make_shared<mfem::HypreDiagScale>();
 

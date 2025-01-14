@@ -1,0 +1,55 @@
+/**
+ * @file PhysicalPropertiesOptions.hpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief Options for physical properties
+ * @version 0.1
+ * @date 2025-01-09
+ *
+ * Copyright CEA (c) 2025
+ *
+ */
+
+#include "Utils/Utils.hpp"
+
+#pragma once
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Set of fundamental physical constants used by SLOTH
+ */
+namespace Physical {
+const double R = 8.314462618;     // molar gas constant in J mol-1 K-1 ;
+const double NA = 6.02214076e23;  // Avogadro constant  mol-1
+
+}  // namespace Physical
+
+///////////////////////////////////////////////////
+//////// Properties
+///////////////////////////////////////////////////
+enum class Property { Conductivity, Density, HeatCapacity, Diffusion, Mobility };
+
+////////////////////////
+//// Conductivity
+///////////////////////
+enum class Conductivity { Constant, Linear };
+
+////////////////////////
+//// Density
+///////////////////////
+enum class Density { Constant, Linear };
+
+////////////////////////
+//// HeatCapacity
+///////////////////////
+enum class HeatCapacity { Constant, Linear };
+
+////////////////////////
+//// Diffusion
+///////////////////////
+enum class Diffusion { Constant, Linear };
+
+////////////////////////
+//// Mobility
+///////////////////////
+enum class Mobility { Constant, Degenerated };

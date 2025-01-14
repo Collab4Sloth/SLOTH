@@ -18,8 +18,7 @@
 
 #include "Problems/Problem.hpp"
 #include "Profiling/Profiling.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
-#include "Utils/UtilsForDebug.hpp"
+#include "Utils/Utils.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -37,13 +36,14 @@ class TimeDiscretization {
   double current_time_step_;
   bool last_step_{false};
 
-  std::vector<std::tuple<bool, double, mfem::Vector>> vect_tup_pb_convergence_;
+  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> vect_tup_pb_convergence_;
   void get_parameters();
 
   void check_data_before_execute();
 
   void initialize();
-  std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>> execute(const int& iter);
+  std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>> execute(
+      const int& iter);
   void post_execute(const int& iter);
   void update();
   void post_processing(const int& iter);
@@ -168,11 +168,11 @@ void TimeDiscretization<Args...>::finalize() {
  * @return std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>>
  */
 template <class... Args>
-std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>>
+std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>>
 TimeDiscretization<Args...>::execute(const int& iter) {
   Catch_Time_Section("TimeDiscretization::execute");
 
-  std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>> results;
+  std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>> results;
   auto current_time = this->current_time_;
   auto next_time = this->current_time_;
   const auto& current_time_step = this->current_time_step_;

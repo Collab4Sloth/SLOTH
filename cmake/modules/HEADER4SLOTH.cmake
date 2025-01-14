@@ -8,14 +8,6 @@ file(GLOB_RECURSE HEADER_FILES "${CMAKE_SOURCE_DIR}/kernel/*.hpp")
 
 # Remove sloth.hpp from the list
 list(REMOVE_ITEM HEADER_FILES "${HEADER_FILE}")
-if(NOT SLOTH_USE_OC)
-    file(GLOB_RECURSE OC_HEADER_FILE ${CMAKE_SOURCE_DIR}/kernel/Calphad/GibbsEnergyMinimizer/OpenCalphad/*.hpp)
-    foreach(HEADER ${OC_HEADER_FILE})
-        list(REMOVE_ITEM HEADER_FILES "${HEADER}")
-    endforeach() 
-endif()
-
-
 
 
 # Built the new sloth.hpp file (temporary file)/**
@@ -24,7 +16,15 @@ foreach(HEADER ${HEADER_FILES})
     string(REPLACE "${CMAKE_SOURCE_DIR}/kernel/" "" RELATIVE_HEADER ${HEADER})
     set(NEW_HEADER_CONTENT "${NEW_HEADER_CONTENT}#include \"${RELATIVE_HEADER}\"\n")
 endforeach()
-# set(NEW_HEADER_CONTENT "${NEW_HEADER_CONTENT}\n#pragma once \n")
+
+# EXTERNAL ??
+if(SLOTH_USE_EXTERNAL)
+    file(GLOB_RECURSE EXT_SRC_FILES $ENV{EXT_SRC}/*.hpp)
+    foreach(HEADER ${EXT_SRC_FILES})
+        set(NEW_HEADER_CONTENT "${NEW_HEADER_CONTENT}#include \"${HEADER}\"\n")
+    endforeach()
+endif(SLOTH_USE_EXTERNAL)
+
 
 file(WRITE ${TEMP_FILE} "${NEW_HEADER_CONTENT}")
 

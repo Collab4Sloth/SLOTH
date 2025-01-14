@@ -10,11 +10,11 @@
  */
 #include <memory>
 
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Solvers/SlothSolver.hpp"
-#include "Utils/PhaseFieldConstants.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
+#include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
@@ -51,29 +51,16 @@ class LSolver {
  */
 LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
                  const Parameters& p_params, mfem::Operator& ope) {
+  SlothInfo::debug("LSolver::LSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
 
-  std::visit(
-      [&ope, PRECOND, p_params, this](const auto& arg) {
-        using TT = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<TT, mfem::IterativeSolver>) {
-          pp = std::make_shared<SlothSolver>(PRECOND, p_params);
-          this->variant_precond_ = pp->get_value();
-          std::visit(
-              [&arg](auto&& prec) {
-                using PP = std::decay_t<decltype(arg)>;
-                if constexpr (!std::is_same_v<PP, std::shared_ptr<std::monostate>>) {
-                  arg->SetPreconditioner(*prec);
-                }
-              },
-              this->variant_precond_);
-        }
-        if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-          arg->SetOperator(ope);
-        }
-      },
-      this->variant_solver_);
+  pp = std::make_shared<SlothSolver>(PRECOND, p_params);
+  this->variant_precond_ = pp->get_value();
+
+  SetPrecondSolver func_prec = {ope};
+  std::visit(func_prec, this->variant_solver_, this->variant_precond_);
+  SlothInfo::debug("LSolver::LSolver end");
 }
 
 /**
@@ -84,22 +71,23 @@ LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRE
  * @param ope
  */
 LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope) {
+  SlothInfo::debug("LSolver::LSolver start");
+
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
-  std::visit(
-      [&](auto&& arg) {
-        using TT = std::decay_t<decltype(arg)>;
-        if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-          arg->SetOperator(ope);
-        }
-      },
-      this->variant_solver_);
+
+  this->variant_precond_ = std::make_shared<std::monostate>();
+
+  SetPrecondSolver func_prec = {ope};
+  std::visit(func_prec, this->variant_solver_, this->variant_precond_);
+
+  SlothInfo::debug("LSolver::LSolver end");
 }
 
 /**
  * @brief Return the solver
  *
- * @return std::shared_ptr<T>
+ * @return VSharedMFEMSolver
  */
 VSharedMFEMSolver LSolver::get_solver() { return this->variant_solver_; }
 

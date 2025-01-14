@@ -211,16 +211,7 @@ int main(int argc, char* argv[]) {
   oper2.overload_nl_solver(NLSolverType::NEWTON,
                            Parameters(Parameter("description", "Newton solver "),
                                       Parameter("print_level", 1), Parameter("abs_tol", 1.e-9)));
-  oper2.overload_solver(
-      IterativeSolverType::BICGSTAB,
-      Parameters(Parameter("description", "Linear solver "), Parameter("print_level", 1)),
-      HyprePreconditionerType::HYPRE_ILU,
-      Parameters(Parameter("description", "Linear preconditionner"), Parameter("type", 1)));
-  oper2.overload_mass_solver(
-      HypreSolverType::HYPRE_PCG,
-      Parameters(Parameter("description", "Mass matrix solver "), Parameter("print_level", 1)),
-      HyprePreconditionerType::HYPRE_SMOOTHER,
-      Parameters(Parameter("description", "Mass matrix preconditionner"), Parameter("type", 1)));
+
   PB2 Heat_pb("Heat", oper2, heat_vars, pst2, convergence);
 
   // MPI_Problem<VAR, PST> mpi(vars3, pst3, convergence);

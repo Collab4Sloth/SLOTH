@@ -1,0 +1,5 @@
+create_test("AllenCahn2Dtest9" "AllenCahn2Dtest9" FALSE "2D EXE AC" 1)
+create_col_comparison("CompareAllenCahn2Dtest9_0_0" "Problem_0_0/time_specialized.csv" "Saves/Problem_0_0/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "AllenCahn2Dtest9" "2D AC")
+create_col_comparison("CompareAllenCahn2Dtest9_1_0" "Problem_1_0/time_specialized.csv" "Saves/Problem_1_0/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "AllenCahn2Dtest9" "2D AC")
+create_col_comparison("CompareAllenCahn2Dtest9_2_0" "Problem_2_0/time_specialized.csv" "Saves/Problem_2_0/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "AllenCahn2Dtest9" "2D AC")
+create_col_comparison("CompareAllenCahn2Dtest9_3_0" "Problem_3_0/time_specialized.csv" "Saves/Problem_3_0/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "AllenCahn2Dtest9" "2D AC")
