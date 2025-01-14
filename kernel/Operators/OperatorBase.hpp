@@ -339,7 +339,7 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
     const int &it, const double &t, const double &dt, const mfem::Vector &u,
     std::function<double(const mfem::Vector &, double)> solution_func) {
   Catch_Time_Section("OperatorBase::ComputeError");
-   
+
   mfem::ParGridFunction gf(this->fespace_);
   mfem::ParGridFunction zero(this->fespace_);
   zero = 0.0;
@@ -350,13 +350,15 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
 
   const auto errorL2 = gf.ComputeLpError(2., solution_coef);
   const auto errorLinf = gf.ComputeLpError(mfem::infinity(), solution_coef);
-  const auto norm_solution = zero.ComputeLpError(2,solution_coef);
+  const auto norm_solution = zero.ComputeLpError(2, solution_coef);
   const auto normalized_error = errorL2 / norm_solution;
 
-  this->time_specialized_.emplace(IterationKey(it, dt, t), SpecializedValue("L2-error[-]", errorL2));
-  this->time_specialized_.emplace(IterationKey(it, dt, t), SpecializedValue("L2-error normalized[-]", normalized_error));
-  this->time_specialized_.emplace(IterationKey(it, dt, t), SpecializedValue("Linf-error [-]", errorLinf));
-
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("L2-error[-]", errorL2));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("L2-error normalized[-]", normalized_error));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("Linf-error [-]", errorLinf));
 }
 
 /**

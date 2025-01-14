@@ -12,10 +12,10 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <random>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
   const auto DIM = 1;
   using NLFI =
       // ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Implicit, Diffusion::Constant>;
-        ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
+      ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
   using PST = PostProcessing<FECollection, PSTCollection, DIM>;
@@ -75,31 +75,31 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   const auto& diffusionCoeff(1e-8);
-  //const auto& diffusionCoeff(0.);
-  // ####################
-  //     variables     //
-  // ####################
+  // const auto& diffusionCoeff(0.);
+  //  ####################
+  //      variables     //
+  //  ####################
 
   auto user_func =
       std::function<double(const mfem::Vector&, double)>([L](const mfem::Vector& x, double time) {
         const auto xx = x[0];
         const auto epsilon = 1e-4;
-        auto func =  (0.5 + 0.3 * std::tanh((xx - L / 2) / epsilon));
+        auto func = (0.5 + 0.3 * std::tanh((xx - L / 2) / epsilon));
 
         const auto noiseLevel = 0.;
-        static std::random_device rd; 
-        static std::mt19937 gen(rd());  
-        std::normal_distribution<> d(0, noiseLevel);  
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::normal_distribution<> d(0, noiseLevel);
 
         return func + d(gen);
       });
 
-    auto user_func_analytical =
-      std::function<double(const mfem::Vector&, double)>([L,diffusionCoeff](const mfem::Vector& x, double time) {
+  auto user_func_analytical = std::function<double(const mfem::Vector&, double)>(
+      [L, diffusionCoeff](const mfem::Vector& x, double time) {
         const auto xx = x[0];
         const auto epsilon = 1e-3;
         // auto func = 0.5 * (1 + std::tanh((xx - L / 2) / epsilon));
-        auto func = 0.5 * (1 + std::erf((xx - L / 2) / std::sqrt(4*diffusionCoeff*time)));
+        auto func = 0.5 * (1 + std::erf((xx - L / 2) / std::sqrt(4 * diffusionCoeff * time)));
 
         return func;
       });
@@ -107,8 +107,7 @@ int main(int argc, char* argv[]) {
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
   auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
-  auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "c", 2, initial_condition));
+  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "c", 2, initial_condition));
 
   // ###########################################
   // ###########################################

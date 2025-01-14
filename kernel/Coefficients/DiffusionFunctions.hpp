@@ -56,7 +56,7 @@ struct Diffusion_function<0> {
    */
   FType getLog(const Parameters& params) {
     auto a0 = params.get_param_value<double>("D");
-    return FType([a0](double x) { return (a0 * (std::log(std::max(x,1e-10)) + 1.)); });
+    return FType([a0](double x) { return (a0 * (std::log(std::max(x, 1e-10)) + 1.)); });
   }
 };
 ///////////////////////
@@ -83,7 +83,7 @@ struct Diffusion_function<1> {
     auto a1 = params.get_param_value<double>("D_1");
     return FType([a1](double x) { return a1; });
   }
-    /**
+  /**
    * @brief Get the Log Diffusion function (1st derivative)
    *
    * @param params
@@ -91,7 +91,7 @@ struct Diffusion_function<1> {
    */
   FType getLog(const Parameters& params) {
     auto a1 = params.get_param_value<double>("D");
-    return FType([a1](double x) { return std::min(a1/x,1e-5); });
+    return FType([a1](double x) { return std::min(a1 / x, 1e-5); });
   }
 };
 

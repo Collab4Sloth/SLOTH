@@ -16,9 +16,9 @@
 #include "Coefficients/DiffusionCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothGridFunction.hpp"
+#include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Utils/PhaseFieldOptions.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
@@ -190,7 +190,6 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
   elvect = 0.0;
   this->computeMu();
   for (int i = 0; i < ir->GetNPoints(); i++) {
-
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
 
     el.CalcShape(ip, Psi);
