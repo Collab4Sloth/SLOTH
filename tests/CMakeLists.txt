@@ -4,6 +4,7 @@ add_subdirectory(KKS)
 add_subdirectory(Profiling)
 add_subdirectory(HeatTransfer)
 add_subdirectory(SimpleCoupling)
+add_subdirectory(Calphad)
 # EXTERNAL ??
 if(SLOTH_USE_EXTERNAL AND NOT "$ENV{EXT_TEST}" STREQUAL "")
     add_subdirectory($ENV{EXT_TEST} "external")
