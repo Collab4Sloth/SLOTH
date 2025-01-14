@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <functional>
 #include <iostream>
 #include <limits>
