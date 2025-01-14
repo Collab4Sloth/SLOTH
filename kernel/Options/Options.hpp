@@ -12,6 +12,7 @@
  */
 
 #include "Options/AnalyticalFunctionOptions.hpp"
+#include "Options/CalphadOptions.hpp"
 #include "Options/DiffusionOptions.hpp"
 #include "Options/PhaseFieldOptions.hpp"
 #include "Options/PhysicalConvergenceOptions.hpp"

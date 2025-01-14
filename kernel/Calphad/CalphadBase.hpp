@@ -41,6 +41,7 @@ class CalphadBase {
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system);
 
  public:
+  CalphadBase();
   explicit CalphadBase(const Parameters &params);
 
   virtual void initialize() = 0;
@@ -64,6 +65,14 @@ class CalphadBase {
 
   std::string get_description() { return this->description_; }
 };
+
+/**
+ * @brief Construct a new Calphad Base< T>:: Calphad Base object
+ *
+ * @tparam T
+ */
+template <typename T>
+CalphadBase<T>::CalphadBase() {}
 
 /**
  * @brief Construct a new Calphad Base< T>:: Calphad Base object
