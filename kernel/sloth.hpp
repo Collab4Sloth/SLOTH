@@ -55,6 +55,7 @@
 #include "Parameters/Parameters.hpp"
 #include "PostProcessing/postprocessing.hpp"
 #include "Problems/Calphad_problem.hpp"
+#include "Problems/InterfaceProblem.hpp"
 #include "Problems/MPIProblem.hpp"
 #include "Problems/Problem.hpp"
 #include "Problems/ProblemBase.hpp"

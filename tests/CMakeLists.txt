@@ -1,5 +1,6 @@
 add_subdirectory(AllenCahn)
 add_subdirectory(Diffusion)
+add_subdirectory(KKS)
 add_subdirectory(Profiling)
 add_subdirectory(HeatTransfer)
 add_subdirectory(SimpleCoupling)
