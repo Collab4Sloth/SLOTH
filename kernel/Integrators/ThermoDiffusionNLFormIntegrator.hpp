@@ -75,6 +75,7 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_parameters(const P
 
   for (const auto& p : params.get_vector()) {
     const std::string& para_name = p.get_name();
+    if (para_name == "D") continue;
     const double& para_value = std::get<double>(p.get_value());
     this->inter_diffusion_coeff_.emplace_back(para_name, para_value);
   }
@@ -153,7 +154,10 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
     for (size_t i = 0; i < this->mu_gf_.size(); i++) {
       auto mu_i = SlothGridFunction(this->mu_gf_.at(i));
       mu_i.GetGradient(Tr, this->gradPsi, grad_mu_i);
-      const auto& M_i = std::get<1>(this->inter_diffusion_coeff_[i]);
+
+      const auto& M_i = std::get<1>(this->inter_diffusion_coeff_[i]) *
+                        this->u_old_.GetValue(nElement, ip) *
+                        (1. - this->u_old_.GetValue(nElement, ip));
       grad_mu_i *= M_i;
       this->gradMu_ += grad_mu_i;
     }
