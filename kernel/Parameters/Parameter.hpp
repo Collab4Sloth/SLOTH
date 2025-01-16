@@ -13,6 +13,8 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <type_traits>
+#include <typeinfo>
 #include <variant>
 #include <vector>
 
@@ -39,8 +41,8 @@ class Parameter {
 
   void print() const;
 
-  // Fonction membre qui ne modifie la valeur de retour
-  // Le type est spécifiquement indiqué malgré le auto
+  // Member function that doesn't modify the return value
+  // Type is specifically mentioned despite of auto
   auto get_value() const -> param_type;
 
   ~Parameter() {}
@@ -53,7 +55,28 @@ class Parameter {
 void Parameter::print() const {
   const auto& param_value = this->get_value();
   const auto& param_name = this->get_name();
-  SlothInfo::print(param_name, " = ", std::get<std::string>(param_value));
+
+  std::visit(
+      [param_name](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+
+        if constexpr (std::is_same_v<T, int>) {
+          SlothInfo::print(param_name, " = ", arg);
+        } else if constexpr (std::is_same_v<T, double>) {
+          SlothInfo::print(param_name, " = ", arg);
+        } else if constexpr (std::is_same_v<T, std::string>) {
+          SlothInfo::print(param_name, " = ", arg);
+        } else if constexpr (std::is_same_v<T, bool>) {
+          SlothInfo::print(param_name, " = ", arg);
+        } else if constexpr (std::is_same_v<T, vtriplet>) {
+          for (const auto& [tup0, tup1, tup2] : arg) {
+            SlothInfo::print(param_name, " = ", tup0, ", ", tup1, ", ", tup2);
+          }
+        } else {
+          mfem::mfem_error("Unsupported type");
+        }
+      },
+      this->value_);
 }
 
 /**
