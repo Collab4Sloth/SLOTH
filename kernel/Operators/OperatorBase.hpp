@@ -60,8 +60,8 @@ class OperatorBase : public mfem::Operator {
  protected:
   std::vector<Variables<T, DIM> *> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
-
-  const Parameters default_params_ = Parameters(Parameter("default parameter", false));
+  const Parameter default_p_ = Parameter("default parameter", false);
+  const Parameters default_params_ = Parameters(default_p_);
   const Parameters &params_;
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
