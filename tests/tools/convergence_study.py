@@ -7,11 +7,11 @@ import csv
 from argparse import ArgumentParser, RawTextHelpFormatter
 
 
-def find_and_read_csv(base_dir, val):
+def find_and_read_csv(base_dir, val,problem):
     orders_dict = {}
 
     for root, dirs, files in os.walk(base_dir):                                 # Loop through folders
-        if 'Problem1' in root and 'time_specialized.csv' in files:              
+        if problem in root and 'time_specialized.csv' in files:              
             base_folder = os.path.basename(os.path.dirname(root))               # Extract informations : FE order and number of elements
             parts = base_folder.split('_')
             if len(parts) > 2 and parts[0] == 'Saves' and parts[1] == 'order':  # Check if folder name is Saves_order_XX_Nx_YY_*
@@ -97,12 +97,15 @@ if __name__ == "__main__":
                          default=1., help="Domain Size")
     parser.add_argument("-t", "--timeStep", type=float,
                          default=-1, help="Time Step")
+    parser.add_argument("-p", "--problemName", type=str,
+                         default="Problem1", help="Name of the problem")
 
     args = parser.parse_args()
     LL = args.domainSize
     val = args.timeStep
+    problem = args.problemName
     base_directory = './'
-    result = find_and_read_csv(base_directory,val)
+    result = find_and_read_csv(base_directory,val,problem)
 
     plot_data(result)
 
