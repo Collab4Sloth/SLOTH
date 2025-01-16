@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "Calphad/CalphadBase.hpp"
