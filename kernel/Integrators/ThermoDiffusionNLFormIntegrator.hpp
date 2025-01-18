@@ -36,7 +36,7 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
   std::vector<std::tuple<std::string, double>> inter_diffusion_coeff_;
   double coeff_stab_;
 
-  SlothGridFunction u_old_, mu_;
+  SlothGridFunction u_old_;
 
   std::vector<mfem::ParGridFunction> mu_gf_;
   mfem::DenseMatrix gradPsi;

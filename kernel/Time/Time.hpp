@@ -289,8 +289,6 @@ void TimeDiscretization<Args...>::solve() {
     // Solve
     //------------
     const auto& results = this->execute(iter);
-    const auto& tt = this->current_time_;
-    std::apply([iter, tt](auto&... coupling) { (coupling.initialize(iter, tt), ...); }, couplings_);
     //------------
     // Check convergence
     //------------
