@@ -76,7 +76,8 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_parameters(const P
   for (const auto& p : params.get_vector()) {
     const std::string& para_name = p.get_name();
     if (para_name == "D") continue;
-    const double& para_value = std::get<double>(p.get_value());
+    const auto& value = p.get_value();
+    const double& para_value = std::get<double>(value);
     this->inter_diffusion_coeff_.emplace_back(para_name, para_value);
   }
 }
