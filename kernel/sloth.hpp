@@ -36,6 +36,8 @@
 #include "Integrators/AllenCahnTemperatureMeltingNLFormIntegrator.hpp"
 #include "Integrators/DiffusionNLFormIntegrator.hpp"
 #include "Integrators/HeatNLFormIntegrator.hpp"
+#include "Integrators/SlothGridFunction.hpp"
+#include "Integrators/ThermoDiffusionNLFormIntegrator.hpp"
 #include "Operators/AllenCahnOperator.hpp"
 #include "Operators/DiffusionOperator.hpp"
 #include "Operators/HeatOperator.hpp"

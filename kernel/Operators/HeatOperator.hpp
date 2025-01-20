@@ -105,7 +105,7 @@ NLFI *HeatOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt,
 
   std::vector<mfem::ParGridFunction> aux_gf = this->get_auxiliary_gf();
 
-  const Parameters &all_params = this->conductivity_params_ + this->params_;
+  const Parameters &all_params = this->conductivity_params_ + this->params_ - this->default_p_;
   NLFI *nlfi_ptr = new NLFI(un, all_params, aux_gf);
   return nlfi_ptr;
 }

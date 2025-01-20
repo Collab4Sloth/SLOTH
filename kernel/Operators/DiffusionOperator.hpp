@@ -106,7 +106,7 @@ NLFI *DiffusionOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt
   un.SetFromTrueDofs(u);
 
   std::vector<mfem::ParGridFunction> aux_gf = this->get_auxiliary_gf();
-  const Parameters &all_params = this->diffusion_params_ + this->params_;
+  const Parameters &all_params = this->diffusion_params_ + this->params_ - this->default_p_;
   NLFI *nlfi_ptr = new NLFI(un, all_params, aux_gf);
   return nlfi_ptr;
 }
@@ -202,7 +202,7 @@ class SteadyDiffusionOperator final
  */
 template <class T, int DIM, class NLFI>
 void SteadyDiffusionOperator<T, DIM, NLFI>::set_default_properties() {
-  this->diffusion_params_ = Parameters(Parameter("D", 1.0));
+  this->diffusion_params_ = Parameters(Parameter("D", 1.0), Parameter("D_stab", 0.0));
 }
 
 /**

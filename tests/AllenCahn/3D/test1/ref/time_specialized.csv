@@ -1,2 +1,2 @@
-Iter[-],Dt[s],Time[s],L2-error[-],Density[J.m-3],Sigma[J.m-3]
-1,0.25,0.25,5.74104e-06,2.24967e-07,4.42144e-07
+Iter[-],Dt[s],Time[s],L2-error[-],L2-error normalized[-],Linf-error [-],Density[J.m-3],Sigma[J.m-3]
+1,0.25,0.25,5.74104e-06,0.294704,0.365288,2.24968e-07,4.42146e-07
