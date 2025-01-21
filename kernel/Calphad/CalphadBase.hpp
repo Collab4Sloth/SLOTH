@@ -34,6 +34,7 @@ class CalphadBase {
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
   std::map<std::tuple<int, std::string, std::string>, double> elem_mole_fraction_by_phase_;
   std::map<std::tuple<int, std::string, std::string>, double> energies_of_phases_;
+  std::map<std::tuple<int>, double> driving_force;
 
   void clear_containers();
 
@@ -159,6 +160,13 @@ void CalphadBase<T>::update_outputs(
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           output[i] = this->energies_of_phases_[std::make_tuple(i, output_phase, "HM")];
+        }
+        break;
+      }
+      case calphad_outputs::df: {
+        //const std::string &output_phase = output_infos[1];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          output[i] = this->driving_force[std::make_tuple(i)];
         }
         break;
       }

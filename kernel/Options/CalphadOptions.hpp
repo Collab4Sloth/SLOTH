@@ -21,14 +21,14 @@
  * @brief Available outputs for Calphad problems
  */
 struct calphad_outputs {
-  enum value { mu, g, gm, h, hm, x };
+  enum value { mu, g, gm, h, hm, x, df};
   static value from(const std::string &);
 };
 
 calphad_outputs::value calphad_outputs::from(const std::string &v) {
   static PhaseFieldPrivate::mmap<calphad_outputs::value> m{
       {"mu", calphad_outputs::mu}, {"x", calphad_outputs::x}, {"g", calphad_outputs::g},
-      {"gm", calphad_outputs::gm}, {"h", calphad_outputs::h}, {"hm", calphad_outputs::hm}};
+      {"gm", calphad_outputs::gm}, {"h", calphad_outputs::h}, {"hm", calphad_outputs::hm}, {"df", calphad_outputs::df}};
   return m.find("calphad_outputs", v);
 }
 
