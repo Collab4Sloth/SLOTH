@@ -1,1 +1,2 @@
 add_subdirectory(AnalyticalIdealSolution)
+add_subdirectory(AnalyticalTwoPhase)
