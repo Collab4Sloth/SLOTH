@@ -66,8 +66,10 @@ AllenCahnDiffusionMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
     : AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
                                                                                 aux_gf) {
   auto n_ = (aux_gf.size() - 2) / 3;
-  MFEM_VERIFY((std::is_same<decltype(n), std::size_t>::value),
-              "Wrong number of auxiliary variables");
+  // TO DO : check if the aux_gf size is compatible
+  // MFEM_VERIFY((std::is_same<decltype(n), std::size_t>::value),
+  //             "Wrong number of auxiliary variables");
+  
   this->n = n_;
   this->get_parameters(params);
 }
@@ -108,7 +110,7 @@ double AllenCahnDiffusionMeltingNLFormIntegrator<
   const double g_l_at_ip = this->aux_gf_[1].GetValue(Tr, ir);
   mfem::real_t driving_force = g_s_at_ip - g_l_at_ip;
   for (std::size_t i = 2; i < this->aux_gf_.size(); i += 3) {
-    driving_force += this->aux_gf_[i].GetValue(Tr, ir) * (this->aux_gf_[i + 1].GetValue(Tr, ir) -
+    driving_force -= this->aux_gf_[i].GetValue(Tr, ir) * (this->aux_gf_[i + 1].GetValue(Tr, ir) -
                                                           this->aux_gf_[i + 2].GetValue(Tr, ir));
   }
   return driving_force;
