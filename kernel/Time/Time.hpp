@@ -289,7 +289,6 @@ void TimeDiscretization<Args...>::solve() {
     // Solve
     //------------
     const auto& results = this->execute(iter);
-
     //------------
     // Check convergence
     //------------

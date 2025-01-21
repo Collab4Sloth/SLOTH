@@ -7,12 +7,14 @@
  * \author ci230846
  * \date 19/01/2022
  */
+#include <algorithm>
 #include <any>
 #include <limits>
 #include <map>
 #include <optional>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -35,6 +37,9 @@ class Parameters {
   template <typename T>
   T get_param_value(const std::string& name) const;
   std::vector<Parameter> get_vector() const;
+
+  bool has_parameter(const std::string& param_name) const;
+
   int get_size() const;
 
   /**
@@ -127,7 +132,20 @@ Parameters::Parameters(const std::vector<Parameter>& vect_params) : vect_params_
 std::vector<Parameter> Parameters::get_vector() const { return this->vect_params_; }
 
 /**
- * @brief Return the size of a Paramters
+ * @brief Search a parameter by its name
+ *
+ * @param param_name
+ * @return true
+ * @return false
+ */
+bool Parameters::has_parameter(const std::string& param_name) const {
+  return std::find_if(vect_params_.begin(), vect_params_.end(), [&](const auto& p) {
+           return p.get_name() == param_name;
+         }) != vect_params_.end();
+}
+
+/**
+ * @brief Return the size of a Parameters
  *
  * @tparam Args
  * @return in

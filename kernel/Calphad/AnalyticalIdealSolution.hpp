@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "Calphad/CalphadBase.hpp"
@@ -151,7 +152,8 @@ void AnalyticalIdealSolution<T>::compute(
     std::transform(tp_gf.begin(), tp_gf.end(), tp_gf_at_node.begin(),
                    [&id](const T& vec) { return vec[id]; });
     const auto Temp = tp_gf_at_node[0];
-    const auto x = tp_gf_at_node[2];
+    const auto& epsilon = 1.e-10;
+    const auto x = std::max(epsilon, std::min(1. - epsilon, tp_gf_at_node[2]));
     const auto& elem = std::get<0>(chemical_system[0]);
 
     // Energy

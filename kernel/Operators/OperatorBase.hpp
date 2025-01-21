@@ -60,8 +60,8 @@ class OperatorBase : public mfem::Operator {
  protected:
   std::vector<Variables<T, DIM> *> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
-
-  const Parameters default_params_ = Parameters(Parameter("default parameter", false));
+  const Parameter default_p_ = Parameter("default parameter", false);
+  const Parameters default_params_ = Parameters(default_p_);
   const Parameters &params_;
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
@@ -341,13 +341,24 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
   Catch_Time_Section("OperatorBase::ComputeError");
 
   mfem::ParGridFunction gf(this->fespace_);
+  mfem::ParGridFunction zero(this->fespace_);
+  zero = 0.0;
+
   gf.SetFromTrueDofs(u);
   mfem::FunctionCoefficient solution_coef(solution_func);
   solution_coef.SetTime(t);
 
-  const auto error = gf.ComputeLpError(2, solution_coef);
+  const auto errorL2 = gf.ComputeLpError(2., solution_coef);
+  const auto errorLinf = gf.ComputeLpError(mfem::infinity(), solution_coef);
+  const auto norm_solution = zero.ComputeLpError(2, solution_coef);
+  const auto normalized_error = errorL2 / norm_solution;
 
-  this->time_specialized_.emplace(IterationKey(it, dt, t), SpecializedValue("L2-error[-]", error));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("L2-error[-]", errorL2));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("L2-error normalized[-]", normalized_error));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("Linf-error [-]", errorLinf));
 }
 
 /**
