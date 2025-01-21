@@ -22,7 +22,8 @@
 
 #pragma once
 
-using param_type = std::variant<int, double, std::string, bool, vtriplet>;
+using param_type = std::variant<int, double, std::string, bool, vtriplet,
+                                std::map<std::tuple<std::string, std::string>, mfem::real_t>>;
 class Parameter {
  private:
   std::string name_;
@@ -90,7 +91,9 @@ auto Parameter::get_value() const -> param_type {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double> ||
                       std::is_same_v<T, std::string> || std::is_same_v<T, bool> ||
-                      std::is_same_v<T, vtriplet>) {
+                      std::is_same_v<T, vtriplet> ||
+                      std::is_same_v<
+                          T, std::map<std::tuple<std::string, std::string>, mfem::real_t>>) {
           return arg;
         } else {
           mfem::mfem_error("Unsupported type");
