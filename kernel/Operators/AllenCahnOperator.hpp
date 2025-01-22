@@ -110,7 +110,7 @@ NLFI *AllenCahnOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt
 
   const Parameters &all_params = this->mobility_params_ + this->params_ - this->default_p_;
 
-  NLFI *nlfi_ptr = new NLFI(un, all_params, aux_gf);
+  NLFI *nlfi_ptr = new NLFI(un, all_params, this->auxvariables_);
 
   return nlfi_ptr;
 }

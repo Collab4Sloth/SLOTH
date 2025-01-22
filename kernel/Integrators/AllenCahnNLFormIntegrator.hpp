@@ -16,6 +16,7 @@
 
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Profiling/Profiling.hpp"
@@ -31,9 +32,10 @@
  * @tparam ENERGY
  * @tparam MOBI
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
+class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
+                                  public SlothNLFormIntegrator<VARS> {
  private:
   const Parameters mobility_params_;
 
@@ -61,7 +63,7 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 
  public:
   AllenCahnNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                            const std::vector<mfem::ParGridFunction>& aux_gf);
+                            std::vector<VARS*> auxvars);
   ~AllenCahnNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
@@ -89,9 +91,9 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator {
  * @param order_derivative
  * @return FuncType
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-FType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::energy_derivatives(
+FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::energy_derivatives(
     const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
   return [this, order_derivative, &Tr, &ir](const double& u) {
     return this->double_well_derivative(order_derivative, Tr, ir)(u);
@@ -114,13 +116,12 @@ FType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::energy_derivatives(
  * @param parameters
  * @return double
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 template <typename... Args>
-double AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::mobility(mfem::ElementTransformation& Tr,
-                                                                 const mfem::IntegrationPoint& ip,
-                                                                 const double u,
-                                                                 const Parameters& parameters) {
+double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+    const Parameters& parameters) {
   MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_, parameters);
   return mobi_coeff.Eval(Tr, ip);
 }
@@ -134,9 +135,9 @@ double AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::mobility(mfem::ElementTr
  * @param order_derivative
  * @return std::function<double(const double&, const double&)>
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-FType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::double_well_derivative(
+FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivative(
     const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
   return FType([this, order_derivative, &Tr, &ir](const double& u) {
     const auto& un = this->u_old_.GetValue(Tr, ir);
@@ -161,9 +162,10 @@ FType AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::double_well_derivative(
  * @tparam MOBI
  * @param params
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_parameters(const Parameters& params) {
+void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_parameters(
+    const Parameters& params) {
   this->omega_ = params.get_param_value<double>("omega");
   this->lambda_ = params.get_param_value<double>("lambda");
 }
@@ -179,12 +181,12 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_parameters(const Param
  * @param lambda
  * @param mob
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params,
-    const std::vector<mfem::ParGridFunction>& aux_gf)
-    : mobility_params_(params), u_old_(u_old), aux_gf_(aux_gf) {
+AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
+    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    : SlothNLFormIntegrator<VARS>(params, auxvars), mobility_params_(params), u_old_(u_old) {
+  this->aux_gf_ = this->get_auxiliary_gf();
   this->get_parameters(params);
 }
 
@@ -199,9 +201,9 @@ AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
  * @param elfun
  * @param elvect
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementVector(
+void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVector(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::Vector& elvect) {
   Catch_Time_Section("AllenCahnNLFormIntegrator:AssembleElementVector");
@@ -248,9 +250,9 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementVector(
  * @param elfun
  * @param elmat
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementGrad(
+void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::DenseMatrix& elmat) {
   Catch_Time_Section("AllenCahnNLFormIntegrator::AssembleElementGrad");
@@ -296,11 +298,11 @@ void AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::AssembleElementGrad(
  * @param omega
  * @return EnergyCoefficient<SCHEME, ENERGY>
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>>
-AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunction* gfu,
-                                                            const double omega) {
+AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunction* gfu,
+                                                                  const double omega) {
   return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu, omega);
 }
 
@@ -314,11 +316,11 @@ AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunctio
  * @param lambda
  * @return GradientEnergyCoefficient
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 std::unique_ptr<GradientEnergyCoefficient>
-AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_grad_energy(mfem::ParGridFunction* gfu,
-                                                                 const double lambda) {
+AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(mfem::ParGridFunction* gfu,
+                                                                       const double lambda) {
   return std::make_unique<GradientEnergyCoefficient>(gfu, lambda);
 }
 
@@ -329,6 +331,6 @@ AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_grad_energy(mfem::ParGridFu
  * @tparam ENERGY
  * @tparam MOBI
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::~AllenCahnNLFormIntegrator() {}
+AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::~AllenCahnNLFormIntegrator() {}

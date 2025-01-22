@@ -21,10 +21,10 @@
 
 #pragma once
 
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 class AllenCahnMeltingBaseNLFormIntegrator
-    : public AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI> {
+    : public AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI> {
  private:
   PotentialFunctions<1, SCHEME, INTERPOLATION> interpolation_first_derivative_potential_;
   PotentialFunctions<2, SCHEME, INTERPOLATION> interpolation_second_derivative_potential_;
@@ -41,8 +41,7 @@ class AllenCahnMeltingBaseNLFormIntegrator
 
  public:
   AllenCahnMeltingBaseNLFormIntegrator(const mfem::ParGridFunction& _u_old,
-                                       const Parameters& params,
-                                       const std::vector<mfem::ParGridFunction>& aux_gf);
+                                       const Parameters& params, std::vector<VARS*> auxvars);
   ~AllenCahnMeltingBaseNLFormIntegrator();
 };
 
@@ -61,13 +60,14 @@ class AllenCahnMeltingBaseNLFormIntegrator
  * @param order_derivative
  * @return FuncType
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-FType AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::energy_derivatives(
-    const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
+FType AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
+    energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
+                       const mfem::IntegrationPoint& ir) {
   return [this, order_derivative, &Tr, &ir](const double& u) {
-    return AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::energy_derivatives(order_derivative, Tr,
-                                                                               ir)(u) +
+    return AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::energy_derivatives(
+               order_derivative, Tr, ir)(u) +
            this->enthalpy_derivative(order_derivative, Tr, ir)(u);
   };
 }
@@ -83,12 +83,11 @@ FType AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>:
  * @param order_derivative
  * @return FuncType
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-FType AllenCahnMeltingBaseNLFormIntegrator<
-    SCHEME, ENERGY, MOBI, INTERPOLATION>::enthalpy_derivative(const int order_derivative,
-                                                              mfem::ElementTransformation& Tr,
-                                                              const mfem::IntegrationPoint& ir) {
+FType AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
+    enthalpy_derivative(const int order_derivative, mfem::ElementTransformation& Tr,
+                        const mfem::IntegrationPoint& ir) {
   return FType([this, order_derivative, &Tr, &ir](const double& u) {
     const auto& un = this->u_old_.GetValue(Tr, ir);
 
@@ -105,11 +104,11 @@ FType AllenCahnMeltingBaseNLFormIntegrator<
     return h_prime;
   });
 }
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(
-    const Parameters& params) {
-  AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>::get_parameters(params);
+void AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
+                                          INTERPOLATION>::get_parameters(const Parameters& params) {
+  AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_parameters(params);
 }
 /**
  * @brief Construct AllenCahnMeltingBaseNLFormIntegrator object
@@ -124,15 +123,14 @@ void AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
  * @param lambda
  * @param mob
  * @param alpha
- * @return AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
+ * @return AllenCahnMeltingBaseNLFormIntegrator<VARS,SCHEME, ENERGY, MOBI, INTERPOLATION>::
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
+AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     AllenCahnMeltingBaseNLFormIntegrator(const mfem::ParGridFunction& u_old,
-                                         const Parameters& params,
-                                         const std::vector<mfem::ParGridFunction>& aux_gf)
-    : AllenCahnNLFormIntegrator<SCHEME, ENERGY, MOBI>(u_old, params, aux_gf) {
+                                         const Parameters& params, std::vector<VARS*> auxvars)
+    : AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>(u_old, params, auxvars) {
   this->get_parameters(params);
 }
 
@@ -145,7 +143,7 @@ AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
  * @tparam INTERPOLATION
 
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI,
+AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
                                      INTERPOLATION>::~AllenCahnMeltingBaseNLFormIntegrator() {}
