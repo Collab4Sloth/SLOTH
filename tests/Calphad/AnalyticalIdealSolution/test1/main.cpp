@@ -17,6 +17,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 ///---------------
 /// Main program
 ///---------------
@@ -32,16 +33,21 @@ int main(int argc, char* argv[]) {
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VARS = Variables<FECollection, DIM>;
-  using VAR = Variable<FECollection, DIM>;
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
   using PB = Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST>;
 
   // Heat
-  using NLFI2 = HeatNLFormIntegrator<CoefficientDiscretization::Explicit, Conductivity::Constant>;
+  using NLFI2 =
+      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
   using OPE2 = HeatOperator<FECollection, DIM, NLFI2, Density::Constant, HeatCapacity::Constant>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
@@ -54,8 +60,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 0;
-  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level, "camembert2D.msh",
-                                                   false);
+  SPA spatial("GMSH", 1, refinement_level, "camembert2D.msh", false);
 
   // ##############################
   //     Boundary conditions     //
@@ -63,11 +68,11 @@ int main(int argc, char* argv[]) {
   auto Calphadboundaries = {Boundary("lower", 0, "Neumann", 0.),
                             Boundary("external", 2, "Neumann", 0.),
                             Boundary("upper", 1, "Neumann", 0.)};
-  auto Calphadbcs = BoundaryConditions<FECollection, DIM>(&spatial, Calphadboundaries);
+  auto Calphadbcs = BCS(&spatial, Calphadboundaries);
   auto Tboundaries = {Boundary("lower", 0, "Neumann", 0.),
                       Boundary("external", 2, "Dirichlet", 750.),
                       Boundary("upper", 1, "Neumann", 0.)};
-  auto Tbcs = BoundaryConditions<FECollection, DIM>(&spatial, Tboundaries);
+  auto Tbcs = BCS(&spatial, Tboundaries);
   // ####################
   //     parameters    //
   // ####################

@@ -16,6 +16,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 ///---------------
 /// Main program
 ///---------------
@@ -32,16 +33,22 @@ int main(int argc, char* argv[]) {
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
+
+  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
-  using PB = Problem<OPE, VAR, PST>;
-  using PB1 = MPI_Problem<VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
+  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -51,14 +58,14 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 0;
-  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
-      "InlineSquareWithQuadrangles", 1, refinement_level, std::make_tuple(30, 30, 1.e-3, 1.e-3));
+  SPA spatial("InlineSquareWithQuadrangles", 1, refinement_level,
+              std::make_tuple(30, 30, 1.e-3, 1.e-3));
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Dirichlet", 1.),
                      Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
-  auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
   // ###########################################
@@ -94,8 +101,7 @@ int main(int argc, char* argv[]) {
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
 
-  auto vars = VAR(
-      Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
 
   // ###########################################
   // ###########################################
@@ -127,7 +133,7 @@ int main(int argc, char* argv[]) {
       [](const mfem::Vector& x, double time) { return 0.; });
 
   auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-  auto vars1 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "MPI rank", 2, initial_rank));
+  auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
 
   calculation_path = "ProblemMPI_";
   auto p_pst1 =

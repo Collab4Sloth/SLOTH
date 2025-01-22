@@ -16,6 +16,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 
 ///---------------
 /// Main program
@@ -26,22 +27,27 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
   //---------------------------------------
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using NLFI = DiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Linear>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
+  using NLFI =
+      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Linear>;
+
   using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
-  using PB = Problem<OPE, VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -51,13 +57,12 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 2;
-  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 2, refinement_level, "star2D.msh",
-                                                   false);
+  SPA spatial("GMSH", 2, refinement_level, "star2D.msh", false);
   // ##############################
   //     Boundary conditions     //
   // // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.)};
-  auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
   // ###########################################
@@ -83,7 +88,7 @@ int main(int argc, char* argv[]) {
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
 
-  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "c", 2, initial_condition));
+  auto vars = VARS(VAR(&spatial, bcs, "c", 2, initial_condition));
 
   // ###########################################
   // ###########################################
