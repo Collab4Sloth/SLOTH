@@ -14,7 +14,9 @@
 #include <tuple>
 #include <vector>
 
+#include "Coefficients/LambdaCoefficient.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
+#include "Coefficients/OmegaCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
@@ -37,8 +39,6 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
 class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                                   public SlothNLFormIntegrator<VARS> {
  private:
-  const Parameters mobility_params_;
-
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
@@ -49,17 +49,23 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
   double mobility(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
                   const Parameters& parameters);
 
+  template <typename... Args>
+  double omega(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+               const Parameters& parameters);
+
+  template <typename... Args>
+  double lambda(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+                const Parameters& parameters);
+
   FType double_well_derivative(const int order_derivative, mfem::ElementTransformation& Tr,
                                const mfem::IntegrationPoint& ir);
 
  protected:
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
-  double omega_, lambda_;
 
   virtual FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
                                    const mfem::IntegrationPoint& ir);
-  virtual void get_parameters(const Parameters& vectr_param);
 
  public:
   AllenCahnNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
@@ -127,6 +133,57 @@ double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
 }
 
 /**
+ * @brief Return the value of the omega coefficient at integration point
+ *
+ * @remark Actually, only constant omega is available.
+ *
+ * @tparam VARS
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ * @tparam Args
+ * @param Tr
+ * @param ip
+ * @param u
+ * @param parameters
+ * @return double
+ */
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI>
+template <typename... Args>
+double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::omega(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+    const Parameters& parameters) {
+  OmegaCoefficient<0, Omega::Constant> omega_coeff(&this->u_old_, parameters);
+  return omega_coeff.Eval(Tr, ip);
+}
+/**
+ * @brief Return the value of the lambda coefficient at integration point
+ *
+ * @remark Actually, only constant lambda is available.
+ *
+ * @tparam VARS
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ * @tparam Args
+ * @param Tr
+ * @param ip
+ * @param u
+ * @param parameters
+ * @return double
+ */
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI>
+template <typename... Args>
+double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::lambda(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+    const Parameters& parameters) {
+  LambdaCoefficient<0, Lambda::Constant> lambda_coeff(&this->u_old_, parameters);
+  return lambda_coeff.Eval(Tr, ip);
+}
+
+/**
  * @brief double_well_derivative contribution
  *
  * @tparam SCHEME
@@ -149,25 +206,11 @@ FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivat
     } else {
       std::runtime_error("Error while setting the order of derivative : only 1 and 2 are allowed.");
     }
-    const auto& w_prime = this->omega_ * W_derivative(u);
+    const double omega = this->omega(Tr, ir, u, this->params_);
+
+    const auto& w_prime = omega * W_derivative(u);
     return w_prime;
   });
-}
-
-/**
- * @brief Get all parameters associated with this Integrator
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param params
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_parameters(
-    const Parameters& params) {
-  this->omega_ = params.get_param_value<double>("omega");
-  this->lambda_ = params.get_param_value<double>("lambda");
 }
 
 /**
@@ -185,9 +228,8 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI>
 AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), mobility_params_(params), u_old_(u_old) {
-  this->aux_gf_ = this->get_auxiliary_gf();
-  this->get_parameters(params);
+    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+  this->aux_gf_ = this->get_aux_gf();
 }
 
 /**
@@ -228,9 +270,9 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVecto
     // given u (elfun), compute grad(u)
     el.CalcPhysDShape(Tr, gradPsi);
     gradPsi.MultTranspose(elfun, gradU);
-    const double coef_mob =
-        this->mobility(Tr, ip, u, this->mobility_params_) * ip.weight * Tr.Weight();
-    gradU *= coef_mob * this->lambda_;
+    const double coef_mob = this->mobility(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
+    const double lambda = this->lambda(Tr, ip, u, this->params_);
+    gradU *= coef_mob * lambda;
     gradPsi.AddMult(gradU, elvect);
 
     // Given u, compute (w'(u), psi), psi is shape function
@@ -275,10 +317,11 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
     Tr.SetIntPoint(&ip);
 
     // Laplacian : compute (grad(u), grad(psi)), psi is shape function.
-    const double coef_mob =
-        this->mobility(Tr, ip, u, this->mobility_params_) * ip.weight * Tr.Weight();
+    const double coef_mob = this->mobility(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
     el.CalcPhysDShape(Tr, gradPsi);
-    AddMult_a_AAt(coef_mob * this->lambda_, gradPsi, elmat);
+    const double lambda = this->lambda(Tr, ip, u, this->params_);
+
+    AddMult_a_AAt(coef_mob * lambda, gradPsi, elmat);
 
     // Compute w'(u)*(du,psi), psi is shape function ( // w''(u))
     double fun_val = coef_mob * this->energy_derivatives(2, Tr, ip)(u);

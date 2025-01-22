@@ -35,7 +35,6 @@ class AllenCahnMeltingBaseNLFormIntegrator
  protected:
   FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
                            const mfem::IntegrationPoint& ir) override;
-  void get_parameters(const Parameters& vectr_param) override;
   virtual double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                         const mfem::IntegrationPoint& ir) = 0;
 
@@ -104,12 +103,7 @@ FType AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLA
     return h_prime;
   });
 }
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
-                                          INTERPOLATION>::get_parameters(const Parameters& params) {
-  AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_parameters(params);
-}
+
 /**
  * @brief Construct AllenCahnMeltingBaseNLFormIntegrator object
  *
@@ -130,9 +124,7 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
 AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     AllenCahnMeltingBaseNLFormIntegrator(const mfem::ParGridFunction& u_old,
                                          const Parameters& params, std::vector<VARS*> auxvars)
-    : AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>(u_old, params, auxvars) {
-  this->get_parameters(params);
-}
+    : AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>(u_old, params, auxvars) {}
 
 /**
  * @brief Destroy the AllenCahnMeltingBaseNLFormIntegrator  object

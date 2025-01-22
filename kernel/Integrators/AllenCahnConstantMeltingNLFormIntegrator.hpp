@@ -26,8 +26,9 @@ class AllenCahnConstantMeltingNLFormIntegrator final
  private:
   double alpha_;
 
+  void get_parameters();
+
  protected:
-  void get_parameters(const Parameters& vectr_param) override;
   double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                 const mfem::IntegrationPoint& ir) override;
 
@@ -61,7 +62,7 @@ AllenCahnConstantMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATI
                                              const Parameters& params, std::vector<VARS*> auxvars)
     : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
                                                                                       auxvars) {
-  this->get_parameters(params);
+  this->get_parameters();
 }
 
 /**
@@ -75,11 +76,9 @@ AllenCahnConstantMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATI
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnConstantMeltingNLFormIntegrator<
-    VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(const Parameters& params) {
-  AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(
-      params);
-  this->alpha_ = params.get_param_value<double>("melting_factor");
+void AllenCahnConstantMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
+                                              INTERPOLATION>::get_parameters() {
+  this->alpha_ = this->params_.template get_param_value<double>("melting_factor");
 }
 
 /**

@@ -28,9 +28,9 @@ class AllenCahnTemperatureMeltingNLFormIntegrator final
  private:
   double melting_temperature_;
   double melting_enthalpy_;
+  void get_parameters();
 
  protected:
-  void get_parameters(const Parameters& vectr_param) override;
   double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                 const mfem::IntegrationPoint& ir) override;
 
@@ -65,11 +65,10 @@ AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOL
                                                 std::vector<VARS*> auxvars)
     : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
                                                                                       auxvars) {
+  this->get_parameters();
   MFEM_VERIFY(this->aux_gf_.size() == 1,
               "AllenCahnTemperatureMeltingNLFormIntegrator requires temperature as the only "
               "auxiliary variable.");
-
-  this->get_parameters(params);
 }
 
 /**
@@ -83,12 +82,11 @@ AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOL
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnTemperatureMeltingNLFormIntegrator<
-    VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(const Parameters& params) {
-  AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(
-      params);
-  this->melting_temperature_ = params.get_param_value<double>("melting_temperature");
-  this->melting_enthalpy_ = params.get_param_value<double>("melting_enthalpy");
+void AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
+                                                 INTERPOLATION>::get_parameters() {
+  this->melting_temperature_ =
+      this->params_.template get_param_value<double>("melting_temperature");
+  this->melting_enthalpy_ = this->params_.template get_param_value<double>("melting_enthalpy");
 }
 
 /**

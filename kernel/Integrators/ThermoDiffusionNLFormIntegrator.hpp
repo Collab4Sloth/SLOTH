@@ -37,6 +37,7 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
  private:
   std::vector<std::tuple<std::string, double>> inter_diffusion_coeff_;
   double coeff_stab_;
+  void get_parameters();
 
   SlothGridFunction u_old_;
 
@@ -45,8 +46,6 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
   mfem::Vector Psi, gradMu_;
 
  protected:
-  void get_parameters(const Parameters& vectr_param);
-
  public:
   ThermoDiffusionNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
                                   std::vector<VARS*> auxvars);
@@ -67,16 +66,15 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_parameters(
-    const Parameters& params) {
+void ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_parameters() {
   MFEM_VERIFY(
-      this->mu_gf_.size() == (params.get_size() - 1),
+      this->mu_gf_.size() == (this->params_.get_size() - 1),
       "ThermoDiffusionNLFormIntegrator requires as many parameters (inter-diffusion "
       "coefficients) as auxiliary variables in addition of the stabilization coefficient D");
 
-  this->coeff_stab_ = params.get_param_value<double>("D");
+  this->coeff_stab_ = this->params_.template get_param_value<double>("D");
 
-  for (const auto& p : params.get_vector()) {
+  for (const auto& p : this->params_.get_vector()) {
     const std::string& para_name = p.get_name();
     if (para_name == "D") continue;
     const auto& value = p.get_value();
@@ -99,8 +97,8 @@ template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::ThermoDiffusionNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
-  this->mu_gf_ = this->get_auxiliary_gf();
-  this->get_parameters(params);
+  this->mu_gf_ = this->get_aux_gf();
+  this->get_parameters();
 }
 
 /**
