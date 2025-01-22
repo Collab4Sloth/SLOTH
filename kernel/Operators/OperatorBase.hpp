@@ -88,8 +88,6 @@ class OperatorBase : public mfem::Operator {
   void build_nonlinear_form(const double dt, const mfem::Vector &u);
   void SetNewtonAlgorithm(mfem::Operator *oper);
 
-  std::vector<mfem::ParGridFunction> get_auxiliary_gf();
-
  public:
   explicit OperatorBase(SpatialDiscretization<T, DIM> const *spatial);
 
@@ -508,27 +506,6 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
   this->precond_ = PRECOND;
 
   this->precond_params_ = p_params;
-}
-
-/**
- * @brief Return the vector of grid functions associated with the auxiliary variables
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- */
-template <class T, int DIM, class NLFI>
-std::vector<mfem::ParGridFunction> OperatorBase<T, DIM, NLFI>::get_auxiliary_gf() {
-  std::vector<mfem::ParGridFunction> aux_gf;
-  if (this->auxvariables_.size() > 0) {
-    for (const auto &auxvar_vec : this->auxvariables_) {
-      for (const auto &auxvar : auxvar_vec->getVariables()) {
-        auto gf = auxvar.get_gf();
-        aux_gf.emplace_back(gf);
-      }
-    }
-  }
-  return aux_gf;
 }
 
 /**
