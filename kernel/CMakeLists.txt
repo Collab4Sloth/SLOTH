@@ -7,7 +7,8 @@ file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/kernel/sloth.hpp
                             ${CMAKE_SOURCE_DIR}/kernel/Coefficients/*.hpp          
                             ${CMAKE_SOURCE_DIR}/kernel/Convergence/*.hpp    
                             ${CMAKE_SOURCE_DIR}/kernel/Couplings/*.hpp  
-                            ${CMAKE_SOURCE_DIR}/kernel/Integrators/*.hpp         
+                            ${CMAKE_SOURCE_DIR}/kernel/Integrators/*.hpp       
+                            ${CMAKE_SOURCE_DIR}/kernel/Options/*.hpp           
                             ${CMAKE_SOURCE_DIR}/kernel/Operators/*.hpp         
                             ${CMAKE_SOURCE_DIR}/kernel/Parameters/*.hpp   
                             ${CMAKE_SOURCE_DIR}/kernel/PostProcessing/*.hpp      
@@ -17,7 +18,8 @@ file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/kernel/sloth.hpp
                             ${CMAKE_SOURCE_DIR}/kernel/Spatial/*.hpp        
                             ${CMAKE_SOURCE_DIR}/kernel/Time/*.hpp               
                             ${CMAKE_SOURCE_DIR}/kernel/Utils/*.hpp             
-                            ${CMAKE_SOURCE_DIR}/kernel/Variables/*.hpp  )
+                            ${CMAKE_SOURCE_DIR}/kernel/Variables/*.hpp         
+                            ${CMAKE_SOURCE_DIR}/tests/tests.hpp  )
 
 target_sources(Sloth INTERFACE ${SRC_FILES})
 
