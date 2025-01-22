@@ -53,3 +53,13 @@ enum class Diffusion { Constant, Linear, Log };
 //// Mobility
 ///////////////////////
 enum class Mobility { Constant, Degenerated };
+
+////////////////////////
+//// Lambda
+///////////////////////
+enum class Lambda { Constant };
+
+////////////////////////
+//// Omega
+///////////////////////
+enum class Omega { Constant };
