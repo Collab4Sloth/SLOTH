@@ -17,7 +17,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-
+#include "tests/tests.hpp"
 ///---------------
 /// Main program
 ///---------------
@@ -27,25 +27,28 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
   //---------------------------------------
   // Profiling
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 1;
-
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
+  /////////////////////////
+  constexpr int DIM = Test<1>::dim;
+  using FECollection = Test<1>::FECollection;
+  using VARS = Test<1>::VARS;
+  using VAR = Test<1>::VAR;
+  using PSTCollection = Test<1>::PSTCollection;
+  using PST = Test<1>::PST;
+  using SPA = Test<1>::SPA;
+  using BCS = Test<1>::BCS;
+  /////////////////////////
 
   // Heat
-  using NLFI2 = HeatNLFormIntegrator<CoefficientDiscretization::Explicit, Conductivity::Constant>;
+  using NLFI2 =
+      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
   using OPE2 = HeatOperator<FECollection, DIM, NLFI2, Density::Constant, HeatCapacity::Constant>;
-  using PB2 = Problem<OPE2, VAR, PST>;
+  using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################
   // ###########################################
@@ -58,14 +61,13 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 0;
-  SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", 1, refinement_level,
-                                                   std::make_tuple(30, pellet_radius));
+  SPA spatial("InlineLineWithSegments", 1, refinement_level, std::make_tuple(30, pellet_radius));
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("left", 0, "Neumann", 0.),
                      Boundary("right", 1, "Dirichlet", initial_temperature)};
-  auto Tbcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  auto Tbcs = BCS(&spatial, boundaries);
 
   // ###########################################
   // ###########################################
@@ -84,7 +86,7 @@ int main(int argc, char* argv[]) {
   //     variables IC + SRC    //
   // ###########################
   // Heat
-  auto heat_vars = VAR(Variable<FECollection, DIM>(&spatial, Tbcs, "T", 2, initial_temperature));
+  auto heat_vars = VARS(VAR(&spatial, Tbcs, "T", 2, initial_temperature));
   auto pl = 4.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
       [pl, pellet_radius](const mfem::Vector& vcoord, double time) {

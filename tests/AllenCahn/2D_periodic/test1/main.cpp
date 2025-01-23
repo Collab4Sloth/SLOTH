@@ -18,6 +18,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 
 ///---------------
 /// Main program
@@ -28,8 +29,6 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
 
@@ -37,16 +36,22 @@ int main(int argc, char* argv[]) {
   // Profiling
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
+
+  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::F, Mobility::Constant>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
-  using PB = Problem<OPE, VAR, PST>;
-  using PB1 = MPI_Problem<VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
+  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -68,16 +73,15 @@ int main(int argc, char* argv[]) {
       mfem::Vector x_translation({L, 0.0});
       mfem::Vector y_translation({0.0, L});
       std::vector<mfem::Vector> translations = {x_translation, y_translation};
-      SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
-                                                       refinement_level,
-                                                       std::make_tuple(NN, NN, L, L), translations);
+      SPA spatial("InlineSquareWithQuadrangles", 1, refinement_level, std::make_tuple(NN, NN, L, L),
+                  translations);
 
       // ##############################
       //     Boundary conditions     //
       // ##############################
       auto boundaries = {Boundary("lower", 0, "Periodic"), Boundary("right", 1, "Periodic"),
                          Boundary("upper", 2, "Periodic"), Boundary("left", 3, "Periodic")};
-      auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+      auto bcs = BCS(&spatial, boundaries);
 
       // ###########################################
       // ###########################################
@@ -97,8 +101,7 @@ int main(int argc, char* argv[]) {
       // ####################
       auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
 
-      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, analytical_solution,
-                                                  analytical_solution));
+      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, analytical_solution, analytical_solution));
 
       // ###########################################
       // ###########################################
@@ -132,7 +135,7 @@ int main(int argc, char* argv[]) {
           [](const mfem::Vector& x, double time) { return 0.; });
 
       auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-      auto vars1 = VAR(Variable<FECollection, DIM>(&spatial, bcs, "MPI rank", 2, initial_rank));
+      auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
       calculation_path = "ProblemMPI_";
       auto p_pst2 = Parameters(Parameter("main_folder_path", main_folder_path),
                                Parameter("calculation_path", calculation_path),
