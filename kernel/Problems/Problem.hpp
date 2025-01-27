@@ -194,6 +194,11 @@ void Problem<OPE, VAR, PST>::finalize() {
     if (!this->pst_.get_enable_save_specialized_at_iter()) {
       this->pst_.save_specialized(this->oper_.get_time_specialized());
     }
+    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
+      std::string str = "iso_computation.csv";
+      this->pst_.save_specialized(this->oper_.get_time_iso_specialized(), str);
+    }
+
     SlothInfo::verbose(" ");
     SlothInfo::verbose(" ============================== ");
     SlothInfo::verbose(" Results are saved in the folder : ",
@@ -220,8 +225,11 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   auto solution = vv.get_analytical_solution();
   if (solution != nullptr) {
     auto solution_func = solution.get();
-
     this->oper_.ComputeError(iter, current_time, current_time_step, unk, *solution_func);
+  }
+  if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
+    this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk,
+                              this->pst_.get_iso_val_to_compute());
   }
   this->oper_.ComputeEnergies(iter, current_time, current_time_step, unk);
   ////
