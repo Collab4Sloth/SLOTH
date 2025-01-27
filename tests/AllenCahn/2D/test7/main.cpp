@@ -16,6 +16,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 ///---------------
 /// Main program
 ///---------------
@@ -25,26 +26,31 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
   //---------------------------------------
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
+  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using NLFI2 = DiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
+  using NLFI2 =
+      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
+
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
   using OPE2 = DiffusionOperator<FECollection, DIM, NLFI2, Density::Constant>;
-  using PB = Problem<OPE, VAR, PST>;
-  using PB2 = Problem<OPE2, VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
+  using PB2 = Problem<OPE2, VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -57,14 +63,14 @@ int main(int argc, char* argv[]) {
   int order = 1;
   int NN = 20;
   double L = 1.;
-  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial(
-      "InlineSquareWithQuadrangles", order, refinement_level, std::make_tuple(NN, NN, L, L));
+  SPA spatial("InlineSquareWithQuadrangles", order, refinement_level,
+              std::make_tuple(NN, NN, L, L));
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
                      Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
-  auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
   // ###########################################
@@ -112,11 +118,9 @@ int main(int argc, char* argv[]) {
       });
   auto exact_condition = AnalyticalFunctions<DIM>(ex_func_solution);
 
-  auto vars =
-      VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 1, initial_condition, exact_condition));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", 1, initial_condition, exact_condition));
 
-  auto vars2 =
-      VAR(Variable<FECollection, DIM>(&spatial, bcs, "c", 1, initial_condition, exact_condition));
+  auto vars2 = VARS(VAR(&spatial, bcs, "c", 1, initial_condition, exact_condition));
   // ###########################################
   // ###########################################
   //      Post-processing                     //

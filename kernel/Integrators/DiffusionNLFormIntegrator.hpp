@@ -15,6 +15,7 @@
 
 #include "Coefficients/DiffusionCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
@@ -28,10 +29,10 @@
  * @tparam SCHEME
  * @tparam DIFFU_NAME
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
+                                  public SlothNLFormIntegrator<VARS> {
  private:
-  const Parameters diffusion_params_;
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   mfem::DenseMatrix gradPsi;
@@ -44,12 +45,9 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
   double diffusion_prime(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
                          const double u, const Parameters& parameters);
 
- protected:
-  virtual void get_parameters(const Parameters& vectr_param);
-
  public:
   DiffusionNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                            const std::vector<mfem::ParGridFunction>& aux_gf);
+                            std::vector<VARS*> auxvars);
   ~DiffusionNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
@@ -65,8 +63,7 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_parameters(const Parameters& params) {}
+
 /**
  * @brief Return the value of the diffusion coefficient at integration point
  *
@@ -79,12 +76,11 @@ void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_parameters(const Paramet
  * @param parameters
  * @return double
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 template <typename... Args>
-double DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::diffusion(mfem::ElementTransformation& Tr,
-                                                                const mfem::IntegrationPoint& ip,
-                                                                const double u,
-                                                                const Parameters& parameters) {
+double DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::diffusion(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+    const Parameters& parameters) {
   if (SCHEME == CoefficientDiscretization::Implicit) {
     DiffusionCoefficient<0, DIFFU_NAME> diff_coeff(u, parameters);
     return diff_coeff.Eval(Tr, ip);
@@ -107,9 +103,9 @@ double DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::diffusion(mfem::ElementTra
  * @param parameters
  * @return double
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 template <typename... Args>
-double DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::diffusion_prime(
+double DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::diffusion_prime(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
     const Parameters& parameters) {
   double coef = 0.;
@@ -130,12 +126,11 @@ double DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::diffusion_prime(
  * @param alpha
  * @param kappa
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params,
-    const std::vector<mfem::ParGridFunction>& aux_gf)
-    : diffusion_params_(params), u_old_(u_old), aux_gf_(aux_gf) {
-  // this->get_parameters(params);
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
+    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+  this->aux_gf_ = this->get_aux_gf();
 }
 
 /**
@@ -147,8 +142,8 @@ DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
  * @param elvect
  */
 
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::Vector& elvect) {
   int nd = el.GetDof();
@@ -172,8 +167,7 @@ void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
     el.CalcPhysDShape(Tr, gradPsi);
     gradPsi.MultTranspose(elfun, gradU);
 
-    const double coeff_diffu =
-        this->diffusion(Tr, ip, u, this->diffusion_params_) * ip.weight * Tr.Weight();
+    const double coeff_diffu = this->diffusion(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
     gradU *= coeff_diffu;
     gradPsi.AddMult(gradU, elvect);
   }
@@ -187,8 +181,8 @@ void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
  * @param elfun
  * @param elmat
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementGrad(
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
@@ -212,22 +206,21 @@ void DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementGrad(
     // Laplacian : compute (grad(phi), grad(psi)), phi is shape function.
 
     Tr.SetIntPoint(&ip);
-    const double coeff_diffu =
-        this->diffusion(Tr, ip, u, this->diffusion_params_) * ip.weight * Tr.Weight();
+    const double coeff_diffu = this->diffusion(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
     el.CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, elmat);
 
     gradPsi.MultTranspose(elfun, gradU);
     gradPsi.AddMult(gradU, vec);
-    const auto coef_diffu_derivative = this->diffusion_prime(Tr, ip, u, this->diffusion_params_);
+    const auto coef_diffu_derivative = this->diffusion_prime(Tr, ip, u, this->params_);
     AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, elmat);
   }
 }
 
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFunction* gfu,
-                                                          const double diffu) {
+DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFunction* gfu,
+                                                                const double diffu) {
   return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu, diffu);
 }
 
@@ -238,5 +231,5 @@ DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFunction*
  * @tparam COEFFICIENT
  */
 
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-DiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::~DiffusionNLFormIntegrator() {}
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::~DiffusionNLFormIntegrator() {}

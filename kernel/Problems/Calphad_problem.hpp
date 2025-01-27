@@ -198,16 +198,14 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
   // Primary variables
   // ---------------------
   for (const auto& var : this->variables_.getVariables()) {
-    MFEM_VERIFY(var.get_additional_variable_info().size() > 1,
-                "Calphad problems requires ouputs with at least two additional informations: "
-                "first a name (eg. an element, a phase), second the type "
-                "(eg. mu for chemical potential, x for molar fraction, g for the Gibbs energy \n");
+    MFEM_VERIFY(var.get_additional_variable_info().size() > 0,
+                "Calphad problems requires ouputs with at least two additional informations  \n");
 
     switch (calphad_outputs::from(var.get_additional_variable_info().back())) {
       case calphad_outputs::mu: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
                     "Calphad problems requires that chemical potential ouputs are defined with two "
-                    "additional informations: first an element,  second the type 'mu'. \n");
+                    "additional informations: first an element, second the symbol 'mu'. \n");
 
         SlothInfo::debug("Output : chemical potential for ", var.get_additional_variable_info()[0]);
         break;
@@ -215,8 +213,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
       case calphad_outputs::x: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 3,
                     "Calphad problems requires that element molar fraction ouputs are defined with "
-                    "three additional informations: first an element,   second  a phase and third "
-                    "the type 'x'. \n");
+                    "three additional informations: first an element, second a phase and third "
+                    "the symbol 'x'. \n");
         SlothInfo::debug("Output : molar fraction for ", var.get_additional_variable_info()[0]);
         break;
       }
@@ -224,7 +222,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
       case calphad_outputs::gm: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
                     "Calphad problems requires that Gibbs energy ouputs are defined with two "
-                    "additional informations: first a phase,  second the type 'g' or 'gm'. \n");
+                    "additional informations: first a phase,  second the symbol 'g' or 'gm'. \n");
         SlothInfo::debug("Output : Gibbs energy for ", var.get_additional_variable_info()[0]);
         break;
       }
@@ -232,8 +230,30 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
       case calphad_outputs::hm: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
                     "Calphad problems requires that enthalpy ouputs are defined with two "
-                    "additional informations: first a phase,  second the type  'h' or 'hm'. \n");
+                    "additional informations: first a phase,  second the symbol  'h' or 'hm'. \n");
         SlothInfo::debug("Output : enthalpy for ", var.get_additional_variable_info()[0]);
+        break;
+      }
+      case calphad_outputs::dgm: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
+                    "Calphad problems requires that driving forces ouputs are defined with the "
+                    "name of the phase and the symbol 'dgm' as the additional information. \n");
+        SlothInfo::debug("Output : driving force for ", var.get_additional_variable_info()[0]);
+        break;
+      }
+      case calphad_outputs::mob: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
+                    "Calphad problems requires that mobility ouputs are defined with two "
+                    "additional informations: first an element,  second the symbol 'mob'. \n");
+
+        SlothInfo::debug("Output : mobility for ", var.get_additional_variable_info()[0]);
+        break;
+      }
+      case calphad_outputs::cp: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 1,
+                    "Calphad problems requires that heat capacity ouputs are defined with the "
+                    "symbol cp as the only additional information. \n");
+        SlothInfo::debug("Output : heat capacity ");
         break;
       }
     }

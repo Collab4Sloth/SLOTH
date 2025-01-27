@@ -16,6 +16,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 
 ///---------------
 /// Main program
@@ -26,25 +27,28 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
   //---------------------------------------
   // Profiling
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 3;
-  using NLFI =
-      AllenCahnConstantMeltingNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
-                                               ThermodynamicsPotentials::W, Mobility::Constant,
-                                               ThermodynamicsPotentials::H>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
+  /////////////////////////
+  constexpr int DIM = Test<3>::dim;
+  using FECollection = Test<3>::FECollection;
+  using VARS = Test<3>::VARS;
+  using VAR = Test<3>::VAR;
+  using PSTCollection = Test<3>::PSTCollection;
+  using PST = Test<3>::PST;
+  using SPA = Test<3>::SPA;
+  using BCS = Test<3>::BCS;
+  /////////////////////////
+
+  using NLFI = AllenCahnConstantMeltingNLFormIntegrator<
+      VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
+      Mobility::Constant, ThermodynamicsPotentials::H>;
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
-  using PB = Problem<OPE, VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
 
   // ###########################################
   // ###########################################
@@ -55,8 +59,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 0;
-  SpatialDiscretization<mfem::H1_FECollection, DIM> spatial("GMSH", 1, refinement_level,
-                                                            "camembert3D.msh", false);
+  SPA spatial("GMSH", 1, refinement_level, "camembert3D.msh", false);
   // ##############################
   //     Boundary conditions     //
   // ##############################
@@ -64,7 +67,7 @@ int main(int argc, char* argv[]) {
       Boundary("InterPelletPlane", 1, "Neumann", 0.), Boundary("MidPelletPlane", 2, "Neumann", 0.),
       Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 4, "Neumann", 0.),
       Boundary("ExternalSurface", 0, "Neumann", 0.)};
-  auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
   // ###########################################
@@ -105,7 +108,7 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
                                center_z, a_x, a_y, a_z, thickness, radius);
 
-  auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition));
 
   // ###########################################
   // ###########################################

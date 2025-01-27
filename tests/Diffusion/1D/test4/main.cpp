@@ -19,6 +19,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 
 ///---------------
 /// Main program
@@ -35,14 +36,19 @@ int main(int argc, char* argv[]) {
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 1;
-  using NLFI =
-      ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VARS = Variables<FECollection, DIM>;
-  using VAR = Variable<FECollection, DIM>;
+  /////////////////////////
+  constexpr int DIM = Test<1>::dim;
+  using FECollection = Test<1>::FECollection;
+  using VARS = Test<1>::VARS;
+  using VAR = Test<1>::VAR;
+  using PSTCollection = Test<1>::PSTCollection;
+  using PST = Test<1>::PST;
+  using SPA = Test<1>::SPA;
+  using BCS = Test<1>::BCS;
+  /////////////////////////
+
+  using NLFI = ThermoDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
+                                               Diffusion::Constant>;
   using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
   using TD = Problem<OPE, VARS, PST>;
 
@@ -59,13 +65,12 @@ int main(int argc, char* argv[]) {
   double L = 1e-3;
   int order = 1;
   int NN = 80;
-  SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", order,
-                                                   refinement_level, std::make_tuple(NN, L));
+  SPA spatial("InlineLineWithSegments", order, refinement_level, std::make_tuple(NN, L));
   // ##############################
   //     Boundary conditions     //
   // // ##############################
   auto boundaries = {Boundary("left", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.)};
-  auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+  auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
   // ###########################################

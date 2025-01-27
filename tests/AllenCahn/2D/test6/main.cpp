@@ -18,6 +18,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 ///---------------
 /// Main program
 ///---------------
@@ -33,15 +34,20 @@ int main(int argc, char* argv[]) {
   // Profiling
   Profiling::getInstance().enable();
   //---------------------------------------
-  const auto DIM = 2;
-  using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
+  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
-  using PB = Problem<OPE, VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
 
   // ###########################################
   // ###########################################
@@ -60,16 +66,15 @@ int main(int argc, char* argv[]) {
       auto L = 1.;
       mfem::Vector x_translation({L, 0.0});
       std::vector<mfem::Vector> translations = {x_translation};
-      SpatialDiscretization<FECollection, DIM> spatial(
-          "InlineSquareWithQuadrangles", order, refinement_level,
-          std::make_tuple(2 * NN, NN, L, L / 2), translations);
+      SPA spatial("InlineSquareWithQuadrangles", order, refinement_level,
+                  std::make_tuple(2 * NN, NN, L, L / 2), translations);
       // ##############################
       //     Boundary conditions     //
       // ##############################
       auto boundaries = {
           Boundary("lower", 0, "Dirichlet", 1.), Boundary("right", 1, "Periodic", 0.),
           Boundary("upper", 2, "Dirichlet", 0.), Boundary("left", 3, "Periodic", 0.)};
-      auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+      auto bcs = BCS(&spatial, boundaries);
 
       // ###########################################
       // ###########################################
@@ -182,8 +187,7 @@ int main(int argc, char* argv[]) {
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
-      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition,
-                                                  analytical_solution));
+      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
 
       // ###########################################
       // ###########################################
