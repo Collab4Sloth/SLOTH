@@ -196,7 +196,7 @@ void Problem<OPE, VAR, PST>::finalize() {
     }
     if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
       std::string str = "iso_computation.csv";
-      this->pst_.save_specialized(this->oper_.get_time_iso_specialized(), str);
+      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
     }
 
     SlothInfo::verbose(" ");

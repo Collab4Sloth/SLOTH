@@ -65,7 +65,6 @@ class OperatorBase : public mfem::Operator {
   const Parameters &params_;
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_, time_iso_specialized_;
-
   /// Finite Element Space and BCs
   mfem::ParFiniteElementSpace *fespace_;
   mfem::Array<int> ess_tdof_list_;
@@ -375,6 +374,7 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
                                                const mfem::Vector &u,
                                                const mfem::real_t &iso_value) {
   Catch_Time_Section("OperatorBase::ComputeIsoVal");
+  std::vector<std::string> vstr = {"x", "y", "z"};
 
   mfem::ParGridFunction gf(this->fespace_);
   gf.SetFromTrueDofs(u);
@@ -404,6 +404,7 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
             double t = std::abs(val1) / (std::abs(val1) + std::abs(val2));
 
             mfem::Vector coord1(DIM), coord2(DIM), iso_coord(DIM);
+            iso_coord = mfem::infinity();
             dof_coords.GetColumn(j, coord1);
             dof_coords.GetColumn(k, coord2);
 
@@ -414,7 +415,6 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
           }
         }
       }
-      std::vector<std::string> vstr = {"x", "y", "z"};
       for (size_t i = 0; i < iso_points.size(); i++) {
         for (size_t d = 0; d < DIM; d++) {
           this->time_iso_specialized_.emplace(IterationKey(it, dt, t),
