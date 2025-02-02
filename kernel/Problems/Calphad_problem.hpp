@@ -242,9 +242,10 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
         break;
       }
       case calphad_outputs::mob: {
-        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
-                    "Calphad problems requires that mobility ouputs are defined with two "
-                    "additional informations: first an element,  second the symbol 'mob'. \n");
+        MFEM_VERIFY(
+            var.get_additional_variable_info().size() == 3,
+            "Calphad problems requires that mobility ouputs are defined with two "
+            "additional informations: first a phase, second an element, the symbol 'mob'. \n");
 
         SlothInfo::debug("Output : mobility for ", var.get_additional_variable_info()[0]);
         break;
