@@ -19,7 +19,7 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Utils/Utils.hpp"
+#include "Profiling/Profiling.hpp"
 
 #pragma once
 
@@ -31,17 +31,26 @@ class CalphadBase {
   const Parameters &params_;
 
   // Containers used to store the results of the equilibrium calculations
-  // Chemical potentials by node for each element
+  // Chemical potentials for each element. Nodal values
+  // key: [node, elem]
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
-  // Energy by node for each phase
+  // Element molar fraction for each phase .Nodal values
+  // key: [node, phase, elem]
   std::map<std::tuple<int, std::string, std::string>, double> elem_mole_fraction_by_phase_;
-  // Energy by node for each phase
+  // Site fraction of a given constituant, in a given sublattice for each phase. Nodal values
+  // key: [node, phase, cons, sub]
+  std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
+  // Energy for each phase. Nodal values
+  // key: [node, phase, symbol]
   std::map<std::tuple<int, std::string, std::string>, double> energies_of_phases_;
-  // Driving force by node for each phase
+  // Driving force for each phase. Nodal values
+  // key: [node, phase]
   std::map<std::tuple<int, std::string>, double> driving_forces_;
-  // Mobility by node for each element
-  std::map<std::tuple<int, std::string>, double> mobilities_;
-  //  Heat capacity by node
+  // Mobility for each element in a given phase. Nodal values
+  // key: [node, phase, elem]
+  std::map<std::tuple<int, std::string, std::string>, double> mobilities_;
+  //  Heat capacity. Nodal values
+  // key: [node]
   std::map<int, double> heat_capacity_;
 
   void clear_containers();
@@ -103,6 +112,7 @@ void CalphadBase<T>::clear_containers() {
   // Clear before filling with new results
   this->chemical_potentials_.clear();
   this->elem_mole_fraction_by_phase_.clear();
+  this->site_fraction_.clear();
   this->energies_of_phases_.clear();
   this->driving_forces_.clear();
   this->heat_capacity_.clear();
@@ -120,6 +130,8 @@ template <typename T>
 void CalphadBase<T>::update_outputs(
     const size_t nb_nodes,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system) {
+  Catch_Time_Section("Calphad::update_outputs");
+
   ////////////////////
   // Update outputs //
   ////////////////////
@@ -143,6 +155,16 @@ void CalphadBase<T>::update_outputs(
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           output[i] =
               this->elem_mole_fraction_by_phase_[std::make_tuple(i, output_phase, output_elem)];
+        }
+        break;
+      }
+      case calphad_outputs::y: {
+        const std::string &output_cons = output_infos[1];
+        const int &output_sub = std::stoi(output_infos[2]);
+        const std::string &output_phase = output_infos[3];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          output[i] =
+              this->site_fraction_[std::make_tuple(i, output_phase, output_cons, output_sub)];
         }
         break;
       }
@@ -182,16 +204,16 @@ void CalphadBase<T>::update_outputs(
         break;
       }
       case calphad_outputs::cp: {
-        const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           output[i] = this->heat_capacity_[i];
         }
         break;
       }
       case calphad_outputs::mob: {
-        const std::string &output_elem = output_infos[1];
+        const std::string &output_phase = output_infos[1];
+        const std::string &output_elem = output_infos[2];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
-          output[i] = this->mobilities_[std::make_tuple(i, output_elem)];
+          output[i] = this->mobilities_[std::make_tuple(i, output_phase, output_elem)];
         }
         break;
       }
