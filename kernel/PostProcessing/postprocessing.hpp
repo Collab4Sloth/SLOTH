@@ -35,6 +35,7 @@ class PostProcessing : public DC {
   int level_of_detail_;
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
+  double iso_val_to_compute;
 
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
@@ -52,10 +53,14 @@ class PostProcessing : public DC {
 
   PostProcessing(SpatialDiscretization<T, DIM>* space, const Parameters& params);
   void save_variables(const Variables<T, DIM>& vars, const int& iter, const double& time);
-  void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results);
+  void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,
+                        std::string filename = "time_specialized.csv");
+  void save_iso_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,
+                            std::string filename = "iso.csv");
   int get_frequency();
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
+  double get_iso_val_to_compute();
 
   ~PostProcessing();
 };
@@ -105,6 +110,8 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       "enable_save_specialized_at_iter", false);
   this->force_clean_output_dir_ =
       this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
+  this->iso_val_to_compute = this->params_.template get_param_value_or_default<double>(
+      "iso_val_to_compute", mfem::infinity());
 }
 
 /**
@@ -137,6 +144,16 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
 template <class T, class DC, int DIM>
 int PostProcessing<T, DC, DIM>::get_frequency() {
   return this->frequency_;
+}
+
+/**
+ * @brief Get the isovalues to compute
+ *
+ * @return double
+ */
+template <class T, class DC, int DIM>
+double PostProcessing<T, DC, DIM>::get_iso_val_to_compute() {
+  return this->iso_val_to_compute;
 }
 
 /**
@@ -183,8 +200,7 @@ bool PostProcessing<T, DC, DIM>::need_to_be_saved(const int& iteration) {
  */
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::save_specialized(
-    const std::multimap<IterationKey, SpecializedValue>& mmap_results) {
-  const std::string& filename = "time_specialized.csv";
+    const std::multimap<IterationKey, SpecializedValue>& mmap_results, std::string filename) {
   std::filesystem::path file = std::filesystem::path(this->post_processing_directory_) / filename;
   std::ofstream fic(file, std::ios::out | std::ios::trunc);
 
@@ -205,6 +221,57 @@ void PostProcessing<T, DC, DIM>::save_specialized(
     const auto& value = it->second;
     text2fic << "," << value.first;
   }
+  text2fic << "\n";
+  ////////////////////////////////////////////
+  // Values
+  ////////////////////////////////////////////
+  std::set<IterationKey> already_seen_keys;
+  for (const auto& [key, value] : mmap_results) {
+    if (already_seen_keys.find(key) != already_seen_keys.end()) {
+      continue;
+    }
+    auto range = mmap_results.equal_range(key);
+    text2fic << key.iter_.second << "," << key.time_step_.second << "," << key.time_.second;
+    for (auto it = range.first; it != range.second; ++it) {
+      const auto& value = it->second;
+      text2fic << "," << value.second;
+    }
+    text2fic << "\n";
+    already_seen_keys.insert(key);
+  }
+
+  fic << text2fic.str();
+}
+
+/**
+ * @brief Export specialized results in CSV files
+ *
+ * @tparam T
+ * @tparam DC
+ * @tparam DIM
+ * @param filename
+ * @param tup
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::save_iso_specialized(
+    const std::multimap<IterationKey, SpecializedValue>& mmap_results, std::string filename) {
+  std::filesystem::path file = std::filesystem::path(this->post_processing_directory_) / filename;
+  std::ofstream fic(file, std::ios::out | std::ios::trunc);
+
+  if (!fic.is_open()) {
+    std::string msg = "Unable to open file: " + filename;
+    mfem::mfem_error(msg.c_str());
+  }
+
+  std::ostringstream text2fic;
+  ////////////////////////////////////////////
+  // Headers
+  ////////////////////////////////////////////
+  text2fic << "Iter[-]"
+           << ","
+           << "Dt[s]"
+           << ","
+           << "Time[s]";
   text2fic << "\n";
   ////////////////////////////////////////////
   // Values
