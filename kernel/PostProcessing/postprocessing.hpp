@@ -35,7 +35,7 @@ class PostProcessing : public DC {
   int level_of_detail_;
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
-  mfem::real_t iso_val_to_compute;
+  double iso_val_to_compute;
 
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
@@ -60,7 +60,7 @@ class PostProcessing : public DC {
   int get_frequency();
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
-  mfem::real_t get_iso_val_to_compute();
+  double get_iso_val_to_compute();
 
   ~PostProcessing();
 };
@@ -110,7 +110,7 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       "enable_save_specialized_at_iter", false);
   this->force_clean_output_dir_ =
       this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
-  this->iso_val_to_compute = this->params_.template get_param_value_or_default<mfem::real_t>(
+  this->iso_val_to_compute = this->params_.template get_param_value_or_default<double>(
       "iso_val_to_compute", mfem::infinity());
 }
 
@@ -149,10 +149,10 @@ int PostProcessing<T, DC, DIM>::get_frequency() {
 /**
  * @brief Get the isovalues to compute
  *
- * @return mfem::real_t
+ * @return double
  */
 template <class T, class DC, int DIM>
-mfem::real_t PostProcessing<T, DC, DIM>::get_iso_val_to_compute() {
+double PostProcessing<T, DC, DIM>::get_iso_val_to_compute() {
   return this->iso_val_to_compute;
 }
 
@@ -267,7 +267,11 @@ void PostProcessing<T, DC, DIM>::save_iso_specialized(
   ////////////////////////////////////////////
   // Headers
   ////////////////////////////////////////////
-  text2fic << "Iter[-]" << "," << "Dt[s]" << "," << "Time[s]";
+  text2fic << "Iter[-]"
+           << ","
+           << "Dt[s]"
+           << ","
+           << "Time[s]";
   text2fic << "\n";
   ////////////////////////////////////////////
   // Values

@@ -100,7 +100,7 @@ class OperatorBase : public mfem::Operator {
   void ComputeError(const int &it, const double &t, const double &dt, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
   void ComputeIsoVal(const int &it, const double &t, const double &dt, const mfem::Vector &u,
-                     const mfem::real_t &iso_value);
+                     const double &iso_value);
   void get_source_term(mfem::Vector &source_term, mfem::ParLinearForm *RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
@@ -371,8 +371,7 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
  */
 template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, const double &dt,
-                                               const mfem::Vector &u,
-                                               const mfem::real_t &iso_value) {
+                                               const mfem::Vector &u, const double &iso_value) {
   Catch_Time_Section("OperatorBase::ComputeIsoVal");
   std::vector<std::string> vstr = {"x", "y", "z"};
 
@@ -386,7 +385,7 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
     mfem::Array<int> dofs;
     this->fespace_->GetElementDofs(i, dofs);
 
-    std::vector<mfem::real_t> dof_val;
+    std::vector<double> dof_val;
     mfem::DenseMatrix dof_coords;
     mfem::ElementTransformation *Tr = this->fespace_->GetElementTransformation(i);
     Tr->Transform(el->GetNodes(), dof_coords);
