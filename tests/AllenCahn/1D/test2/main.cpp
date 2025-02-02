@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 0;
-  mfem::real_t L = 1e-3;
+  double L = 1e-3;
   size_t NN = 75;
   SPA spatial("InlineLineWithSegments", 1, refinement_level, std::make_tuple(NN, L));
   // ##############################
@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
   //  Melting factor
   const auto& alpha(7.e3);
   //  Interface thickness
-  mfem::real_t epsilon = 4 * L / NN;
+  double epsilon = 4 * L / NN;
   // Interfacial energy
   const auto& sigma(6.e-2);
   // Two-phase mobility
@@ -115,12 +115,12 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
-  mfem::real_t iso_val = 0.5;
+  double iso_val = 0.5;
   // ####################
   //     operators     //
   // ####################
   std::string calculation_path = "Problem1";
-  mfem::real_t iso = 0.5;
+  double iso = 0.5;
   auto p_pst1 = Parameters(
       Parameter("main_folder_path", main_folder_path),
       Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
