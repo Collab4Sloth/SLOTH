@@ -362,12 +362,12 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
 }
 
 /**
- * @brief Compute the position of a iso value
+ * @brief Compute the position of an isovalue
  * @param it current iteration
  * @param t current time
  * @param dt current timestep
  * @param u unknown vector
- * @param iso_value value of the solution sought
+ * @param iso_value value of the solution
  */
 template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, const double &dt,
@@ -385,32 +385,42 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
     mfem::Array<int> dofs;
     this->fespace_->GetElementDofs(i, dofs);
 
-    std::vector<double> dof_val;
     mfem::DenseMatrix dof_coords;
     mfem::ElementTransformation *Tr = this->fespace_->GetElementTransformation(i);
     Tr->Transform(el->GetNodes(), dof_coords);
+    std::vector<double> dof_val;
+    dof_val.reserve(dofs.Size());
     for (int j = 0; j < dofs.Size(); j++) {
-      dof_val.push_back(u(dofs[j]) - iso_value);
+      dof_val.emplace_back(u(dofs[j]) - iso_value);
     }
-    if (!(std::all_of(dof_val.begin(), dof_val.end(), [](double x) { return x <= 0; }) ||
-          std::all_of(dof_val.begin(), dof_val.end(), [](double x) { return x >= 0; }))) {
+
+    // At least one positive and one negative value
+    bool has_positive_value =
+        std::any_of(dof_val.begin(), dof_val.end(), [](double x) { return x > 0; });
+    bool has_negative_value =
+        std::any_of(dof_val.begin(), dof_val.end(), [](double x) { return x < 0; });
+
+    if (has_positive_value && has_negative_value) {
       for (int j = 0; j < dofs.Size(); j++) {
+        mfem::Vector coord1(DIM);
+        double val1 = dof_val[j];
+        dof_coords.GetColumn(j, coord1);
         for (int k = j + 1; k < dofs.Size(); k++) {
-          double val1 = dof_val[j];
           double val2 = dof_val[k];
 
           if (val1 * val2 < 0) {
-            double t = std::abs(val1) / (std::abs(val1) + std::abs(val2));
+            const double abs_val1 = std::abs(val1);
+            const double abs_val2 = std::abs(val2);
+            double t = abs_val1 / (abs_val1 + abs_val2);
 
-            mfem::Vector coord1(DIM), coord2(DIM), iso_coord(DIM);
+            mfem::Vector coord2(DIM), iso_coord(DIM);
             iso_coord = mfem::infinity();
-            dof_coords.GetColumn(j, coord1);
             dof_coords.GetColumn(k, coord2);
 
             for (int d = 0; d < coord1.Size(); d++) {
               iso_coord[d] = coord1[d] + t * (coord2[d] - coord1[d]);
             }
-            iso_points.push_back(iso_coord);
+            iso_points.emplace_back(std::move(iso_coord));
           }
         }
       }

@@ -223,14 +223,17 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   auto vv = this->variables_.getIVariable(0);
   auto unk = vv.get_unknown();
   auto solution = vv.get_analytical_solution();
+  // Errors
   if (solution != nullptr) {
     auto solution_func = solution.get();
     this->oper_.ComputeError(iter, current_time, current_time_step, unk, *solution_func);
   }
-  if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
-    this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk,
-                              this->pst_.get_iso_val_to_compute());
+  // Isovalues
+  const double iso_value = this->pst_.get_iso_val_to_compute();
+  if (iso_value != mfem::infinity()) {
+    this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk, iso_value);
   }
+  // Energies
   this->oper_.ComputeEnergies(iter, current_time, current_time_step, unk);
   ////
 
