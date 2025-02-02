@@ -63,35 +63,61 @@ for argument; do
         if [[ "${$(echo $value | grep -o ',' | wc -l)}" -lt 2 ]]; then
             Print "\nError: --external must contain 3 or 4 values separated by a comma."
             Print " --external=EXT_LIBDIR,EXT_LIBNAME,EXT_SRC,EXT_TEST "
-            Print " EXT_DIR : path towards the external package "
+            Print " EXT_LIBDIR : path towards the external package "
             Print " EXT_LIBNAME : path of the external dynamic library linked to SLOTH"
             Print " EXT_SRC : path of the source files of the interface between the external package and SLOTH"
             Print " EXT_TEST : path of the SLOTH tests involving the external package"
             return
         fi
-        export EXT_LIBDIR=$(echo $value | cut -f1-1 -d',')
-        if [[ ! -d "$EXT_LIBDIR" ]]; then
-            Print "\nError:  external package does not exist. Please check the data!"
-            return
-        fi
-        export EXT_LIBNAME=$(echo $value | cut -f2-2 -d',')
+        export EXT_LIBDIR=$(echo "$value" | cut -f1 -d',')
+        export EXT_LIBNAME=$(echo "$value" | cut -f2 -d',')
+        export EXT_SRC=$(echo "$value" | cut -f3 -d',')
+        export EXT_TEST=$(echo "$value" | cut -f4 -d',')
 
-        export EXT_SRC=$(echo $value | cut -f3-3 -d',')
-        if [[ ! -d "$EXT_DIR" ]]; then
-            Print "\nError:  source files of the interface does not exist. Please check the data!"
-            return
-        fi
-        EXT_TEST=""
-        if [[ "${$(echo $value | grep -o ',' | wc -l)}" -eq 3 ]]; then
-            export EXT_TEST=$(echo $value | cut -f4-4 -d',')
-
-            if [[ ! -d "$EXT_TEST" ]]; then
-                Print "\nError: SLOTH tests of the interface does not exist. Please check the data!"
-                return
+        # Get absolute path
+        function to_absolute_path() {
+            local path=$1
+            if [[ ! "$path" =~ ^/ ]]; then
+                if command -v realpath &>/dev/null; then
+                    echo "$(realpath "$path")"
+                else
+                    echo "$(cd "$path" && pwd)"
+                fi
+            else
+                echo "$path"
             fi
+        }
+        EXT_LIBDIR=$(to_absolute_path "$EXT_LIBDIR")
+        EXT_SRC=$(to_absolute_path "$EXT_SRC")
+        if [[ -n "$EXT_TEST" ]]; then
+            EXT_TEST=$(to_absolute_path "$EXT_TEST")
+        fi
+        # Validate EXT_LIBDIR
+        if [[ ! -d "$EXT_LIBDIR" ]]; then
+            Print "\nError: External package directory does not exist. Please check the data!"
+            return
         fi
 
+        # Validate EXT_SRC
+        if [[ ! -d "$EXT_SRC" ]]; then
+            Print "\nError: Source files directory does not exist. Please check the data!"
+            return
+        fi
+
+        # Validate EXT_TEST if present
+        if [[ -n "$EXT_TEST" && ! -d "$EXT_TEST" ]]; then
+            Print "\nError: Tests directory does not exist. Please check the data!"
+            return
+        fi
+
+        # Set external flag
         use_external='ON'
+
+        Print "\nConfiguration successful:"
+        Print " EXT_LIBDIR=$EXT_LIBDIR"
+        Print " EXT_LIBNAME=$EXT_LIBNAME"
+        Print " EXT_SRC=$EXT_SRC"
+        Print " EXT_TEST=${EXT_TEST:-'Not Provided'}"
 
         ;;
     *)
@@ -111,5 +137,10 @@ if [[ "$clean_build" == "Yes" ]]; then
 fi
 #=============================================
 Print "Create a new build..."
-cmake .. ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external
+
+SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
+
+
+
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external
 Print "Done!"
