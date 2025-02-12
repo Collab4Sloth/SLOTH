@@ -1,0 +1,1 @@
+create_test("CalphadAnalyticalTwoPhasetest2" "CalphadAnalyticalTwoPhasetest2" FALSE "EXE CALPHAD" 1)
