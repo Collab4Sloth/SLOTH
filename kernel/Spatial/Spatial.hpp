@@ -130,6 +130,7 @@ struct specialized_spatial_constructor<T, 1> {
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
           a_my_class.mesh_ =
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+
           tmp_mesh.Clear();
 
           // CCI
@@ -146,7 +147,8 @@ struct specialized_spatial_constructor<T, 1> {
             "allowed");
         break;
     }
-
+    
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
       a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
