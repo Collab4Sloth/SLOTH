@@ -31,10 +31,18 @@ class CalphadBase {
   const Parameters &params_;
 
   // Containers used to store the results of the equilibrium calculations
+  // Chemical potentials by node for each element
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
+  // Energy by node for each phase
   std::map<std::tuple<int, std::string, std::string>, double> elem_mole_fraction_by_phase_;
+  // Energy by node for each phase
   std::map<std::tuple<int, std::string, std::string>, double> energies_of_phases_;
-  std::map<std::tuple<int>, double> driving_force;
+  // Driving force by node for each phase
+  std::map<std::tuple<int, std::string>, double> driving_forces_;
+  // Mobility by node for each element
+  std::map<std::tuple<int, std::string>, double> mobilities_;
+  //  Heat capacity by node
+  std::map<int, double> heat_capacity_;
 
   void clear_containers();
 
@@ -96,6 +104,9 @@ void CalphadBase<T>::clear_containers() {
   this->chemical_potentials_.clear();
   this->elem_mole_fraction_by_phase_.clear();
   this->energies_of_phases_.clear();
+  this->driving_forces_.clear();
+  this->heat_capacity_.clear();
+  this->mobilities_.clear();
 }
 
 /**
@@ -163,10 +174,24 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
-      case calphad_outputs::df: {
-        //const std::string &output_phase = output_infos[1];
+      case calphad_outputs::dgm: {
+        const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
-          output[i] = this->driving_force[std::make_tuple(i)];
+          output[i] = this->driving_forces_[std::make_tuple(i, output_phase)];
+        }
+        break;
+      }
+      case calphad_outputs::cp: {
+        const std::string &output_phase = output_infos[1];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          output[i] = this->heat_capacity_[i];
+        }
+        break;
+      }
+      case calphad_outputs::mob: {
+        const std::string &output_elem = output_infos[1];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          output[i] = this->mobilities_[std::make_tuple(i, output_elem)];
         }
         break;
       }

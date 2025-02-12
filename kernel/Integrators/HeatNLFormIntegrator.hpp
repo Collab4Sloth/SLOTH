@@ -15,6 +15,7 @@
 
 #include "Coefficients/ConductivityCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
@@ -28,10 +29,10 @@
  * @tparam SCHEME
  * @tparam COND_NAME
  */
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
-class HeatNLFormIntegrator : public mfem::NonlinearFormIntegrator {
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+class HeatNLFormIntegrator : public mfem::NonlinearFormIntegrator,
+                             public SlothNLFormIntegrator<VARS> {
  private:
-  const Parameters conductivity_params_;
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   mfem::DenseMatrix gradPsi;
@@ -44,12 +45,9 @@ class HeatNLFormIntegrator : public mfem::NonlinearFormIntegrator {
   double conductivity_prime(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
                             const double u, const Parameters& parameters);
 
- protected:
-  virtual void get_parameters(const Parameters& vectr_param);
-
  public:
   HeatNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                       const std::vector<mfem::ParGridFunction>& aux_gf);
+                       std::vector<VARS*> auxvars);
   ~HeatNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
@@ -65,11 +63,7 @@ class HeatNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
-void HeatNLFormIntegrator<SCHEME, COND_NAME>::get_parameters(const Parameters& params) {
-  // this->alpha_ = params.get_param_value<double>("alpha");
-  // this->kappa_ = params.get_param_value<double>("kappa");
-}
+
 /**
  * @brief Return the value of the Conductivity coefficient at integration point
  *
@@ -82,12 +76,12 @@ void HeatNLFormIntegrator<SCHEME, COND_NAME>::get_parameters(const Parameters& p
  * @param parameters
  * @return double
  */
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 template <typename... Args>
-double HeatNLFormIntegrator<SCHEME, COND_NAME>::conductivity(mfem::ElementTransformation& Tr,
-                                                             const mfem::IntegrationPoint& ip,
-                                                             const double u,
-                                                             const Parameters& parameters) {
+double HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::conductivity(mfem::ElementTransformation& Tr,
+                                                                   const mfem::IntegrationPoint& ip,
+                                                                   const double u,
+                                                                   const Parameters& parameters) {
   if (SCHEME == CoefficientDiscretization::Implicit) {
     ConductivityCoefficient<0, COND_NAME> coeff(u, parameters);
     return coeff.Eval(Tr, ip);
@@ -110,12 +104,11 @@ double HeatNLFormIntegrator<SCHEME, COND_NAME>::conductivity(mfem::ElementTransf
  * @param parameters
  * @return double
  */
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 template <typename... Args>
-double HeatNLFormIntegrator<SCHEME, COND_NAME>::conductivity_prime(mfem::ElementTransformation& Tr,
-                                                                   const mfem::IntegrationPoint& ip,
-                                                                   const double u,
-                                                                   const Parameters& parameters) {
+double HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::conductivity_prime(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
+    const Parameters& parameters) {
   double coef = 0.;
   if (SCHEME == CoefficientDiscretization::Implicit) {
     ConductivityCoefficient<1, COND_NAME> cond_coeff(u, parameters);
@@ -134,12 +127,11 @@ double HeatNLFormIntegrator<SCHEME, COND_NAME>::conductivity_prime(mfem::Element
  * @param alpha
  * @param kappa
  */
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
-HeatNLFormIntegrator<SCHEME, COND_NAME>::HeatNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params,
-    const std::vector<mfem::ParGridFunction>& aux_gf)
-    : conductivity_params_(params), u_old_(u_old), aux_gf_(aux_gf) {
-  // this->get_parameters(params);
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::HeatNLFormIntegrator(
+    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+  this->aux_gf_ = this->get_aux_gf();
 }
 
 /**
@@ -151,11 +143,10 @@ HeatNLFormIntegrator<SCHEME, COND_NAME>::HeatNLFormIntegrator(
  * @param elvect
  */
 
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
-void HeatNLFormIntegrator<SCHEME, COND_NAME>::AssembleElementVector(const mfem::FiniteElement& el,
-                                                                    mfem::ElementTransformation& Tr,
-                                                                    const mfem::Vector& elfun,
-                                                                    mfem::Vector& elvect) {
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+void HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::AssembleElementVector(
+    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
+    mfem::Vector& elvect) {
   int nd = el.GetDof();
   int dim = el.GetDim();
   gradPsi.SetSize(nd, dim);
@@ -178,7 +169,7 @@ void HeatNLFormIntegrator<SCHEME, COND_NAME>::AssembleElementVector(const mfem::
     gradPsi.MultTranspose(elfun, gradU);
 
     const double coeff_diffu =
-        this->conductivity(Tr, ip, u, this->conductivity_params_) * ip.weight * Tr.Weight();
+        this->conductivity(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
     gradU *= coeff_diffu;
     gradPsi.AddMult(gradU, elvect);
   }
@@ -192,11 +183,10 @@ void HeatNLFormIntegrator<SCHEME, COND_NAME>::AssembleElementVector(const mfem::
  * @param elfun
  * @param elmat
  */
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
-void HeatNLFormIntegrator<SCHEME, COND_NAME>::AssembleElementGrad(const mfem::FiniteElement& el,
-                                                                  mfem::ElementTransformation& Tr,
-                                                                  const mfem::Vector& elfun,
-                                                                  mfem::DenseMatrix& elmat) {
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+void HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::AssembleElementGrad(
+    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
+    mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
   int dim = el.GetDim();
 
@@ -218,22 +208,21 @@ void HeatNLFormIntegrator<SCHEME, COND_NAME>::AssembleElementGrad(const mfem::Fi
     // Laplacian : compute (grad(phi), grad(psi)), phi is shape function.
     Tr.SetIntPoint(&ip);
     const double coeff_diffu =
-        this->conductivity(Tr, ip, u, this->conductivity_params_) * ip.weight * Tr.Weight();
+        this->conductivity(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
     el.CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, elmat);
 
     gradPsi.MultTranspose(elfun, gradU);
     gradPsi.AddMult(gradU, vec);
-    const auto coef_diffu_derivative =
-        this->conductivity_prime(Tr, ip, u, this->conductivity_params_);
+    const auto coef_diffu_derivative = this->conductivity_prime(Tr, ip, u, this->params_);
     AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, elmat);
   }
 }
 
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-HeatNLFormIntegrator<SCHEME, COND_NAME>::get_energy(mfem::ParGridFunction* gfu,
-                                                    const double diffu) {
+HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::get_energy(mfem::ParGridFunction* gfu,
+                                                          const double diffu) {
   return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu, diffu);
 }
 
@@ -244,5 +233,5 @@ HeatNLFormIntegrator<SCHEME, COND_NAME>::get_energy(mfem::ParGridFunction* gfu,
  * @tparam COEFFICIENT
  */
 
-template <CoefficientDiscretization SCHEME, Conductivity COND_NAME>
-HeatNLFormIntegrator<SCHEME, COND_NAME>::~HeatNLFormIntegrator() {}
+template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
+HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::~HeatNLFormIntegrator() {}

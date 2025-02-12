@@ -17,6 +17,7 @@
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "tests/tests.hpp"
 
 ///---------------
 /// Main program
@@ -27,21 +28,26 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
   // ---------------------------------------
-  const auto DIM = 2;
-  using NLFI = AllenCahnNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
+  /////////////////////////
+  constexpr int DIM = Test<2>::dim;
+  using FECollection = Test<2>::FECollection;
+  using VARS = Test<2>::VARS;
+  using VAR = Test<2>::VAR;
+  using PSTCollection = Test<2>::PSTCollection;
+  using PST = Test<2>::PST;
+  using SPA = Test<2>::SPA;
+  using BCS = Test<2>::BCS;
+  /////////////////////////
+
+  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using FECollection = mfem::H1_FECollection;
-  using PSTCollection = mfem::ParaViewDataCollection;
-  using PST = PostProcessing<FECollection, PSTCollection, DIM>;
-  using VAR = Variables<FECollection, DIM>;
+
   using OPE = SteadyAllenCahnOperator<FECollection, DIM, NLFI>;
 
-  using PB = Problem<OPE, VAR, PST>;
+  using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -64,15 +70,14 @@ int main(int argc, char* argv[]) {
       mfem::Vector x_translation({L, 0.0});
       mfem::Vector y_translation({0.0, L});
       std::vector<mfem::Vector> translations = {x_translation, y_translation};
-      SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", order,
-                                                       refinement_level,
-                                                       std::make_tuple(NN, NN, L, L), translations);
+      SPA spatial("InlineSquareWithQuadrangles", order, refinement_level,
+                  std::make_tuple(NN, NN, L, L), translations);
       // ##############################
       //     Boundary conditions     //
       // ##############################
       auto boundaries = {Boundary("lower", 0, "Periodic"), Boundary("right", 1, "Periodic"),
                          Boundary("upper", 2, "Periodic"), Boundary("left", 3, "Periodic")};
-      auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
+      auto bcs = BCS(&spatial, boundaries);
 
       // ###########################################
       // ###########################################
@@ -123,8 +128,7 @@ int main(int argc, char* argv[]) {
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
-      auto vars = VAR(Variable<FECollection, DIM>(&spatial, bcs, "phi", 2, initial_condition,
-                                                  analytical_solution));
+      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
 
       // ###########################################
       // ###########################################

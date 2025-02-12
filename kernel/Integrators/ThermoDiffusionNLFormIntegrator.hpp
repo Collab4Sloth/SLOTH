@@ -17,6 +17,7 @@
 #include "Coefficients/DiffusionCoefficient.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothGridFunction.hpp"
+#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -30,11 +31,13 @@
  * @tparam SCHEME
  * @tparam DIFFU_NAME
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
+                                        public SlothNLFormIntegrator<VARS> {
  private:
   std::vector<std::tuple<std::string, double>> inter_diffusion_coeff_;
   double coeff_stab_;
+  void get_parameters();
 
   SlothGridFunction u_old_;
 
@@ -43,11 +46,9 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
   mfem::Vector Psi, gradMu_;
 
  protected:
-  void get_parameters(const Parameters& vectr_param);
-
  public:
   ThermoDiffusionNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                                  const std::vector<mfem::ParGridFunction>& mu_gf);
+                                  std::vector<VARS*> auxvars);
   ~ThermoDiffusionNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
@@ -64,16 +65,16 @@ class ThermoDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator {
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_parameters(const Parameters& params) {
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+void ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_parameters() {
   MFEM_VERIFY(
-      this->mu_gf_.size() == (params.get_size() - 1),
+      this->mu_gf_.size() == (this->params_.get_size() - 1),
       "ThermoDiffusionNLFormIntegrator requires as many parameters (inter-diffusion "
       "coefficients) as auxiliary variables in addition of the stabilization coefficient D");
 
-  this->coeff_stab_ = params.get_param_value<double>("D");
+  this->coeff_stab_ = this->params_.template get_param_value<double>("D");
 
-  for (const auto& p : params.get_vector()) {
+  for (const auto& p : this->params_.get_vector()) {
     const std::string& para_name = p.get_name();
     if (para_name == "D") continue;
     const auto& value = p.get_value();
@@ -92,12 +93,12 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_parameters(const P
  * @param alpha
  * @param kappa
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::ThermoDiffusionNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params,
-    const std::vector<mfem::ParGridFunction>& mu_gf)
-    : u_old_(u_old), mu_gf_(mu_gf) {
-  this->get_parameters(params);
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::ThermoDiffusionNLFormIntegrator(
+    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+  this->mu_gf_ = this->get_aux_gf();
+  this->get_parameters();
 }
 
 /**
@@ -109,8 +110,8 @@ ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::ThermoDiffusionNLFormIntegr
  * @param elvect
  */
 
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+void ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::Vector& elvect) {
   int nd = el.GetDof();
@@ -176,8 +177,8 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementVector(
  * @param elfun
  * @param elmat
  */
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementGrad(
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+void ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::DenseMatrix& elmat) {
   int nd = el.GetDof();
@@ -206,10 +207,10 @@ void ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::AssembleElementGrad(
   }
 }
 
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFunction* gfu,
-                                                                const double diffu) {
+ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFunction* gfu,
+                                                                      const double diffu) {
   return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu, diffu);
 }
 
@@ -221,5 +222,5 @@ ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFun
  * @tparam COEFFICIENT
  */
 
-template <CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-ThermoDiffusionNLFormIntegrator<SCHEME, DIFFU_NAME>::~ThermoDiffusionNLFormIntegrator() {}
+template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
+ThermoDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::~ThermoDiffusionNLFormIntegrator() {}

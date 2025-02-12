@@ -64,8 +64,7 @@ class OperatorBase : public mfem::Operator {
   const Parameters default_params_ = Parameters(default_p_);
   const Parameters &params_;
   /// Time integral results
-  std::multimap<IterationKey, SpecializedValue> time_specialized_;
-
+  std::multimap<IterationKey, SpecializedValue> time_specialized_, time_iso_specialized_;
   /// Finite Element Space and BCs
   mfem::ParFiniteElementSpace *fespace_;
   mfem::Array<int> ess_tdof_list_;
@@ -88,8 +87,6 @@ class OperatorBase : public mfem::Operator {
   void build_nonlinear_form(const double dt, const mfem::Vector &u);
   void SetNewtonAlgorithm(mfem::Operator *oper);
 
-  std::vector<mfem::ParGridFunction> get_auxiliary_gf();
-
  public:
   explicit OperatorBase(SpatialDiscretization<T, DIM> const *spatial);
 
@@ -102,9 +99,12 @@ class OperatorBase : public mfem::Operator {
 
   void ComputeError(const int &it, const double &t, const double &dt, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
+  void ComputeIsoVal(const int &it, const double &t, const double &dt, const mfem::Vector &u,
+                     const double &iso_value);
   void get_source_term(mfem::Vector &source_term, mfem::ParLinearForm *RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
+  const std::multimap<IterationKey, SpecializedValue> get_time_iso_specialized() const;
 
   virtual ~OperatorBase();
 
@@ -362,6 +362,79 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
 }
 
 /**
+ * @brief Compute the position of an isovalue
+ * @param it current iteration
+ * @param t current time
+ * @param dt current timestep
+ * @param u unknown vector
+ * @param iso_value value of the solution
+ */
+template <class T, int DIM, class NLFI>
+void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, const double &dt,
+                                               const mfem::Vector &u, const double &iso_value) {
+  Catch_Time_Section("OperatorBase::ComputeIsoVal");
+  std::vector<std::string> vstr = {"x", "y", "z"};
+
+  mfem::ParGridFunction gf(this->fespace_);
+  gf.SetFromTrueDofs(u);
+  std::vector<mfem::Vector> iso_points;
+
+  for (int i = 0; i < this->fespace_->GetNE(); i++) {
+    const mfem::FiniteElement *el = this->fespace_->GetFE(i);
+    size_t dim = el->GetDim();
+    mfem::Array<int> dofs;
+    this->fespace_->GetElementDofs(i, dofs);
+
+    mfem::DenseMatrix dof_coords;
+    mfem::ElementTransformation *Tr = this->fespace_->GetElementTransformation(i);
+    Tr->Transform(el->GetNodes(), dof_coords);
+    std::vector<double> dof_val;
+    dof_val.reserve(dofs.Size());
+    for (int j = 0; j < dofs.Size(); j++) {
+      dof_val.emplace_back(u(dofs[j]) - iso_value);
+    }
+
+    // At least one positive and one negative value
+    bool has_positive_value =
+        std::any_of(dof_val.begin(), dof_val.end(), [](double x) { return x > 0; });
+    bool has_negative_value =
+        std::any_of(dof_val.begin(), dof_val.end(), [](double x) { return x < 0; });
+
+    if (has_positive_value && has_negative_value) {
+      for (int j = 0; j < dofs.Size(); j++) {
+        mfem::Vector coord1(DIM);
+        double val1 = dof_val[j];
+        dof_coords.GetColumn(j, coord1);
+        for (int k = j + 1; k < dofs.Size(); k++) {
+          double val2 = dof_val[k];
+
+          if (val1 * val2 < 0) {
+            const double abs_val1 = std::abs(val1);
+            const double abs_val2 = std::abs(val2);
+            double t = abs_val1 / (abs_val1 + abs_val2);
+
+            mfem::Vector coord2(DIM), iso_coord(DIM);
+            iso_coord = mfem::infinity();
+            dof_coords.GetColumn(k, coord2);
+
+            for (int d = 0; d < coord1.Size(); d++) {
+              iso_coord[d] = coord1[d] + t * (coord2[d] - coord1[d]);
+            }
+            iso_points.emplace_back(std::move(iso_coord));
+          }
+        }
+      }
+      for (size_t i = 0; i < iso_points.size(); i++) {
+        for (size_t d = 0; d < DIM; d++) {
+          this->time_iso_specialized_.emplace(IterationKey(it, dt, t),
+                                              SpecializedValue(vstr[d], iso_points[i](d)));
+        }
+      }
+    }
+  }
+}
+
+/**
  * @brief get the source term
  *
  * @tparam T
@@ -382,6 +455,21 @@ void OperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_term,
   RHSS->ParallelAssemble(source_term);
 
   source_term.SetSubVector(this->ess_tdof_list_, 0.);
+}
+
+/**
+ * @brief Get a of a multimap of integral values calculated at a given iteration (see
+ * computeEnergies and computeError)
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @return const std::map<std::tuple<int, double, double>, double>
+ */
+template <class T, int DIM, class NLFI>
+const std::multimap<IterationKey, SpecializedValue>
+OperatorBase<T, DIM, NLFI>::get_time_iso_specialized() const {
+  return this->time_iso_specialized_;
 }
 
 /**
@@ -508,27 +596,6 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
   this->precond_ = PRECOND;
 
   this->precond_params_ = p_params;
-}
-
-/**
- * @brief Return the vector of grid functions associated with the auxiliary variables
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- */
-template <class T, int DIM, class NLFI>
-std::vector<mfem::ParGridFunction> OperatorBase<T, DIM, NLFI>::get_auxiliary_gf() {
-  std::vector<mfem::ParGridFunction> aux_gf;
-  if (this->auxvariables_.size() > 0) {
-    for (const auto &auxvar_vec : this->auxvariables_) {
-      for (const auto &auxvar : auxvar_vec->getVariables()) {
-        auto gf = auxvar.get_gf();
-        aux_gf.emplace_back(gf);
-      }
-    }
-  }
-  return aux_gf;
 }
 
 /**
