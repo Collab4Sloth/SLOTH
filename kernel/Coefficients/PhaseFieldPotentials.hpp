@@ -52,6 +52,11 @@ class PotentialFunctions {
     potential_function<ORDER, SCHEME> func;
     return func.getX(args...);
   }
+  template <class... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    potential_function<ORDER, SCHEME> func;
+    return func.getP(args...);
+  }
 
  public:
   PotentialFunctions();
@@ -142,6 +147,21 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Implicit> {
       return pot;
     });
   }
+  /**
+   * @brief potential P(x) = 3*x*x-2*x*x*x
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 3 * std::pow(x, 2) - 2 * std::pow(x, 3);
+      std::cout << "P";
+      return pot;
+    });
+  }
 };
 ///////////////////////
 // ORDER = 1
@@ -221,6 +241,20 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Implicit> {
       return pot;
     });
   }
+  /**
+   * @brief First derivative of the identity potential P(x) = 3*x**2-2*x**3
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 6 * (x - std::pow(x, 2));
+      return pot;
+    });
+  }
 };
 ///////////////////////
 // ORDER = 2
@@ -296,6 +330,20 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Implicit> {
   std::function<double(const double&)> getX(Args... args) {
     return std::function<double(const double&)>([](double x) {
       const auto pot = 0.;
+      return pot;
+    });
+  }
+  /**
+   * @brief Second derivative of the identity potential P(x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 6 * (1 - 2 * x);
       return pot;
     });
   }
@@ -407,6 +455,29 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
           "potential_function::getX: only one argument is expected for explicit scheme");
     }
   }
+
+  /**
+   * @brief potential P(x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto xn = v[0];
+      return std::function<double(const double&)>([xn](double x) {
+        const auto pot = 3 * std::pow(xn, 2) - 2 * std::pow(xn, 3);
+        return pot;
+      });
+    } else {
+      mfem::mfem_error(
+          "potential_function::getP: only one argument is expected for explicit scheme");
+    }
+  }
 };
 ///////////////////////
 // ORDER = 1
@@ -508,6 +579,30 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
       return pot;
     });
   }
+
+  /**
+   * @brief First derivative of the interpolation potential p(x)
+   *        with explicit scheme (as implicit scheme)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto xn = v[0];
+      return std::function<double(const double&)>([xn](double x) {
+        const auto pot = 6 * (xn - std::pow(xn, 2));
+        return pot;
+      });
+    } else {
+      mfem::mfem_error(
+          "potential_function::getH: only one argument is expected for explicit scheme");
+    }
+  }
 };
 ///////////////////////
 // ORDER = 2
@@ -581,6 +676,21 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Explicit> {
   std::function<double(const double&)> getX(Args... args) {
     return std::function<double(const double&)>([](double x) {
       const auto pot = 0.;
+      return pot;
+    });
+  }
+  /**
+   * @brief Second derivative of the double Well potential W(x)=x² * (1-x)²
+   *        with explicit scheme (as implicit scheme)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 0.;  // 2. * (1. - 6. * x + 6. * x * x);
       return pot;
     });
   }
@@ -661,6 +771,20 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::SemiImplicit
   std::function<double(const double&)> getX(Args... args) {
     return std::function<double(const double&)>([](double x) {
       const auto pot = x;
+      return pot;
+    });
+  }
+    /**
+   * @brief Identity potential P(x) from Verdier 2022
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = x; //TO DO 
       return pot;
     });
   }
@@ -745,6 +869,20 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::SemiImplicit
   std::function<double(const double&)> getX(Args... args) {
     return std::function<double(const double&)>([](double x) {
       const auto pot = 1.;
+      return pot;
+    });
+  }
+    /**
+   * @brief First derivative of the identity potential P(x)=
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 1.; // TO DO
       return pot;
     });
   }
@@ -840,6 +978,20 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::SemiImplicit
       return pot;
     });
   }
+    /**
+   * @brief Second derivative of the identity potential P(x)
+   *
+   * @tparam Args
+   * @param args
+   * @return std::function<double(const double&)>
+   */
+  template <typename... Args>
+  std::function<double(const double&)> getP(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 0.; // TO DO
+      return pot;
+    });
+  }
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -881,6 +1033,8 @@ PotentialFunctions<ORDER, SCHEME, POTENTIAL>::getPotentialFunction(Args... args)
       return this->getH(args...);
     case ThermodynamicsPotentials::X:
       return this->getX(args...);
+    case ThermodynamicsPotentials::P:
+      return this->getP(args...);
     default:
       mfem::mfem_error(
           "PotentialFunctions::getPotentialFunctions: double well, H interpolation and identity "
