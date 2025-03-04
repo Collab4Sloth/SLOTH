@@ -213,6 +213,7 @@ void AnalyticalParaboloidForTwoPhase<T>::compute(
     const auto Temp = tp_gf_at_node[0];
     const auto x = tp_gf_at_node[3];
     const auto varphi = tp_gf_at_node[2];
+    double varphi_ = std::max(std::min(varphi,1.),0.);
     const int index_ref_x = 3;
 
     bool linear_solve = true;
@@ -232,15 +233,15 @@ void AnalyticalParaboloidForTwoPhase<T>::compute(
       mfem::real_t c_eq_l = this->c_eq[std::make_tuple("LIQUID", current_elem)];
       mfem::real_t c_eq_s = this->c_eq[std::make_tuple("SOLID", current_elem)];
       this->chemical_potentials_[std::make_tuple(id, current_elem)] =
-          (varphi < 0.5) ? this->get_mu(current_x, c_eq_l, k_liquid)
+          (varphi_ < 0.5) ? this->get_mu(current_x, c_eq_l, k_liquid)
                          : this->get_mu(current_x, c_eq_s, k_solid);
       for (const auto& p : phase) {
         // Molar fraction
         const auto& key_mole_fraction_by_phase = std::make_tuple(id, p, current_elem);
-        double crit = 1e-5;
-        if (varphi < crit || varphi > (1 - crit)) {
+        double crit = 1e-5;      
+        if (varphi_ < crit || varphi_ > (1 - crit)) {
           this->elem_mole_fraction_by_phase_[key_mole_fraction_by_phase] = current_x;
-          if (varphi > 0.5) {
+          if (varphi_ > 0.5) {
             this->elem_mole_fraction_by_phase_[std::make_tuple(id, "SOLID", current_elem)] =
                 current_x;
             this->elem_mole_fraction_by_phase_[std::make_tuple(id, "LIQUID", current_elem)] = 0.;
@@ -253,7 +254,7 @@ void AnalyticalParaboloidForTwoPhase<T>::compute(
         } else {
           // this->interface_resolution(this->elem_mole_fraction_by_phase_[key_mole_fraction_by_phase],varphi);
           if (linear_solve) {
-            mfem::real_t p_phi = varphi;
+            mfem::real_t p_phi = varphi_;
             mfem::real_t deno = 1 - (p_phi - 1) / p_phi; 
             mfem::real_t temp1 = current_x / p_phi + (p_phi-1) / p_phi * (c_eq_l - c_eq_s);
             this->elem_mole_fraction_by_phase_[std::make_tuple(id, "SOLID", current_elem)] =  temp1 / deno;
@@ -265,7 +266,7 @@ void AnalyticalParaboloidForTwoPhase<T>::compute(
             std::unique_ptr<NonLinearSys_CALPHAD> F = std::make_unique<NonLinearSys_CALPHAD>();
 
             std::vector<double> lala = {current_x};
-            F->get_infos(varphi, lala, c_eq_s, c_eq_l);
+            F->get_infos(varphi_, lala, c_eq_s, c_eq_l);
             ourSolver.SetOperator(*F);
             ourSolver.SetSolver(*linearSolver);
             ourSolver.SetRelTol(1e-10);
@@ -303,7 +304,7 @@ void AnalyticalParaboloidForTwoPhase<T>::compute(
                                                 id, "LIQUID", current_elem)],
                                             c_eq_l, k_liquid);
         }
-
+      }
         // this->elem_mole_fraction_by_phase_[key_mole_fraction_by_phase] =  // current_x;
         // Energy
         for (const auto& energy_name : energy_names) {
@@ -314,7 +315,7 @@ void AnalyticalParaboloidForTwoPhase<T>::compute(
               this->elem_mole_fraction_by_phase_[std::make_tuple(id, "SOLID", current_elem)],
               c_eq_s, k_solid);
         }
-      }
+      
     }
   }
 }

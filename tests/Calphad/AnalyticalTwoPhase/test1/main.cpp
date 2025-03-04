@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
   // Profiling start
   Profiling::getInstance().enable();
   //---------------------------------------
+
   const auto DIM = 1;
   using FECollection = mfem::H1_FECollection;
   using PSTCollection = mfem::ParaViewDataCollection;
@@ -40,30 +41,22 @@ int main(int argc, char* argv[]) {
   using VAR = Variable<FECollection, DIM>;
   using PB = Calphad_Problem<AnalyticalParaboloidForTwoPhase<mfem::Vector>, VARS, PST>;
 
-  // Heat
-  using NLFI_HEAT =
-      HeatNLFormIntegrator<CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE_HEAT =
-      HeatOperator<FECollection, DIM, NLFI_HEAT, Density::Constant, HeatCapacity::Constant>;
-  using PB_HEAT = Problem<OPE_HEAT, VARS, PST>;
-
   // Allen-Cahn
-  using NLFI_AC =
-      AllenCahnDiffusionMeltingNLFormIntegrator<ThermodynamicsPotentialDiscretization::Implicit,
-                                                ThermodynamicsPotentials::W, Mobility::Constant,
-                                                ThermodynamicsPotentials::H>;
+  using NLFI_AC = AllenCahnDiffusionMeltingNLFormIntegrator<
+      VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
+      Mobility::Constant, ThermodynamicsPotentials::H>;
   using OPE_AC = AllenCahnOperator<FECollection, DIM, NLFI_AC>;
   using PB_AC = Problem<OPE_AC, VARS, PST>;
 
   // Thermodiffusion
-  using NLFI_TD1 =
-      ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
+  using NLFI_TD1 = ThermoDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
+                                                   Diffusion::Constant>;
   using OPE_TD1 = DiffusionOperator<FECollection, DIM, NLFI_TD1, Density::Constant>;
   using PB_TD1 = Problem<OPE_TD1, VARS, PST>;
 
   // Thermodiffusion
-  using NLFI_TD2 =
-      ThermoDiffusionNLFormIntegrator<CoefficientDiscretization::Explicit, Diffusion::Constant>;
+  using NLFI_TD2 = ThermoDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
+                                                   Diffusion::Constant>;
   using OPE_TD2 = DiffusionOperator<FECollection, DIM, NLFI_TD2, Density::Constant>;
   using PB_TD2 = Problem<OPE_TD2, VARS, PST>;
   // ###########################################
@@ -77,13 +70,12 @@ int main(int argc, char* argv[]) {
   auto refinement_level = 0;
   double L = 2;  // 4.65e-3;
   int NN = 3000;
-  SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level,
-                                                   "1d_mesh_non_uniform_extra_fine.msh", false);
-  // SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level,
-  // "chatgpt.msh",false);
+  //   SpatialDiscretization<FECollection, DIM> spatial("GMSH", 1, refinement_level,
+  //                                                    "1d_mesh_non_uniform_extra_fine.msh",
+  //                                                    false);
 
-  // SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", 1, refinement_level,
-  //                                                  std::make_tuple(NN, L));
+  SpatialDiscretization<FECollection, DIM> spatial("InlineLineWithSegments", 1, refinement_level,
+                                                   std::make_tuple(NN, L));
 
   // ##############################
   //     Boundary conditions     //
@@ -116,21 +108,42 @@ int main(int argc, char* argv[]) {
   // Heat
   auto temp = VAR(&spatial, Tbcs, "T", 2, 750.);
   temp.set_additional_information("Temperature", "K");
-
+  auto heat_vars = VARS(temp);
   // AC
-  double W = 0.2*1.2e-3;
-  //double lambda = 129958.33333333333 *  W;// 0.18713999999999997 / W;  // 155.95; p = o(3)
-  double lambda = 165396.6566247265 * W; // p = o(5)
+  double sigma = 5.129849310676498e-06;
+
   double L_phi = 1.2;
+  // Parser
+  mfem::OptionsParser args(argc, argv);
+  double W = 1.2e-3;
+  args.AddOption(&W, "-e", "--epsilon", "interface thickness");
+  double lambda = 129958.33333333333 * W;  // 0.18713999999999997 / W;  // 155.95; p = o(3)
   double mob = L_phi * lambda / std::pow(W, 2);
-  double kappa = W * W / lambda;
-  double omega = 1 / lambda;  // 1 / lambda;
+  args.AddOption(&mob, "-m", "--mobility", "AC mobility");
+
+  double omega = 12. * sigma / W;  // 1 / lambda;//
+  args.AddOption(&omega, "-o", "--omega", "double well heigh");
+
+  double kappa = (3. / 2.) * 5.129849310676498e-06 * W;  //  W * W / lambda;/
+  args.AddOption(&kappa, "-k", "--kappa", "coeff de gradient");
+
+  double dt = 1e-10;
+  args.AddOption(&dt, "-dt", "--timeStep", "time step");
+  args.ParseCheck();
+  //---------------------------------------
+
+  std::cout << "mobil = " << mob << std::endl;
+  std::cout << "omega = " << omega << std::endl;
+  std::cout << "kappa = " << kappa << std::endl;
+  std::cout << "sigma = " << sigma << std::endl;
+  std::cout << "=========== " << std::endl;
+
   auto params = Parameters(Parameter("epsilon", 0.), Parameter("sigma", 0.),
                            Parameter("lambda", kappa), Parameter("omega", omega));
 
   const auto& center_x = 0.;
-  
-  double epsilon = 100*std::sqrt(8 * kappa / omega) / 1000;  // std::sqrt(8*kappa/omega);
+
+  double epsilon = W;  // std::sqrt(8 * kappa / omega) ;  // std::sqrt(8*kappa/omega);
 
   auto acIC = std::function<double(const mfem::Vector&, double)>(
       [L, epsilon](const mfem::Vector& v, double time) {
@@ -246,7 +259,9 @@ int main(int argc, char* argv[]) {
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-  const std::string& main_folder_path = "Saves";
+  // const std::string& main_folder_path = "Saves";
+  const std::string& main_folder_path =
+      "Saves_extra_fine/W=" + std::to_string(W) + "_mob=" + std::to_string(mob);
   const auto& level_of_detail = 1;
   const auto& frequency = 100;
   std::string calculation_path = "Calphad";
@@ -285,19 +300,6 @@ int main(int argc, char* argv[]) {
   // ####################
   const auto crit_cvg_1 = 1.e-12;
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-
-  //---------------
-  // Heat transfer
-  //---------------
-  auto source_term = AnalyticalFunctions<DIM>(src_func);
-  OPE_HEAT Heat_op(&spatial, TimeScheme::EulerImplicit, source_term);
-  Heat_op.overload_density(Parameters(Parameter("rho", rho)));
-  Heat_op.overload_heat_capacity(Parameters(Parameter("cp", cp)));
-  Heat_op.overload_conductivity(Parameters(Parameter("lambda", cond)));
-  Heat_op.overload_nl_solver(
-      NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));
-  PB_HEAT Heat_pb("Heat", Heat_op, heat_vars, Heat_pst, convergence);
 
   //---------------
   // Calphad
@@ -350,8 +352,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 50.e-5;
-  const auto& dt = 1e-9;
+  const auto& t_final = 8.e-5;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);

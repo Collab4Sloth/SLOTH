@@ -19,24 +19,27 @@
 
 #pragma once
 
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 class AllenCahnDiffusionMeltingNLFormIntegrator final
-    : public AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION> {
+    : public AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION> {
  private:
   double melting_temperature_;
   double melting_enthalpy_;
   int n;
+  std::vector<mfem::ParGridFunction> aux_gf_;
 
  protected:
-  void get_parameters(const Parameters& vectr_param) override;
+  void get_parameters();
   double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                 const mfem::IntegrationPoint& ir) override;
 
  public:
+  // AllenCahnDiffusionMeltingNLFormIntegrator(const mfem::ParGridFunction& _u_old,
+  //                                           const Parameters& params,
+  //                                           const std::vector<mfem::ParGridFunction>& aux_gf);
   AllenCahnDiffusionMeltingNLFormIntegrator(const mfem::ParGridFunction& _u_old,
-                                            const Parameters& params,
-                                            const std::vector<mfem::ParGridFunction>& aux_gf);
+                                            const Parameters& params, std::vector<VARS*> auxvars);
   ~AllenCahnDiffusionMeltingNLFormIntegrator();
 };
 
@@ -57,21 +60,48 @@ class AllenCahnDiffusionMeltingNLFormIntegrator final
  * @param aux_gf
  * @return AllenCahnDiffusionMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-AllenCahnDiffusionMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
+AllenCahnDiffusionMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     AllenCahnDiffusionMeltingNLFormIntegrator(const mfem::ParGridFunction& u_old,
-                                              const Parameters& params,
-                                              const std::vector<mfem::ParGridFunction>& aux_gf)
-    : AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
-                                                                                aux_gf) {
-  auto n_ = (aux_gf.size() - 2) / 3;
-  // TO DO : check if the aux_gf size is compatible
-  // MFEM_VERIFY((std::is_same<decltype(n), std::size_t>::value),
-  //             "Wrong number of auxiliary variables");
-  
-  this->n = n_;
-  this->get_parameters(params);
+                                              const Parameters& params, std::vector<VARS*> auxvars)
+    : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
+                                                                                      auxvars) {
+  // auto n_ = (aux_gf.size() - 2) / 3;
+  // // TO DO : check if the aux_gf size is compatible
+  // // MFEM_VERIFY((std::is_same<decltype(n), std::size_t>::value),
+  // //             "Wrong number of auxiliary variables");
+
+  // this->n = n_;
+
+
+
+  // std::vector<mfem::ParGridFunction> aux_gf = this->get_aux_gf();
+  // std::vector<std::vector<std::string>> inf = this->get_aux_infos();
+  // std::map<std::tuple<std::string,std::string>,mfem::ParGridFunction> x;
+  // std::map<std::tuple<std::string>,mfem::ParGridFunction> mu;
+  // std::map<std::tuple<std::string>,mfem::ParGridFunction> g;
+  // // for (size_t i = 0; i < inf.size(); i++) {
+  // //   for (size_t j = 0; j < inf[i].size(); j++) {
+  // //     std::cout << inf[i][j] << std::endl;
+  // //   }
+  // //   std::cout << "------------" << std::endl;
+  // // }
+
+  // std::vector<mfem::ParGridFunction> mu_gf;
+  // for (size_t i = 0; i < inf.size(); i++) {
+  //   if (inf[i][1] == "mu")
+  //   {
+  //     mu[std::make_tuple(inf[i][0])] = aux_gf[0];
+  //   }
+    
+  //   for (size_t j = 0; j < inf[i].size(); j++) {
+  //     std::cout << inf[i][j] << std::endl;
+  //   }
+  // }
+  this->aux_gf_ = this->get_aux_gf();
+  this->n = 2;
+  this->get_parameters();
 }
 
 /**
@@ -83,12 +113,10 @@ AllenCahnDiffusionMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::
  * @tparam INTERPOLATION
  * @param params
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnDiffusionMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(
-    const Parameters& params) {
-  AllenCahnMeltingBaseNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATION>::get_parameters(params);
-}
+void AllenCahnDiffusionMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
+                                               INTERPOLATION>::get_parameters() {}
 
 /**
  * @brief Get the value of the phae change at integration point
@@ -101,11 +129,10 @@ void AllenCahnDiffusionMeltingNLFormIntegrator<SCHEME, ENERGY, MOBI, INTERPOLATI
  * @param ir
  * @return double
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-double AllenCahnDiffusionMeltingNLFormIntegrator<
-    SCHEME, ENERGY, MOBI, INTERPOLATION>::get_phase_change_at_ip(mfem::ElementTransformation& Tr,
-                                                                 const mfem::IntegrationPoint& ir) {
+double AllenCahnDiffusionMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
+    get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
   const double g_s_at_ip = this->aux_gf_[0].GetValue(Tr, ir);
   const double g_l_at_ip = this->aux_gf_[1].GetValue(Tr, ir);
   mfem::real_t driving_force = g_s_at_ip - g_l_at_ip;
@@ -123,7 +150,7 @@ double AllenCahnDiffusionMeltingNLFormIntegrator<
  * @tparam MOBI
  * @tparam INTERPOLATION
  */
-template <ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 AllenCahnDiffusionMeltingNLFormIntegrator<
-    SCHEME, ENERGY, MOBI, INTERPOLATION>::~AllenCahnDiffusionMeltingNLFormIntegrator() {}
+    VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::~AllenCahnDiffusionMeltingNLFormIntegrator() {}

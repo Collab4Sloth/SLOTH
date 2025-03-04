@@ -21,7 +21,7 @@
  * @brief Available outputs for Calphad problems
  */
 struct calphad_outputs {
-  enum value { mu, g, gm, h, hm, x; dgm,cp,mob };
+  enum value { mu, g, gm, h, hm, x, dgm,cp,mob };
   static value from(const std::string &);
 };
 
