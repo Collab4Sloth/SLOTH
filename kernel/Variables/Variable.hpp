@@ -51,6 +51,7 @@ class Variable {
   void setInitialCondition(const int& dim, const AnalyticalFunctions<DIM>& initial_condition_name);
   void setInitialCondition(const mfem::FunctionCoefficient& initial_condition_function);
   void setInitialCondition(const double& initial_condition_value);
+  void setInitialCondition(mfem::ParGridFunction gf_init);
 
   void setAnalyticalSolution(const int& dim,
                              const AnalyticalFunctions<DIM>& analytical_solution_name);
@@ -85,6 +86,19 @@ class Variable {
            const std::string& variable_name, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const mfem::FunctionCoefficient& analytical_solution_function);
+
+  // ajout cp
+  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
+           const std::string& variable_name, const int& depth, mfem::ParGridFunction gf_init);
+
+  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
+           const std::string& variable_name, const int& depth, const mfem::ParGridFunction& gf_init,
+           const AnalyticalFunctions<DIM>& analytical_solution_name);
+
+  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
+           const std::string& variable_name, const int& depth, const mfem::ParGridFunction& gf_init,
+           const mfem::FunctionCoefficient& analytical_solution_function);
+  // fin ajout cp
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, const int& depth,
@@ -287,6 +301,91 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->additional_variable_info_.resize(0);
 }
 
+// modif cp
+
+/**
+ * @brief Construct a new Variable<T>:: Variable object
+ *
+ * @param fespace
+ * @param variable_name
+ * @param depth
+ * @param initial_condition_function
+ */
+template <class T, int DIM>
+
+Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
+                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
+                           const int& depth, mfem::ParGridFunction gf_init)
+    : bcs_(bcs), variable_name_(variable_name) {
+  this->fespace_ = spatial->get_finite_element_space();
+
+  this->uh_.SetSpace(fespace_);
+  this->setInitialCondition(gf_init);
+  for (size_t i = 0; i < this->uh_.Size(); i++) {
+    std::cout << gf_init[i] << "    " << this->uh_[i] << std::endl;
+  }
+  this->setVariableDepth(depth);
+
+  this->additional_variable_info_.resize(0);
+}
+
+/**
+ * @brief Construct a new Variable<T>:: Variable object
+ *
+ * @param fespace
+ * @param variable_name
+ * @param depth
+ * @param initial_condition_function
+ * @param analytical_solution_name
+ */
+template <class T, int DIM>
+
+Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
+                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
+                           const int& depth, const mfem::ParGridFunction& gf_init,
+                           const AnalyticalFunctions<DIM>& analytical_solution_name)
+    : bcs_(bcs), variable_name_(variable_name) {
+  this->fespace_ = spatial->get_finite_element_space();
+
+  this->uh_.SetSpace(fespace_);
+  const auto dim = spatial->get_dimension();
+  this->setInitialCondition(gf_init);
+  this->setVariableDepth(depth);
+  std::apply([dim, analytical_solution_name, this]() {
+    this->setAnalyticalSolution(dim, analytical_solution_name);
+  });
+
+  this->additional_variable_info_.resize(0);
+}
+
+/**
+ * @brief Construct a new Variable<T>:: Variable object
+ *
+ * @param fespace
+ * @param variable_name
+ * @param depth
+ * @param initial_condition_function
+ * @param analytical_solution_function
+ */
+template <class T, int DIM>
+
+Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
+                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
+                           const int& depth, const mfem::ParGridFunction& gf_init,
+                           const mfem::FunctionCoefficient& analytical_solution_function)
+    : bcs_(bcs), variable_name_(variable_name) {
+  this->fespace_ = spatial->get_finite_element_space();
+
+  this->uh_.SetSpace(fespace_);
+  this->setInitialCondition(gf_init);
+  this->setVariableDepth(depth);
+  this->setAnalyticalSolution(analytical_solution_function);
+
+  this->additional_variable_info_.resize(0);
+}
+
+// end modif cp
+
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
@@ -436,6 +535,17 @@ void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value
   this->uh_.ProjectCoefficient(ic_fc);
   this->uh_.GetTrueDofs(this->unk_);
   // this->uh_.SetTrueVector();
+}
+
+/**
+ * @brief Define an initial condition on the basis of a given gf
+ *
+ * @param initial_condition_value
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::setInitialCondition(mfem::ParGridFunction gf_init) {
+  this->uh_ = gf_init;
+  this->uh_.GetTrueDofs(this->unk_);
 }
 
 /**

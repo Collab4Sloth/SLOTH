@@ -81,6 +81,8 @@ class SpatialDiscretization {
   void set_finite_element_space();
 
   mfem::Mesh &get_mesh();
+  mfem::ParMesh &get_pmesh();
+
   mfem::ParFiniteElementSpace *get_finite_element_space() const;
 
   std::size_t getSize() const;
@@ -736,6 +738,19 @@ struct specialized_spatial_constructor<T, 3> {
  */
 template <class T, int DIM>
 mfem::Mesh &SpatialDiscretization<T, DIM>::get_mesh() {
+  return this->mesh_;
+}
+
+/**
+ * @brief  return a pointer of Mesh
+ *
+ * @tparam T
+ * @return mfem::Mesh&
+ * @note This method returns a mfem::Mesh instead of a mfem::ParMesh because it is called in
+ *       the constructor of the PostProcessing objet.
+ */
+template <class T, int DIM>
+mfem::ParMesh &SpatialDiscretization<T, DIM>::get_pmesh() {
   return this->mesh_;
 }
 
