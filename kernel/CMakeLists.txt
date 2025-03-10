@@ -31,9 +31,9 @@ set_target_properties(Sloth PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(Sloth INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
 target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include)
-target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib)
+target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
 
-target_link_libraries(Sloth INTERFACE mfem mpi z HYPRE SuiteSparse::suitesparse metis $ENV{FILESYSTEM_VAR})
+target_link_libraries(Sloth INTERFACE ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} $ENV{FILESYSTEM_VAR})
 
 # PETSC ??
 if(MFEM_USE_PETSC)

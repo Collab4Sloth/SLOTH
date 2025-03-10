@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #=============================================
 #=============================================
 function Print {
@@ -5,31 +6,9 @@ function Print {
 }
 #=============================================
 #=============================================
-
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    spack load mfem
-    export HYPRE_DIR=$(spack location -i hypre)
-    export MPI_DIR=$(spack location -i mpi)
-    export METIS_DIR=$(spack location -i metis)
-
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    export HYPRE_DIR=$(echo $(brew --prefix hypre))
-    export MPI_DIR=$(echo $(brew --prefix open-mpi))
-    export METIS_DIR=$(echo $(brew --prefix metis))
-    export MFEM_DIR=$(echo $(brew --prefix mfem))
-else
-    Print "May be an update of your OS is required. Please ensure that you are using either Darwin or Linux.".
-    return
-fi
-
-#=============================================
-#=============================================
-DEPS_ALLOWED_OPTIONS=" --with-petsc "
-BUILD_ALLOWED_OPTIONS="  --coverage, --release, --optim, --debug, --external"
 built_code="Release"
-clean_build="No"
-external_values=()
 use_external="OFF"
+local_mfem_version="No"
 
 for argument; do
 
@@ -37,6 +16,36 @@ for argument; do
     value=$(echo $argument | cut -f2 -d'=')
 
     case "$arg" in
+    --mfem)
+        local_mfem_version="Yes"
+        MFEM4SLOTH=$(echo "$value")
+
+        # Get absolute path
+        function to_absolute_path() {
+            local path=$1
+            if [[ ! "$path" =~ ^/ ]]; then
+                if command -v realpath &>/dev/null; then
+                    echo "$(realpath "$path")"
+                else
+                    echo "$(cd "$path" && pwd)"
+                fi
+            else
+                echo "$path"
+            fi
+        }
+        MFEM4SLOTH=$(to_absolute_path "$MFEM4SLOTH")
+        if [[ ! -d "$MFEM4SLOTH" ]]; then
+            Print "\nError: "$MFEM4SLOTH" directory does not exist. Please check the path of the local MFEM version!"
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1  
+            else
+                exit 1  
+            fi
+        else 
+            Print "Sloth built with a local MFEM version: $MFEM4SLOTH"
+            export MFEM4SLOTH=$MFEM4SLOTH
+        fi
+        ;;
     --release)
         built_code="Release"
         Print "Sloth built with Release compiler options "
@@ -53,10 +62,6 @@ for argument; do
         built_code="Optim"
         Print "Sloth built with Optim compiler options "
         ;;
-    --clean)
-        clean_build="Yes"
-        Print "Previous build will be removed if it exists "
-        ;;
     --external)
         Print "Sloth built with an external package"
         
@@ -67,7 +72,12 @@ for argument; do
             Print " EXT_LIBNAME : path of the external dynamic library linked to SLOTH"
             Print " EXT_SRC : path of the source files of the interface between the external package and SLOTH"
             Print " EXT_TEST : path of the SLOTH tests involving the external package"
-            return
+            
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1  
+            else
+                exit 1  
+            fi
         fi
         export EXT_LIBDIR=$(echo "$value" | cut -f1 -d',')
         export EXT_LIBNAME=$(echo "$value" | cut -f2 -d',')
@@ -95,19 +105,34 @@ for argument; do
         # Validate EXT_LIBDIR
         if [[ ! -d "$EXT_LIBDIR" ]]; then
             Print "\nError: External package directory does not exist. Please check the data!"
-            return
+            
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1  
+            else
+                exit 1  
+            fi
         fi
 
         # Validate EXT_SRC
         if [[ ! -d "$EXT_SRC" ]]; then
             Print "\nError: Source files directory does not exist. Please check the data!"
-            return
+            
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1  
+            else
+                exit 1  
+            fi
         fi
 
         # Validate EXT_TEST if present
         if [[ -n "$EXT_TEST" && ! -d "$EXT_TEST" ]]; then
             Print "\nError: Tests directory does not exist. Please check the data!"
-            return
+            
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1  
+            else
+                exit 1  
+            fi
         fi
 
         # Set external flag
@@ -122,18 +147,48 @@ for argument; do
         ;;
     *)
         Print "\nERROR with $arg in shell script options"
-        return
+        
+        if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+            return 1  
+        else
+            exit 1  
+        fi
         ;;
     esac
 done
 
 #=============================================
+#  Environment variables 
+#=============================================
+if [[ "$local_mfem_version" == "Yes" ]]; then
+    export MFEM_DIR="$MFEM4SLOTH/mfem/INSTALLDIR/"
+    export HYPRE_DIR="$MFEM4SLOTH/hypre/src/hypre/"
+    export METIS_DIR="$MFEM4SLOTH/metis-4.0/"
+    export SuiteSparse_DIR="$MFEM4SLOTH/SuiteSparse/"
+else 
 #=============================================
 #=============================================
+#  Linux and Spack
 #=============================================
-if [[ "$clean_build" == "Yes" ]]; then
-    Print "Delete existing build before creating a new one..."
-    rm -rf *
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        spack load mfem
+        export HYPRE_DIR=$(spack location -i hypre)
+        export MPI_DIR=$(spack location -i mpi)
+        export METIS_DIR=$(spack location -i metis)
+#=============================================
+#  Mac and Homebrew
+#=============================================
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        export HYPRE_DIR=$(echo $(brew --prefix hypre))
+        export MPI_DIR=$(echo $(brew --prefix open-mpi))
+        export METIS_DIR=$(echo $(brew --prefix metis))
+        export MFEM_DIR=$(echo $(brew --prefix mfem))
+    else
+        Print "May be an update of your OS is required. Please ensure that you are using either Darwin or Linux.".
+        return
+    fi
+#=============================================
+#=============================================
 fi
 #=============================================
 Print "Create a new build..."
