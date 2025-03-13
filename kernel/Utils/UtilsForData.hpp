@@ -74,10 +74,21 @@ static void external_call(Verbosity verbosity, Func func, Args&&... args) {
     int stdout_backup = dup(fileno(stdout));
     int stderr_backup = dup(fileno(stderr));
 
-    // Redirection towards /dev/null
-    freopen("/dev/null", "w", stdout);
-    freopen("/dev/null", "w", stderr);
+    // Redirection towards /dev/null to suppress output
+    FILE* stdout_null = freopen("/dev/null", "w", stdout);
+    FILE* stderr_null = freopen("/dev/null", "w", stderr);
 
+    if (!stdout_null || !stderr_null) {
+      // Handle error: restore original stdout and stderr
+      if (stdout_null) {
+        fclose(stdout_null);
+      }
+      if (stderr_null) {
+        fclose(stderr_null);
+      }
+      // Optionally, you can log the error or throw an exception here
+      return;
+    }
     // Call of the function
     func(std::forward<Args>(args)...);
 
