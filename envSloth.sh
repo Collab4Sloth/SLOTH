@@ -59,8 +59,9 @@ for argument; do
         ;;
     --external)
         Print "Sloth built with an external package"
-        
-        if [[ "${$(echo $value | grep -o ',' | wc -l)}" -lt 2 ]]; then
+        count=$(echo "$value" | grep -o ',' | wc -l)
+
+        if [[ "${count}" -lt 2 ]]; then
             Print "\nError: --external must contain 3 or 4 values separated by a comma."
             Print " --external=EXT_LIBDIR,EXT_LIBNAME,EXT_SRC,EXT_TEST "
             Print " EXT_LIBDIR : path towards the external package "
@@ -118,6 +119,7 @@ for argument; do
         Print " EXT_LIBNAME=$EXT_LIBNAME"
         Print " EXT_SRC=$EXT_SRC"
         Print " EXT_TEST=${EXT_TEST:-'Not Provided'}"
+
 
         ;;
     *)
