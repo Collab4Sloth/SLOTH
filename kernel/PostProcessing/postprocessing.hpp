@@ -105,7 +105,8 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
   this->calculation_path_ = this->params_.template get_param_value<std::string>("calculation_path");
   this->frequency_ = this->params_.template get_param_value<int>("frequency");
 
-  this->level_of_detail_ = this->params_.template get_param_value<int>("level_of_detail");
+  this->level_of_detail_ =
+      this->params_.template get_param_value_or_default<int>("level_of_detail", 1);
   this->enable_save_specialized_at_iter_ = this->params_.template get_param_value_or_default<bool>(
       "enable_save_specialized_at_iter", false);
   this->force_clean_output_dir_ =

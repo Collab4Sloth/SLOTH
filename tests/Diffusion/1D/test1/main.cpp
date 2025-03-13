@@ -36,14 +36,14 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  constexpr int DIM = Test<1>::dim;
-  using FECollection = Test<1>::FECollection;
-  using VARS = Test<1>::VARS;
-  using VAR = Test<1>::VAR;
-  using PSTCollection = Test<1>::PSTCollection;
-  using PST = Test<1>::PST;
-  using SPA = Test<1>::SPA;
-  using BCS = Test<1>::BCS;
+  const int DIM=1;
+  using FECollection = Test<DIM>::FECollection;
+  using VARS = Test<DIM>::VARS;
+  using VAR = Test<DIM>::VAR;
+  using PSTCollection = Test<DIM>::PSTCollection;
+  using PST = Test<DIM>::PST;
+  using SPA = Test<DIM>::SPA;
+  using BCS = Test<DIM>::BCS;
   /////////////////////////
 
   using NLFI =
