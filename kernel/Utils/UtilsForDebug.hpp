@@ -37,7 +37,7 @@ class UtilsForDebug {
  * @return rusage data type that get memory information
  */
 
-rusage UtilsForDebug::make_memory_checkpoint() {
+inline rusage UtilsForDebug::make_memory_checkpoint() {
   rusage obj;
   int who = 0;
   [[maybe_unused]] auto res = getrusage(who, &obj);
@@ -50,7 +50,7 @@ rusage UtilsForDebug::make_memory_checkpoint() {
  *
  * @param msg
  */
-void UtilsForDebug::memory_checkpoint(const std::string& msg) {
+inline void UtilsForDebug::memory_checkpoint(const std::string& msg) {
   auto mem = UtilsForDebug::make_memory_checkpoint();
   std::cout << "========= MEMORY CHECKPOINT ====== " << std::endl;
   std::cout << "<<<" << msg << ">>>" << std::endl;

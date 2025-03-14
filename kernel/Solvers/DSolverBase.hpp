@@ -20,18 +20,12 @@
 
 class SolverUMFPACK : public SolverBase<mfem::UMFPackSolver, DirectSolverType> {
  public:
-  SolverUMFPACK();
+  SolverUMFPACK() = default;
   std::shared_ptr<mfem::UMFPackSolver> create_solver(DirectSolverType SOLVER,
                                                      const Parameters& params) override;
 
-  ~SolverUMFPACK();
+  ~SolverUMFPACK() = default;
 };
-
-/**
- * @brief Construct a new SolverUMFPACK::SolverUMFPACK object
- *
- */
-SolverUMFPACK::SolverUMFPACK() {}
 
 /**
  * @brief Create a direct solver based of the SolverType and a list of Parameters
@@ -40,7 +34,7 @@ SolverUMFPACK::SolverUMFPACK() {}
  * @param params
  * @return std::shared_ptr<mfem::Solver>
  */
-std::shared_ptr<mfem::UMFPackSolver> SolverUMFPACK::create_solver(DirectSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::UMFPackSolver> SolverUMFPACK::create_solver(DirectSolverType SOLVER,
                                                                   const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -53,9 +47,3 @@ std::shared_ptr<mfem::UMFPackSolver> SolverUMFPACK::create_solver(DirectSolverTy
   ss->SetPrintLevel(print_level);
   return ss;
 }
-
-/**
- * @brief Destroy the SolverUMFPACK::SolverUMFPACK object
- *
- */
-SolverUMFPACK::~SolverUMFPACK() {}

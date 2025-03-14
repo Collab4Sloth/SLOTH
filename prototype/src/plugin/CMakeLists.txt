@@ -1,0 +1,2 @@
+set(sloth_proto_plugin_LINK_LIBRARIES Sloth)
+onika_add_plugin(sloth_proto_plugin ${CMAKE_CURRENT_SOURCE_DIR})

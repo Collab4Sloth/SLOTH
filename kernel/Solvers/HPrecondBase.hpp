@@ -21,11 +21,11 @@
 
 class PrecondHypreILU : public SolverBase<mfem::HypreILU, HyprePreconditionerType> {
  public:
-  PrecondHypreILU() {}
+  PrecondHypreILU() = default;
   std::shared_ptr<mfem::HypreILU> create_solver(HyprePreconditionerType PRECOND,
                                                 const Parameters& params) override;
 
-  ~PrecondHypreILU() {}
+  ~PrecondHypreILU() = default;
 };
 
 /**
@@ -35,7 +35,7 @@ class PrecondHypreILU : public SolverBase<mfem::HypreILU, HyprePreconditionerTyp
  * @param params
  * @return std::shared_ptr<mfem::Solver>
  */
-std::shared_ptr<mfem::HypreILU> PrecondHypreILU::create_solver(HyprePreconditionerType PRECOND,
+DEBILE_INLINE std::shared_ptr<mfem::HypreILU> PrecondHypreILU::create_solver(HyprePreconditionerType PRECOND,
                                                                const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
@@ -66,11 +66,11 @@ std::shared_ptr<mfem::HypreILU> PrecondHypreILU::create_solver(HyprePrecondition
 
 class PrecondHypreSmoother : public SolverBase<mfem::HypreSmoother, HyprePreconditionerType> {
  public:
-  PrecondHypreSmoother() {}
+  PrecondHypreSmoother() = default;
   std::shared_ptr<mfem::HypreSmoother> create_solver(HyprePreconditionerType PRECOND,
                                                      const Parameters& params) override;
 
-  ~PrecondHypreSmoother() {}
+  ~PrecondHypreSmoother() = default;
 };
 /**
  * @brief Create preconditioner based of the PreconditionerType and a list of Parameters
@@ -79,7 +79,7 @@ class PrecondHypreSmoother : public SolverBase<mfem::HypreSmoother, HyprePrecond
  * @param params
  * @return std::shared_ptr<mfem::Solver>
  */
-std::shared_ptr<mfem::HypreSmoother> PrecondHypreSmoother::create_solver(
+DEBILE_INLINE std::shared_ptr<mfem::HypreSmoother> PrecondHypreSmoother::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
@@ -101,11 +101,11 @@ std::shared_ptr<mfem::HypreSmoother> PrecondHypreSmoother::create_solver(
 
 class PrecondHypreBoomerAMG : public SolverBase<mfem::HypreBoomerAMG, HyprePreconditionerType> {
  public:
-  PrecondHypreBoomerAMG() {}
+  PrecondHypreBoomerAMG() = default;
   std::shared_ptr<mfem::HypreBoomerAMG> create_solver(HyprePreconditionerType PRECOND,
                                                       const Parameters& params) override;
 
-  ~PrecondHypreBoomerAMG() {}
+  ~PrecondHypreBoomerAMG() = default;
 };
 
 /**
@@ -115,7 +115,7 @@ class PrecondHypreBoomerAMG : public SolverBase<mfem::HypreBoomerAMG, HyprePreco
  * @param params
  * @return std::shared_ptr<mfem::Solver>
  */
-std::shared_ptr<mfem::HypreBoomerAMG> PrecondHypreBoomerAMG::create_solver(
+DEBILE_INLINE std::shared_ptr<mfem::HypreBoomerAMG> PrecondHypreBoomerAMG::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
@@ -139,11 +139,11 @@ std::shared_ptr<mfem::HypreBoomerAMG> PrecondHypreBoomerAMG::create_solver(
 
 class PrecondHypreDiagScale : public SolverBase<mfem::HypreDiagScale, HyprePreconditionerType> {
  public:
-  PrecondHypreDiagScale() {}
+  PrecondHypreDiagScale() = default;
   std::shared_ptr<mfem::HypreDiagScale> create_solver(HyprePreconditionerType PRECOND,
                                                       const Parameters& params) override;
 
-  ~PrecondHypreDiagScale() {}
+  ~PrecondHypreDiagScale() = default;
 };
 
 /**
@@ -153,7 +153,7 @@ class PrecondHypreDiagScale : public SolverBase<mfem::HypreDiagScale, HyprePreco
  * @param params
  * @return std::shared_ptr<mfem::HypreDiagScale>
  */
-std::shared_ptr<mfem::HypreDiagScale> PrecondHypreDiagScale::create_solver(
+DEBILE_INLINE std::shared_ptr<mfem::HypreDiagScale> PrecondHypreDiagScale::create_solver(
     HyprePreconditionerType PRECOND, const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());

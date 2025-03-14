@@ -87,6 +87,7 @@
 #include "Utils/UtilsForDebug.hpp"
 #include "Utils/UtilsForOptions.hpp"
 #include "Utils/UtilsForPostProcessing.hpp"
+#include "Utils/UtilsForSlothProto.hpp"
 #include "Utils/UtilsForVariants.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"

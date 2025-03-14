@@ -30,7 +30,7 @@
  * @param length
  * @return std::string
  */
-std::string line(char c, size_t length) { return std::string(length, c); }
+inline std::string line(char c, size_t length) { return std::string(length, c); }
 
 /**
  * @brief TimerTuple struct to store profiling information for a function
@@ -77,16 +77,10 @@ class Profiling {
     return instance;
   }
   int indentation_level_;
-  void enable();
+  void enable() { Timer_enabled_ = true; };
   void update_timer(std::string name, Timer& timer);
   void print();
 };
-
-/**
- * @brief Method allows to enable profiling
- *
- */
-void Profiling::enable() { Timer::Timer_enabled_ = true; }
 
 /**
  * @brief Method used to save the results of a timer in the tuple type list : timerlist
@@ -94,7 +88,7 @@ void Profiling::enable() { Timer::Timer_enabled_ = true; }
  * @param name_func
  * @param func
  */
-void Profiling::save(std::string name_func, Timer& func) {
+inline void Profiling::save(std::string name_func, Timer& func) {
   if (this->Profiling_enabled_ == false) {
     return;
   }
@@ -125,13 +119,13 @@ void Profiling::save(std::string name_func, Timer& func) {
  * @param name
  * @param timer
  */
-void Profiling::update_timer(std::string name, Timer& timer) { this->save(name, timer); }
+inline void Profiling::update_timer(std::string name, Timer& timer) { this->save(name, timer); }
 
 /**
  * @brief Method used to print timetable in terminal
  *
  */
-void Profiling::print() {
+inline void Profiling::print() {
   if (this->Profiling_enabled_ == false) {
     return;
   }
@@ -143,7 +137,7 @@ void Profiling::print() {
   std::ofstream outputFile;
 
   // looking for the maximum time in order to be used in time ratio
-  double glob_time, max_timer;
+  double glob_time(0), max_timer(-1);
 
   // serial case
   if (size == 1) {
@@ -168,6 +162,7 @@ void Profiling::print() {
       }
     }
   }
+  assert(max_timer != -1);
 
   // sequentiel case
   if (size == 1) {
@@ -305,7 +300,7 @@ void Profiling::print() {
  * @brief Method used to add identation to a line in the timetable in order to have hierarchy
  *
  */
-void Profiling::get_indentation() {
+inline void Profiling::get_indentation() {
   if (this->Profiling_enabled_ == false) {
     return;
   }
@@ -318,7 +313,7 @@ void Profiling::get_indentation() {
  *
  * @param func
  */
-void Profiling::get_lose_indentation(std::string func) {
+inline void Profiling::get_lose_indentation(std::string func) {
   if (this->Profiling_enabled_ == false) {
     return;
   }

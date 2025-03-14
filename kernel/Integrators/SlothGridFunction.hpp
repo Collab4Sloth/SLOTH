@@ -21,24 +21,17 @@ class SlothGridFunction : public mfem::ParGridFunction {
  private:
  protected:
  public:
-  SlothGridFunction();
-  explicit SlothGridFunction(const mfem::ParGridFunction &orig);
+  SlothGridFunction() = default;
+  SlothGridFunction(const mfem::ParGridFunction &gf) : mfem::ParGridFunction(gf) {}
   void GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi, mfem::Vector &grad);
-  ~SlothGridFunction();
+  ~SlothGridFunction() = default;
 };
-
-/**
- * @brief Construct a new Sloth Grid Function:: Sloth Grid Function object
- *
- */
-SlothGridFunction::SlothGridFunction() : mfem::ParGridFunction() {}
 
 /**
  * @brief Construct a new Sloth Grid Function:: Sloth Grid Function object
  *
  * @param gf
  */
-SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction &gf) : mfem::ParGridFunction(gf) {}
 
 /**
  * @brief Compute the gradient of a given GridFunction
@@ -47,16 +40,10 @@ SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction &gf) : mfem::Pa
  * @param gradPsi
  * @param grad
  */
-void SlothGridFunction::GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi,
+DEBILE_INLINE void SlothGridFunction::GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi,
                                     mfem::Vector &grad) {
   mfem::Vector elfun;
   const int &num = Tr.ElementNo;
   GetElementDofValues(num, elfun);
   gradPsi.MultTranspose(elfun, grad);
 }
-
-/**
- * @brief Destroy the Sloth Grid Function:: Sloth Grid Function object
- *
- */
-SlothGridFunction::~SlothGridFunction() {}

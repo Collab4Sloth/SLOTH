@@ -11,6 +11,7 @@
  *
  */
 
+#include "Utils/UtilsForSlothProto.hpp"
 #include "Utils/UtilsForData.hpp"
 #include "Utils/UtilsForDebug.hpp"
 #include "Utils/UtilsForOptions.hpp"

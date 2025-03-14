@@ -25,7 +25,8 @@ struct TimeScheme {
   enum value { EulerImplicit, EulerExplicit, RungeKutta4 };
   static value from(const std::string&);
 };
-TimeScheme::value TimeScheme::from(const std::string& v) {
+
+inline TimeScheme::value TimeScheme::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<TimeScheme::value> m{{"EulerImplicit", TimeScheme::EulerImplicit},
                                                       {"EulerExplicit", TimeScheme::EulerExplicit},
                                                       {"RungeKutta4", TimeScheme::RungeKutta4}};

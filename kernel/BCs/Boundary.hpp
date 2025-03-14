@@ -36,12 +36,12 @@ class Boundary {
            const std::string &boundary_type);
   Boundary(const std::string &boundary_name, const int &boundary_index,
            const std::string &boundary_type, const double &boundary_value);
-  int get_boundary_index() const;
-  bool is_essential_boundary() const;
-  bool is_periodic_boundary() const;
-  double get_boundary_value() const;
+  int get_boundary_index() const { return boundary_index_; };
+  bool is_essential_boundary() const { return is_essential_boundary_; };
+  bool is_periodic_boundary() const { return is_periodic_boundary_; };
+  double get_boundary_value() const { return boundary_value_; };
 
-  ~Boundary();
+  ~Boundary() = default;
 };
 
 /**
@@ -51,7 +51,7 @@ class Boundary {
  * @param boundary_index
  * @param boundary_type
  */
-Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
+DEBILE_INLINE Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
                    const std::string &boundary_type)
     : boundary_name_(boundary_name), boundary_index_(boundary_index) {
   switch (BoundaryConditionType::from(boundary_type)) {
@@ -84,7 +84,7 @@ Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
  * @param boundary_type
  * @param boundary_value
  */
-Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
+DEBILE_INLINE Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
                    const std::string &boundary_type, const double &boundary_value)
     : boundary_name_(boundary_name),
       boundary_index_(boundary_index),
@@ -110,39 +110,3 @@ Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
       break;
   }
 }
-
-/**
- * @brief return the index associated to the boundary
- *
- * @return int
- */
-int Boundary::get_boundary_index() const { return this->boundary_index_; }
-
-/**
- * @brief flag to identify essential boundary
- *
- * @return true
- * @return false
- */
-bool Boundary::is_essential_boundary() const { return this->is_essential_boundary_; }
-
-/**
- * @brief flag to identify periodic boundary
- *
- * @return true
- * @return false
- */
-bool Boundary::is_periodic_boundary() const { return this->is_periodic_boundary_; }
-
-/**
- * @brief return the double value prescribed on boundary
- *
- * @return double
- */
-double Boundary::get_boundary_value() const { return this->boundary_value_; }
-
-/**
- * @brief Destroy the Boundary:: Boundary object
- *
- */
-Boundary::~Boundary() {}

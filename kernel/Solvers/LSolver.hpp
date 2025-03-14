@@ -35,9 +35,8 @@ class LSolver {
   LSolver(VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope);
   LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
           const Parameters& p_params, mfem::Operator& ope);
-  VSharedMFEMSolver get_solver();
-
-  ~LSolver();
+  VSharedMFEMSolver get_solver() { return this->variant_solver_; }
+  ~LSolver() = default;
 };
 
 /**
@@ -49,7 +48,7 @@ class LSolver {
  * @param p_params
  * @param ope
  */
-LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
+DEBILE_INLINE LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
                  const Parameters& p_params, mfem::Operator& ope) {
   SlothInfo::debug("LSolver::LSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
@@ -70,7 +69,7 @@ LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, VSolverType PRE
  * @param s_params
  * @param ope
  */
-LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope) {
+DEBILE_INLINE LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope) {
   SlothInfo::debug("LSolver::LSolver start");
 
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
@@ -83,16 +82,3 @@ LSolver::LSolver(VSolverType SOLVER, const Parameters& s_params, mfem::Operator&
 
   SlothInfo::debug("LSolver::LSolver end");
 }
-
-/**
- * @brief Return the solver
- *
- * @return VSharedMFEMSolver
- */
-VSharedMFEMSolver LSolver::get_solver() { return this->variant_solver_; }
-
-/**
- * @brief Destroy the LSolver::LSolver object
- *
- */
-LSolver::~LSolver() {}

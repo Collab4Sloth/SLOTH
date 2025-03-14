@@ -102,7 +102,7 @@ class Parameters {
     return Parameters(initial_vect);
   }
 
-  ~Parameters();
+  ~Parameters() = default;
 };
 
 /**
@@ -121,7 +121,7 @@ Parameters::Parameters(Args&&... args) {
  *
  * @param vect_params
  */
-Parameters::Parameters(const std::vector<Parameter>& vect_params) : vect_params_(vect_params) {}
+DEBILE_INLINE Parameters::Parameters(const std::vector<Parameter>& vect_params) : vect_params_(vect_params) {}
 
 /**
  * @brief Return a vector of Parameter
@@ -129,7 +129,7 @@ Parameters::Parameters(const std::vector<Parameter>& vect_params) : vect_params_
  * @tparam Args
  * @return std::vector<Parameter>
  */
-std::vector<Parameter> Parameters::get_vector() const { return this->vect_params_; }
+DEBILE_INLINE std::vector<Parameter> Parameters::get_vector() const { return this->vect_params_; }
 
 /**
  * @brief Search a parameter by its name
@@ -138,7 +138,7 @@ std::vector<Parameter> Parameters::get_vector() const { return this->vect_params
  * @return true
  * @return false
  */
-bool Parameters::has_parameter(const std::string& param_name) const {
+DEBILE_INLINE bool Parameters::has_parameter(const std::string& param_name) const {
   return std::find_if(vect_params_.begin(), vect_params_.end(), [&](const auto& p) {
            return p.get_name() == param_name;
          }) != vect_params_.end();
@@ -150,7 +150,7 @@ bool Parameters::has_parameter(const std::string& param_name) const {
  * @tparam Args
  * @return in
  */
-int Parameters::get_size() const { return this->vect_params_.size(); }
+DEBILE_INLINE int Parameters::get_size() const { return this->vect_params_.size(); }
 
 /**
  * @brief Return the parameter associated to the given name
@@ -158,7 +158,7 @@ int Parameters::get_size() const { return this->vect_params_.size(); }
  * @param name
  * @return Parameter
  */
-std::optional<Parameter> Parameters::get_parameter(const std::string& name) const {
+DEBILE_INLINE std::optional<Parameter> Parameters::get_parameter(const std::string& name) const {
   for (const auto& param : this->vect_params_) {
     if (param.get_name() == name) {
       return param;
@@ -224,9 +224,3 @@ T Parameters::get_param_value(const std::string& name) const {
     mfem::mfem_error(error_mess.c_str());
   }
 }
-
-/**
- * @brief Destroy the Parameters:: Parameters object
- *
- */
-Parameters::~Parameters() {}

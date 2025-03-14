@@ -23,7 +23,8 @@ struct Problems {
   enum value { Diffusion, AllenCahn, Calphad };
   static value from(const std::string&);
 };
-Problems::value Problems::from(const std::string& v) {
+
+inline Problems::value Problems::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<Problems::value> m{{"Diffusion", Problems::Diffusion},
                                                     {"AllenCahn", Problems::AllenCahn},
                                                     {"Calphad", Problems::Calphad}};

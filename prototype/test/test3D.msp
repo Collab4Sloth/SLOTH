@@ -1,0 +1,5 @@
+input_data: 
+  - generate_h1_cube:
+     refinement_level: 0
+     grid_dim: [30,30,30]
+     discretization: [1e-3, 1e-3, 1e-3]

@@ -1,0 +1,6 @@
+input_data: nop
+
+simulation:
+  - init_sloth
+  - input_data
+  - log

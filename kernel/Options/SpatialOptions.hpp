@@ -30,7 +30,7 @@ struct Meshes {
   static value from(const std::string&);
 };
 
-Meshes::value Meshes::from(const std::string& v) {
+inline Meshes::value Meshes::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<Meshes::value> m{
       {"InlineLineWithSegments", Meshes::InlineLineWithSegments},
       {"InlineSquareWithTriangles", Meshes::InlineSquareWithTriangles},
@@ -51,7 +51,8 @@ struct BoundaryConditionType {
   enum value { Dirichlet, Neumann, Periodic, Robin };
   static value from(const std::string&);
 };
-BoundaryConditionType::value BoundaryConditionType::from(const std::string& v) {
+
+inline BoundaryConditionType::value BoundaryConditionType::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<BoundaryConditionType::value> m{
       {"Dirichlet", BoundaryConditionType::Dirichlet},
       {"Neumann", BoundaryConditionType::Neumann},

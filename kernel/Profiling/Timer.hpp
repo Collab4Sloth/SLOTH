@@ -15,6 +15,9 @@
 #include <vector>
 
 #pragma once
+
+static bool Timer_enabled_ = false;
+
 /**
  * @brief Timer Class
  *
@@ -29,7 +32,7 @@ class Timer {
  public:
   explicit Timer(std::string name);
 
-  static bool Timer_enabled_;
+//  static bool Timer_enabled_;
   std::vector<std::tuple<int, std::string>> indentation_list_;
   int indentation_level_;
 
@@ -37,9 +40,9 @@ class Timer {
   void lose_indentation(std::string func);
   inline void start();
   inline double stop(bool result_time);
-  std::vector<std::tuple<int, std::string>>* return_indentation_list();
+  std::vector<std::tuple<int, std::string>>* return_indentation_list() { return &indentation_list_; };
 
-  ~Timer();
+  ~Timer() = default;
 };
 
 /**
@@ -56,7 +59,7 @@ inline Timer* get_indentation() {
  * @brief Global method used to increase the level of indentation by 1
  *
  */
-void get_indent() {
+inline void get_indent() {
   auto indent = get_indentation();
   indent->indentation();
 }
@@ -65,20 +68,20 @@ void get_indent() {
  *
  * @param name
  */
-Timer::Timer(std::string name) : name_(name), accum_time_(0.0) {}
+inline Timer::Timer(std::string name) : name_(name), accum_time_(0.0) {}
 
 /**
  * @brief Increase the indentation level
  *
  */
-void Timer::indentation() { this->indentation_level_++; }
+inline void Timer::indentation() { this->indentation_level_++; }
 
 /**
  * @brief Decrease indentation level
  *
  * @param func
  */
-void Timer::lose_indentation(std::string func) {
+inline void Timer::lose_indentation(std::string func) {
   bool inside = false;
   for (std::size_t i = 0; i < this->indentation_list_.size(); i++) {
     if (std::get<1>(this->indentation_list_[i]) == func) {
@@ -93,21 +96,11 @@ void Timer::lose_indentation(std::string func) {
 }
 
 /**
- * @brief Return list of indentation
- *
- * @return std::vector<std::tuple<int, std::string>>*
- */
-std::vector<std::tuple<int, std::string>>* Timer::return_indentation_list() {
-  auto indent = get_indentation();
-  return &indentation_list_;
-}
-
-/**
  * @brief Method used to start chrono
  *
  */
 inline void Timer::start() {
-  if (this->Timer_enabled_ == false) {
+  if (Timer_enabled_ == false) {
     return;
   }
   get_indent();
@@ -121,7 +114,7 @@ inline void Timer::start() {
  * @return double
  */
 inline double Timer::stop(bool result_time = false) {
-  if (this->Timer_enabled_ == false) {
+  if (Timer_enabled_ == false) {
     return 0.0;
   }
   const auto& utime = std::chrono::high_resolution_clock::now();
@@ -134,12 +127,6 @@ inline double Timer::stop(bool result_time = false) {
   return this->accum_time_.count();
 }
 
-/**
- * @brief Destroy the Timer:: Timer object
- *
- */
-Timer::~Timer() {}
-
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
@@ -149,7 +136,7 @@ Timer::~Timer() {}
  *
  * @param name_func
  */
-void get_lose_indent(std::string name_func) {
+inline void get_lose_indent(std::string name_func) {
   auto indent = get_indentation();
   indent->lose_indentation(name_func);
 }
@@ -159,9 +146,8 @@ void get_lose_indent(std::string name_func) {
  *
  * @return std::vector<std::tuple<int, std::string>>*
  */
-static std::vector<std::tuple<int, std::string>>* get_indentation_list() {
+static inline std::vector<std::tuple<int, std::string>>* get_indentation_list() {
   auto indent = get_indentation();
   return indent->return_indentation_list();
 }
 
-bool Timer::Timer_enabled_ = false;

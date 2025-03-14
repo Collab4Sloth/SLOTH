@@ -21,18 +21,12 @@
 
 class SolverHyprePCG : public SolverBase<mfem::HyprePCG, HypreSolverType> {
  public:
-  SolverHyprePCG();
+  SolverHyprePCG() = default;
   std::shared_ptr<mfem::HyprePCG> create_solver(HypreSolverType SOLVER,
                                                 const Parameters& params) override;
 
-  ~SolverHyprePCG();
+  ~SolverHyprePCG() = default;
 };
-
-/**
- * @brief Construct a new HSolverBase::HSolverBase object
- *
- */
-SolverHyprePCG::SolverHyprePCG() {}
 
 /**
  * @brief Create a iterative solver based of the SolverType and a list of Parameters
@@ -41,7 +35,7 @@ SolverHyprePCG::SolverHyprePCG() {}
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(HypreSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(HypreSolverType SOLVER,
                                                               const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -52,28 +46,17 @@ std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(HypreSolverType SO
   return ss;
 }
 
-/**
- * @brief Destroy the HSolverBase::HSolverBase object
- *
- */
-SolverHyprePCG::~SolverHyprePCG() {}
 
 /////////////////////////////
 
 class SolverHypreGMRES : public SolverBase<mfem::HypreGMRES, HypreSolverType> {
  public:
-  SolverHypreGMRES();
+  SolverHypreGMRES() = default;
   std::shared_ptr<mfem::HypreGMRES> create_solver(HypreSolverType SOLVER,
                                                   const Parameters& params) override;
 
-  ~SolverHypreGMRES();
+  ~SolverHypreGMRES() = default;
 };
-
-/**
- * @brief Construct a new HSolverBase::HSolverBase object
- *
- */
-SolverHypreGMRES::SolverHypreGMRES() {}
 
 /**
  * @brief Create a iterative solver based of the SolverType and a list of Parameters
@@ -82,7 +65,7 @@ SolverHypreGMRES::SolverHypreGMRES() {}
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverType SOLVER,
                                                                   const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -92,28 +75,16 @@ std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverTyp
   return ss;
 }
 
-/**
- * @brief Destroy the HSolverBase::HSolverBase object
- *
- */
-SolverHypreGMRES::~SolverHypreGMRES() {}
-
 /////////////////////////////
 
 class SolverHypreFGMRES : public SolverBase<mfem::HypreFGMRES, HypreSolverType> {
  public:
-  SolverHypreFGMRES();
+  SolverHypreFGMRES() = default;
   std::shared_ptr<mfem::HypreFGMRES> create_solver(HypreSolverType SOLVER,
                                                    const Parameters& params) override;
 
-  ~SolverHypreFGMRES();
+  ~SolverHypreFGMRES() = default;
 };
-
-/**
- * @brief Construct a new HSolverBase::HSolverBase object
- *
- */
-SolverHypreFGMRES::SolverHypreFGMRES() {}
 
 /**
  * @brief Create a iterative solver based of the SolverType and a list of Parameters
@@ -122,7 +93,7 @@ SolverHypreFGMRES::SolverHypreFGMRES() {}
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverType SOLVER,
                                                                     const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -133,8 +104,3 @@ std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverT
   return ss;
 }
 
-/**
- * @brief Destroy the HSolverBase::HSolverBase object
- *
- */
-SolverHypreFGMRES::~SolverHypreFGMRES() {}

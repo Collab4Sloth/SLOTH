@@ -55,7 +55,7 @@ static Verbosity verbosityLevel = Verbosity::Quiet;
  *
  * @param verbosity
  */
-static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
+[[maybe_unused]] static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
 
 /**
  * @brief Method used to capture the flux coming from an external method and print it depending on

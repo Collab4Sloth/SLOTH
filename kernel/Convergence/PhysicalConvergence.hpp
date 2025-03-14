@@ -36,7 +36,7 @@ class PhysicalConvergence {
   PhysicalConvergence(ConvergenceType::value convergence_criterion_type,
                       const double &given_criterion);
   std::tuple<bool, double> getPhysicalConvergence(const mfem::Vector &x, const mfem::Vector &y);
-  ~PhysicalConvergence();
+  ~PhysicalConvergence() = default;
 };
 
 /**
@@ -45,13 +45,13 @@ class PhysicalConvergence {
  * @param convergence_criterion_type
  * @param given_criterion
  */
-PhysicalConvergence::PhysicalConvergence(ConvergenceType::value convergence_criterion_type,
+DEBILE_INLINE PhysicalConvergence::PhysicalConvergence(ConvergenceType::value convergence_criterion_type,
                                          const double &given_criterion) {
   this->physical_convergence_ =
       this->getPhysicalConvergenceCriterion(convergence_criterion_type, given_criterion);
 }
 
-std::tuple<bool, double> PhysicalConvergence::getPhysicalConvergence(const mfem::Vector &x,
+DEBILE_INLINE std::tuple<bool, double> PhysicalConvergence::getPhysicalConvergence(const mfem::Vector &x,
                                                                      const mfem::Vector &y) {
   return this->physical_convergence_(x, y);
 }
@@ -64,7 +64,7 @@ std::tuple<bool, double> PhysicalConvergence::getPhysicalConvergence(const mfem:
  * @param given_criterion
  * @return std::function<double(const mfem::Vector &, const mfem::Vector &)>
  */
-std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
+DEBILE_INLINE std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
 PhysicalConvergence::getPhysicalConvergenceCriterion(
     ConvergenceType::value convergence_criterion_type, const double &given_criterion) {
   switch (convergence_criterion_type) {
@@ -89,7 +89,7 @@ PhysicalConvergence::getPhysicalConvergenceCriterion(
  * @param given_criterion
  * @return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
  */
-std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
+DEBILE_INLINE std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
 PhysicalConvergence::getRelativeMax(const double &given_criterion) {
   return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>(
       [given_criterion](const mfem::Vector &x, const mfem::Vector &xn) {
@@ -118,7 +118,7 @@ PhysicalConvergence::getRelativeMax(const double &given_criterion) {
  * @param given_criterion
  * @return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
  */
-std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
+DEBILE_INLINE std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
 PhysicalConvergence::getAbsoluteMax(const double &given_criterion) {
   return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>(
       [given_criterion](const mfem::Vector &x, const mfem::Vector &xn) {
@@ -135,9 +135,3 @@ PhysicalConvergence::getAbsoluteMax(const double &given_criterion) {
         return std::make_tuple(is_cvg, criterion);
       });
 }
-
-/**
- * @brief Destroy the Physical Convergence:: Physical Convergence object
- *
- */
-PhysicalConvergence::~PhysicalConvergence() {}

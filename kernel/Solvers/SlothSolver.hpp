@@ -260,27 +260,17 @@ class SlothSolver {
   const Parameters& params_;
 
  public:
-  SlothSolver(VSolverType value, const Parameters& params);
-
+  SlothSolver(VSolverType value, const Parameters& params) : value_(value), params_(params) {}
   VSharedMFEMSolver get_value();
-
-  ~SlothSolver();
+  ~SlothSolver() = default;
 };
-/**
- * @brief Construct a new SlothSolver object
- *
- * @param value : type of solver (see VSolverType for a list of available solvers)
- * @param params
- */
-SlothSolver::SlothSolver(VSolverType value, const Parameters& params)
-    : value_(value), params_(params) {}
 
 /**
  * @brief Create the linear solver depending on SolverType
  *
  * @return VSharedMFEMSolver
  */
-VSharedMFEMSolver SlothSolver::get_value() {
+DEBILE_INLINE VSharedMFEMSolver SlothSolver::get_value() {
   return std::visit(
       [this](auto&& arg) -> VSharedMFEMSolver {
         using T = std::decay_t<decltype(arg)>;
@@ -374,8 +364,3 @@ VSharedMFEMSolver SlothSolver::get_value() {
       },
       value_);
 }
-/**
- * @brief Destroy the SlothSolver object
- *
- */
-SlothSolver::~SlothSolver() {}

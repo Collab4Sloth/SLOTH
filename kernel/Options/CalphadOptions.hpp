@@ -25,7 +25,7 @@ struct calphad_outputs {
   static value from(const std::string &);
 };
 
-calphad_outputs::value calphad_outputs::from(const std::string &v) {
+inline calphad_outputs::value calphad_outputs::from(const std::string &v) {
   static PhaseFieldPrivate::mmap<calphad_outputs::value> m{
       {"mu", calphad_outputs::mu},  {"x", calphad_outputs::x},     {"y", calphad_outputs::y},
       {"g", calphad_outputs::g},    {"gm", calphad_outputs::gm},   {"h", calphad_outputs::h},
@@ -48,18 +48,21 @@ struct temperature_sort_method {
   enum value { ascending, descending, no };
   static value from(const std::string &);
 };
-temperature_sort_method::value temperature_sort_method::from(const std::string &v) {
+
+inline temperature_sort_method::value temperature_sort_method::from(const std::string &v) {
   static PhaseFieldPrivate::mmap<temperature_sort_method::value> m{
       {"Ascending", temperature_sort_method::ascending},
       {"Descending", temperature_sort_method::descending},
       {"No", temperature_sort_method::no}};
   return m.find("temperature_sort_method", v);
 }
+
 struct pressure_sort_method {
   enum value { ascending, descending, no };
   static value from(const std::string &);
 };
-pressure_sort_method::value pressure_sort_method::from(const std::string &v) {
+
+inline pressure_sort_method::value pressure_sort_method::from(const std::string &v) {
   static PhaseFieldPrivate::mmap<pressure_sort_method::value> m{
       {"Ascending", pressure_sort_method::ascending},
       {"Descending", pressure_sort_method::descending},

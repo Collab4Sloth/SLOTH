@@ -54,14 +54,18 @@ endif(NOT TARGET doc)
 # ########################
 include(COMPILE4SLOTH)
 
-
-
 include(TEST4SLOTH)
 
 include(CTest)
 enable_testing()
 
 add_subdirectory(tests)
+
+# ################
+# # Proto onika
+# ################
+
+add_subdirectory(prototype)
 
 # ########################
 # # Code Coverage

@@ -36,8 +36,8 @@ class Parameter {
   Parameter(const std::string& name, param_type value, const std::string& description)
       : name_(name), value_(value), description_(description) {}
 
-  std::string get_name() const;
-  std::string get_description() const;
+  std::string get_name() const { return name_; };
+  std::string get_description() const { return description_; };
 
   void print() const;
 
@@ -45,14 +45,14 @@ class Parameter {
   // Type is specifically mentioned despite of auto
   auto get_value() const -> param_type;
 
-  ~Parameter() {}
+  ~Parameter() = default;
 };
 
 /**
  * @brief Print the value of the parameter
  *
  */
-void Parameter::print() const {
+DEBILE_INLINE void Parameter::print() const {
   const auto& param_value = this->get_value();
   const auto& param_name = this->get_name();
 
@@ -84,7 +84,7 @@ void Parameter::print() const {
  *
  * @return std::variant<int, double, std::string>
  */
-auto Parameter::get_value() const -> param_type {
+DEBILE_INLINE auto Parameter::get_value() const -> param_type {
   return std::visit(
       [](auto&& arg) -> param_type {
         using T = std::decay_t<decltype(arg)>;
@@ -98,17 +98,3 @@ auto Parameter::get_value() const -> param_type {
       },
       this->value_);
 }
-
-/**
- * @brief Return the name of the parameter
- *
- * @return std::string
- */
-std::string Parameter::get_name() const { return this->name_; }
-
-/**
- * @brief Return the description  of the parameter
- *
- * @return std::string
- */
-std::string Parameter::get_description() const { return this->description_; }

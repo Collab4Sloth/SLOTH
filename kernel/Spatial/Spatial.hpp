@@ -51,6 +51,8 @@ class SpatialDiscretization {
   T *fecollection_;
 
  public:
+  SpatialDiscretization() = default;
+
   SpatialDiscretization(const std::string &mesh_type, const int &fe_order, const int &ref_level,
                         const std::string &mesh_file, bool periodic_mesh = false) {
     specialized_spatial_constructor<T, DIM> init;

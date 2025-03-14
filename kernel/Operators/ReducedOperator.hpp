@@ -44,7 +44,7 @@ class PhaseFieldReducedOperator : public mfem::Operator {
 
   /// Compute y = dt*grad_N(unk + dt*k) + M
   mfem::Operator &GetGradient(const mfem::Vector &k) const;
-  ~PhaseFieldReducedOperator();
+  ~PhaseFieldReducedOperator() = default;
 };
 
 /**
@@ -53,7 +53,7 @@ class PhaseFieldReducedOperator : public mfem::Operator {
  * @param M
  * @param N
  */
-PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBilinearForm *M,
+DEBILE_INLINE PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBilinearForm *M,
                                                      mfem::ParNonlinearForm *N,
                                                      const mfem::Array<int> &ess_tdof)
     : Operator(N->ParFESpace()->TrueVSize()),
@@ -71,7 +71,7 @@ PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBilinearForm *M,
  * @param dt
  * @param unk
  */
-void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk) {
+DEBILE_INLINE void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk) {
   dt_ = dt;
   unk_ = unk;
 }
@@ -82,7 +82,7 @@ void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk
  * @param k
  * @param y
  */
-void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
+DEBILE_INLINE void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
   add(*unk_, dt_, k, z);
   N_->Mult(z, y);
   M_->TrueAddMult(k, y);
@@ -95,7 +95,7 @@ void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) con
  * @param k
  * @return mfem::Operator&
  */
-mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) const {
+DEBILE_INLINE mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) const {
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
@@ -112,8 +112,3 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
   return *Jacobian;
 }
 
-/**
- * @brief Destroy the Phase Field Reduced Operator:: Phase Field Reduced Operator object
- *
- */
-PhaseFieldReducedOperator::~PhaseFieldReducedOperator() { delete Jacobian; }

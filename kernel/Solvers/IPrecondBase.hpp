@@ -20,18 +20,13 @@
 
 class PrecondDSmoother : public SolverBase<mfem::DSmoother, PreconditionerType> {
  public:
-  PrecondDSmoother();
+  PrecondDSmoother() = default;
+  ~PrecondDSmoother() = default;
   std::shared_ptr<mfem::DSmoother> create_solver(PreconditionerType PRECOND,
                                                  const Parameters& params) override;
 
-  ~PrecondDSmoother();
 };
 
-/**
- * @brief Construct a new PrecondDSmoother::PrecondDSmoother object
- *
- */
-PrecondDSmoother::PrecondDSmoother() {}
 
 /**
  * @brief Create preconditioner based of the PreconditionerType and a list of Parameters
@@ -40,7 +35,7 @@ PrecondDSmoother::PrecondDSmoother() {}
  * @param params
  * @return std::shared_ptr<mfem::Solver>
  */
-std::shared_ptr<mfem::DSmoother> PrecondDSmoother::create_solver(PreconditionerType PRECOND,
+DEBILE_INLINE std::shared_ptr<mfem::DSmoother> PrecondDSmoother::create_solver(PreconditionerType PRECOND,
                                                                  const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -57,8 +52,3 @@ std::shared_ptr<mfem::DSmoother> PrecondDSmoother::create_solver(PreconditionerT
   return pp;
 }
 
-/**
- * @brief Destroy the PrecondDSmoother::PrecondDSmoother object
- *
- */
-PrecondDSmoother::~PrecondDSmoother() {}

@@ -20,7 +20,7 @@ struct AnalyticalFunctionsType {
   static value from(const std::string&);
 };
 
-AnalyticalFunctionsType::value AnalyticalFunctionsType::from(const std::string& v) {
+inline AnalyticalFunctionsType::value AnalyticalFunctionsType::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<AnalyticalFunctionsType::value> m{
       {"Heaviside", AnalyticalFunctionsType::Heaviside},
       {"Sinusoide", AnalyticalFunctionsType::Sinusoide},

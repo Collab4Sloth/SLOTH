@@ -41,9 +41,9 @@ class NLSolver {
            mfem::Operator& ope);
   NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
            const Parameters& s_params, mfem::Operator& ope);
-  std::shared_ptr<mfem::NewtonSolver> get_nl_solver();
+  std::shared_ptr<mfem::NewtonSolver> get_nl_solver() { return this->nl_solver_; } 
 
-  ~NLSolver();
+  ~NLSolver() = default;
 };
 
 /**
@@ -57,7 +57,7 @@ class NLSolver {
  * @param p_params
  * @param ope
  */
-NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
+DEBILE_INLINE NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
                    const Parameters& s_params, VSolverType PRECOND, const Parameters& p_params,
                    mfem::Operator& ope)
     : nl_solver_(NLSolverBase_.create_solver(NLSOLVER, nl_params)) {
@@ -81,7 +81,7 @@ NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverTy
  * @param s_params
  * @param ope
  */
-NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
+DEBILE_INLINE NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
                    const Parameters& s_params, mfem::Operator& ope)
     : nl_solver_(NLSolverBase_.create_solver(NLSOLVER, nl_params)) {
   SlothInfo::debug("NLSolver::NLSolver start");
@@ -93,16 +93,3 @@ NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverTy
   SetPrecondNLSolver func_prec = {ope, nl_solver_};
   std::visit(func_prec, this->variant_solver_, this->variant_precond_);
 }
-
-/**
- * @brief Return the Non Linear Solver
- *
- * @return std::shared_ptr<mfem::NewtonSolver>
- */
-std::shared_ptr<mfem::NewtonSolver> NLSolver::get_nl_solver() { return this->nl_solver_; }
-
-/**
- * @brief Destroy the Solver::Solver object
- *
- */
-NLSolver::~NLSolver() {}

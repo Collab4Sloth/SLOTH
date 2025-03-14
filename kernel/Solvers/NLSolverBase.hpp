@@ -21,18 +21,12 @@
 
 class NLSolverBase : SolverBase<mfem::NewtonSolver, NLSolverType> {
  public:
-  NLSolverBase();
+  NLSolverBase() = default;
   std::shared_ptr<mfem::NewtonSolver> create_solver(NLSolverType SOLVER,
                                                     const Parameters& params) override;
 
-  ~NLSolverBase();
+  ~NLSolverBase() = default;
 };
-
-/**
- * @brief Construct a new NLSolverBase::NLSolverBase object
- *
- */
-NLSolverBase::NLSolverBase() {}
 
 /**
  * @brief Create non linear solver based of the NLSolverType and a list of Parameters
@@ -41,7 +35,7 @@ NLSolverBase::NLSolverBase() {}
  * @param params
  * @return std::shared_ptr<mfem::NewtonSolver>
  */
-std::shared_ptr<mfem::NewtonSolver> NLSolverBase::create_solver(NLSolverType NLSOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::NewtonSolver> NLSolverBase::create_solver(NLSolverType NLSOLVER,
                                                                 const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -72,8 +66,3 @@ std::shared_ptr<mfem::NewtonSolver> NLSolverBase::create_solver(NLSolverType NLS
       break;
   }
 }
-/**
- * @brief Destroy the NLSolverBase::NLSolverBase object
- *
- */
-NLSolverBase::~NLSolverBase() {}

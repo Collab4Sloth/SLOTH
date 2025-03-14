@@ -21,11 +21,11 @@
 
 class SolverBICGSTAB : public SolverBase<mfem::BiCGSTABSolver, IterativeSolverType> {
  public:
-  SolverBICGSTAB() {}
+  SolverBICGSTAB() = default;
   std::shared_ptr<mfem::BiCGSTABSolver> create_solver(IterativeSolverType SOLVER,
                                                       const Parameters& params) override;
 
-  ~SolverBICGSTAB() {}
+  ~SolverBICGSTAB() = default;
 };
 
 /**
@@ -35,7 +35,7 @@ class SolverBICGSTAB : public SolverBase<mfem::BiCGSTABSolver, IterativeSolverTy
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::BiCGSTABSolver> SolverBICGSTAB::create_solver(IterativeSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::BiCGSTABSolver> SolverBICGSTAB::create_solver(IterativeSolverType SOLVER,
                                                                     const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -67,14 +67,14 @@ std::shared_ptr<mfem::BiCGSTABSolver> SolverBICGSTAB::create_solver(IterativeSol
 
 class SolverMINRES : public SolverBase<mfem::MINRESSolver, IterativeSolverType> {
  public:
-  SolverMINRES() {}
+  SolverMINRES() = default;
   std::shared_ptr<mfem::MINRESSolver> create_solver(IterativeSolverType SOLVER,
                                                     const Parameters& params) override;
 
-  ~SolverMINRES() {}
+  ~SolverMINRES() = default;
 };
 
-std::shared_ptr<mfem::MINRESSolver> SolverMINRES::create_solver(IterativeSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::MINRESSolver> SolverMINRES::create_solver(IterativeSolverType SOLVER,
                                                                 const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -106,13 +106,14 @@ std::shared_ptr<mfem::MINRESSolver> SolverMINRES::create_solver(IterativeSolverT
 
 class SolverCG : public SolverBase<mfem::CGSolver, IterativeSolverType> {
  public:
-  SolverCG() {}
+  SolverCG() = default;
   std::shared_ptr<mfem::CGSolver> create_solver(IterativeSolverType SOLVER,
                                                 const Parameters& params) override;
 
-  ~SolverCG() {}
+  ~SolverCG() = default;
 };
-std::shared_ptr<mfem::CGSolver> SolverCG::create_solver(IterativeSolverType SOLVER,
+
+DEBILE_INLINE std::shared_ptr<mfem::CGSolver> SolverCG::create_solver(IterativeSolverType SOLVER,
                                                         const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
@@ -144,14 +145,14 @@ std::shared_ptr<mfem::CGSolver> SolverCG::create_solver(IterativeSolverType SOLV
 
 class SolverGMRES : public SolverBase<mfem::GMRESSolver, IterativeSolverType> {
  public:
-  SolverGMRES() {}
+  SolverGMRES() = default;
   std::shared_ptr<mfem::GMRESSolver> create_solver(IterativeSolverType SOLVER,
                                                    const Parameters& params) override;
 
-  ~SolverGMRES() {}
+  ~SolverGMRES() = default;
 };
 
-std::shared_ptr<mfem::GMRESSolver> SolverGMRES::create_solver(IterativeSolverType SOLVER,
+DEBILE_INLINE std::shared_ptr<mfem::GMRESSolver> SolverGMRES::create_solver(IterativeSolverType SOLVER,
                                                               const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
