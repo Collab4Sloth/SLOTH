@@ -3,3 +3,8 @@ input_data:
      refinement_level: 0
      grid_dim: [30,30,30]
      discretization: [1e-3, 1e-3, 1e-3]
+  - set_h1_bcs:
+     names:  [rear,      lower,     right,   upper,      left,   front]
+     types:  [Neumann, Neumann, Dirichlet, Neumann, Dirichlet, Neumann]
+     values: [0.,           0.,        1.,      0.,        0.,      0.]
+

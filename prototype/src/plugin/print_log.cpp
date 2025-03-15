@@ -17,7 +17,10 @@ namespace SlothProto
 		struct SLOTHLog : public OperatorNode
 	{
     using SP = Test<3>::SPA;
+    using BCS = Test<3>::BCS;
 		ADD_SLOT( Wrapper<SP> , spatial , INPUT ,  DocString{" add doc "});
+    ADD_SLOT( Wrapper<BCS> , bcs , INPUT , DocString{" add doc "}); 
+
 
 		inline void execute() override final
 		{

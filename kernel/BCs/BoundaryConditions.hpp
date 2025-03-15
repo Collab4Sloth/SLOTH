@@ -34,24 +34,19 @@ class BoundaryConditions {
   std::initializer_list<Boundary> boundaries_;
 
  public:
+  BoundaryConditions() = default;
   template <class... Args>
   BoundaryConditions(SpatialDiscretization<T, DIM> *spatial, const Args &...boundaries);
+  template <class... Args>
+  void Initialize(SpatialDiscretization<T, DIM> *spatial, const Args &...boundaries);
   void SetBoundaryConditions(mfem::Vector &u);
   mfem::Array<int> GetEssentialDofs();
-  ~BoundaryConditions();
+  ~BoundaryConditions() = default;
 };
 
-/**
- * @brief Construct a new Boundary Conditions:: Boundary Conditions object
- *
- * @tparam Args
- * @param fespace
- * @param mesh_max_bdr_attributes
- * @param boundaries
- */
 template <class T, int DIM>
 template <class... Args>
-BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *spatial,
+void BoundaryConditions<T, DIM>::Initialize(SpatialDiscretization<T, DIM> *spatial,
                                                const Args &...boundaries) {
   bool must_be_periodic = spatial->is_periodic();
 
@@ -128,6 +123,21 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
 }
 
 /**
+ * @brief Construct a new Boundary Conditions:: Boundary Conditions object
+ *
+ * @tparam Args
+ * @param fespace
+ * @param mesh_max_bdr_attributes
+ * @param boundaries
+ */
+template <class T, int DIM>
+template <class... Args>
+BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *spatial,
+                                               const Args &...boundaries) {
+  Initialize(spatial, boundaries...);
+}
+
+/**
  * @brief return the list of essential dofs
  *
  * @return mfem::Array<int> array of essential dofs
@@ -155,10 +165,3 @@ void BoundaryConditions<T, DIM>::SetBoundaryConditions(mfem::Vector &u) {
     }
   }
 }  // end of SetBoundaryConditions
-
-/**
- * @brief Destroy the Boundary Conditions:: Boundary Conditions object
- *
- */
-template <class T, int DIM>
-BoundaryConditions<T, DIM>::~BoundaryConditions() {}

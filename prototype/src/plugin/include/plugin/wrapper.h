@@ -9,5 +9,6 @@ namespace SlothProto
     Wrapper() { data = new P();}
     P* data;
     P& get() {return *data;};
+    P* get_ptr() {return data;};
   };
 }
