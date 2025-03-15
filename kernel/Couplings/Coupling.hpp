@@ -38,7 +38,7 @@ class Coupling {
   void post_processing(const int& iter, const double& current_time,
                        const double& current_time_step);
   void finalize();
-  ~Coupling();
+  ~Coupling() = default;
 };
 
 /**
@@ -180,11 +180,3 @@ template <class... Args>
 void Coupling<Args...>::finalize() {
   std::apply([](auto&... problem) { (problem.finalize(), ...); }, problems_);
 }
-
-/**
- * @brief Destroy the Coupling< Args...>:: Coupling object
- *
- * @tparam Args
- */
-template <class... Args>
-Coupling<Args...>::~Coupling() {}

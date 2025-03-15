@@ -43,6 +43,8 @@ namespace SlothProto
 
       Vec3d c = *center;
       Vec3d a = *no_idea;
+      vars->initialize();
+
       auto initial_condition = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, c.x, c.y, c.z, a.x, a.y, a.z, *thickness, *radius);
 
       auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, c.x, c.y, c.z, a.x, a.y, a.z, *epsilon, *radius);

@@ -27,7 +27,7 @@
 template <class... Args>
 class TimeDiscretization {
  private:
-  const Parameters& params_;
+  const Parameters params_;
   std::tuple<Args...> couplings_;
   double initial_time_{0.};
   double final_time_;

@@ -33,6 +33,8 @@ namespace SlothProto
       auto& _values = *values;
       auto& _names = *names;
       auto* spa = spatial->get_ptr();
+      bcs->initialize();
+
       if(_types.size() != _names.size() || _types.size() != _values.size())
       {
         lout << "Error, types, names, and values have to be the same size" << std::endl;
@@ -42,17 +44,19 @@ namespace SlothProto
         std::abort();
       }
       std::vector<Boundary> boundaries;
+
       for(size_t i = 0 ; i < _names.size() ; i++)
       {
         boundaries.push_back(Boundary(_names[i], i, _types[i], _values[i]));
       }
+
       auto& boundary_conditions = bcs->get();
       boundary_conditions.Initialize(spa, boundaries); 
 		}
 	};
 
 	// === register factories ===  
-	ONIKA_AUTORUN_INIT(generate_hypercube)
+	ONIKA_AUTORUN_INIT(set_bcs)
 	{
 		using setH1BCS = SetBoundaryConditions<mfem::H1_FECollection,3>;
 		OperatorNodeFactory::instance()->register_factory( "set_h1_bcs", make_compatible_operator< setH1BCS > );

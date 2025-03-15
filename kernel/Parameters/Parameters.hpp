@@ -26,6 +26,7 @@ class Parameters {
   std::vector<Parameter> vect_params_;
 
  public:
+  Parameters() = default;
   template <typename... Args>
   explicit Parameters(Args&&... args);
   explicit Parameters(const std::vector<Parameter>& vect_params);
@@ -113,6 +114,7 @@ class Parameters {
  */
 template <typename... Args>
 Parameters::Parameters(Args&&... args) {
+  static_assert(sizeof...(Args) > 0);
   this->vect_params_ = std::vector<Parameter>{std::forward<Args>(args)...};
 }
 

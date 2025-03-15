@@ -68,24 +68,13 @@ class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI> {
   void ComputeEnergies(const int &it, const double &t, const double &dt,
                        const mfem::Vector &u) override;
 
-  ~AllenCahnOperatorBase();
+  ~AllenCahnOperatorBase() = default;
 };
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-
-/**
- * @brief Destroy the AllenCahnOperatorBase< T, DIM, NLFI>:: Phase Field Operator object
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @tparam OPEBASE
- */
-template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-AllenCahnOperatorBase<T, DIM, NLFI, OPEBASE>::~AllenCahnOperatorBase() {}
 
 /**
  * @brief Set the NonLinearFormIntegrator dedicated to AllenCahn
@@ -105,7 +94,6 @@ NLFI *AllenCahnOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt
 
   mfem::ParGridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
-
   const Parameters &all_params = this->mobility_params_ + this->params_ - this->default_p_;
 
   NLFI *nlfi_ptr = new NLFI(un, all_params, this->auxvariables_);

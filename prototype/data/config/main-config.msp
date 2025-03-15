@@ -1,6 +1,20 @@
 input_data: nop
+problem: nop
+coupling: nop
+compute_loop: nop
+
+# default values
+global:
+  paraview_frequency: -1
+  verbosity: 1
+  physical_time: 0.
 
 simulation:
+  - global
   - init_sloth
+  - post_pro
   - input_data
+  - problem
+  - coupling
+  - compute_loop
   - log

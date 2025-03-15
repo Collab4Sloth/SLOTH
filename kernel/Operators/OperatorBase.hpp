@@ -381,7 +381,6 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
 
   for (int i = 0; i < this->fespace_->GetNE(); i++) {
     const mfem::FiniteElement *el = this->fespace_->GetFE(i);
-    size_t dim = el->GetDim();
     mfem::Array<int> dofs;
     this->fespace_->GetElementDofs(i, dofs);
 

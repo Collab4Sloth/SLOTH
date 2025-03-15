@@ -257,7 +257,7 @@ struct SetPrecondNLSolver {
 class SlothSolver {
  private:
   VSolverType value_;
-  const Parameters& params_;
+  const Parameters params_;
 
  public:
   SlothSolver(VSolverType value, const Parameters& params) : value_(value), params_(params) {}

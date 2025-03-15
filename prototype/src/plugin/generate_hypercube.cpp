@@ -31,6 +31,7 @@ namespace SlothProto
 			static_assert(DIM == 2 || DIM == 3);
 			auto& disc = *discretization;
 			auto& gd = *grid_dim;
+      spatial->initialize();
 			assert(DIM == disc.size());
 			assert(DIM == gd.size());
 

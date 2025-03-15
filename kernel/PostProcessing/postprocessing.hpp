@@ -37,7 +37,7 @@ class PostProcessing : public DC {
   bool force_clean_output_dir_;
   double iso_val_to_compute;
 
-  const Parameters& params_;
+  const Parameters params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   std::string post_processing_directory_;
   void get_parameters();
@@ -62,7 +62,7 @@ class PostProcessing : public DC {
   bool get_enable_save_specialized_at_iter();
   double get_iso_val_to_compute();
 
-  ~PostProcessing();
+  ~PostProcessing() = default;
 };
 
 ///////////////////////////////////////////////////////////
@@ -316,10 +316,3 @@ void PostProcessing<T, DC, DIM>::clean_output_directory() {
     }
   }
 }
-
-/**
- * @brief Destroy the Post Processing:: Post Processing object
- *
- */
-template <class T, class DC, int DIM>
-PostProcessing<T, DC, DIM>::~PostProcessing() {}

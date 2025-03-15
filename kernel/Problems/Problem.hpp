@@ -31,6 +31,7 @@ class Problem : public ProblemBase<VAR, PST> {
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
  public:
+
   template <class... Args>
   Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
           std::list<int> pop_elem, Args&&... auxvariable);
@@ -65,7 +66,7 @@ class Problem : public ProblemBase<VAR, PST> {
 
   /////////////////////////////////////////////////////
 
-  ~Problem();
+  ~Problem() = default;
 };
 
 /**
@@ -271,12 +272,3 @@ void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& curre
   // calculation converges
   this->unknown_.emplace_back(unk);
 }
-
-/**
- * @brief Destroy the Problem object
- *
- * @tparam OPE
- * @tparam SOLVER
- */
-template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::~Problem() {}

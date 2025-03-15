@@ -14,31 +14,33 @@ namespace SlothProto
 {
 	using namespace onika;
 	using namespace onika::scg;
-		struct SLOTHLog : public OperatorNode
+
+	template<typename FECollection, int DIM>
+		struct SlothSolve : public OperatorNode
 	{
-    static constexpr int DIM = 3;
-    using FECollection = Test<3>::FECollection;
-    using SP = Test<DIM>::SPA;
-    using VARS = Test<DIM>::VARS;
+    using SP = SpatialDiscretization<FECollection,DIM>;
+    using VARS = Variables<FECollection, DIM>;
     using PSTCollection = mfem::ParaViewDataCollection;
-    using PST = Test<DIM>::PST;
+    using PST = PostProcessing<FECollection, PSTCollection, DIM>;
     using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
     using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
     using PB = Problem<OPE, VARS, PST>;
     using CouplingPB = Coupling<PB>;
-    ADD_SLOT( Wrapper<TimeDiscretization<CouplingPB>>, time, INPUT , DocString{" Time discretization"}); 
 
+    ADD_SLOT( Wrapper<TimeDiscretization<CouplingPB>>, time, INPUT_OUTPUT , DocString{" Time discretization"}); 
 		inline void execute() override final
 		{
-      lout << "The end" << std::endl;
+      auto t = time->get();
+      t.solve();
 		}
 	};
 
 	// === register factories ===  
-	ONIKA_AUTORUN_INIT(log)
+	ONIKA_AUTORUN_INIT(solve)
 	{
-		OperatorNodeFactory::instance()->register_factory( "log", make_compatible_operator< SLOTHLog > );
+		using Solve3D = SlothSolve<mfem::H1_FECollection,3>;
+		OperatorNodeFactory::instance()->register_factory( "solve_3d", make_compatible_operator< Solve3D > );
 	}
 }
 

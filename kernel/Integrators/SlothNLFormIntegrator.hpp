@@ -74,8 +74,6 @@ template <class VARS>
 void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> auxvars) {
   this->auxvariables_ = auxvars;
   for (const auto& auxvar_vec : this->auxvariables_) {
-    size_t num_vars = auxvar_vec->getVariables().size();
-
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       // GF
       this->vect_aux_gf_.emplace_back(std::move(auxvar.get_gf()));
