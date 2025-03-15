@@ -7,4 +7,11 @@ input_data:
      names:  [rear,      lower,     right,   upper,      left,   front]
      types:  [Neumann, Neumann, Dirichlet, Neumann, Dirichlet, Neumann]
      values: [0.,           0.,        1.,      0.,        0.,      0.]
+  - set_variable_test1:
+     center: [0,0,0]    
+     no_idea: [1,0,0]
+     thickness: 5.e-5
+     radius: 5.e-4
+     epsilon: 5.e-4
+     field_name: "phi"
 

@@ -18,8 +18,10 @@ namespace SlothProto
 	{
     using SP = Test<3>::SPA;
     using BCS = Test<3>::BCS;
+    using VARS = Test<3>::VARS;
 		ADD_SLOT( Wrapper<SP> , spatial , INPUT ,  DocString{" add doc "});
-    ADD_SLOT( Wrapper<BCS> , bcs , INPUT , DocString{" add doc "}); 
+    ADD_SLOT( Wrapper<BCS> , bcs , INPUT , DocString{" List of boundary conditions "}); 
+    ADD_SLOT( Wrapper<VARS> , vars , INPUT , DocString{" List of Variable(s)"}); 
 
 
 		inline void execute() override final

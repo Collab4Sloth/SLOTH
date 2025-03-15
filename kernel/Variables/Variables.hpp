@@ -32,7 +32,7 @@ class Variables {
   template <class... Args>
   explicit Variables(Args... args);
 
-  Variables();
+  Variables() = default;
 
   void add(Variable<T, DIM> var);
   std::vector<Variable<T, DIM>> getVariables() const;
@@ -41,15 +41,8 @@ class Variables {
   Variable<T, DIM>& get_variable(const std::string& name);
   std::map<std::string, mfem::ParGridFunction> get_map_gridfunction() const;
   std::map<std::string, Variable<T, DIM>> get_map_variable() const;
-  ~Variables();
+  ~Variables() = default;
 };
-
-/**
- * @brief Construct a new Variables:: Variables object
- *
- */
-template <class T, int DIM>
-Variables<T, DIM>::Variables() {}
 
 /**
  * @brief Construct a new Variables:: Variables object
@@ -155,10 +148,3 @@ Variable<T, DIM>& Variables<T, DIM>::get_variable(const std::string& vname) {
   }
   return this->vect_variables_[id];
 }
-
-/**
- * @brief Destroy the Variables:: Variables object
- *
- */
-template <class T, int DIM>
-Variables<T, DIM>::~Variables() {}
