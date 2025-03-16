@@ -33,7 +33,7 @@ namespace SlothProto
 		inline void execute() override final
 		{
       auto& ACProblem = pb->get();
-      cc->alias(new Coupling<PB>("Default Coupling", ACProblem));
+      cc->wrap(new Coupling<PB>("Default Coupling", ACProblem));
 		}
 	};
 

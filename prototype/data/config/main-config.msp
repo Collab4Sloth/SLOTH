@@ -1,3 +1,17 @@
+print_logo_banner:
+  profiling: false
+  body:
+    - message: |
+         ███████╗██╗      ██████╗ ████████╗██╗  ██╗
+         ██╔════╝██║     ██╔═══██╗╚══██╔══╝██║  ██║
+         ███████╗██║     ██║   ██║   ██║   ███████║
+         ╚════██║██║     ██║   ██║   ██║   ██╔══██║
+         ███████║███████╗╚██████╔╝   ██║   ██║  ██║
+         ╚══════╝╚══════╝ ╚═════╝    ╚═╝   ╚═╝  ╚═╝
+
+includes:
+  - config_default.msp
+
 input_data: nop
 problem: nop
 coupling: nop
@@ -8,8 +22,11 @@ global:
   paraview_frequency: -1
   verbosity: 1
   physical_time: 0.
+  final_time: 0.
+  dt: 0.
 
 simulation:
+  - print_logo_banner
   - global
   - init_sloth
   - post_pro

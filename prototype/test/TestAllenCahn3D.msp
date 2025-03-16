@@ -38,6 +38,5 @@ compute_loop:
 global:
   paraview_frequency: 1
   verbosity: 1
-  physical_time: 0.
-  final_time: 2.0
+  final_time: 5.0
   dt: 1.

@@ -53,7 +53,7 @@ namespace SlothProto
       const double lambda = 3. * sig * eps / 2.;
       const double omega = 12. * sig / eps;
  
-      test_pp->alias(
+      test_pp->wrap(
         new Parameters(
           Parameter("epsilon", eps), 
           Parameter("sigma", sig),
@@ -66,11 +66,11 @@ namespace SlothProto
       oper.overload_mobility(Parameters(Parameter("mob", mob))); 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, *crit_cvg);
 
-      pst->alias(
+      pst->wrap(
         new PST(spa, pp_params->get())
       );
 
-      ACProblem.alias(
+      ACProblem.wrap(
         new PB(*name, oper, vars->get(), pst->get(), convergence)
       ); 
 		}

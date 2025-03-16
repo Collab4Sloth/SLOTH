@@ -1,0 +1,50 @@
+# configuration default values
+
+configuration:
+
+  # internal units
+  physics:
+    units:
+      length: meter
+      mass: gram
+      time: second
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+
+  # default plugins to load
+  plugins:  []
+
+  # Verbosity & debug
+  logging:
+    parallel: false
+    debug: false
+    profiling: false
+#   log_file: log.txt
+#   err_file: err.txt
+#   dbg_file: dbg.txt
+
+  profiling:
+    exectime: false
+    summary: true
+
+  # operator node graph debug
+  debug:
+    plugins: false
+    config: false
+    graph: false
+    graph_lod: 0
+    filter: []
+#   filter: [ ".*ewald_short_range_pc.*" , ".*primary_neighbor.*" ]
+#    rng: rng_dump.cfg
+
+# multi-threading configuration
+  mpimt: true
+  pinethreads: false
+  num_threads: {}
+#  omp_nested: true
+  omp_max_nesting: 2
+

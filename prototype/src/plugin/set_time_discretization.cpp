@@ -37,7 +37,7 @@ namespace SlothProto
 		inline void execute() override final
 		{
       auto time_params = Parameters(Parameter("initial_time", *physical_time), Parameter("final_time", *final_time),  Parameter("time_step", *dt));
-      time->alias(
+      time->wrap(
         new TimeDiscretization(time_params, cc->get())
       );
 		}

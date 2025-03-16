@@ -33,7 +33,6 @@ namespace SlothProto
       auto& _values = *values;
       auto& _names = *names;
       auto* spa = spatial->get_ptr();
-      bcs->initialize();
 
       if(_types.size() != _names.size() || _types.size() != _values.size())
       {
@@ -50,8 +49,9 @@ namespace SlothProto
         boundaries.push_back(Boundary(_names[i], i, _types[i], _values[i]));
       }
 
-      auto& boundary_conditions = bcs->get();
-      boundary_conditions.Initialize(spa, boundaries); 
+      bcs->wrap(
+        new BCS(spa, boundaries)
+      );
 		}
 	};
 

@@ -31,7 +31,7 @@ namespace SlothProto
       lout << " Folder: "    << *main_folder_path << "/" << *calculation_path << std::endl;
       lout << " Frequency: " << pf << std::endl;
       lout << " Level of verbosity: " << v << std::endl;
-      pp.alias(
+      pp.wrap(
         new Parameters(
           Parameter("main_folder_path", *main_folder_path), 
           Parameter("calculation_path", *calculation_path), 

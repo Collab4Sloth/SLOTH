@@ -31,7 +31,6 @@ namespace SlothProto
 			static_assert(DIM == 2 || DIM == 3);
 			auto& disc = *discretization;
 			auto& gd = *grid_dim;
-      spatial->initialize();
 			assert(DIM == disc.size());
 			assert(DIM == gd.size());
 
@@ -39,14 +38,16 @@ namespace SlothProto
 			if constexpr( DIM == 2)
 			{
 				auto description = std::make_tuple(gd[0], gd[1], disc[0], disc[1]);
-        specialized_spatial_constructor< FECollection, DIM> init;
-        init( (*spatial).get(), spatial_name, *fe_order, *refinement_level, description); //, *periodic);
+        spatial->wrap(
+          new SP(spatial_name, *fe_order, *refinement_level, description)
+        );
 			}
 			if constexpr( DIM == 3)
 			{
 				auto description = std::make_tuple(gd[0], gd[1], gd[2], disc[0], disc[1], disc[2]);
-        specialized_spatial_constructor< FECollection, DIM> init;
-        init( (*spatial).get(), spatial_name, *fe_order, *refinement_level, description); //, *periodic);
+        spatial->wrap(
+          new SP(spatial_name, *fe_order, *refinement_level, description)
+        );
 			}
 		}
 	};
