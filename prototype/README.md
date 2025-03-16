@@ -115,6 +115,6 @@ couppling_pbs:
   body:
     - set_coupling_2_problems
 
-coupling
+coupling:
   - couppling_pbs  
 ```
