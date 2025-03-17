@@ -35,6 +35,18 @@ static auto stringfindInVectorOfString = [](const std::vector<std::string> v, co
   return find(v.begin(), v.end(), w) != v.end();
 };
 
+static std::string toUpperCase(const std::string& str) {
+  std::string result = str;
+  std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+  return result;
+}
+
+static std::string toLowerCase(const std::string& str) {
+  std::string result = str;
+  std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+  return result;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 

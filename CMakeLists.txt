@@ -1,16 +1,20 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.12)
 project(sloth VERSION 1.0 LANGUAGES CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS NO)
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
 
 # Check GCC version
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
+
+  find_package(fmt REQUIRED)
+  set(ENV{FMT_VAR} fmt::fmt)
 
   if(GCC_VERSION VERSION_LESS 9)
     find_package(Filesystem REQUIRED)
