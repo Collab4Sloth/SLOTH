@@ -22,7 +22,7 @@
 
 #pragma once
 
-using param_type = std::variant<int, double, std::string, bool, vtriplet>;
+using param_type = std::variant<int, double, std::string, bool, MapStringDouble>;
 class Parameter {
  private:
   std::string name_;
@@ -68,9 +68,9 @@ void Parameter::print() const {
           SlothInfo::print(param_name, " = ", arg);
         } else if constexpr (std::is_same_v<T, bool>) {
           SlothInfo::print(param_name, " = ", arg);
-        } else if constexpr (std::is_same_v<T, vtriplet>) {
-          for (const auto& [tup0, tup1, tup2] : arg) {
-            SlothInfo::print(param_name, " = ", tup0, ", ", tup1, ", ", tup2);
+        } else if constexpr (std::is_same_v<T, MapStringDouble>) {
+          for (const auto& [key, val] : arg) {
+            SlothInfo::print(param_name, " = ", key, ", ", val);
           }
         } else {
           mfem::mfem_error("Unsupported type");
@@ -90,7 +90,7 @@ auto Parameter::get_value() const -> param_type {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double> ||
                       std::is_same_v<T, std::string> || std::is_same_v<T, bool> ||
-                      std::is_same_v<T, vtriplet>) {
+                      std::is_same_v<T, MapStringDouble>) {
           return arg;
         } else {
           mfem::mfem_error("Unsupported type");
