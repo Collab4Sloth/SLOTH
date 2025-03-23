@@ -111,7 +111,6 @@ if(MFEM_USE_MPI)
     ${MPI_CXX_LIBRARIES})
     include_directories(${MPI_INCLUDE_PATH})
 
-  
 endif(MFEM_USE_MPI)
 
 if (NOT MFEM_USE_SUITESPARSE)
