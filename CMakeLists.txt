@@ -13,9 +13,6 @@ set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
 
-  find_package(fmt REQUIRED)
-  set(ENV{FMT_VAR} fmt::fmt)
-
   if(GCC_VERSION VERSION_LESS 9)
     find_package(Filesystem REQUIRED)
     set(ENV{FILESYSTEM_VAR} std::filesystem)
