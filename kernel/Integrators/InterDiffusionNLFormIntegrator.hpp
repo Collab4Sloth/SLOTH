@@ -8,7 +8,6 @@
  * Copyright CEA (c) 2024
  *
  */
-#include <fmt/core.h>
 
 #include <algorithm>
 #include <map>
@@ -136,17 +135,16 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
     const auto mugf = this->mu_gf_.begin()->second;
     mfem::ParGridFunction mob_gf(mugf.ParFESpace());
     for (const std::string& component : this->list_components_) {
-      std::string upper_name = fmt::format("M{}", component);
-      std::string lower_name = fmt::format("M{}", toLowerCase(component));
+      std::string upper_name = "M" + component;
+      std::string lower_name = "M" + toLowerCase(component);
       std::string param_name;
       if (this->params_.has_parameter(upper_name)) {
         param_name = upper_name;
       } else if (this->params_.has_parameter(lower_name)) {
         param_name = lower_name;
       } else {
-        std::string error_mess = fmt::format(
-            "Mobility parameter for component {} must be defined. Please check the data.",
-            component);
+        std::string error_mess = "Mobility parameter for component " + component +
+                                 " must be defined. Please check the data.";
         mfem::mfem_error(error_mess.c_str());
       }
       const double mob = this->params_.template get_param_value<double>(param_name);
@@ -158,14 +156,13 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
   }
 
   MFEM_VERIFY(this->mu_gf_.size() == this->number_of_components_,
-              fmt::format("InterDiffusionNLFormIntegrator requires {} chemical potentials "
-                          "among auxiliary variables",
-                          this->number_of_components_));
-  MFEM_VERIFY(
-      this->mob_gf_.size() == this->number_of_components_,
-      fmt::format("InterDiffusionNLFormIntegrator requires {} mobilities either fully defined "
-                  "from auxiliary variables or with Parameters",
-                  this->number_of_components_));
+              "InterDiffusionNLFormIntegrator requires " + to_string(this->number_of_components_) +
+                  " chemical potentials "
+                  "among auxiliary variables");
+  MFEM_VERIFY(this->mob_gf_.size() == this->number_of_components_,
+              "InterDiffusionNLFormIntegrator requires " + to_string(this->number_of_components_) +
+                  " mobilities either fully defined "
+                  "from auxiliary variables or with Parameters");
 
   MFEM_VERIFY(mob_components == this->list_components_,
               "List of components for chemical potentials and mobilities must be the same. Please "
@@ -182,10 +179,10 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
 
   this->x_gf_.emplace(*result.begin(), std::move(this->u_old_));
   x_components.insert(*result.begin());
-  MFEM_VERIFY(
-      this->x_gf_.size() == this->number_of_components_ - 1,
-      fmt::format("InterDiffusionNLFormIntegrator requires {} grid function for molar fractions ",
-                  this->number_of_components_ - 1));
+  MFEM_VERIFY(this->x_gf_.size() == this->number_of_components_ - 1,
+              "InterDiffusionNLFormIntegrator requires " +
+                  to_string(this->number_of_components_ - 1) +
+                  " grid function for molar fractions ", );
 }
 
 /**
