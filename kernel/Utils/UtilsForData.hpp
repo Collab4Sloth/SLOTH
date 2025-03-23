@@ -34,7 +34,8 @@ using FType = std::function<double(const double&)>;
 using triplet = std::tuple<std::string, double, std::string>;
 using vtriplet = std::vector<triplet>;
 using MapStringDouble = std::map<std::string, double>;
-using Map2String2Double = std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>;
+using Map2String2Double =
+    std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>;
 using SpecializedValue = std::pair<std::string, double>;
 
 /**

@@ -92,6 +92,7 @@ void BinaryInterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::add_interdi
     const std::string& elem = it->first;
     M[i] = this->mob_gf_.at(elem).GetValue(nElement, ip);
     auto mu = SlothGridFunction(this->mu_gf_.at(elem));
+
     mu.GetGradient(Tr, this->gradPsi, grad_mu[i]);
   };
 
@@ -102,7 +103,6 @@ void BinaryInterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::add_interdi
   calculate_gradient(it, 0);
   ++it;
   calculate_gradient(it, 1);
-
   const double M12 = x1 * (1.0 - x1) * (M[0] * (1.0 - x1) + M[1] * x1);
   this->gradMu_.Add(M12, grad_mu[0]);
   this->gradMu_.Add(-M12, grad_mu[1]);
