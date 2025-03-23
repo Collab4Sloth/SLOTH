@@ -47,8 +47,8 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = ThermoDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
-                                               Diffusion::Constant>;
+  using NLFI = BinaryInterDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
+                                                    Diffusion::Constant>;
 
   using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
   using PB = Problem<OPE, VARS, PST>;
@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
       // ####################
       //     parameters    //
       // ####################
-      const auto& diffusionCoeff(1e-8);
-      // const auto& diffusionCoeff(0.);
+      const auto& stabCoeff(1e-8);
+      const auto& diffusionCoeff(0.);
       //  ####################
       //      variables     //
       //  ####################
@@ -105,7 +105,6 @@ int main(int argc, char* argv[]) {
           [L, diffusionCoeff](const mfem::Vector& x, double time) {
             const auto xx = x[0];
             const auto epsilon = 1e-3;
-            // auto func = 0.5 * (1 + std::tanh((xx - L / 2) / epsilon));
             auto func = 0.5 * (1 + std::erf((xx - L / 2) / std::sqrt(4 * diffusionCoeff * time)));
 
             return func;
@@ -133,16 +132,32 @@ int main(int argc, char* argv[]) {
       // ####################
       //     operators     //
       // ####################
+      // Thermal diffusion Parameters
+      auto td_parameters = Parameters(Parameter("last_component", "U"));
+      auto fictitious_mobO = VAR(&spatial, bcs, "Mo", 2, diffusionCoeff);
+      // Fictitious mobilities
+      fictitious_mobO.set_additional_information("C1_MO2", "O", "mob");
+      auto fictitious_mobU = VAR(&spatial, bcs, "Mu", 2, diffusionCoeff);
+      fictitious_mobU.set_additional_information("C1_MO2", "U", "mob");
+      auto mobo_var = VARS(fictitious_mobO);
+      auto mobu_var = VARS(fictitious_mobU);
+      // Fictitious chemical potentials
+      auto fictitious_muo = VAR(&spatial, bcs, "muO", 2, 0.);
+      fictitious_muo.set_additional_information("O", "mu");
+      auto mu_var = VARS(fictitious_muo);
+      auto fictitious_muu = VAR(&spatial, bcs, "muU", 2, 0.);
+      fictitious_muu.set_additional_information("U", "mu");
+      auto muu_var = VARS(fictitious_muu);
 
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
-      OPE oper(&spatial, TimeScheme::EulerImplicit);
-      oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
+      OPE oper(&spatial, td_parameters, TimeScheme::EulerImplicit);
+      oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
       auto pst = PST(&spatial, p_pst);
 
-      PB problem1(oper, vars, pst, convergence);
+      PB problem1(oper, vars, pst, convergence, mu_var, muu_var, mobo_var, mobu_var);
 
       // Coupling 1
       auto cc = Coupling("coupling 1 ", problem1);
