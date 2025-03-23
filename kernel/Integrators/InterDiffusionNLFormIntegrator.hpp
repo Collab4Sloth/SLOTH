@@ -154,15 +154,16 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
       mob_components.insert(toUpperCase(component));
     }
   }
-
-  MFEM_VERIFY(this->mu_gf_.size() == this->number_of_components_,
-              "InterDiffusionNLFormIntegrator requires " + to_string(this->number_of_components_) +
-                  " chemical potentials "
-                  "among auxiliary variables");
-  MFEM_VERIFY(this->mob_gf_.size() == this->number_of_components_,
-              "InterDiffusionNLFormIntegrator requires " + to_string(this->number_of_components_) +
-                  " mobilities either fully defined "
-                  "from auxiliary variables or with Parameters");
+  std::string msg_pot = "InterDiffusionNLFormIntegrator requires " +
+                        std::to_string(this->number_of_components_) +
+                        " chemical potentials "
+                        "among auxiliary variables";
+  MFEM_VERIFY(this->mu_gf_.size() == this->number_of_components_, msg_pot.c_str());
+  std::string msg_mob = "InterDiffusionNLFormIntegrator requires " +
+                        std::to_string(this->number_of_components_) +
+                        " mobilities either fully defined "
+                        "from auxiliary variables or with Parameters";
+  MFEM_VERIFY(this->mob_gf_.size() == this->number_of_components_, msg_mob.c_str());
 
   MFEM_VERIFY(mob_components == this->list_components_,
               "List of components for chemical potentials and mobilities must be the same. Please "
@@ -179,10 +180,10 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
 
   this->x_gf_.emplace(*result.begin(), std::move(this->u_old_));
   x_components.insert(*result.begin());
-  MFEM_VERIFY(this->x_gf_.size() == this->number_of_components_ - 1,
-              "InterDiffusionNLFormIntegrator requires " +
-                  to_string(this->number_of_components_ - 1) +
-                  " grid function for molar fractions ", );
+  std::string msg_gf = "InterDiffusionNLFormIntegrator requires " +
+                       std::to_string(this->number_of_components_ - 1) +
+                       " grid function for molar fractions ";
+  MFEM_VERIFY(this->x_gf_.size() == this->number_of_components_ - 1, msg_gf.c_str());
 }
 
 /**
