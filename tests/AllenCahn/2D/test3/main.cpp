@@ -33,14 +33,14 @@ int main(int argc, char* argv[]) {
   //
   //---------------------------------------
   /////////////////////////
-  constexpr int DIM = Test<2>::dim;
-  using FECollection = Test<2>::FECollection;
-  using VARS = Test<2>::VARS;
-  using VAR = Test<2>::VAR;
-  using PSTCollection = Test<2>::PSTCollection;
-  using PST = Test<2>::PST;
-  using SPA = Test<2>::SPA;
-  using BCS = Test<2>::BCS;
+  const int DIM = 2;
+  using FECollection = Test<DIM>::FECollection;
+  using VARS = Test<DIM>::VARS;
+  using VAR = Test<DIM>::VAR;
+  using PSTCollection = Test<DIM>::PSTCollection;
+  using PST = Test<DIM>::PST;
+  using SPA = Test<DIM>::SPA;
+  using BCS = Test<DIM>::BCS;
   /////////////////////////
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;

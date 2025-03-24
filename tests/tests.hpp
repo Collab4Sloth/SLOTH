@@ -35,9 +35,6 @@ struct Test {
   using SPA = SpatialDiscretization<mfem::H1_FECollection, DIM>;
   /// @brief Boundary condition object (SLOTH object)
   using BCS = BoundaryConditions<FECollection, DIM>;
-
-  /// @brief Static member to store the dimension value
-  static constexpr int dim = DIM;
 };
 
 template <>
@@ -56,9 +53,6 @@ struct Test<1> {
   using SPA = SpatialDiscretization<mfem::H1_FECollection, 1>;
   /// @brief Boundary condition object (SLOTH object)
   using BCS = BoundaryConditions<FECollection, 1>;
-
-  /// @brief Static member to store the dimension value
-  static constexpr int dim = 1;
 };
 template <>
 struct Test<2> {
@@ -76,9 +70,6 @@ struct Test<2> {
   using SPA = SpatialDiscretization<mfem::H1_FECollection, 2>;
   /// @brief Boundary condition object (SLOTH object)
   using BCS = BoundaryConditions<FECollection, 2>;
-
-  /// @brief Static member to store the dimension value
-  static constexpr int dim = 2;
 };
 template <>
 struct Test<3> {
@@ -96,7 +87,4 @@ struct Test<3> {
   using SPA = SpatialDiscretization<mfem::H1_FECollection, 3>;
   /// @brief Boundary condition object (SLOTH object)
   using BCS = BoundaryConditions<FECollection, 3>;
-
-  /// @brief Static member to store the dimension value
-  static constexpr int dim = 3;
 };

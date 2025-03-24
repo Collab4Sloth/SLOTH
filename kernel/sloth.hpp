@@ -7,7 +7,7 @@
  *
  * Copyright CEA (c) 2024
  *
-*/
+ */
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
@@ -38,11 +38,12 @@
 #include "Integrators/AllenCahnMeltingBaseNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnTemperatureMeltingNLFormIntegrator.hpp"
+#include "Integrators/BinaryInterDiffusionNLFormIntegrator.hpp"
 #include "Integrators/DiffusionNLFormIntegrator.hpp"
 #include "Integrators/HeatNLFormIntegrator.hpp"
+#include "Integrators/InterDiffusionNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
-#include "Integrators/ThermoDiffusionNLFormIntegrator.hpp"
 #include "Operators/AllenCahnOperator.hpp"
 #include "Operators/DiffusionOperator.hpp"
 #include "Operators/HeatOperator.hpp"

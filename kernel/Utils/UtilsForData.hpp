@@ -11,11 +11,15 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <ranges>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -29,11 +33,59 @@ using FuncType = std::function<double(const double&, const double&)>;
 using FType = std::function<double(const double&)>;
 using triplet = std::tuple<std::string, double, std::string>;
 using vtriplet = std::vector<triplet>;
+using MapStringDouble = std::map<std::string, double>;
+using Map2String2Double =
+    std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>;
 using SpecializedValue = std::pair<std::string, double>;
 
+/**
+ * @brief Search string in a vector of string
+ *
+ */
 static auto stringfindInVectorOfString = [](const std::vector<std::string> v, const std::string w) {
   return find(v.begin(), v.end(), w) != v.end();
 };
+
+/**
+ * @brief Put string in uppercase
+ *
+ * @param str
+ * @return std::string
+ */
+static std::string toUpperCase(const std::string& str) {
+  std::string result = str;
+  std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+  return result;
+}
+
+/**
+ * @brief Put string in lowercase
+ *
+ * @param str
+ * @return std::string
+ */
+static std::string toLowerCase(const std::string& str) {
+  std::string result = str;
+  std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+  return result;
+}
+
+/**
+ * @brief Trim leading and trailing whitespace
+ *
+ * @param str
+ * @return std::string
+ */
+static std::string trim(const std::string& str) {
+  auto start = std::ranges::find_if(
+      str, [](char c) { return !std::isspace(static_cast<unsigned char>(c)); });
+  auto end = std::ranges::find_if(str.rbegin(), str.rend(), [](char c) {
+               return !std::isspace(static_cast<unsigned char>(c));
+             }).base();
+
+  // Check if the range is empty (if start is greater than or equal to end)
+  return (start >= end) ? "" : std::string(start, end);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -57,6 +109,30 @@ static Verbosity verbosityLevel = Verbosity::Quiet;
  */
 static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
 
+// /**
+//  * @brief PRint Verbosity level
+//  *
+//  */
+// static void printVerbosityLevel() {
+//   switch (verbosityLevel) {
+//     case Verbosity::Quiet:
+//       std::cout << "Verbosity Level: Quiet" << std::endl;
+//       break;
+//     case Verbosity::Normal:
+//       std::cout << "Verbosity Level: Normal" << std::endl;
+//       break;
+//     case Verbosity::Verbose:
+//       std::cout << "Verbosity Level: Verbose" << std::endl;
+//       break;
+//     case Verbosity::Debug:
+//       std::cout << "Verbosity Level: Debug" << std::endl;
+//       break;
+//     case Verbosity::Error:
+//       std::cout << "Verbosity Level: Error" << std::endl;
+//       break;
+//   }
+// }
+
 /**
  * @brief Method used to capture the flux coming from an external method and print it depending on
  * the verbosity level
@@ -73,11 +149,26 @@ static void external_call(Verbosity verbosity, Func func, Args&&... args) {
     // Save fluxes
     int stdout_backup = dup(fileno(stdout));
     int stderr_backup = dup(fileno(stderr));
+    if (stdout_backup == -1 || stderr_backup == -1) {
+      // Handle error if dup() fails (file descriptor cannot be duplicated)
+      return;
+    }
 
-    // Redirection towards /dev/null
-    freopen("/dev/null", "w", stdout);
-    freopen("/dev/null", "w", stderr);
+    // Redirection towards /dev/null to suppress output
+    FILE* stdout_null = freopen("/dev/null", "w", stdout);
+    FILE* stderr_null = freopen("/dev/null", "w", stderr);
 
+    if (!stdout_null || !stderr_null) {
+      // Handle error: restore original stdout and stderr
+      if (stdout_null) {
+        fclose(stdout_null);
+      }
+      if (stderr_null) {
+        fclose(stderr_null);
+      }
+      // Optionally, you can log the error or throw an exception here
+      return;
+    }
     // Call of the function
     func(std::forward<Args>(args)...);
 
@@ -112,7 +203,7 @@ class SlothInfo {
   static void debug(Args... args) {
     int rank = mfem::Mpi::WorldRank();
 
-    if (Verbosity::Debug <= verbosityLevel && rank == 0) {
+    if (Verbosity::Debug <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
   }
@@ -125,7 +216,7 @@ class SlothInfo {
   template <typename... Args>
   static void error(Args... args) {
     int rank = mfem::Mpi::WorldRank();
-    if (Verbosity::Error <= verbosityLevel && rank == 0) {
+    if (Verbosity::Error <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
   }
@@ -139,7 +230,7 @@ class SlothInfo {
   template <typename... Args>
   static void verbose(Args... args) {
     int rank = mfem::Mpi::WorldRank();
-    if (Verbosity::Verbose <= verbosityLevel && rank == 0) {
+    if (Verbosity::Verbose <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
   }
@@ -153,7 +244,7 @@ class SlothInfo {
   template <typename... Args>
   static void print(Args... args) {
     int rank = mfem::Mpi::WorldRank();
-    if (Verbosity::Normal <= verbosityLevel && rank == 0) {
+    if (Verbosity::Normal <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
   }

@@ -20,7 +20,7 @@ endif()
 ########################
 set(WARNINGS -Wall -Wextra -Wno-deprecated -Wparentheses -Wreturn-type -Wmissing-declarations -fmessage-length=0 -Wunused -Wfatal-errors -Wpointer-arith -Wcast-align -Wwrite-strings -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wfloat-equal -Wno-endif-labels -Wsign-compare -Wmissing-format-attribute -Wno-multichar -Wno-deprecated-declarations -Wpacked -Wredundant-decls -Wdisabled-optimization -Wunknown-pragmas -Wundef -Wreorder)
 # Debug 
-set(DEBUG_OPTIONS -g -O0 -gdwarf-4 -pedantic ${WARNINGS})
+set(DEBUG_OPTIONS -g -fstack-protector -O0 -gdwarf-4 -pedantic ${WARNINGS})
 # Optim
 set(OPTIM_OPTIONS -g -O2)
 # Coverage

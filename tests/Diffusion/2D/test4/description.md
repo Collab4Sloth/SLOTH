@@ -1,4 +1,4 @@
-# 1D simulation (todo)
+# 2D simulation 
 
 This example code aims at checking the implementation of a pseudo-stabilization method that can be used by thermal diffusion problems given by:
 $$
