@@ -12,6 +12,7 @@
 //---------------------------------------
 // Headers
 //---------------------------------------
+#include <string>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
