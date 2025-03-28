@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
   auto user_func_init_u = std::function<double(const mfem::Vector&, double)>(
       [length, diffusionCoeff, dt](const mfem::Vector& x, double time) {
         const auto xx = x[0];
-        auto func = 0.5;
+        auto func = 0.1;
 
         return func;
       });
