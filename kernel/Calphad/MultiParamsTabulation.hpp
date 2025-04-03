@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <boost/multi_array.hpp>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -35,12 +36,12 @@ class MultiParamsTabulation : CalphadBase<T> {
   std::vector<double> tab_x;
 
   boost::multi_array<double, 2> array_g;
-  boost::multi_array<double, 2> array_muO;
   boost::multi_array<double, 2> array_muU;
+
   boost::multi_array<double, 2> array_mobo;
   boost::multi_array<double, 2> array_mobu;
-  std::map<std::string, boost::multi_array<double, 2>> array_mobility;
   std::map<std::string, boost::multi_array<double, 2>> array_mu;
+  std::map<std::string, boost::multi_array<double, 2>> array_mobility;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(
@@ -110,26 +111,35 @@ MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params) : Calp
  */
 template <typename T>
 void MultiParamsTabulation<T>::initialize() {
-  // const H5std_string FILE_NAME("thermodata.h5"); "thermodatafromTAFID.h5"
   Catch_Time_Section("MultiParamsTabulation::initialize");
   std::string filename = this->params_.template get_param_value_or_default<std::string>(
       "data filename", "no input file");
-  const H5std_string FILE_NAME(filename);
-
-  H5::H5File file(FILE_NAME, H5F_ACC_RDONLY);
 
   H5std_string DATASET_NAME;
+  const H5std_string FILE_NAME(filename);
+
   HDF54Sloth<2> hdf5_for_2D_table;
+
+  std::vector<std::string> list_of_element = {"O", "U"};
+  std::vector<std::string> list_of_dataset_name_mu = {"mu_O", "mu_U"};
+  std::vector<std::string> list_of_dataset_name_mob = {"Mo", "Mu"};
+
+  for (size_t i = 0; i < list_of_element.size(); i++) {
+    boost::multi_array<double, 2> myArray;
+
+    DATASET_NAME = list_of_dataset_name_mu[i];
+    hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
+    array_mu.emplace(list_of_element[i], myArray);
+
+    DATASET_NAME = list_of_dataset_name_mob[i];
+    hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
+    array_mobility.emplace(list_of_element[i], myArray);
+  }
+
+  boost::multi_array<double, 2> array_muO;
   DATASET_NAME = "G";
   hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_g);
-  DATASET_NAME = "mu_O";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_muO);
-  DATASET_NAME = "mu_U";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_muU);
-  DATASET_NAME = "Mo";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_mobo);
-  DATASET_NAME = "Mu";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_mobu);
+
   HDF54Sloth<1> hdf5_for_vector;
   DATASET_NAME = "xO";
   hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x);
@@ -226,39 +236,20 @@ void MultiParamsTabulation<T>::compute(
           t * u * array_g[i + 1][j + 1] + (1 - t) * u * array_g[i][j + 1];
     }
 
-    // Chemical potential
-    // this->chemical_potentials_[std::make_tuple(id, elem)] =
-    //     (1 - t) * (1 - u) * array_mu[i][j] + t * (1 - u) * array_mu[i + 1][j] +
-    //     t * u * array_mu[i + 1][j + 1] + (1 - t) * u * array_mu[i][j + 1];
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
       const auto& elem = std::get<0>(chemical_system[id_elem]);
-
-      if (elem == "O") {
-        this->chemical_potentials_[std::make_tuple(id, elem)] =
-            (1 - t) * (1 - u) * array_muO[i][j] + t * (1 - u) * array_muO[i + 1][j] +
-            t * u * array_muO[i + 1][j + 1] + (1 - t) * u * array_muO[i][j + 1];
-      }
-      if (elem == "U") {
-        this->chemical_potentials_[std::make_tuple(id, elem)] =
-            (1 - t) * (1 - u) * array_muU[i][j] + t * (1 - u) * array_muU[i + 1][j] +
-            t * u * array_muU[i + 1][j + 1] + (1 - t) * u * array_muU[i][j + 1];
-      }
-
+      // Chemical potentials
+      this->chemical_potentials_[std::make_tuple(id, elem)] =
+          (1 - t) * (1 - u) * array_mu[elem][i][j] + t * (1 - u) * array_mu[elem][i + 1][j] +
+          t * u * array_mu[elem][i + 1][j + 1] + (1 - t) * u * array_mu[elem][i][j + 1];
       // Molar fraction
       const auto& key = std::make_tuple(id, phase, elem);
       this->elem_mole_fraction_by_phase_[key] = x;
-      if (elem == "O") {
-        this->mobilities_[key] = (1 - t) * (1 - u) * std::exp(array_mobo[i][j]) +
-                                 t * (1 - u) * std::exp(array_mobo[i + 1][j]) +
-                                 t * u * std::exp(array_mobo[i + 1][j + 1]) +
-                                 (1 - t) * u * std::exp(array_mobo[i][j + 1]);
-      }
-      if (elem == "U") {
-        this->mobilities_[key] = (1 - t) * (1 - u) * std::exp(array_mobu[i][j]) +
-                                 t * (1 - u) * std::exp(array_mobu[i + 1][j]) +
-                                 t * u * std::exp(array_mobu[i + 1][j + 1]) +
-                                 (1 - t) * u * std::exp(array_mobu[i][j + 1]);
-      }
+      // Mobilities
+      this->mobilities_[key] = (1 - t) * (1 - u) * std::exp(array_mobility[elem][i][j]) +
+                               t * (1 - u) * std::exp(array_mobility[elem][i + 1][j]) +
+                               t * u * std::exp(array_mobility[elem][i + 1][j + 1]) +
+                               (1 - t) * u * std::exp(array_mobility[elem][i][j + 1]);
     }
   }
 }
