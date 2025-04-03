@@ -48,6 +48,7 @@
 #include "Integrators/InterDiffusionNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "Integrators/TernaryInterDiffusionNLFormIntegrator.hpp"
 #include "Operators/AllenCahnOperator.hpp"
 #include "Operators/DiffusionOperator.hpp"
 #include "Operators/HeatOperator.hpp"
