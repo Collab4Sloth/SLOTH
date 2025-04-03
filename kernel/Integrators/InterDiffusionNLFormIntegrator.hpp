@@ -41,11 +41,13 @@ class InterDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
  private:
   std::vector<std::tuple<std::string, double>> inter_diffusion_coeff_;
   double coeff_stab_;
-  std::string last_component_;
   std::set<std::string> list_components_;
   void get_parameters();
 
  protected:
+  const double x_tol_ = 1.e-6;
+  std::string current_component_;
+  std::string last_component_;
   int number_of_components_{NBCOMPONENT};
   SlothGridFunction u_old_;
   std::map<std::string, mfem::ParGridFunction> mu_gf_;
@@ -177,7 +179,7 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
   MFEM_VERIFY(x_components.size() == this->list_components_.size() - 1 && result.size() == 1,
               "List of components for molar fraction must  those defined for chemical "
               "potentials except one. Please check your data.");
-
+  this->current_component_ = *result.begin();
   this->x_gf_.emplace(*result.begin(), std::move(this->u_old_));
   x_components.insert(*result.begin());
   std::string msg_gf = "InterDiffusionNLFormIntegrator requires " +
@@ -228,9 +230,6 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::Asse
 
   elvect.SetSize(nd);
   mfem::Vector grad_uold;
-  mfem::Vector grad_mu_1, grad_mu_2;
-  grad_mu_1.SetSize(dim);
-  grad_mu_2.SetSize(dim);
   grad_uold.SetSize(dim);
 
   // Initialization
@@ -253,7 +252,7 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::Asse
     this->gradPsi.MultTranspose(elfun, this->gradMu_);
     this->u_old_.GetGradient(Tr, this->gradPsi, grad_uold);
 
-    this->gradMu_ -= grad_uold;
+    this->gradMu_.Add(-1, grad_uold);
     this->gradMu_ *= this->coeff_stab_;
 
     // Interdiffusion flux (see child classes)

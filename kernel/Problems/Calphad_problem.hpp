@@ -8,6 +8,7 @@
  * Copyright CEA (c) 2025
  *
  */
+#include <algorithm>
 #include <functional>
 #include <list>
 #include <memory>
@@ -25,10 +26,12 @@ template <class CALPHAD, class VAR, class PST>
 class Calphad_Problem : public ProblemBase<VAR, PST> {
  private:
   CALPHAD* CC_;
-
+  int findIndexOfTuple(const std::vector<std::tuple<std::string, std::string>>& vec,
+                       const std::string& target);
   void check_variables_consistency();
 
-  std::vector<mfem::Vector> get_tp_conditions();
+  std::vector<mfem::Vector> get_tp_conditions(
+      const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system);
   std::vector<std::tuple<std::string, std::string>> get_chemical_system();
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
   get_output_system(const std::vector<std::vector<std::string>>& unks_info,
@@ -201,7 +204,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
     MFEM_VERIFY(var.get_additional_variable_info().size() > 0,
                 "Calphad problems requires ouputs with at least two additional informations  \n");
 
-    switch (calphad_outputs::from(var.get_additional_variable_info().back())) {
+    const std::string& symbol = toLowerCase(var.get_additional_variable_info().back());
+    switch (calphad_outputs::from(symbol)) {
       case calphad_outputs::mu: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
                     "Calphad problems requires that chemical potential ouputs are defined with two "
@@ -319,18 +323,16 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     const std::vector<std::vector<std::string>>& unks_info) {
   int rank = mfem::Mpi::WorldRank();
 
-  // Temperature, Pressure and composition comes from auxiliary variables
-  // They can be updated at each time-step by other problem (thermal, inter-diffusion,...) or stay
-  // constant
+  std::vector<std::tuple<std::string, std::string>> sorted_chemical_system =
+      this->get_chemical_system();
+  std::vector<mfem::Vector> tp_gf = this->get_tp_conditions(sorted_chemical_system);
 
-  std::vector<mfem::Vector> tp_gf = this->get_tp_conditions();
-  std::vector<std::tuple<std::string, std::string>> chemical_system = this->get_chemical_system();
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
       output_system = this->get_output_system(unks_info, vect_unk);
 
   const size_t unk_size = vect_unk.size();
 
-  this->CC_->execute(iter, tp_gf, chemical_system, output_system);
+  this->CC_->execute(iter, tp_gf, sorted_chemical_system, output_system);
 
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
@@ -374,19 +376,53 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
  * @return std::vector<mfem::Vector>
  */
 template <class CALPHAD, class VAR, class PST>
-std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions() {
-  std::vector<mfem::Vector> aux_gf;
+std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
+    const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {
+  const auto size_v = sorted_chemical_system.size() + 2;
+  std::vector<mfem::Vector> aux_gf(size_v);
 
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       const auto gf = auxvar.get_unknown();
-      aux_gf.emplace_back(gf);
+      auto variable_info = auxvar.get_additional_variable_info();
+      if (variable_info[0] == "Temperature") {
+        aux_gf[0] = gf;
+      } else if (variable_info[0] == "Pressure") {
+        aux_gf[1] = gf;
+      } else {
+        const int id = this->findIndexOfTuple(sorted_chemical_system, variable_info[0]);
+        aux_gf[id + 2] = gf;
+      }
     }
   }
 
   return aux_gf;
 }
 
+/**
+ * @brief Find index of first element of a tuple inside a vector of tuple
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @param vec
+ * @param target
+ * @return int
+ */
+template <class CALPHAD, class VAR, class PST>
+int Calphad_Problem<CALPHAD, VAR, PST>::findIndexOfTuple(
+    const std::vector<std::tuple<std::string, std::string>>& vec, const std::string& target) {
+  auto it = std::find_if(vec.begin(), vec.end(),
+                         [&target](const std::tuple<std::string, std::string>& t) {
+                           return std::get<0>(t) == target;
+                         });
+
+  if (it != vec.end()) {
+    return std::distance(vec.begin(), it);
+  } else {
+    return -1;  // Return -1 if the element is not found
+  }
+}
 /**
  * @brief Define the composition use to calculate  equilibria
  * @warning By convention temperature, pressure are given in the first Variables objet Composition
@@ -416,6 +452,10 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
       chemical_system.emplace_back(std::make_tuple(variable_info[0], variable_info[1]));
     }
   }
+  // Sort by alphabetical order
+  std::ranges::sort(chemical_system,
+                    [](const auto& a, const auto& b) { return std::get<0>(a) < std::get<0>(b); });
+
   return chemical_system;
 }
 
@@ -436,7 +476,6 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_output_system(
     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk) {
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
       output_system;
-
   for (size_t i = 0; i < vect_unk.size(); ++i) {
     output_system.emplace_back(unks_info[i], *vect_unk[i]);
   }

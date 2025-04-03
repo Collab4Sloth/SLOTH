@@ -30,10 +30,10 @@ set_target_properties(Sloth PROPERTIES LINKER_LANGUAGE CXX)
 # And the most important part set the include directories
 target_include_directories(Sloth INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
-target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include)
-target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
+target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include  /home/cp273896/CODES/hdf5-1.14.6/hdf5/include)
+target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib /home/cp273896/CODES/hdf5-1.14.6/hdf5/lib)
 
-target_link_libraries(Sloth INTERFACE ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} $ENV{FILESYSTEM_VAR})
+target_link_libraries(Sloth INTERFACE ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} $ENV{FILESYSTEM_VAR} hdf5 hdf5_cpp)
 
 
 # PETSC ??

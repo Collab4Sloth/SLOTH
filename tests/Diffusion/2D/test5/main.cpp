@@ -1,9 +1,9 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief 2D Inter-diffusion test for a binary system
+ * @brief 2D Inter-diffusion test for a ternary
  * @version 0.1
- * @date 2025-03-13
+ * @date 2025-03-28
  *
  * @copyright Copyright (c) 2025
  *
@@ -12,7 +12,6 @@
 //---------------------------------------
 // Headers
 //---------------------------------------
-
 #include <string>
 
 #include "kernel/sloth.hpp"
@@ -23,7 +22,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  //---------------------------------------
+  setVerbosity(Verbosity::Debug);  //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
   mfem::Mpi::Init(argc, argv);
@@ -68,58 +67,49 @@ int main(int argc, char* argv[]) {
       [length, diffusionCoeff, dt](const mfem::Vector& x, double time) {
         const auto xx = x[0];
         auto func =
-            0.5 * (1 + std::erf((xx - length / 2) / std::sqrt(4 * diffusionCoeff * 5. * dt)));
+            0.5 * (1 + 0.5 * std::erf((xx - length / 2) / std::sqrt(4 * diffusionCoeff * 5. * dt)));
 
         return func;
       });
 
-  auto user_func_analytical = std::function<double(const mfem::Vector&, double)>(
-      [length, dt, diffusionCoeff](const mfem::Vector& x, double time) {
+  auto user_func_init_u = std::function<double(const mfem::Vector&, double)>(
+      [length, diffusionCoeff, dt](const mfem::Vector& x, double time) {
         const auto xx = x[0];
-        auto func =
-            0.5 *
-            (1 + std::erf((xx - length / 2) / std::sqrt(4 * diffusionCoeff * (time + 5. * dt))));
+        auto func = 0.1;
 
         return func;
       });
+
   auto initial_compo = AnalyticalFunctions<DIM>(user_func_init);
-  auto analytical_compo = AnalyticalFunctions<DIM>(user_func_analytical);
-  //==========================================
-  //======      Fickian diffusion       ======
-  //==========================================
-
-  auto diffu_vars =
-      VARS(VAR(&spatial, bcs, "c", level_of_storage, initial_compo, analytical_compo));
-  //--- Integrator : alias definition for the sake of clarity
-  using DiffusionIntegrator =
-      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
-
-  //--- Operator definition
-  DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant> diffu_oper(
-      &spatial, TimeScheme::RungeKutta4);
-  diffu_oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
+  auto initial_compo_u = AnalyticalFunctions<DIM>(user_func_init_u);
 
   //==========================================
   //======      Inter-diffusion         ======
   //==========================================
   //--- Variables
   const auto& stabCoeff(1.e-7);
-  auto td_parameters = Parameters(Parameter("last_component", "U"));
+  auto td_parameters = Parameters(Parameter("last_component", "PU"));
   //   Parameter("MO", diffusionCoeff), Parameter("MU", diffusionCoeff),
   auto mobO = VAR(&spatial, bcs, "Mo", 2, diffusionCoeff);
   mobO.set_additional_information("C1_MO2", "O", "mob");
   auto mobU = VAR(&spatial, bcs, "Mu", 2, diffusionCoeff);
   mobU.set_additional_information("C1_MO2", "U", "mob");
+  auto mobPU = VAR(&spatial, bcs, "Mpu", 2, diffusionCoeff);
+  mobPU.set_additional_information("C1_MO2", "PU", "mob");
   auto mobo_var = VARS(mobO);
   auto mobu_var = VARS(mobU);
+  auto mobpu_var = VARS(mobPU);
   //--- Integrator : alias definition for the sake of clarity
   using InterDiffusionIntegrator =
-      BinaryInterDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
-                                           Diffusion::Constant>;
+      TernaryInterDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
+                                            Diffusion::Constant>;
   //--- Operator definition
   DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
       &spatial, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>
+      interdiffu_oper_u(&spatial, td_parameters, TimeScheme::RungeKutta4);
+  interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
   //==========================================
   //======      CALPHAD Analytical      ======
@@ -135,17 +125,21 @@ int main(int argc, char* argv[]) {
   auto p_vars = VARS(pres);
 
   // Initial condition for composition
-  auto xo = VAR(&spatial, bcs, "O", 2, initial_compo, analytical_compo);
-  xo.set_additional_information("O", "X");
-  auto compo_vars = VARS(xo);
+  auto xo = VAR(&spatial, bcs, "O", 2, initial_compo);
+  xo.set_additional_information("O", "x");
+  auto var_o = VARS(xo);
+  auto xu = VAR(&spatial, bcs, "U", 2, initial_compo_u);
+  xu.set_additional_information("U", "x");
+  auto var_u = VARS(xu);
 
   // Chemical potential
   auto muo = VAR(&spatial, bcs, "muO", 2, 0.);
   muo.set_additional_information("O", "mu");
-  auto mu_var = VARS(muo);
   auto muu = VAR(&spatial, bcs, "muU", 2, 0.);
   muu.set_additional_information("U", "mu");
-  auto muu_var = VARS(muu);
+  auto mupu = VAR(&spatial, bcs, "muPU", 2, 0.);
+  mupu.set_additional_information("PU", "mu");
+  auto mu_var = VARS(muo, muu, mupu);
 
   auto description_calphad =
       Parameter("description", "Analytical thermodynamic description for an ideal solution ");
@@ -156,7 +150,7 @@ int main(int argc, char* argv[]) {
   //--- Post-Processing
   const std::string& main_folder_path = "Saves";
   std::string calculation_path = "InterDiffusion";
-  const auto& frequency = 50;
+  const auto& frequency = 1;
   auto pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
                                    Parameter("calculation_path", calculation_path),
                                    Parameter("frequency", frequency));
@@ -167,11 +161,11 @@ int main(int argc, char* argv[]) {
                                       Parameter("frequency", frequency));
   auto cc_pst = PST(&spatial, cc_pst_parameters);
 
-  calculation_path = "Diffusion";
+  calculation_path = "InterDiffusion_u";
   auto diffu_pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
                                          Parameter("calculation_path", calculation_path),
                                          Parameter("frequency", frequency));
-  auto diffu_pst = PST(&spatial, diffu_pst_parameters);
+  auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
   //--- Physical Convergence
   const double crit_cvg = 1.e-12;
@@ -181,21 +175,23 @@ int main(int argc, char* argv[]) {
   // Problems
   //-----------------------
   Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, mu_var, cc_pst, convergence, heat_vars, p_vars, compo_vars);
-
+      calphad_parameters, mu_var, cc_pst, convergence, heat_vars, p_vars, var_o, var_u);
+  // Equation xo
   Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
           PST>
-      interdiffu_problem(interdiffu_oper, compo_vars, interdiffu_pst, convergence, mu_var, muu_var,
-                         mobo_var, mobu_var);
-
-  Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant>, VARS, PST>
-      diffu_problem(diffu_oper, diffu_vars, diffu_pst, convergence);
+      interdiffu_problem_o("Interdiffusion O", interdiffu_oper, var_o, interdiffu_pst, convergence,
+                           mu_var, mobo_var, mobu_var, mobpu_var, var_u);
+  // Equation xu
+  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
+          PST>
+      interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, var_u, interdiffu_pst_u,
+                           convergence, mu_var, mobo_var, mobu_var, mobpu_var, var_o);
 
   //-----------------------
   // Coupling
   //-----------------------
-  auto main_coupling = Coupling("Main coupling", cc_problem, interdiffu_problem);
-  auto checking_coupling = Coupling("Checking coupling", diffu_problem);
+  auto main_coupling =
+      Coupling("Main coupling", cc_problem, interdiffu_problem_o, interdiffu_problem_u);
 
   //---------------------------------------
   // Time discretization
@@ -204,7 +200,7 @@ int main(int argc, char* argv[]) {
   const auto& t_final = 10.0;
   auto time_parameters = Parameters(Parameter("initial_time", t_initial),
                                     Parameter("final_time", t_final), Parameter("time_step", dt));
-  auto time = TimeDiscretization(time_parameters, main_coupling, checking_coupling);
+  auto time = TimeDiscretization(time_parameters, main_coupling);
 
   time.solve();
 
