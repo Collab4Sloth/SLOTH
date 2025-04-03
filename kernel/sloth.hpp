@@ -7,13 +7,16 @@
  *
  * Copyright CEA (c) 2024
  *
- */
+*/
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
+#include "Calphad/BinaryTabulation.hpp"
 #include "Calphad/CalphadBase.hpp"
 #include "Calphad/CalphadUtils.hpp"
+#include "Calphad/GeneralMultiParamsTabulation.hpp"
+#include "Calphad/MultiParamsTabulation.hpp"
 #include "Coefficients/ConductivityCoefficient.hpp"
 #include "Coefficients/ConductivityFunctions.hpp"
 #include "Coefficients/DensityCoefficient.hpp"
@@ -33,6 +36,7 @@
 #include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Couplings/Coupling.hpp"
+#include "Inputs/HDF54Sloth.hpp"
 #include "Integrators/AllenCahnCalphadMeltingNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnConstantMeltingNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnMeltingBaseNLFormIntegrator.hpp"
@@ -91,3 +95,11 @@
 #include "Utils/UtilsForVariants.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/FluoriteMobilities.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/Mobilities.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/OCCPPbindingsAPI.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/OpenCalphad.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/OpenCalphadOptions.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/OpenCalphadTabulator.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/OpenCalphadParTabulator.hpp"
+#include "/home/cp273896/CODES/OC4SLOTH/src/PhaseMobilities.hpp"

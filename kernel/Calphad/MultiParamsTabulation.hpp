@@ -35,7 +35,13 @@ class MultiParamsTabulation : CalphadBase<T> {
   std::vector<double> tab_x;
 
   boost::multi_array<double, 2> array_g;
-  boost::multi_array<double, 2> array_mu;
+  boost::multi_array<double, 2> array_muO;
+  boost::multi_array<double, 2> array_muU;
+  boost::multi_array<double, 2> array_mobo;
+  boost::multi_array<double, 2> array_mobu;
+  std::map<std::string, boost::multi_array<double, 2>> array_mobility;
+  std::map<std::string, boost::multi_array<double, 2>> array_mu;
+
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(
       const size_t nb_nodes, const std::vector<T>& tp_gf,
@@ -105,6 +111,7 @@ MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params) : Calp
 template <typename T>
 void MultiParamsTabulation<T>::initialize() {
   // const H5std_string FILE_NAME("thermodata.h5"); "thermodatafromTAFID.h5"
+  Catch_Time_Section("MultiParamsTabulation::initialize");
   std::string filename = this->params_.template get_param_value_or_default<std::string>(
       "data filename", "no input file");
   const H5std_string FILE_NAME(filename);
@@ -113,12 +120,18 @@ void MultiParamsTabulation<T>::initialize() {
 
   H5std_string DATASET_NAME;
   HDF54Sloth<2> hdf5_for_2D_table;
-  DATASET_NAME = "g";
+  DATASET_NAME = "G";
   hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_g);
-  DATASET_NAME = "mu";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_mu);
+  DATASET_NAME = "mu_O";
+  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_muO);
+  DATASET_NAME = "mu_U";
+  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_muU);
+  DATASET_NAME = "Mo";
+  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_mobo);
+  DATASET_NAME = "Mu";
+  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_mobu);
   HDF54Sloth<1> hdf5_for_vector;
-  DATASET_NAME = "x";
+  DATASET_NAME = "xO";
   hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x);
   DATASET_NAME = "T";
   hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_T);
@@ -164,8 +177,10 @@ void MultiParamsTabulation<T>::compute(
     const size_t nb_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
+  Catch_Time_Section("MultiParamsTabulation::compute");
+
   // Let us assume an ideal mixing solution
-  const std::string& phase = "SOLUTION";
+  const std::string& phase = "C1_MO2";
   const std::vector<std::string> energy_names = {"G"};
   std::vector<double> tp_gf_at_node(tp_gf.size());
 
@@ -180,7 +195,7 @@ void MultiParamsTabulation<T>::compute(
     const auto& epsilon = 1.e-10;
     int i = 0;
     int j = 0;
-    const auto& elem = std::get<0>(chemical_system[0]);
+    // const auto& elem = std::get<0>(chemical_system[0]);
     const auto x = tp_gf_at_node[2];
 
     auto lower_x = std::lower_bound(tab_x.begin(), tab_x.end(), x);
@@ -212,13 +227,39 @@ void MultiParamsTabulation<T>::compute(
     }
 
     // Chemical potential
-    this->chemical_potentials_[std::make_tuple(id, elem)] =
-        (1 - t) * (1 - u) * array_mu[i][j] + t * (1 - u) * array_mu[i + 1][j] +
-        t * u * array_mu[i + 1][j + 1] + (1 - t) * u * array_mu[i][j + 1];
+    // this->chemical_potentials_[std::make_tuple(id, elem)] =
+    //     (1 - t) * (1 - u) * array_mu[i][j] + t * (1 - u) * array_mu[i + 1][j] +
+    //     t * u * array_mu[i + 1][j + 1] + (1 - t) * u * array_mu[i][j + 1];
+    for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
+      const auto& elem = std::get<0>(chemical_system[id_elem]);
 
-    // Molar fraction
-    const auto& key = std::make_tuple(id, phase, elem);
-    this->elem_mole_fraction_by_phase_[key] = x;
+      if (elem == "O") {
+        this->chemical_potentials_[std::make_tuple(id, elem)] =
+            (1 - t) * (1 - u) * array_muO[i][j] + t * (1 - u) * array_muO[i + 1][j] +
+            t * u * array_muO[i + 1][j + 1] + (1 - t) * u * array_muO[i][j + 1];
+      }
+      if (elem == "U") {
+        this->chemical_potentials_[std::make_tuple(id, elem)] =
+            (1 - t) * (1 - u) * array_muU[i][j] + t * (1 - u) * array_muU[i + 1][j] +
+            t * u * array_muU[i + 1][j + 1] + (1 - t) * u * array_muU[i][j + 1];
+      }
+
+      // Molar fraction
+      const auto& key = std::make_tuple(id, phase, elem);
+      this->elem_mole_fraction_by_phase_[key] = x;
+      if (elem == "O") {
+        this->mobilities_[key] = (1 - t) * (1 - u) * std::exp(array_mobo[i][j]) +
+                                 t * (1 - u) * std::exp(array_mobo[i + 1][j]) +
+                                 t * u * std::exp(array_mobo[i + 1][j + 1]) +
+                                 (1 - t) * u * std::exp(array_mobo[i][j + 1]);
+      }
+      if (elem == "U") {
+        this->mobilities_[key] = (1 - t) * (1 - u) * std::exp(array_mobu[i][j]) +
+                                 t * (1 - u) * std::exp(array_mobu[i + 1][j]) +
+                                 t * u * std::exp(array_mobu[i + 1][j + 1]) +
+                                 (1 - t) * u * std::exp(array_mobu[i][j + 1]);
+      }
+    }
   }
 }
 /**
