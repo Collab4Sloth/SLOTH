@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -31,12 +32,17 @@
 
 using FuncType = std::function<double(const double&, const double&)>;
 using FType = std::function<double(const double&)>;
-using triplet = std::tuple<std::string, double, std::string>;
-using vtriplet = std::vector<triplet>;
+using vTupleStringInt = std::vector<std::tuple<std::string, int>>;
+using vTupleStringString = std::vector<std::tuple<std::string, std::string>>;
+using vString = std::vector<std::string>;
+
 using MapStringDouble = std::map<std::string, double>;
 using Map2String2Double =
     std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>;
 using SpecializedValue = std::pair<std::string, double>;
+
+using triplet = std::tuple<std::string, double, std::string>;
+using vtriplet = std::vector<triplet>;
 
 /**
  * @brief Search string in a vector of string
@@ -184,6 +190,20 @@ static void external_call(Verbosity verbosity, Func func, Args&&... args) {
   } else {
     // Standard call of the function
     func(std::forward<Args>(args)...);
+  }
+}
+
+/**
+ * @brief Check existence of a file
+ *
+ * @param file
+ */
+static void check_file_existence(const std::string& file) {
+  std::filesystem::path filePath = file;
+  // Check if the file exists
+  if (!std::filesystem::exists(filePath)) {
+    const std::string& error_msg = "file " + file + " doesn't exist. Please check your data.";
+    mfem::mfem_error(error_msg.c_str());
   }
 }
 
