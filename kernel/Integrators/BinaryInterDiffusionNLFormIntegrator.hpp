@@ -103,7 +103,10 @@ void BinaryInterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::add_interdi
   calculate_gradient(it, 0);
   ++it;
   calculate_gradient(it, 1);
-  const double M12 = x1 * (1.0 - x1) * (M[0] * (1.0 - x1) + M[1] * x1);
+  double M12 = x1 * (1.0 - x1) * (M[0] * (1.0 - x1) + M[1] * x1);
+  if (this->interdiffusion_scaling_) {
+    M12 /= (Physical::R * this->temp_gf_.at("TEMPERATURE").GetValue(nElement, ip));
+  }
   this->gradMu_.Add(M12, grad_mu[0]);
   this->gradMu_.Add(-M12, grad_mu[1]);
 }
