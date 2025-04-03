@@ -30,12 +30,14 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
                        const std::string& target);
   void check_variables_consistency();
 
-  std::vector<mfem::Vector> get_tp_conditions(
-      const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system);
+  std::vector<mfem::Vector> get_tp_conditions();
   std::vector<std::tuple<std::string, std::string>> get_chemical_system();
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
   get_output_system(const std::vector<std::vector<std::string>>& unks_info,
                     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk);
+
+ protected:
+  std::vector<std::tuple<std::string, std::string>> sorted_chemical_system_;
 
  public:
   template <class... Args>
@@ -104,6 +106,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
   this->check_variables_consistency();
   this->CC_ = new CALPHAD(params);
   this->get_parameters();
+  this->sorted_chemical_system_ = this->get_chemical_system();
 }
 
 /**
@@ -132,6 +135,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
   this->check_variables_consistency();
   this->CC_ = new CALPHAD(params);
   this->get_parameters();
+  this->sorted_chemical_system_ = this->get_chemical_system();
 }
 
 /**
@@ -158,6 +162,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
 
   this->CC_ = new CALPHAD(params);
   this->get_parameters();
+  this->sorted_chemical_system_ = this->get_chemical_system();
 }
 
 /**
@@ -185,6 +190,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
   this->check_variables_consistency();
   this->CC_ = new CALPHAD(params);
   this->get_parameters();
+  this->sorted_chemical_system_ = this->get_chemical_system();
 }
 
 /**
@@ -299,7 +305,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
  */
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::initialize(const double& initial_time) {
-  this->CC_->initialize();
+  this->CC_->initialize(this->sorted_chemical_system_);
 }
 
 /**
@@ -323,16 +329,14 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     const std::vector<std::vector<std::string>>& unks_info) {
   int rank = mfem::Mpi::WorldRank();
 
-  std::vector<std::tuple<std::string, std::string>> sorted_chemical_system =
-      this->get_chemical_system();
-  std::vector<mfem::Vector> tp_gf = this->get_tp_conditions(sorted_chemical_system);
+  std::vector<mfem::Vector> tp_gf = this->get_tp_conditions();
 
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
       output_system = this->get_output_system(unks_info, vect_unk);
 
   const size_t unk_size = vect_unk.size();
 
-  this->CC_->execute(iter, tp_gf, sorted_chemical_system, output_system);
+  this->CC_->execute(iter, tp_gf, this->sorted_chemical_system_, output_system);
 
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
@@ -376,9 +380,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
  * @return std::vector<mfem::Vector>
  */
 template <class CALPHAD, class VAR, class PST>
-std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
-    const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {
-  const auto size_v = sorted_chemical_system.size() + 2;
+std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions() {
+  const auto size_v = this->sorted_chemical_system_.size() + 2;
   std::vector<mfem::Vector> aux_gf(size_v);
 
   for (const auto& auxvar_vec : this->auxvariables_) {
@@ -390,7 +393,7 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
       } else if (variable_info[0] == "Pressure") {
         aux_gf[1] = gf;
       } else {
-        const int id = this->findIndexOfTuple(sorted_chemical_system, variable_info[0]);
+        const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
         aux_gf[id + 2] = gf;
       }
     }
