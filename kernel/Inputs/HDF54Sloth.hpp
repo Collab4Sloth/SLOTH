@@ -9,15 +9,16 @@
  * Copyright CEA (c) 2025
  *
  */
-#include <H5Cpp.h>
 
-#include <boost/multi_array.hpp>
 #include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <boost/multi_array.hpp>
+#include <H5Cpp.h>
+
 #pragma once
 
 template <int T>

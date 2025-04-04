@@ -8,10 +8,8 @@
  * Copyright CEA (c) 2025
  *
  */
-#include <H5Cpp.h>
 
 #include <algorithm>
-#include <boost/multi_array.hpp>
 #include <functional>
 #include <map>
 #include <memory>
@@ -19,14 +17,16 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <H5Cpp.h>
+#include <boost/multi_array.hpp>
 
 #include "Calphad/CalphadBase.hpp"
 #include "Calphad/CalphadUtils.hpp"
 #include "Inputs/HDF54Sloth.hpp"
+#include "Interpolators/MultiLinearInterpolator.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-
 #pragma once
 
 template <typename T>
@@ -36,10 +36,6 @@ class MultiParamsTabulation : CalphadBase<T> {
   std::vector<double> tab_x;
 
   boost::multi_array<double, 2> array_g;
-  boost::multi_array<double, 2> array_muU;
-
-  boost::multi_array<double, 2> array_mobo;
-  boost::multi_array<double, 2> array_mobu;
   std::map<std::string, boost::multi_array<double, 2>> array_mu;
   std::map<std::string, boost::multi_array<double, 2>> array_mobility;
 
@@ -61,10 +57,6 @@ class MultiParamsTabulation : CalphadBase<T> {
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
                std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>&
                    output_system) override;
-  void get_1D_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
-                             std::vector<double>& output_vector);
-  void get_2D_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
-                             boost::multi_array<double, 2>& output_multi_array);
   void finalize() override;
 
   ////////////////////////////////
@@ -195,6 +187,9 @@ void MultiParamsTabulation<T>::compute(
   std::vector<double> tp_gf_at_node(tp_gf.size());
 
   std::vector<int> sorted_n_t_p = this->CU_->sort_nodes(tp_gf[0], tp_gf[1], "No", "No");
+  const std::size_t N = 2;
+
+  MultiLinearInterpolator<double, N> linear_interp;
 
   // Process CALPHAD calculations for each node
   for (const auto& id : sorted_n_t_p) {
@@ -203,53 +198,49 @@ void MultiParamsTabulation<T>::compute(
                    [&id](const T& vec) { return vec[id]; });
     const auto loc_temperature = tp_gf_at_node[0];
     const auto& epsilon = 1.e-10;
-    int i = 0;
-    int j = 0;
-    // const auto& elem = std::get<0>(chemical_system[0]);
+
     const auto x = tp_gf_at_node[2];
 
-    auto lower_x = std::lower_bound(tab_x.begin(), tab_x.end(), x);
+    std::array<double, N> point_to_interpolate = {tp_gf_at_node[0], tp_gf_at_node[2]};
+    std::array<std::vector<double>, N> grid_values = {tab_T, tab_x};
+    std::array<std::size_t, N> lower_indices;
 
-    if (lower_x != tab_x.begin() && (lower_x + 1) != tab_x.end()) {
-      j = lower_x - tab_x.begin() - 1;
-    } else if ((lower_x + 1) == tab_x.end()) {
-      j = tab_x.size() - 1;
+    for (size_t i = 0; i < N; i++) {
+      std::size_t index;
+      auto lower_index =
+          std::lower_bound(grid_values[i].begin(), grid_values[i].end(), point_to_interpolate[i]);
+
+      if (lower_index != grid_values[i].begin() && (lower_index + 1) != grid_values[i].end()) {
+        index = lower_index - grid_values[i].begin() - 1;
+      } else if ((lower_index + 1) == grid_values[i].end()) {
+        index = grid_values[i].size() - 1;
+      }
+      lower_indices[i] = index;
     }
 
-    auto lower_t = std::lower_bound(tab_T.begin(), tab_T.end(), loc_temperature);
-
-    if (lower_t != tab_T.begin() && (lower_t + 1) != tab_T.end()) {
-      i = lower_t - tab_T.begin() - 1;
-    } else if ((lower_t + 1) == tab_T.end()) {
-      i = tab_T.size() - 1;
-    }
-
-    double t = (loc_temperature - tab_T[i]) / (tab_T[i + 1] - tab_T[i]);
-    double u = (x - tab_x[j]) / (tab_x[j + 1] - tab_x[j]);
+    std::array<double, N> alpha;
+    alpha = linear_interp.computeInterpolationCoefficients(point_to_interpolate, lower_indices,
+                                                           grid_values);
 
     // Energy
     for (const auto& energy_name : energy_names) {
       const auto& key = std::make_tuple(id, phase, energy_name);
 
       this->energies_of_phases_[key] =
-          (1 - t) * (1 - u) * array_g[i][j] + t * (1 - u) * array_g[i + 1][j] +
-          t * u * array_g[i + 1][j + 1] + (1 - t) * u * array_g[i][j + 1];
+          linear_interp.computeInterpolation(lower_indices, alpha, array_g);
     }
 
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
       const auto& elem = std::get<0>(chemical_system[id_elem]);
       // Chemical potentials
       this->chemical_potentials_[std::make_tuple(id, elem)] =
-          (1 - t) * (1 - u) * array_mu[elem][i][j] + t * (1 - u) * array_mu[elem][i + 1][j] +
-          t * u * array_mu[elem][i + 1][j + 1] + (1 - t) * u * array_mu[elem][i][j + 1];
+          linear_interp.computeInterpolation(lower_indices, alpha, array_mu[elem]);
+
       // Molar fraction
       const auto& key = std::make_tuple(id, phase, elem);
       this->elem_mole_fraction_by_phase_[key] = x;
-      // Mobilities
-      this->mobilities_[key] = (1 - t) * (1 - u) * std::exp(array_mobility[elem][i][j]) +
-                               t * (1 - u) * std::exp(array_mobility[elem][i + 1][j]) +
-                               t * u * std::exp(array_mobility[elem][i + 1][j + 1]) +
-                               (1 - t) * u * std::exp(array_mobility[elem][i][j + 1]);
+      this->mobilities_[key] = linear_interp.computeInterpolation(
+          lower_indices, alpha, array_mobility[elem], [](double v) { return std::exp(v); });
     }
   }
 }
