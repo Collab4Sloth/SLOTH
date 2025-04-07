@@ -42,9 +42,9 @@ class MultiParamsTabulation : CalphadBase<T> {
   std::map<std::string, boost::multi_array<double, 2>> array_mu;
   std::map<std::string, boost::multi_array<double, 2>> array_mobility;
 
-  inline static std::function<double(double)> scaling_func_mob;
-  inline static std::function<double(double)> scaling_func_energy;
-  inline static std::function<double(double)> scaling_func_potentials;
+  inline static std::function<double(double)> scalling_func_mob;
+  inline static std::function<double(double)> scalling_func_energy;
+  inline static std::function<double(double)> scalling_func_potentials;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(
@@ -88,15 +88,15 @@ void MultiParamsTabulation<T>::get_parameters() {
   this->description_ = this->params_.template get_param_value_or_default<std::string>(
       "description",
       "Analytical thermodynamic description for an ideal solution using tabulated data ");
-  this->scaling_func_mob =
+  this->scalling_func_mob =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
-          "scaling_func_mobilities", [](double v) { return std::exp(v); });
-  this->scaling_func_energy =
+          "scalling_func_mobilities", [](double v) { return std::exp(v); });
+  this->scalling_func_energy =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
-          "scaling_func_energy", [](double v) { return v; });
-  this->scaling_func_potentials =
+          "scalling_func_energy", [](double v) { return v; });
+  this->scalling_func_potentials =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
-          "scaling_func_potentials", [](double v) { return v; });
+          "scalling_func_potentials", [](double v) { return v; });
 }
 
 ////////////////////////////////
@@ -258,7 +258,7 @@ void MultiParamsTabulation<T>::compute(
       const auto& key = std::make_tuple(id, phase, energy_name);
 
       this->energies_of_phases_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
-          lower_indices, alpha, array_g, this->scaling_func_energy);
+          lower_indices, alpha, array_g, this->scalling_func_energy);
     }
 
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
@@ -266,13 +266,13 @@ void MultiParamsTabulation<T>::compute(
       // Chemical potentials
       this->chemical_potentials_[std::make_tuple(id, elem)] =
           MultiLinearInterpolator<double, N>::computeInterpolation(
-              lower_indices, alpha, array_mu[elem], this->scaling_func_potentials);
+              lower_indices, alpha, array_mu[elem], this->scalling_func_potentials);
 
       // Molar fraction
       const auto& key = std::make_tuple(id, phase, elem);
       this->elem_mole_fraction_by_phase_[key] = x;
       this->mobilities_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
-          lower_indices, alpha, array_mobility[elem], this->scaling_func_mob);
+          lower_indices, alpha, array_mobility[elem], this->scalling_func_mob);
     }
   }
 }
