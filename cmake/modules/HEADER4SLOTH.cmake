@@ -9,6 +9,11 @@ file(GLOB_RECURSE HEADER_FILES "${CMAKE_SOURCE_DIR}/kernel/*.hpp")
 # Remove sloth.hpp from the list
 list(REMOVE_ITEM HEADER_FILES "${HEADER_FILE}")
 
+# LIBTORCH API ??
+if(NOT SLOTH_USE_LIBTORCH)
+    list(REMOVE_ITEM HEADER_FILES   "${CMAKE_SOURCE_DIR}/kernel/Calphad/CalphadInformedNeuralNetwork.hpp")
+endif()
+
 
 # Built the new sloth.hpp file (temporary file)/**
 set(NEW_HEADER_CONTENT "/**\n * @file sloth.hpp\n * @author ci230846  (clement.introini@cea.fr)\n * @brief List of all header files contained in the kernel directory\n * @version 0.1\n * @date 2024-08-06\n *\n * Copyright CEA (c) 2024\n *\n*/\n")
