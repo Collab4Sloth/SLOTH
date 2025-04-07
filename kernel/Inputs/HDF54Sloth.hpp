@@ -27,13 +27,13 @@ class HDF54Sloth {
   /* data */
  public:
   HDF54Sloth();
-  void get_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
+  static void get_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
                           boost::multi_array<double, T>& output_multi_array);
-  void get_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
+  static void get_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
                           std::vector<double>& output_multi_array);
-  void write_data_to_HDF5(const H5std_string& file_name, const std::string& dataset_name,
+  static void write_data_to_HDF5(const H5std_string& file_name, const std::string& dataset_name,
                           const boost::multi_array<double, T>& input_multi_array);
-  void write_data_to_HDF5(const H5std_string& file_name, const std::string& dataset_name,
+  static void write_data_to_HDF5(const H5std_string& file_name, const std::string& dataset_name,
                           const std::vector<double>& input_multi_array);
   ~HDF54Sloth();
 };
