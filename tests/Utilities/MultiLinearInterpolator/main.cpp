@@ -34,7 +34,6 @@ int main(int argc, char* argv[]) {
   if (rank == 0) {
     // 1D verification
     {
-      MultiLinearInterpolator<double, 1> linear_interp;
       std::array<double, 1> point_to_interpolate = {0.5};
       std::array<std::vector<double>, 1> grid_values = {
           std::vector<double>{-1.0, 0.0, 1., 1.5, 2.0},
@@ -48,10 +47,10 @@ int main(int argc, char* argv[]) {
       array[4] = 5.0;
 
       std::array<double, 1> alpha;
-      alpha = linear_interp.computeInterpolationCoefficients(point_to_interpolate, lower_indices,
+      alpha = MultiLinearInterpolator<double, 1>::computeInterpolationCoefficients(point_to_interpolate, lower_indices,
                                                              grid_values);
 
-      double result = linear_interp.computeInterpolation(lower_indices, alpha, array);
+      double result = MultiLinearInterpolator<double, 1>::computeInterpolation(lower_indices, alpha, array,[](double v) { return v; });
       int i = lower_indices[0];
       double u = (point_to_interpolate[0] - grid_values[0][i]) /
                  (grid_values[0][i + 1] - grid_values[0][i]);
@@ -60,7 +59,6 @@ int main(int argc, char* argv[]) {
       MFEM_VERIFY(isConsistent, "Linear interpolation is not consistent")
     }
     {  // 2D verification
-      MultiLinearInterpolator<double, 2> bilinear_interp;
       std::array<double, 2> point_to_interpolate2D = {0.5, 0.5};
       std::array<std::size_t, 2> lower_indices2D = {0, 0};
       std::array<std::vector<double>, 2> grid_values2D = {std::vector<double>{0.0, 1.},
@@ -71,9 +69,9 @@ int main(int argc, char* argv[]) {
       array2D[1][0] = 2.;
       array2D[1][1] = 4.;
       std::array<double, 2> alpha2D;
-      alpha2D = bilinear_interp.computeInterpolationCoefficients(point_to_interpolate2D,
+      alpha2D = MultiLinearInterpolator<double, 2>::computeInterpolationCoefficients(point_to_interpolate2D,
                                                                  lower_indices2D, grid_values2D);
-      double result = bilinear_interp.computeInterpolation(lower_indices2D, alpha2D, array2D);
+      double result = MultiLinearInterpolator<double, 2>::computeInterpolation(lower_indices2D, alpha2D, array2D,[](double v) { return v; });
 
       int i = lower_indices2D[0];
       int j = lower_indices2D[1];
@@ -88,7 +86,6 @@ int main(int argc, char* argv[]) {
     }
     {
       // 3D verification
-      MultiLinearInterpolator<double, 3> trilinear_interp;
       std::array<double, 3> point_to_interpolate = {0.5, 0.6, 0.7};
       std::array<std::size_t, 3> lower_indices = {0, 0, 0};
       std::array<std::vector<double>, 3> grid_values = {std::vector<double>{0.0, 1.0},
@@ -105,10 +102,10 @@ int main(int argc, char* argv[]) {
       array[0][1][1] = 7.0;
       array[1][1][1] = 8.0;
       std::array<double, 3> alpha;
-      alpha = trilinear_interp.computeInterpolationCoefficients(point_to_interpolate, lower_indices,
+      alpha = MultiLinearInterpolator<double, 3>::computeInterpolationCoefficients(point_to_interpolate, lower_indices,
                                                              grid_values);
 
-      double result = trilinear_interp.computeInterpolation(lower_indices, alpha, array);
+      double result = MultiLinearInterpolator<double, 3>::computeInterpolation(lower_indices, alpha, array,[](double v) { return v; });
 
       int i = lower_indices[0];
       int j = lower_indices[1];
