@@ -9,6 +9,7 @@
  *
  */
 
+
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -17,8 +18,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <H5Cpp.h>
 #include <boost/multi_array.hpp>
+
+#include <H5Cpp.h>
+
 
 #include "Calphad/CalphadBase.hpp"
 #include "Calphad/CalphadUtils.hpp"
@@ -34,10 +37,14 @@ class MultiParamsTabulation : CalphadBase<T> {
  private:
   std::vector<double> tab_T;
   std::vector<double> tab_x;
-
+  std::map<std::string, std::vector<double>> tab_parameters;
   boost::multi_array<double, 2> array_g;
   std::map<std::string, boost::multi_array<double, 2>> array_mu;
   std::map<std::string, boost::multi_array<double, 2>> array_mobility;
+
+  inline static std::function<double(double)> scaling_func_mob;
+  inline static std::function<double(double)> scaling_func_energy;
+  inline static std::function<double(double)> scaling_func_potentials;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(
@@ -81,6 +88,15 @@ void MultiParamsTabulation<T>::get_parameters() {
   this->description_ = this->params_.template get_param_value_or_default<std::string>(
       "description",
       "Analytical thermodynamic description for an ideal solution using tabulated data ");
+  this->scaling_func_mob =
+      this->params_.template get_param_value_or_default<std::function<double(double)>>(
+          "scaling_func_mobilities", [](double v) { return std::exp(v); });
+  this->scaling_func_energy =
+      this->params_.template get_param_value_or_default<std::function<double(double)>>(
+          "scaling_func_energy", [](double v) { return v; });
+  this->scaling_func_potentials =
+      this->params_.template get_param_value_or_default<std::function<double(double)>>(
+          "scaling_func_potentials", [](double v) { return v; });
 }
 
 ////////////////////////////////
@@ -104,39 +120,56 @@ MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params) : Calp
 template <typename T>
 void MultiParamsTabulation<T>::initialize() {
   Catch_Time_Section("MultiParamsTabulation::initialize");
+
   std::string filename = this->params_.template get_param_value_or_default<std::string>(
       "data filename", "no input file");
 
   H5std_string DATASET_NAME;
   const H5std_string FILE_NAME(filename);
 
-  HDF54Sloth<2> hdf5_for_2D_table;
-
-  std::vector<std::string> list_of_element = {"O", "U"};
-  std::vector<std::string> list_of_dataset_name_mu = {"mu_O", "mu_U"};
-  std::vector<std::string> list_of_dataset_name_mob = {"Mo", "Mu"};
+  std::vector<std::string> list_of_element =
+      this->params_.template get_param_value_or_default<std::vector<std::string>>(
+          "list_of_elements", {"O", "U"});
+  std::vector<std::string> list_of_dataset_name_mu =
+      this->params_.template get_param_value_or_default<std::vector<std::string>>(
+          "list_of_dataset_name_mu", {"mu_O", "mu_U"});
+  std::vector<std::string> list_of_dataset_name_mob =
+      this->params_.template get_param_value_or_default<std::vector<std::string>>(
+          "list_of_dataset_name_mob", {"Mo", "Mu"});
+  std::vector<std::string> list_of_dataset_name_energies =
+      this->params_.template get_param_value_or_default<std::vector<std::string>>(
+          "list_of_dataset_name_energies", {"G"});
+  std::vector<std::string> list_of_dataset_tabulation_parameters =
+      this->params_.template get_param_value_or_default<std::vector<std::string>>(
+          "list_of_dataset_tabulation_parameters", {"xO", "T"});
 
   for (size_t i = 0; i < list_of_element.size(); i++) {
     boost::multi_array<double, 2> myArray;
 
     DATASET_NAME = list_of_dataset_name_mu[i];
-    hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
+    HDF54Sloth<2>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
     array_mu.emplace(list_of_element[i], myArray);
 
     DATASET_NAME = list_of_dataset_name_mob[i];
-    hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
+    HDF54Sloth<2>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
     array_mobility.emplace(list_of_element[i], myArray);
   }
 
-  boost::multi_array<double, 2> array_muO;
-  DATASET_NAME = "G";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_g);
+  for (size_t i = 0; i < list_of_dataset_name_energies.size(); i++) {
+    DATASET_NAME = list_of_dataset_name_energies[i];
+    HDF54Sloth<2>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_g);
+  }
 
-  HDF54Sloth<1> hdf5_for_vector;
+  // for (size_t i = 0; i < list_of_dataset_tabulation_parameters.size(); i++) {
+  //   std::vector<double> temp_vec;
+  //   DATASET_NAME = list_of_dataset_tabulation_parameters[i];
+  //   HDF54Sloth<1>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, temp_vec);
+  //   tab_parameters.emplace(list_of_dataset_tabulation_parameters[i], temp_vec);
+  // }
   DATASET_NAME = "xO";
-  hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x);
+  HDF54Sloth<1>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x);
   DATASET_NAME = "T";
-  hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_T);
+  HDF54Sloth<1>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_T);
 }
 
 /**
@@ -189,8 +222,6 @@ void MultiParamsTabulation<T>::compute(
   std::vector<int> sorted_n_t_p = this->CU_->sort_nodes(tp_gf[0], tp_gf[1], "No", "No");
   const std::size_t N = 2;
 
-  MultiLinearInterpolator<double, N> linear_interp;
-
   // Process CALPHAD calculations for each node
   for (const auto& id : sorted_n_t_p) {
     // Populate tp_gf_at_node for the current node
@@ -219,28 +250,29 @@ void MultiParamsTabulation<T>::compute(
     }
 
     std::array<double, N> alpha;
-    alpha = linear_interp.computeInterpolationCoefficients(point_to_interpolate, lower_indices,
-                                                           grid_values);
+    alpha = MultiLinearInterpolator<double, N>::computeInterpolationCoefficients(
+        point_to_interpolate, lower_indices, grid_values);
 
     // Energy
     for (const auto& energy_name : energy_names) {
       const auto& key = std::make_tuple(id, phase, energy_name);
 
-      this->energies_of_phases_[key] =
-          linear_interp.computeInterpolation(lower_indices, alpha, array_g);
+      this->energies_of_phases_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
+          lower_indices, alpha, array_g, this->scaling_func_energy);
     }
 
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
       const auto& elem = std::get<0>(chemical_system[id_elem]);
       // Chemical potentials
       this->chemical_potentials_[std::make_tuple(id, elem)] =
-          linear_interp.computeInterpolation(lower_indices, alpha, array_mu[elem]);
+          MultiLinearInterpolator<double, N>::computeInterpolation(
+              lower_indices, alpha, array_mu[elem], this->scaling_func_potentials);
 
       // Molar fraction
       const auto& key = std::make_tuple(id, phase, elem);
       this->elem_mole_fraction_by_phase_[key] = x;
-      this->mobilities_[key] = linear_interp.computeInterpolation(
-          lower_indices, alpha, array_mobility[elem], [](double v) { return std::exp(v); });
+      this->mobilities_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
+          lower_indices, alpha, array_mobility[elem], this->scaling_func_mob);
     }
   }
 }

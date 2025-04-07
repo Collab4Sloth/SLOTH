@@ -24,11 +24,11 @@ class MultiLinearInterpolator {
  private:
  public:
   MultiLinearInterpolator();
-  double computeInterpolation(
-      const std::array<std::size_t, N> &lower_indices, const std::array<double, N> &alpha,
-      const boost::multi_array<T, N> &array,
-      std::function<double(double)> scalling_func = [](double v) { return v; });
-  std::array<double, N> computeInterpolationCoefficients(
+  template <typename SCALEF>
+  static double computeInterpolation(const std::array<std::size_t, N> &lower_indices,
+                                     const std::array<double, N> &alpha,
+                                     const boost::multi_array<T, N> &array, SCALEF scalling_func);
+  static std::array<double, N> computeInterpolationCoefficients(
       const std::array<double, N> &point_to_interpolate,
       const std::array<std::size_t, N> &lower_indices,
       const std::array<std::vector<double>, N> &grid_values);
@@ -47,21 +47,21 @@ MultiLinearInterpolator<T, N>::MultiLinearInterpolator() {}
  * @param scalling_func
  */
 template <typename T, std::size_t N>
+template <typename SCALEF>
 double MultiLinearInterpolator<T, N>::computeInterpolation(
     const std::array<std::size_t, N> &lower_indices, const std::array<double, N> &alpha,
-    const boost::multi_array<T, N> &array, std::function<double(double)> scalling_func) {
+    const boost::multi_array<T, N> &array, SCALEF scalling_func) {
   double val_interpolated = 0.0;
-  for (std::size_t i = 0; i < (1 << N); ++i) {  // Loop on 2^N
-    double weight = 1.0;
+  std::size_t number_of_hypercube_neighbors(1 << N);
+
+  for (std::size_t i = 0; i < number_of_hypercube_neighbors; ++i) {
     std::array<std::size_t, N> indices;
+    double weight = 1.0;
+
     for (std::size_t j = 0; j < N; ++j) {
-      if (i & (1 << j)) {
-        weight *= alpha[j];
-        indices[j] = lower_indices[j] + 1;
-      } else {
-        weight *= (1 - alpha[j]);
-        indices[j] = lower_indices[j];
-      }
+      bool condition = (i & (1 << j)) != 0;
+      weight *= condition ? alpha[j] : (1.0 - alpha[j]);
+      indices[j] = lower_indices[j] + condition;
     }
     val_interpolated += weight * scalling_func(array(indices));
   }
@@ -90,10 +90,8 @@ std::array<double, N> MultiLinearInterpolator<T, N>::computeInterpolationCoeffic
     double x1 = grid_values[i][lower_indices[i] + 1];
     alpha[i] = (point_to_interpolate[i] - x0) / (x1 - x0);
   }
-
   return alpha;
 }
-
 
 template <typename T, std::size_t N>
 MultiLinearInterpolator<T, N>::~MultiLinearInterpolator() {}
