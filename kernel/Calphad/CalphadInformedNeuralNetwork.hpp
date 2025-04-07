@@ -8,7 +8,7 @@
  * @copyright Copyright (c) 2025
  *
  */
-#include <torch/script.h>  
+#include <torch/script.h>
 #include <torch/torch.h>
 
 #include <algorithm>
@@ -177,6 +177,8 @@ template <typename T>
 void CalphadInformedNeuralNetwork<T>::initialize(
     const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::initialize");
+  at::set_num_interop_threads(1);
+  at::set_num_threads(1);
   ////////////////////////////////////////////////////////////
   // Check input composition consistency
   for (int i = 0; i < sorted_chemical_system.size(); i++) {
@@ -307,7 +309,7 @@ void CalphadInformedNeuralNetwork<T>::compute(
   std::unordered_map<std::string, const double*> output_data_mob;
 
   for (const auto& [phase, mob_model] : this->mobilities_nn_) {
-    at::Tensor output_mob_tensor = mob_model->forward(inputs).toTensor();
+    at::Tensor output_mob_tensor = mob_model->forward(inputs).toTensor().detach();
     if (!output_mob_tensor.is_contiguous()) {
       output_mob_tensor = output_mob_tensor.contiguous();
     }
@@ -318,7 +320,7 @@ void CalphadInformedNeuralNetwork<T>::compute(
 
   auto output_mu_tmp = this->chemical_potentials_nn_->forward(inputs);
 
-  at::Tensor output_mu = output_mu_tmp.toTensor();
+  at::Tensor output_mu = output_mu_tmp.toTensor().detach();
   if (!output_mu.is_contiguous()) {
     output_mu = output_mu.contiguous();
   }
