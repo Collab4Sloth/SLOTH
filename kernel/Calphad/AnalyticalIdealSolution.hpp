@@ -38,7 +38,8 @@ class AnalyticalIdealSolution : CalphadBase<T> {
  public:
   explicit AnalyticalIdealSolution(const Parameters& params);
 
-  void initialize() override;
+  void initialize(
+      const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
   void execute(const int dt, const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
@@ -90,7 +91,8 @@ AnalyticalIdealSolution<T>::AnalyticalIdealSolution(const Parameters& params)
  * @tparam T
  */
 template <typename T>
-void AnalyticalIdealSolution<T>::initialize() {}
+void AnalyticalIdealSolution<T>::initialize(
+    const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {}
 
 /**
  * @brief Main method to calculate equilibrium states

@@ -33,6 +33,18 @@ jobs:
 
     - name: Install mpich
       run: sudo apt-get install mpich
+
+    - name: Install wget unzip
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget unzip
+
+    - name: Download and extract libtorch
+      run: |
+        wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
+        unzip libtorch-shared-with-deps-latest.zip
+        LIBTORCH_DIR=$(realpath libtorch)
+        echo "LIBTORCH_DIR=$LIBTORCH_DIR" >> $GITHUB_ENV
       
     - name: Install MFEM
       run: |
@@ -51,7 +63,7 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage
+        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR
         make -j${{ env.CORES }}
         
 

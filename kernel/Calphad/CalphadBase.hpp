@@ -63,7 +63,8 @@ class CalphadBase {
   CalphadBase();
   explicit CalphadBase(const Parameters &params);
 
-  virtual void initialize() = 0;
+  virtual void initialize(
+      const std::vector<std::tuple<std::string, std::string>> &sorted_chemical_system) = 0;
 
   virtual void execute(const int dt, const std::vector<T> &tp_gf,
                        const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
@@ -130,7 +131,7 @@ template <typename T>
 void CalphadBase<T>::update_outputs(
     const size_t nb_nodes,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system) {
-  Catch_Time_Section("Calphad::update_outputs");
+  Catch_Time_Section("CalphadBase<T>::update_outputs");
 
   ////////////////////
   // Update outputs //

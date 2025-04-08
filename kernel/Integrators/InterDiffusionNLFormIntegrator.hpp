@@ -3,9 +3,9 @@
  * @author ci230846  (clement.introini@cea.fr)
  * @brief inter-diffusion integrator
  * @version 0.1
- * @date 2024-06-06
+ * @date 2025-04-03
  *
- * Copyright CEA (c) 2024
+ * @copyright Copyright (c) 2025
  *
  */
 
@@ -50,9 +50,11 @@ class InterDiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
   std::string last_component_;
   int number_of_components_{NBCOMPONENT};
   SlothGridFunction u_old_;
+  std::map<std::string, mfem::ParGridFunction> temp_gf_;
   std::map<std::string, mfem::ParGridFunction> mu_gf_;
   std::map<std::string, mfem::ParGridFunction> x_gf_;
   std::map<std::string, mfem::ParGridFunction> mob_gf_;
+  bool interdiffusion_scaling_{false};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradMu_;
   virtual void add_interdiffusion_flux(mfem::ElementTransformation& Tr, const int nElement,
@@ -128,8 +130,22 @@ void InterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME, NBCOMPONENT>::get_
           this->x_gf_.emplace(toUpperCase(elem_info), std::move(aux_gf[i]));
           x_components.insert(toUpperCase(elem_info));
         }
+
+        if (!elem_info.empty() && elem_info.starts_with("Temperature")) {
+          this->temp_gf_.emplace(toUpperCase(elem_info), std::move(aux_gf[i]));
+          // Scaling interdiffusion coefficient by RT
+          this->interdiffusion_scaling_ = this->params_.template get_param_value_or_default<bool>(
+              "InterdiffusionScalingByTemperature", false);
+        }
       }
     }
+  }
+  // Check if temperature is well defined when InterdiffusionScalingByTemperature is set to true
+  if (this->params_.has_parameter("InterdiffusionScalingByTemperature") &&
+      (this->params_.template get_param_value<bool>("InterdiffusionScalingByTemperature"))) {
+    MFEM_VERIFY(!this->temp_gf_.empty(),
+                "When the Parameter InterdiffusionScalingByTemperature is set to true, the "
+                "temperature must be defined as an auxiliary variable. Please check your data.");
   }
 
   // Get Mobilities from Parameters if not

@@ -22,9 +22,7 @@
 
 #pragma once
 
-using param_type =
-    std::variant<int, double, std::string, bool, MapStringDouble, Map2String2Double,
-                 std::vector<std::string>, std::function<double(double)>, std::vector<std::size_t>>;
+using param_type = std::variant<int, double, std::string, bool, MapStringDouble, Map2String2Double,vString, vTupleStringInt, vTupleStringString,std::vector<std::string>, std::function<double(double)>, std::vector<std::size_t> >;
 class Parameter {
  private:
   std::string name_;
@@ -70,6 +68,21 @@ void Parameter::print() const {
           SlothInfo::print(param_name, " = ", arg);
         } else if constexpr (std::is_same_v<T, bool>) {
           SlothInfo::print(param_name, " = ", arg);
+        } else if constexpr (std::is_same_v<T, vString>) {
+          for (const auto& v : arg) {
+            SlothInfo::print(param_name, " = ", v);
+          }
+        } else if constexpr (std::is_same_v<T, vTupleStringString>) {
+          for (const auto& v : arg) {
+            const auto& [s1, s2] = v;
+            SlothInfo::print(param_name, " = ", s1, ", ", s2);
+          }
+        } else if constexpr (std::is_same_v<T, vTupleStringInt>) {
+          for (const auto& v : arg) {
+            const auto& [s1, i2] = v;
+            SlothInfo::print(param_name, " = ", s1, ", ", i2);
+          }
+
         } else if constexpr (std::is_same_v<T, MapStringDouble>) {
           for (const auto& [key, val] : arg) {
             SlothInfo::print(param_name, " = ", key, ", ", val);
@@ -109,7 +122,9 @@ auto Parameter::get_value() const -> param_type {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double> ||
                       std::is_same_v<T, std::string> || std::is_same_v<T, bool> ||
-                      std::is_same_v<T, MapStringDouble> || std::is_same_v<T, Map2String2Double> ||
+                      std::is_same_v<T, vString> || std::is_same_v<T, vTupleStringString> ||
+                      std::is_same_v<T, vTupleStringInt> || std::is_same_v<T, MapStringDouble> ||
+                      std::is_same_v<T, Map2String2Double> ||
                       std::is_same_v<T, std::vector<std::string>> ||
                       std::is_same_v<T, std::function<double(double)>> ||
                       std::is_same_v<T, std::vector<std::size_t>>) {

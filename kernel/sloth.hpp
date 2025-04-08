@@ -14,6 +14,7 @@
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/BinaryTabulation.hpp"
 #include "Calphad/CalphadBase.hpp"
+#include "Calphad/CalphadInformedNeuralNetwork.hpp"
 #include "Calphad/CalphadUtils.hpp"
 #include "Calphad/GeneralMultiParamsTabulation.hpp"
 #include "Calphad/MultiParamsTabulation.hpp"

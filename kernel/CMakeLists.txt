@@ -23,9 +23,11 @@ file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/kernel/sloth.hpp
 
 target_sources(Sloth INTERFACE ${SRC_FILES})
 
+
 # target_compile_features(Sloth INTERFACE cxx_std_20)
 set_target_properties(Sloth PROPERTIES LINKER_LANGUAGE CXX)
 
+# And the most important part set the include directories
 target_include_directories(Sloth INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
 # HDF5 ??
@@ -52,3 +54,14 @@ if(SLOTH_USE_EXTERNAL)
     target_link_directories(Sloth INTERFACE $ENV{EXT_LIBDIR} )
     target_link_libraries(Sloth INTERFACE SlothExternal $ENV{EXT_LIBNAME})
 endif(SLOTH_USE_EXTERNAL)
+
+
+# LibTorch API ??
+option(SLOTH_USE_LIBTORCH "Enable the use of libtorch API" OFF)
+if(SLOTH_USE_LIBTORCH)
+    find_package(Torch REQUIRED)
+    MESSAGE(STATUS "Sloth use libTorch API ")
+    target_include_directories(Sloth INTERFACE ${TORCH_INCLUDE_DIRS} )
+    target_link_libraries(Sloth INTERFACE ${TORCH_LIBRARIES})
+endif(SLOTH_USE_LIBTORCH)
+
