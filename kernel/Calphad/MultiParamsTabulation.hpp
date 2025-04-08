@@ -10,9 +10,10 @@
  *
  */
 
-
+#include <H5Cpp.h>
 
 #include <algorithm>
+#include <boost/multi_array.hpp>
 #include <functional>
 #include <map>
 #include <memory>
@@ -20,9 +21,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-
-#include <boost/multi_array.hpp>
-#include <H5Cpp.h>
 
 #include "Calphad/CalphadBase.hpp"
 #include "Calphad/CalphadUtils.hpp"
@@ -90,128 +88,49 @@ class MultiParamsTabulation : CalphadBase<T> {
 ////////////////////////////////
 
 /**
- * @brief Get the
- * parameters
- * associated with
- * the
- * MultiParamsTabulation
- * object
- *
+ * @brief Get the parameters associated with the MultiParamsTabulation object
  * @tparam T
  */
 template <typename T, std::size_t INTERP_DIM>
 void MultiParamsTabulation<T, INTERP_DIM>::get_parameters() {
   this->description_ = this->params_.template get_param_value_or_default<std::string>(
-      "desc"
-      "ript"
-      "ion",
-      "Anal"
-      "ytic"
-      "al "
-      "ther"
-      "mody"
-      "nami"
-      "c "
-      "desc"
-      "ript"
-      "ion "
-      "for "
-      "an "
-      "idea"
-      "l "
-      "solu"
-      "tion"
-      " usi"
-      "ng "
-      "tabu"
-      "late"
-      "d "
-      "data"
-      " ");
+      "description",
+      "Analytical thermodynamic description for an ideal solution using tabulated data");
   this->scalling_func_mob =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
-          "scalling"
-          "_func_"
-          "mobiliti"
-          "es",
-          [](double v) { return std::exp(v); });
+          "scalling_func_mobilities", [](double v) { return std::exp(v); });
   this->scalling_func_energy =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
-          "scalling"
-          "_func_"
-          "energy",
-          [](double v) { return v; });
+          "scalling_func_energy", [](double v) { return v; });
   this->scalling_func_potentials =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
-          "scalling"
-          "_func_"
-          "potentia"
-          "ls",
-          [](double v) { return v; });
+          "scalling_func_potentials", [](double v) { return v; });
   this->list_of_element =
       this->params_.template get_param_value_or_default<std::vector<std::string>>(
-          "list_of_"
-          "element"
-          "s",
-          {"O", "U"});
+          "list_of_elements", {"O", "U"});
   this->list_of_dataset_name_mu =
       this->params_.template get_param_value_or_default<std::vector<std::string>>(
-          "list_of_"
-          "dataset_"
-          "name_mu",
-          {"mu_O", "mu_U"});
+          "list_of_dataset_name_mu", {"mu_O", "mu_U"});
   this->list_of_dataset_name_mob =
       this->params_.template get_param_value_or_default<std::vector<std::string>>(
-          "list_of_"
-          "dataset_"
-          "name_"
-          "mob",
-          {"Mo", "Mu"});
+          "list_of_dataset_name_mob", {"Mo", "Mu"});
   this->list_of_dataset_name_energies =
       this->params_.template get_param_value_or_default<std::vector<std::string>>(
-          "list_of_"
-          "dataset_"
-          "name_"
-          "energie"
-          "s",
-          {"G"});
+          "list_of_dataset_name_energies", {"G"});
   this->list_of_dataset_tabulation_parameters =
       this->params_.template get_param_value_or_default<std::vector<std::string>>(
-          "list_of_"
-          "dataset_"
-          "tabulati"
-          "on_"
-          "paramete"
-          "rs",
-          {"T", "xO"});
+          "list_of_dataset_tabulation_parameters", {"T", "xO"});
   this->list_of_aux_gf_index_for_tabulation =
       this->params_.template get_param_value_or_default<std::vector<std::size_t>>(
-          "list_of_"
-          "aux_gf_"
-          "index_"
-          "for_"
-          "tabulati"
-          "on",
-          {0, 2});
-  this->filename = this->params_.template get_param_value_or_default<std::string>(
-      "data"
-      " fil"
-      "enam"
-      "e",
-      "no "
-      "inpu"
-      "t "
-      "fil"
-      "e");
+          "list_of_aux_gf_index_for_tabulation", {0, 2});
+  this->filename = this->params_.template get_param_value_or_default<std::string>("data filename",
+                                                                                  "no input file");
 }
 
 ////////////////////////////////
 ////////////////////////////////
 /**
- * @brief Construct
- * a new
- * MultiParamsTabulation::MultiParamsTabulation
- * object
+ * @brief Construct a new MultiParamsTabulation::MultiParamsTabulation object
  *
  * @param params
  */
@@ -223,11 +142,7 @@ MultiParamsTabulation<T, INTERP_DIM>::MultiParamsTabulation(const Parameters& pa
 }
 
 /**
- * @brief
- * Initialization of
- * the thermodynamic
- * calculation
- *
+ * @brief Initialization of the thermodynamic calculation
  * @tparam T
  */
 template <typename T, std::size_t INTERP_DIM>
@@ -266,12 +181,7 @@ void MultiParamsTabulation<T, INTERP_DIM>::initialize() {
 }
 
 /**
- * @brief Main
- * method to
- * calculate
- * equilibrium
- * states
- *
+ * @brief Main method to calculate equilibrium states
  * @tparam T
  * @param dt
  * @param aux_gf
@@ -285,37 +195,24 @@ void MultiParamsTabulation<T, INTERP_DIM>::execute(
     const int dt, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
-  // Clear
-  // containers and
-  // recalculation
-  // of the numbers
-  // of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   this->clear_containers();
   if (dt == 1) {
     this->check_variables_consistency(output_system);
   }
-  // Thermodynamic
-  // Calculations
+
   this->compute(nb_nodes, tp_gf, chemical_system, output_system);
 
-  // Use containers
-  // to update
-  // output_system
   this->update_outputs(nb_nodes, output_system);
 }
 
 /**
- * @brief Compute
- * the CALPHAD
- * contributions
+ * @brief Compute the CALPHAD contributions
  *
  * @tparam T
  * @param tp_gf
- * @param
- * chemical_system
- * @param
- * output_system
+ * @param chemical_system
+ * @param output_system
  */
 template <typename T, std::size_t INTERP_DIM>
 void MultiParamsTabulation<T, INTERP_DIM>::compute(
@@ -327,9 +224,6 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
       "abulation::"
       "compute");
 
-  // Let us assume
-  // an ideal mixing
-  // solution
   const std::string& phase = "C1_MO2";
   const std::vector<std::string> energy_names = {"G"};
   std::vector<double> tp_gf_at_node(tp_gf.size());
@@ -340,14 +234,8 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
   std::array<double, N> point_to_interpolate;
   std::array<std::size_t, N> lower_indices;
   std::array<double, N> alpha;
-  // Process CALPHAD
-  // calculations
-  // for each node
+
   for (const auto& id : sorted_n_t_p) {
-    // Populate
-    // tp_gf_at_node
-    // for the
-    // current node
     std::transform(tp_gf.begin(), tp_gf.end(), tp_gf_at_node.begin(),
                    [&id](const T& vec) { return vec[id]; });
 
@@ -382,8 +270,7 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
       const auto& elem = std::get<0>(chemical_system[id_elem]);
 
-      // Chemical
-      // potentials
+      // Chemical potentials
       this->chemical_potentials_[std::make_tuple(id, elem)] =
           MultiLinearInterpolator<double, N>::computeInterpolation(
               lower_indices, alpha, array_mu[elem], this->scalling_func_potentials);
@@ -400,15 +287,9 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
   }
 }
 /**
- * @brief Check the
- * consistency of
- * outputs required
- * for the current
- * Calphad problem
- *
+ * @brief Check the consistency of outputs required for the current Calphad problem
  * @tparam T
- * @param
- * output_system
+ * @param output_system
  */
 template <typename T, std::size_t INTERP_DIM>
 void MultiParamsTabulation<T, INTERP_DIM>::check_variables_consistency(
@@ -416,49 +297,20 @@ void MultiParamsTabulation<T, INTERP_DIM>::check_variables_consistency(
   for (auto& [output_infos, output_value] : output_system) {
     const std::string& output_type = output_infos.back();
 
-    // Fill output
-    // with the
-    // relevant
-    // values
     switch (calphad_outputs::from(output_type)) {
       case calphad_outputs::gm:
       case calphad_outputs::h:
       case calphad_outputs::hm: {
-        MFEM_VERIFY(false,
-                    "MultiP"
-                    "aramsT"
-                    "abulat"
-                    "ion "
-                    "is "
-                    "only "
-                    "built "
-                    "for "
-                    "mu, x "
-                    "and "
-                    "g.\n");
+        MFEM_VERIFY(false, "MultiParamsTabulation is only built for mu, x and g.\n");
 
-        SlothInfo::debug(
-            "Output"
-            " not "
-            "availa"
-            "ble "
-            "for "
-            "this "
-            "Calpha"
-            "d "
-            "proble"
-            "m: ",
-            output_type);
+        SlothInfo::debug("Output not available for this Calphad problem: ", output_type);
         break;
       }
     }
   }
 }
 /**
- * @brief
- * Finalization
- * actions (free
- * memory)
+ * @brief Finalization actions (free memory)
  *
  * @tparam T
  */
@@ -466,12 +318,7 @@ template <typename T, std::size_t INTERP_DIM>
 void MultiParamsTabulation<T, INTERP_DIM>::finalize() {}
 
 /**
- * @brief Destroy
- * the Binary
- * Melting< T>::
- * Binary Melting
- * object
- *
+ * @brief Destroy the Binary Melting< T>::Binary Melting object
  * @tparam T
  */
 template <typename T, std::size_t INTERP_DIM>
