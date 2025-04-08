@@ -13,6 +13,7 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/CalphadBase.hpp"
+#include "Calphad/CalphadInformedNeuralNetwork.hpp"
 #include "Calphad/CalphadUtils.hpp"
 #include "Coefficients/ConductivityCoefficient.hpp"
 #include "Coefficients/ConductivityFunctions.hpp"

@@ -4,11 +4,26 @@
 function Print {
     echo -e "\033[1;32m$1\033[0m"
 }
+
+function to_absolute_path() {
+    local path=$1
+    if [[ ! "$path" =~ ^/ ]]; then
+        if command -v realpath &>/dev/null; then
+            echo "$(realpath "$path")"
+        else
+            echo "$(cd "$path" && pwd)"
+        fi
+    else
+        echo "$path"
+    fi
+}
 #=============================================
 #=============================================
 built_code="Release"
 use_external="OFF"
+use_libtorch="OFF"
 local_mfem_version="No"
+ADDITIONAL_OPTION=""
 
 for argument; do
 
@@ -20,19 +35,6 @@ for argument; do
         local_mfem_version="Yes"
         MFEM4SLOTH=$(echo "$value")
 
-        # Get absolute path
-        function to_absolute_path() {
-            local path=$1
-            if [[ ! "$path" =~ ^/ ]]; then
-                if command -v realpath &>/dev/null; then
-                    echo "$(realpath "$path")"
-                else
-                    echo "$(cd "$path" && pwd)"
-                fi
-            else
-                echo "$path"
-            fi
-        }
         MFEM4SLOTH=$(to_absolute_path "$MFEM4SLOTH")
         if [[ ! -d "$MFEM4SLOTH" ]]; then
             Print "\nError: "$MFEM4SLOTH" directory does not exist. Please check the path of the local MFEM version!"
@@ -62,6 +64,23 @@ for argument; do
         built_code="Optim"
         Print "Sloth built with Optim compiler options "
         ;;
+    --libtorch)
+        export LIBTORCH=$(to_absolute_path "$value")
+        if [[ ! -d "$LIBTORCH" ]]; then
+            Print "\nError: "$LIBTORCH" directory does not exist. Please check the path of the local LIBTORCH version!"
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1  
+            else
+                exit 1  
+            fi
+        else 
+            export ADDITIONAL_OPTION=" -DCMAKE_PREFIX_PATH=$LIBTORCH "$ADDITIONAL_OPTION
+            Print "Sloth built with libTorch "
+            # Set libtorch flag
+            use_libtorch='ON'
+        fi
+
+        ;;
     --external)
         Print "Sloth built with an external package"
         count=$(echo "$value" | grep -o ',' | wc -l)
@@ -85,19 +104,6 @@ for argument; do
         export EXT_SRC=$(echo "$value" | cut -f3 -d',')
         export EXT_TEST=$(echo "$value" | cut -f4 -d',')
 
-        # Get absolute path
-        function to_absolute_path() {
-            local path=$1
-            if [[ ! "$path" =~ ^/ ]]; then
-                if command -v realpath &>/dev/null; then
-                    echo "$(realpath "$path")"
-                else
-                    echo "$(cd "$path" && pwd)"
-                fi
-            else
-                echo "$path"
-            fi
-        }
         EXT_LIBDIR=$(to_absolute_path "$EXT_LIBDIR")
         EXT_SRC=$(to_absolute_path "$EXT_SRC")
         if [[ -n "$EXT_TEST" ]]; then
@@ -197,7 +203,5 @@ Print "Create a new build..."
 
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
-
-
-cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_LIBTORCH=$use_libtorch
 Print "Done!"

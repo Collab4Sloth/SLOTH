@@ -52,3 +52,13 @@ if(SLOTH_USE_EXTERNAL)
     target_link_libraries(Sloth INTERFACE SlothExternal $ENV{EXT_LIBNAME})
 endif(SLOTH_USE_EXTERNAL)
 
+
+# LibTorch API ??
+option(SLOTH_USE_LIBTORCH "Enable the use of libtorch API" OFF)
+if(SLOTH_USE_LIBTORCH)
+    find_package(Torch REQUIRED)
+    MESSAGE(STATUS "Sloth use libTorch API ")
+    target_include_directories(Sloth INTERFACE ${TORCH_INCLUDE_DIRS} )
+    target_link_libraries(Sloth INTERFACE ${TORCH_LIBRARIES})
+endif(SLOTH_USE_LIBTORCH)
+

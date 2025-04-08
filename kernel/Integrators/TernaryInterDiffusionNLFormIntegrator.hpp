@@ -121,7 +121,10 @@ void TernaryInterDiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::add_interd
   mun.GetGradient(Tr, this->gradPsi, grad_mu[i]);
 
   for (int j = 1; j < this->number_of_components_; j++) {
-    const double inter_coefficient = X[0] * X[j] * (M[0] * X[j] + M[j] * X[0]);
+    double inter_coefficient = X[0] * X[j] * (M[0] * X[j] + M[j] * X[0]);
+    if (this->interdiffusion_scaling_) {
+      inter_coefficient /= (Physical::R * this->temp_gf_.at("TEMPERATURE").GetValue(nElement, ip));
+    }
     this->gradMu_.Add(inter_coefficient, grad_mu[0]);
     this->gradMu_.Add(-inter_coefficient, grad_mu[j]);
   }

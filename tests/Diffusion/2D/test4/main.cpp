@@ -104,7 +104,8 @@ int main(int argc, char* argv[]) {
   //==========================================
   //--- Variables
   const auto& stabCoeff(1.e-7);
-  auto td_parameters = Parameters(Parameter("last_component", "U"));
+  auto td_parameters = Parameters(Parameter("last_component", "U"),
+                                  Parameter("InterdiffusionScalingByTemperature", false));
   //   Parameter("MO", diffusionCoeff), Parameter("MU", diffusionCoeff),
   auto mobO = VAR(&spatial, bcs, "Mo", 2, diffusionCoeff);
   mobO.set_additional_information("C1_MO2", "O", "mob");
