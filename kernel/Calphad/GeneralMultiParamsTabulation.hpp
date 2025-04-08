@@ -8,13 +8,12 @@
  * Copyright CEA (c) 2025
  *
  */
-
-// TO DO : PASSER EN INTERPOLATION TRILIN2AIRE, C4EST LONG MAIS LARGEMENT FAISABLE 
 #include <H5Cpp.h>
 
 #include <algorithm>
 #include <boost/multi_array.hpp>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -33,10 +32,12 @@
 template <typename T>
 class GeneralMultiParamsTabulation : CalphadBase<T> {
  private:
-  std::vector<std::vector<double>> tab_p;
+  std::vector<double> tab_T, tab_x1, tab_x2;
 
-  boost::multi_array<double, 2> array_g;
-  boost::multi_array<double, 2> array_mu;
+  boost::multi_array<double, 3> array_g;
+  std::map<std::string, boost::multi_array<double, 3>> array_mu;
+  std::map<std::string, boost::multi_array<double, 3>> array_mobility;
+
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(
       const size_t nb_nodes, const std::vector<T>& tp_gf,
@@ -55,10 +56,7 @@ class GeneralMultiParamsTabulation : CalphadBase<T> {
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
                std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>&
                    output_system) override;
-  void get_1D_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
-                             std::vector<double>& output_vector);
-  void get_2D_data_from_HDF5(const H5std_string& file_name, const std::string& dataset_name,
-                             boost::multi_array<double, 2>& output_multi_array);
+
   void finalize() override;
 
   ////////////////////////////////
@@ -93,8 +91,7 @@ void GeneralMultiParamsTabulation<T>::get_parameters() {
  * @param params
  */
 template <typename T>
-GeneralMultiParamsTabulation<T>::GeneralMultiParamsTabulation(const Parameters& params)
-    : CalphadBase<T>(params) {
+GeneralMultiParamsTabulation<T>::GeneralMultiParamsTabulation(const Parameters& params) : CalphadBase<T>(params) {
   this->CU_ = std::make_unique<CalphadUtils<T>>();
   this->get_parameters();
 }
@@ -106,29 +103,42 @@ GeneralMultiParamsTabulation<T>::GeneralMultiParamsTabulation(const Parameters& 
  */
 template <typename T>
 void GeneralMultiParamsTabulation<T>::initialize() {
-  // const H5std_string FILE_NAME("thermodata.h5"); "thermodatafromTAFID.h5"
+  Catch_Time_Section("GeneralMultiParamsTabulation::initialize");
   std::string filename = this->params_.template get_param_value_or_default<std::string>(
       "data filename", "no input file");
-  const H5std_string FILE_NAME(filename);
-
-  H5::H5File file(FILE_NAME, H5F_ACC_RDONLY);
 
   H5std_string DATASET_NAME;
-  HDF54Sloth<2> hdf5_for_2D_table;
-  DATASET_NAME = "g";
+  const H5std_string FILE_NAME(filename);
+
+  HDF54Sloth<3> hdf5_for_2D_table;
+
+  std::vector<std::string> list_of_element = {"O", "PU", "U"};
+  std::vector<std::string> list_of_dataset_name_mu = {"mu_O", "mu_PU", "mu_U"};
+  std::vector<std::string> list_of_dataset_name_mob = {"Mo", "Mpu", "Mu"}; 
+
+  for (size_t i = 0; i < list_of_element.size(); i++) {
+    boost::multi_array<double, 3> myArray;
+
+    DATASET_NAME = list_of_dataset_name_mu[i];
+    hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
+    array_mu.emplace(list_of_element[i], myArray);
+
+    DATASET_NAME = list_of_dataset_name_mob[i];
+    hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
+    array_mobility.emplace(list_of_element[i], myArray);
+  }
+
+  boost::multi_array<double, 3> array_muO;
+  DATASET_NAME = "G";
   hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_g);
-  DATASET_NAME = "mu";
-  hdf5_for_2D_table.get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_mu);
+
   HDF54Sloth<1> hdf5_for_vector;
-  std::vector<double> tab_T;
-  std::vector<double> tab_x;
-  DATASET_NAME = "x";
-  hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x);
+  DATASET_NAME = "xO";
+  hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x1);
+  DATASET_NAME = "xU";
+  hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_x2);
   DATASET_NAME = "T";
   hdf5_for_vector.get_data_from_HDF5(FILE_NAME, DATASET_NAME, tab_T);
-
-  tab_p.emplace_back(std::move(tab_x));
-  tab_p.emplace_back(std::move(tab_T));
 }
 
 /**
@@ -171,8 +181,10 @@ void GeneralMultiParamsTabulation<T>::compute(
     const size_t nb_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
+  Catch_Time_Section("GeneralMultiParamsTabulation::compute");
+
   // Let us assume an ideal mixing solution
-  const std::string& phase = "SOLUTION";
+  const std::string& phase = "C1_MO2";
   const std::vector<std::string> energy_names = {"G"};
   std::vector<double> tp_gf_at_node(tp_gf.size());
 
@@ -185,52 +197,88 @@ void GeneralMultiParamsTabulation<T>::compute(
                    [&id](const T& vec) { return vec[id]; });
     const auto loc_temperature = tp_gf_at_node[0];
     const auto& epsilon = 1.e-10;
-    int i;
-    int j;
-    const auto& elem = std::get<0>(chemical_system[0]);
-    const auto x = tp_gf_at_node[2];
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    // const auto& elem = std::get<0>(chemical_system[0]);
+    const auto x1 = tp_gf_at_node[2];
+    const auto x2 = tp_gf_at_node[4];
 
-    int nbtab = 2;
-    std::vector<int> index(nbtab);
+    auto lower_x1 = std::lower_bound(tab_x1.begin(), tab_x1.end(), x1);
 
-    std::vector<double> val;
-    std::vector<double> lambda;
-    val.emplace_back(std::move(x));
-    val.emplace_back(std::move(loc_temperature));
-
-    for (size_t k = 0; k < nbtab; k++) {
-      auto lower_x = std::lower_bound(tab_p[k].begin(), tab_p[k].end(), val[k]);
-
-      if (lower_x != tab_p[k].begin() && (lower_x + 1) != tab_p[k].end()) {
-        index[k] = lower_x - tab_p[k].begin() - 1;
-      } else if ((lower_x + 1) == tab_p[k].end()) {
-        index[k] = tab_p[k].size() - 1;
-      }
-      double v = (val[k] - tab_p[k][index[k]]) / (tab_p[k][index[k] + 1] - tab_p[k][index[k]]);
-
-      lambda.emplace_back(std::move(v));
+    if (lower_x1 != tab_x1.begin() && (lower_x1 + 1) != tab_x1.end()) {
+      j = lower_x1 - tab_x1.begin() - 1;
+    } else if ((lower_x1 + 1) == tab_x1.end()) {
+      j = tab_x1.size() - 1;
     }
-    double t = lambda[1];
-    double u = lambda[0];
+
+    auto lower_x2 = std::lower_bound(tab_x2.begin(), tab_x2.end(), x2);
+
+    if (lower_x2 != tab_x2.begin() && (lower_x2 + 1) != tab_x2.end()) {
+      k = lower_x2 - tab_x2.begin() - 1;
+    } else if ((lower_x2 + 1) == tab_x2.end()) {
+      k = tab_x2.size() - 1;
+    }
+
+    auto lower_t = std::lower_bound(tab_T.begin(), tab_T.end(), loc_temperature);
+
+    if (lower_t != tab_T.begin() && (lower_t + 1) != tab_T.end()) {
+      i = lower_t - tab_T.begin() - 1;
+    } else if ((lower_t + 1) == tab_T.end()) {
+      i = tab_T.size() - 1;
+    }
+
+    double t = (loc_temperature - tab_T[i]) / (tab_T[i + 1] - tab_T[i]);
+    double u = (x1 - tab_x1[j]) / (tab_x1[j + 1] - tab_x1[j]);
+    double v = (x2 - tab_x2[k]) / (tab_x2[k + 1] - tab_x2[k]);
 
     // Energy
     for (const auto& energy_name : energy_names) {
       const auto& key = std::make_tuple(id, phase, energy_name);
-      i = index[1];
-      j = index[0];
+
       this->energies_of_phases_[key] =
-          (1 - t) * (1 - u) * array_g[i][j] + t * (1 - u) * array_g[i + 1][j] +
-          t * u * array_g[i + 1][j + 1] + (1 - t) * u * array_g[i][j + 1];
+          (1 - t) * (1 - u) * (1 - v) * array_g[i][j][k] +
+          t * (1 - u) * (1 - v) * array_g[i + 1][j][k] +
+          (1 - t) * u * (1 - v) * array_g[i][j + 1][k] +
+          (1 - t) * (1 - u) * v * array_g[i][j][k + 1] +
+          t * u * (1 - v) * array_g[i + 1][j + 1][k] + t * (1 - u) * v * array_g[i + 1][j][k + 1] +
+          (1 - t) * u * v * array_g[i][j + 1][k + 1] + t * u * v * array_g[i + 1][j + 1][k + 1];
     }
 
-    // Chemical potential
-    this->chemical_potentials_[std::make_tuple(id, elem)] =
-        (1 - t) * (1 - u) * array_mu[i][j] + t * (1 - u) * array_mu[i + 1][j] +
-        t * u * array_mu[i + 1][j + 1] + (1 - t) * u * array_mu[i][j + 1];
+    for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
+      const auto& elem = std::get<0>(chemical_system[id_elem]);
+      std::cout << id_elem << "  " <<  elem << std::endl;
+      // Chemical potentials
+      this->chemical_potentials_[std::make_tuple(id, elem)] =
+          (1 - t) * (1 - u) * (1 - v) * array_mu[elem][i][j][k] +
+          t * (1 - u) * (1 - v) * array_mu[elem][i + 1][j][k] +
+          (1 - t) * u * (1 - v) * array_mu[elem][i][j + 1][k] +
+          (1 - t) * (1 - u) * v * array_mu[elem][i][j][k + 1] +
+          t * u * (1 - v) * array_mu[elem][i + 1][j + 1][k] +
+          t * (1 - u) * v * array_mu[elem][i + 1][j][k + 1] +
+          (1 - t) * u * v * array_mu[elem][i][j + 1][k + 1] +
+          t * u * v * array_mu[elem][i + 1][j + 1][k + 1];
+      // Molar fraction
+      const auto& key = std::make_tuple(id, phase, elem);
 
-    // Molar fraction
-    const auto& key = std::make_tuple(id, phase, elem);
-    this->elem_mole_fraction_by_phase_[key] = val[0];
+      if (elem == "O") {
+        this->elem_mole_fraction_by_phase_[key] = x1;
+      }
+      if (elem == "U") {
+        this->elem_mole_fraction_by_phase_[key] = x2;
+      }
+
+      // Mobilities
+      this->mobilities_[key] =
+          (1 - t) * (1 - u) * (1 - v) * std::exp(array_mobility[elem][i][j][k]) +
+          t * (1 - u) * (1 - v) * std::exp(array_mobility[elem][i + 1][j][k]) +
+          (1 - t) * u * (1 - v) * std::exp(array_mobility[elem][i][j + 1][k]) +
+          (1 - t) * (1 - u) * v * std::exp(array_mobility[elem][i][j][k + 1]) +
+          t * u * (1 - v) * std::exp(array_mobility[elem][i + 1][j + 1][k]) +
+          t * (1 - u) * v * std::exp(array_mobility[elem][i + 1][j][k + 1]) +
+          (1 - t) * u * v * std::exp(array_mobility[elem][i][j + 1][k + 1]) +
+          t * u * v * std::exp(array_mobility[elem][i + 1][j + 1][k + 1]);
+    }
   }
 }
 /**
