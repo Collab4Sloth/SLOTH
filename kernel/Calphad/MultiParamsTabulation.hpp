@@ -34,6 +34,9 @@
 template <typename T, std::size_t INTERP_DIM = 2>
 class MultiParamsTabulation : CalphadBase<T> {
  private:
+  std::map<std::string, unsigned int> idx_elem_;
+  std::vector<std::string> input_composition_order_;
+
   std::string filename;
 
   boost::multi_array<double, INTERP_DIM> array_g;
@@ -67,7 +70,8 @@ class MultiParamsTabulation : CalphadBase<T> {
  public:
   explicit MultiParamsTabulation(const Parameters& params);
 
-  void initialize() override;
+  void initialize(
+      const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
   void execute(const int dt, const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
@@ -146,11 +150,9 @@ MultiParamsTabulation<T, INTERP_DIM>::MultiParamsTabulation(const Parameters& pa
  * @tparam T
  */
 template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::initialize() {
-  Catch_Time_Section(
-      "MultiParamsT"
-      "abulation::"
-      "initialize");
+void MultiParamsTabulation<T, INTERP_DIM>::initialize(
+    const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {
+  Catch_Time_Section("MultiParamsTabulation::initialize");
 
   H5std_string DATASET_NAME;
   const H5std_string FILE_NAME(this->filename);
@@ -177,6 +179,35 @@ void MultiParamsTabulation<T, INTERP_DIM>::initialize() {
     DATASET_NAME = list_of_dataset_tabulation_parameters[i];
     HDF54Sloth<1>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, temp_vec);
     grid_values[i] = temp_vec;
+  }
+
+  // Check input composition consistency (cf CalphadInformedNeuralNetwork.hpp)
+  if (this->params_.template has_parameter("InputCompositionOrder")) {
+    this->input_composition_order_ =
+        this->params_.template get_param_value<vString>("InputCompositionOrder");
+  }
+
+  for (int i = 0; i < sorted_chemical_system.size(); i++) {
+    const std::string& elem = std::get<0>(sorted_chemical_system[i]);
+    this->idx_elem_.emplace(elem, i);
+  }
+  if (!this->input_composition_order_.empty()) {
+    std::vector<std::string> v_elem;
+    for (const auto& tup : sorted_chemical_system) {
+      const std::string& elem = std::get<0>(tup);
+      v_elem.emplace_back(elem);
+      this->idx_elem_[elem] = std::distance(this->input_composition_order_.begin(),
+                                            std::find(this->input_composition_order_.begin(),
+                                                      this->input_composition_order_.end(), elem));
+    }
+    // Sort before comparison
+    std::ranges::sort(v_elem);
+    auto sort_input_composition_order = this->input_composition_order_;
+    std::ranges::sort(sort_input_composition_order);
+
+    MFEM_VERIFY(std::ranges::equal(v_elem, sort_input_composition_order),
+                "Error: InputCompositionOrder is not consistent with composition deduced from "
+                "auxiliary variables. Please check your data");
   }
 }
 
@@ -219,10 +250,7 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
     const size_t nb_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
-  Catch_Time_Section(
-      "MultiParamsT"
-      "abulation::"
-      "compute");
+  Catch_Time_Section("MultiParamsTabulation::compute");
 
   const std::string& phase = "C1_MO2";
   const std::vector<std::string> energy_names = {"G"};
@@ -269,16 +297,14 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
 
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
       const auto& elem = std::get<0>(chemical_system[id_elem]);
-
       // Chemical potentials
       this->chemical_potentials_[std::make_tuple(id, elem)] =
           MultiLinearInterpolator<double, N>::computeInterpolation(
               lower_indices, alpha, array_mu[elem], this->scalling_func_potentials);
 
-      // Molar
-      // fractions
+      // Molar fractions
       const auto& key = std::make_tuple(id, phase, elem);
-      this->elem_mole_fraction_by_phase_[key] = tp_gf_at_node[id_elem + 2];
+      this->elem_mole_fraction_by_phase_[key] = tp_gf_at_node[this->idx_elem_[elem] + 2];
 
       // Mobilities
       this->mobilities_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
