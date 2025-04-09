@@ -72,7 +72,7 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI> {
   // Pure virtual methods
   void SetConstantParameters(const double dt, mfem::Vector &u) override;
   void SetTransientParameters(const double dt, const mfem::Vector &u) override;
-  void solve(mfem::Vector &unk, double &next_time, const double &current_time, double dt,
+  void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time, const double &current_time, double dt,
              const int iter) override;
   NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override = 0;
   void get_parameters() override = 0;
@@ -184,9 +184,10 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::initialize(
  * @param dt
  */
 template <class T, int DIM, class NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::solve(mfem::Vector &unk, double &next_time,
+void SteadyPhaseFieldOperatorBase<T, DIM, NLFI>::solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
                                                        const double &current_time, double dt,
                                                        const int iter) {
+                                                        auto &unk = *(vect_unk[0]);
   this->current_time_ = current_time;
   // height (defined mfem::Operator class)
   const auto sc = this->height_;

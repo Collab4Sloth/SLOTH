@@ -122,8 +122,12 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   // Pure virtual methods
   void SetConstantParameters(const double dt, mfem::Vector &u) override;
   void SetTransientParameters(const double dt, const mfem::Vector &u) override;
-  void solve(mfem::Vector &unk, double &next_time, const double &current_time,
-             double current_time_step, const int iter) override;
+
+  // void solve(mfem::Vector &unk, double &next_time, const double &current_time,
+  //            double current_time_step, const int iter) override;
+  void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+             const double &current_time, double current_time_step, const int iter) override;
+
   NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override = 0;
   void get_parameters() override = 0;
   void ComputeEnergies(const int &it, const double &t, const double &dt,
@@ -285,6 +289,23 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
   this->ode_solver_->Init(*this);
 }
 
+// /**
+//  * @brief Solve the time-dependent problem
+//  *
+//  * @tparam T
+//  * @tparam DIM
+//  * @tparam NLFI
+//  * @param unk
+//  * @param current_time
+//  * @param current_time_step
+//  */
+// template <class T, int DIM, class NLFI>
+// void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(mfem::Vector &unk, double &next_time,
+//                                                  const double &current_time,
+//                                                  double current_time_step, const int iter) {
+//   this->current_time_ = current_time;
+//   this->ode_solver_->Step(unk, next_time, current_time_step);
+// }
 /**
  * @brief Solve the time-dependent problem
  *
@@ -296,9 +317,10 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
  * @param current_time_step
  */
 template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(mfem::Vector &unk, double &next_time,
-                                                 const double &current_time,
-                                                 double current_time_step, const int iter) {
+void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(
+    std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+    const double &current_time, double current_time_step, const int iter) {
+  auto &unk = *(vect_unk[0]);
   this->current_time_ = current_time;
   this->ode_solver_->Step(unk, next_time, current_time_step);
 }

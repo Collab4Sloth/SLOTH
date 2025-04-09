@@ -321,8 +321,6 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
     const std::vector<std::vector<std::string>>& unks_info) {
-  int rank = mfem::Mpi::WorldRank();
-
   std::vector<std::tuple<std::string, std::string>> sorted_chemical_system =
       this->get_chemical_system();
   std::vector<mfem::Vector> tp_gf = this->get_tp_conditions(sorted_chemical_system);

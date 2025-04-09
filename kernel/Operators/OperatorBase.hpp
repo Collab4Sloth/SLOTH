@@ -129,8 +129,13 @@ class OperatorBase : public mfem::Operator {
   virtual void set_default_properties() = 0;
   virtual void SetConstantParameters(const double dt, mfem::Vector &u) = 0;
   virtual void SetTransientParameters(const double dt, const mfem::Vector &u) = 0;
-  virtual void solve(mfem::Vector &unk, double &next_time, const double &current_time,
-                     double current_time_step, const int iter) = 0;
+
+  // virtual void solve(mfem::Vector &unk, double &next_time, const double &current_time,
+  //   double current_time_step, const int iter) = 0;
+
+  virtual void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+                     const double &current_time, double current_time_step, const int iter) = 0;
+
   virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;
   virtual void get_parameters() = 0;
   virtual void ComputeEnergies(const int &it, const double &dt, const double &t,
