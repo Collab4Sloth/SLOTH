@@ -80,6 +80,13 @@ class SpatialDiscretization {
 
   void set_finite_element_space();
 
+  void set_mesh_attributes_from_file(const mfem::Mesh &imesh);
+  std::shared_ptr<mfem::AttributeSets> get_elem_attributes();
+  std::shared_ptr<mfem::AttributeSets> get_bdr_attributes();
+
+  std::shared_ptr<mfem::AttributeSets> elem_attr_sets_;
+  std::shared_ptr<mfem::AttributeSets> bdr_attr_sets_;
+
   mfem::Mesh &get_mesh();
   mfem::ParFiniteElementSpace *get_finite_element_space() const;
 
@@ -330,9 +337,11 @@ struct specialized_spatial_constructor<T, 2> {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          a_my_class.set_mesh_attributes_from_file(tmp_mesh);
           a_my_class.mesh_ =
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
+
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
@@ -755,6 +764,43 @@ void SpatialDiscretization<T, DIM>::set_finite_element_space() {
   int taille = this->fespace_->GlobalTrueVSize();
   SlothInfo::debug("My Id = ", rank, " TrueVSize = ", size_, " and GlobalTrueVSize = ", taille);
   // CCI
+}
+
+/**
+ * @brief Set the mesh attributes find in a mesh file
+ *
+ * @tparam T
+ * @tparam DIM
+ * @param imesh
+ */
+template <class T, int DIM>
+void SpatialDiscretization<T, DIM>::set_mesh_attributes_from_file(const mfem::Mesh &imesh) {
+  this->elem_attr_sets_ = std::make_shared<mfem::AttributeSets>(imesh.attribute_sets);
+  this->bdr_attr_sets_ = std::make_shared<mfem::AttributeSets>(imesh.bdr_attribute_sets);
+}
+
+/**
+ * @brief Return the set of attributes associated with the elements
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return std::shared_ptr<mfem::AttributeSets>
+ */
+template <class T, int DIM>
+std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_elem_attributes() {
+  return this->elem_attr_sets_;
+}
+
+/**
+ * @brief Return the set of attributes associated with the boundaries
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return std::shared_ptr<mfem::AttributeSets>
+ */
+template <class T, int DIM>
+std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_bdr_attributes() {
+  return this->bdr_attr_sets_;
 }
 
 /**
