@@ -740,15 +740,16 @@ void Variable<T, DIM>::setInitialCondition(const int& dim,
                                            const AnalyticalFunctions<DIM>& initial_condition_name) {
   auto icf = this->buildAnalyticalFunction(dim, initial_condition_name);
   mfem::FunctionCoefficient ic_fc(icf);
-  // this->uh_.ProjectCoefficient(ic_fc);
   mfem::VectorArrayCoefficient vc(1);
   vc.Set(0, &ic_fc, false);
-
-  for (int i = 0; i < this->el_attr_.Size(); i++) {
-    this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+  if (this->el_attr_.Size() > 0) {
+    for (int i = 0; i < this->el_attr_.Size(); i++) {
+      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+    }
+  } else {
+    this->uh_.ProjectCoefficient(ic_fc);
   }
   this->uh_.GetTrueDofs(this->unk_);
-  // this->uh_.SetTrueVector();
 }
 
 /**
@@ -760,14 +761,16 @@ template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition(
     const mfem::FunctionCoefficient& initial_condition_function) {
   auto ic_fc = initial_condition_function;
-
-  mfem::VectorArrayCoefficient vc(1);
-  vc.Set(0, &ic_fc, false);
-  for (int i = 0; i < this->el_attr_.Size(); i++) {
-    this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+  if (this->el_attr_.Size() > 0) {
+    mfem::VectorArrayCoefficient vc(1);
+    vc.Set(0, &ic_fc, false);
+    for (int i = 0; i < this->el_attr_.Size(); i++) {
+      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+    }
+  } else {
+    this->uh_.ProjectCoefficient(ic_fc);
   }
   this->uh_.GetTrueDofs(this->unk_);
-  // this->uh_.SetTrueVector();
 }
 
 /**
@@ -778,14 +781,17 @@ void Variable<T, DIM>::setInitialCondition(
 template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value) {
   mfem::ConstantCoefficient ic_fc(initial_condition_value);
-  // this->uh_.ProjectCoefficient(ic_fc);
-  mfem::VectorArrayCoefficient vc(1);
-  vc.Set(0, &ic_fc, false);
-  for (int i = 0; i < this->el_attr_.Size(); i++) {
-    this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+  if (this->el_attr_.Size() > 0) {
+    mfem::VectorArrayCoefficient vc(1);
+    std::cout << el_attr_.Size() << std::endl;
+    vc.Set(0, &ic_fc, false);
+    for (int i = 0; i < this->el_attr_.Size(); i++) {
+      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+    }
+  } else {
+    this->uh_.ProjectCoefficient(ic_fc);
   }
   this->uh_.GetTrueDofs(this->unk_);
-  // this->uh_.SetTrueVector();
 }
 
 /**
