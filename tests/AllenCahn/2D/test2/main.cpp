@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   auto refinement_level = 0;
-  SPA spatial("GMSH", 1, refinement_level, "camembert2D_spot.msh", false);
+  SPA spatial("GMSH", 1, refinement_level, "camembert2D.msh", false);
 
   // ##############################
   //     Boundary conditions     //
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
   auto initial_condition = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
 
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, {"UnPellet"}));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition));
 
   // ###########################################
   // ###########################################
