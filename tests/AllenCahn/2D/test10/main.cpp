@@ -22,7 +22,6 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  setVerbosity(Verbosity::Debug);
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -120,9 +119,8 @@ int main(int argc, char* argv[]) {
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  auto nl_params =
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("abs_tol", 1.e-20),
-                 Parameter("rel_tol", 1.e-20), Parameter("print_level", 1));
+  auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
+                              Parameter("abs_tol", 1.e-20), Parameter("rel_tol", 1.e-20));
 
   oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
 
