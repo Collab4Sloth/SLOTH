@@ -111,12 +111,6 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
   auto pst = PST(&spatial, p_pst1);
 
-  calculation_path = "ProblemMPI_";
-  auto p_pst2 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  auto pst2 = PST(&spatial, p_pst2);
   // ####################
   //     operators     //
   // ####################
@@ -136,10 +130,8 @@ int main(int argc, char* argv[]) {
 
   PB problem1("AllenCahn", oper, vars, pst, convergence);
 
-  auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 1, 0.));
-  PB1 problem2(vars1, pst2, convergence);
   // Coupling 1
-  auto cc = Coupling("Default Coupling", problem1, problem2);
+  auto cc = Coupling("Default Coupling", problem1);
 
   // ###########################################
   // ###########################################
