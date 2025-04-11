@@ -22,6 +22,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  setVerbosity(Verbosity::Debug);
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -50,6 +51,7 @@ int main(int argc, char* argv[]) {
 
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VARS, PST>;
+  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -109,6 +111,12 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
   auto pst = PST(&spatial, p_pst1);
 
+  calculation_path = "ProblemMPI_";
+  auto p_pst2 =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail));
+  auto pst2 = PST(&spatial, p_pst2);
   // ####################
   //     operators     //
   // ####################
@@ -118,12 +126,20 @@ int main(int argc, char* argv[]) {
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
+  auto nl_params =
+      Parameters(Parameter("description", "Newton Algorithm"), Parameter("abs_tol", 1.e-20),
+                 Parameter("rel_tol", 1.e-20), Parameter("print_level", 1));
+
+  oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
+
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
   PB problem1("AllenCahn", oper, vars, pst, convergence);
 
+  auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 1, 0.));
+  PB1 problem2(vars1, pst2, convergence);
   // Coupling 1
-  auto cc = Coupling("Default Coupling", problem1);
+  auto cc = Coupling("Default Coupling", problem1, problem2);
 
   // ###########################################
   // ###########################################

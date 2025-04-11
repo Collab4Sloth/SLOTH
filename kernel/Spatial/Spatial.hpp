@@ -17,6 +17,7 @@
 #include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <memory>
+#include <set>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -55,6 +56,15 @@ class SpatialDiscretization {
                         const std::string &mesh_file, bool periodic_mesh = false) {
     specialized_spatial_constructor<T, DIM> init;
     init(*this, mesh_type, fe_order, ref_level, mesh_file, periodic_mesh);
+    this->set_mesh_attributes_from_file();
+    mfem::AttributeSets &attr_sets = this->mesh_->attribute_sets;
+    mfem::AttributeSets &bdr_attr_sets = this->mesh_->bdr_attribute_sets;
+    int rank = mfem::Mpi::WorldRank();
+    for (const auto &name : attr_sets.GetAttributeSetNames()) {
+      for (const auto &ii : attr_sets.GetAttributeSetMarker(name)) {
+        SlothInfo::print("SPAT My Id = ", rank, " name JDD ", name, " node ", ii);
+      }
+    }
   }
 
   template <class... Args>
@@ -74,20 +84,20 @@ class SpatialDiscretization {
 
   int fe_order_;
   int dimension_;
-  mfem::ParMesh mesh_;
+  mfem::ParMesh *mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
 
   void set_finite_element_space();
 
-  void set_mesh_attributes_from_file(const mfem::Mesh &imesh);
+  void set_mesh_attributes_from_file();
   std::shared_ptr<mfem::AttributeSets> get_elem_attributes();
   std::shared_ptr<mfem::AttributeSets> get_bdr_attributes();
 
   std::shared_ptr<mfem::AttributeSets> elem_attr_sets_;
   std::shared_ptr<mfem::AttributeSets> bdr_attr_sets_;
 
-  mfem::Mesh &get_mesh();
+  mfem::ParMesh *get_mesh();
   mfem::ParFiniteElementSpace *get_finite_element_space() const;
 
   std::size_t getSize() const;
@@ -336,12 +346,11 @@ struct specialized_spatial_constructor<T, 2> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char *mesh_file = file.c_str();
-          mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
-          a_my_class.set_mesh_attributes_from_file(tmp_mesh);
-          a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
-          tmp_mesh.Clear();
+          mfem::Mesh tmp_mesh(mesh_file, 1, 1);
 
+          a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD,
+                                               tmp_mesh);  // definition of the parallel mesh
+          tmp_mesh.Clear();
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
@@ -358,7 +367,7 @@ struct specialized_spatial_constructor<T, 2> {
     a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
-      a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+      a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
     } else {
       a_my_class.mesh_max_bdr_attributes_ = -1;
     }
@@ -443,8 +452,8 @@ struct specialized_spatial_constructor<T, 2> {
       const auto sx = std::get<2>(tup_args);
       const auto sy = std::get<3>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
-      a_my_class.mesh_ = mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel
-                                                                   // mesh
+      a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel
+                                                                       // mesh
       tmp_mesh.Clear();
     } else {
       std::string msg =
@@ -452,7 +461,7 @@ struct specialized_spatial_constructor<T, 2> {
           " requires 4 arguments, the number of nodes and the length along each direction";
       mfem::mfem_error(msg.c_str());
     }
-    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
   }
 
   /**
@@ -504,7 +513,7 @@ struct specialized_spatial_constructor<T, 2> {
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
       a_my_class.mesh_ =
-          mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+          new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();
     } else {
       std::string msg =
@@ -512,7 +521,7 @@ struct specialized_spatial_constructor<T, 2> {
           " requires 4 arguments, the number of nodes and the length along each direction";
       mfem::mfem_error(msg.c_str());
     }
-    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
   }
 };
 
@@ -719,7 +728,7 @@ struct specialized_spatial_constructor<T, 3> {
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
       a_my_class.mesh_ =
-          mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+          new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();
 
     } else {
@@ -744,7 +753,7 @@ struct specialized_spatial_constructor<T, 3> {
  *       the constructor of the PostProcessing objet.
  */
 template <class T, int DIM>
-mfem::Mesh &SpatialDiscretization<T, DIM>::get_mesh() {
+mfem::ParMesh *SpatialDiscretization<T, DIM>::get_mesh() {
   return this->mesh_;
 }
 
@@ -757,7 +766,7 @@ mfem::Mesh &SpatialDiscretization<T, DIM>::get_mesh() {
 template <class T, int DIM>
 void SpatialDiscretization<T, DIM>::set_finite_element_space() {
   this->fecollection_ = new T(this->fe_order_, this->dimension_);
-  this->fespace_ = new mfem::ParFiniteElementSpace(&this->mesh_, this->fecollection_);
+  this->fespace_ = new mfem::ParFiniteElementSpace(this->mesh_, this->fecollection_);
   // CCI
   this->size_ = this->fespace_->GetTrueVSize();
   int rank = mfem::Mpi::WorldRank();
@@ -774,9 +783,9 @@ void SpatialDiscretization<T, DIM>::set_finite_element_space() {
  * @param imesh
  */
 template <class T, int DIM>
-void SpatialDiscretization<T, DIM>::set_mesh_attributes_from_file(const mfem::Mesh &imesh) {
-  this->elem_attr_sets_ = std::make_shared<mfem::AttributeSets>(imesh.attribute_sets);
-  this->bdr_attr_sets_ = std::make_shared<mfem::AttributeSets>(imesh.bdr_attribute_sets);
+void SpatialDiscretization<T, DIM>::set_mesh_attributes_from_file() {
+  this->elem_attr_sets_ = std::make_shared<mfem::AttributeSets>(this->mesh_->attribute_sets);
+  this->bdr_attr_sets_ = std::make_shared<mfem::AttributeSets>(this->mesh_->bdr_attribute_sets);
 }
 
 /**
@@ -856,7 +865,7 @@ int SpatialDiscretization<T, DIM>::get_dimension() const {
 template <class T, int DIM>
 void SpatialDiscretization<T, DIM>::apply_uniform_refinement(const int &nb_ref) {
   for (auto l = 0; l < nb_ref; l++) {
-    this->mesh_.UniformRefinement();
+    this->mesh_->UniformRefinement();
   }
 }
 

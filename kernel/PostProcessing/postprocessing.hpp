@@ -79,7 +79,7 @@ class PostProcessing : public DC {
 template <class T, class DC, int DIM>
 PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
                                            const Parameters& params)
-    : DC(params.get_param_value<std::string>("calculation_path"), &space->get_mesh()),
+    : DC(params.get_param_value<std::string>("calculation_path"), space->get_mesh()),
       params_(params) {
   this->get_parameters();
 
