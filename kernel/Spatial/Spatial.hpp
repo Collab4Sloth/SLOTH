@@ -57,14 +57,6 @@ class SpatialDiscretization {
     specialized_spatial_constructor<T, DIM> init;
     init(*this, mesh_type, fe_order, ref_level, mesh_file, periodic_mesh);
     this->set_mesh_attributes_from_file();
-    mfem::AttributeSets &attr_sets = this->mesh_->attribute_sets;
-    mfem::AttributeSets &bdr_attr_sets = this->mesh_->bdr_attribute_sets;
-    int rank = mfem::Mpi::WorldRank();
-    for (const auto &name : attr_sets.GetAttributeSetNames()) {
-      for (const auto &ii : attr_sets.GetAttributeSetMarker(name)) {
-        SlothInfo::print("SPAT My Id = ", rank, " name JDD ", name, " node ", ii);
-      }
-    }
   }
 
   template <class... Args>
@@ -235,7 +227,7 @@ struct specialized_spatial_constructor<T, 1> {
           const auto sx = std::get<1>(tup_args);
           mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian1D(nx, sx);
           a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+              new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
         } else {
           mfem::mfem_error(
@@ -253,7 +245,7 @@ struct specialized_spatial_constructor<T, 1> {
             "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
         break;
     }
-    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
   }
 
   /**
@@ -558,7 +550,7 @@ struct specialized_spatial_constructor<T, 3> {
           const char *mesh_file = file.c_str();
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
           a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+              new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           // CCI
           break;
@@ -577,7 +569,7 @@ struct specialized_spatial_constructor<T, 3> {
     a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
-      a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+      a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
     } else {
       a_my_class.mesh_max_bdr_attributes_ = -1;
     }
@@ -665,7 +657,7 @@ struct specialized_spatial_constructor<T, 3> {
       const auto sy = std::get<4>(tup_args);
       const auto sz = std::get<5>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
-      a_my_class.mesh_ = mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
+      a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
       tmp_mesh.Clear();
     } else {
       std::string msg =
@@ -673,7 +665,7 @@ struct specialized_spatial_constructor<T, 3> {
           " requires six arguments, the number of nodes and the length along each direction";
       mfem::mfem_error(msg.c_str());
     }
-    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
   }
 
   /**
