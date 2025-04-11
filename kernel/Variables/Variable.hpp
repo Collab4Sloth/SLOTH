@@ -997,15 +997,8 @@ void Variable<T, DIM>::set_attributes(SpatialDiscretization<T, DIM>* spatial,
                             attribute_names.begin(), attribute_names.end()),
               "Error while setting attributes associated with elements for variable " +
                   this->variable_name_ + ". Please check your data");
-  int rank = mfem::Mpi::WorldRank();
   for (const auto& name : attribute_names) {
     this->el_attr_.Append(elem_attr_sets->GetAttributeSet(name));
-    for (const auto& ii : elem_attr_sets->GetAttributeSet(name)) {
-      SlothInfo::print("My Id = ", rank, " name JDD ", name, " node ", ii);
-    }
-  }
-  for (const auto& name : set_mesh_attr_names) {
-    SlothInfo::print("My Id = ", rank, " name from mesh ", name);
   }
 }
 
