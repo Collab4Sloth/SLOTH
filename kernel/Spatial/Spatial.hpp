@@ -29,7 +29,7 @@
 
 
 
-struct splited_mesh_helper
+struct split_mesh_helper
 {
   // from internet
 	int count_mesh_files(std::string mesh_pattern) {
@@ -102,11 +102,11 @@ class SpatialDiscretization {
     init(*this, mesh_type, fe_order, ref_level, tup_args, translations);
   }
 
-  bool GMSHReaderSplitedFiles(const std::string mesh_file)
+  bool GMSHReaderSplitFiles(const std::string mesh_file)
   {
     if(!mesh_file.ends_with(".")) return false;
 
-    splited_mesh_helper checker;
+    split_mesh_helper checker;
 
     int myid;
     int mpi_size;
@@ -194,7 +194,7 @@ struct specialized_spatial_constructor<T, 1> {
           // CCI
           break;
         }
-        else if (a_my_class.GMSHReaderSplitedFiles(file))
+        else if (a_my_class.GMSHReaderSplitFiles(file))
         {
           // Add mesh details here
           break;
@@ -398,7 +398,7 @@ struct specialized_spatial_constructor<T, 2> {
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitedFiles(file))
+        } else if (a_my_class.GMSHReaderSplitFiles(file))
         {
           // Add mesh details here
           break;
@@ -612,7 +612,7 @@ struct specialized_spatial_constructor<T, 3> {
           tmp_mesh.Clear();
           // CCI
           break;
-        } else if (a_my_class.GMSHReaderSplitedFiles(file))
+        } else if (a_my_class.GMSHReaderSplitFiles(file))
         {
           // Add Mesh details here
           break;
