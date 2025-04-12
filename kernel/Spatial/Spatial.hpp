@@ -21,10 +21,40 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <regex>
 
 #include "Options/Options.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+
+
+struct splited_mesh_helper
+{
+  // from internet
+	int count_mesh_files(std::string mesh_pattern) {
+		namespace fs = std::filesystem;
+    mesh_pattern += "*";
+		std::regex pattern(mesh_pattern); 
+		int count = 0;
+ 
+    std::string directory_path = ".";
+
+	  for (const auto& entry : fs::directory_iterator(directory_path)) {
+		  if (entry.is_regular_file()) {
+				const std::string filename = entry.path().filename().string();
+				if (std::regex_match(filename, pattern)) {
+					++count;
+				}
+			}
+		}
+		return count;
+  }
+
+  bool operator()(int n_files, std::string mesh_pattern) {
+    return (count_mesh_files(mesh_pattern) == n_files);
+	}
+};
 
 /**
  * @brief specialized_spatial_constructor
@@ -70,6 +100,35 @@ class SpatialDiscretization {
                                  std::vector<mfem::Vector> translations) {
     specialized_spatial_constructor<T, DIM> init;
     init(*this, mesh_type, fe_order, ref_level, tup_args, translations);
+  }
+
+  bool GMSHReaderSplitedFiles(const std::string mesh_file)
+  {
+    if(!mesh_file.ends_with(".")) return false;
+
+    splited_mesh_helper checker;
+
+    int myid;
+    int mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    if(!checker(mpi_size, mesh_file))
+    {
+       std::string msg = "SpatialDiscretization::SpatialDiscretization: " + mesh_file +
+                        "* files is not correctly used. The number of MPI processes is different of of the number of files.";
+       mfem::mfem_error(msg.c_str());
+    }
+    std::string fname(mfem::MakeParFilename(mesh_file, myid));
+    std::ifstream ifs(fname);
+    if(!ifs.good())
+    {
+       std::string msg = "SpatialDiscretization::SpatialDiscretization: " + fname +
+                        " doesn't exist. Please check your data.";
+       mfem::mfem_error(msg.c_str());
+    }
+    mesh_ = mfem::ParMesh(MPI_COMM_WORLD, ifs);
+    return true;
   }
 
   int fe_order_;
@@ -133,6 +192,11 @@ struct specialized_spatial_constructor<T, 1> {
           tmp_mesh.Clear();
 
           // CCI
+          break;
+        }
+        else if (a_my_class.GMSHReaderSplitedFiles(file))
+        {
+          // Add mesh details here
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
@@ -333,6 +397,10 @@ struct specialized_spatial_constructor<T, 2> {
           a_my_class.mesh_ =
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
+          break;
+        } else if (a_my_class.GMSHReaderSplitedFiles(file))
+        {
+          // Add mesh details here
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
@@ -543,6 +611,10 @@ struct specialized_spatial_constructor<T, 3> {
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           // CCI
+          break;
+        } else if (a_my_class.GMSHReaderSplitedFiles(file))
+        {
+          // Add Mesh details here
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
