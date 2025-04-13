@@ -1,4 +1,4 @@
-create_test("SplitMeshAllenCahn2Dtest2" "SplitMeshAllenCahn2Dtest2" FALSE "EXE AC" 4)
+create_test("SplitMeshAllenCahn2Dtest2" "SplitMeshAllenCahn2Dtest2" FALSE "EXE AC" "--oversubscribe 4")
 
 file(GLOB CAMEMBERT2D
   "${CMAKE_SOURCE_DIR}/kernel/Mesh-examples/camembert2D.*"
