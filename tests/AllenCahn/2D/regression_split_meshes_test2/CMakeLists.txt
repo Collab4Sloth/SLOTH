@@ -6,7 +6,7 @@ target_link_libraries(${CURRENT_EXE} Sloth)
 add_test(NAME "SplitMeshAllenCahn2Dtest2" COMMAND mpirun --oversubscribe -np 4 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE})
 
 file(GLOB CAMEMBERT2D
-  "${CMAKE_SOURCE_DIR}/kernel/Mesh-examples/camembert2D.*"
+  "${CMAKE_SOURCE_DIR}/kernel/Mesh-examples/camembert2D.00*"
 )
 file( COPY ${CAMEMBERT2D} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
