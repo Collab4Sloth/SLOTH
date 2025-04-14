@@ -196,9 +196,20 @@ void AnalyticalIdealSolution<T>::check_variables_consistency(
         SlothInfo::debug("Output not available for this Calphad problem: ", output_type);
         break;
       }
+      // (Optional) handle allowed cases explicitly
+      case calphad_outputs::mu:
+      case calphad_outputs::x:
+      case calphad_outputs::g:
+        // process normally
+        break;
+
+      default:
+        MFEM_VERIFY(false, "Unhandled output type.\n");
+        break;
     }
   }
 }
+
 /**
  * @brief Finalization actions (free memory)
  *
