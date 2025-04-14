@@ -57,9 +57,14 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;
-  SPA spatial("InlineSquareWithQuadrangles", 1, refinement_level,
-              std::make_tuple(30, 30, 1.e-3, 1.e-3));
+  const std::string mesh_type =
+      "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
+  const int order_fe = 1;             // finite element order
+  const int refinement_level = 0;     // number of levels of uniform refinement
+  const std::tuple<int, int, double, double>& tuple_of_dimensions = std::make_tuple(
+      30, 30, 1.e-3, 1.e-3);  // Number of elements and maximum length in each direction
+
+  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   // ##############################
   //     Boundary conditions     //
   // ##############################
@@ -76,25 +81,25 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //  Interface thickness
-  const auto& epsilon(5.e-4);
+  const double epsilon(5.e-4);
   // Interfacial energy
-  const auto& sigma(6.e-2);
+  const double sigma(6.e-2);
   // Two-phase mobility
-  const auto& mob(1.e-5);
-  const auto& lambda = 3. * sigma * epsilon / 2.;
-  const auto& omega = 12. * sigma / epsilon;
+  const double mob(1.e-5);
+  const double lambda = 3. * sigma * epsilon / 2.;
+  const double omega = 12. * sigma / epsilon;
   auto params =
       Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
                  Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
-  const auto& center_x = 0.;
-  const auto& center_y = 0.;
-  const auto& a_x = 1.;
-  const auto& a_y = 0.;
-  const auto& thickness = 5.e-5;
-  const auto& radius = 5.e-4;
+  const double center_x = 0.;
+  const double center_y = 0.;
+  const double a_x = 1.;
+  const double a_y = 0.;
+  const double thickness = 5.e-5;
+  const double radius = 5.e-4;
 
   auto initial_condition = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
@@ -110,8 +115,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
 
   const std::string& main_folder_path = "Saves";
-  const auto& level_of_detail = 1;
-  const auto& frequency = 1;
+  const int level_of_detail = 1;
+  const int frequency = 1;
   std::string calculation_path = "Problem1";
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
@@ -150,9 +155,9 @@ int main(int argc, char* argv[]) {
   //            Time-integration              //
   // ###########################################
   // ###########################################
-  const auto& t_initial = 0.0;
-  const auto& t_final = 1.;
-  const auto& dt = 0.25;
+  const double t_initial = 0.0;
+  const double t_final = 1.;
+  const double dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
