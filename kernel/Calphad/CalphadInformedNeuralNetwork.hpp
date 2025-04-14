@@ -98,7 +98,7 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
       "description", "Calphad-informed Neural Network ");
 
   // Chemical potentials
-  if (this->params_.template has_parameter("ChemicalPotentialsNeuralNetwork")) {
+  if (this->params_.has_parameter("ChemicalPotentialsNeuralNetwork")) {
     this->chemical_potentials_neural_network_ =
         this->params_.template get_param_value<std::string>("ChemicalPotentialsNeuralNetwork");
     check_file_existence(this->chemical_potentials_neural_network_);
@@ -108,7 +108,7 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
   }
 
   // Mobilities
-  if (this->params_.template has_parameter("MobilitiesNeuralNetwork")) {
+  if (this->params_.has_parameter("MobilitiesNeuralNetwork")) {
     std::set<std::string> set_mob_phase;
     const auto& vMobilitiesNeuralNetwork =
         this->params_.template get_param_value<vTupleStringString>("MobilitiesNeuralNetwork");
@@ -119,7 +119,7 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
       set_mob_phase.insert(mob_phase);
     }
 
-    if (this->params_.template has_parameter("MobilitiesNeuralNetworkIndex")) {
+    if (this->params_.has_parameter("MobilitiesNeuralNetworkIndex")) {
       const auto& vMobilitiesNeuralNetworkIndex =
           this->params_.template get_param_value<vTupleStringInt>("MobilitiesNeuralNetworkIndex");
       for (const auto& v : vMobilitiesNeuralNetworkIndex) {
@@ -143,7 +143,7 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
     set_mob_phase.clear();
   }
   // Composition order if different from alphabetical order
-  if (this->params_.template has_parameter("InputCompositionOrder")) {
+  if (this->params_.has_parameter("InputCompositionOrder")) {
     this->input_composition_order_ =
         this->params_.template get_param_value<vString>("InputCompositionOrder");
   }
