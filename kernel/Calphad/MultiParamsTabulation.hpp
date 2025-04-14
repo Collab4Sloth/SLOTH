@@ -282,6 +282,7 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
         index = grid_values[i].size() - 1;
       }
       lower_indices[i] = index;
+
     }
 
     alpha = MultiLinearInterpolator<double, N>::computeInterpolationCoefficients(
