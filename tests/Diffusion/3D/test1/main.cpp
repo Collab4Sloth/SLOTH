@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
       std::string hffilename =
           "database/NT_" + std::to_string(nbTemp) + "_Nc_" + std::to_string(nbc) + ".h5";
       auto paramh5file = Parameter("data filename", hffilename);
-      auto calphad_parameters = Parameters(description_calphad, tdbfile, element_removed_from_ic,
+      auto calphad_parameters = Parameters(description_calphad, element_removed_from_ic,
                                            unsuspended_phases, paramh5file);
 
       //==========================================

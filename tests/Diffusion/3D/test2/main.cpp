@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
   //       {{std::make_tuple("O", "GAS"), std::make_tuple(-1, 1.e5)}};
   //   auto reference_states = Parameter("reference_states", map_reference_states);
   auto calphad_parameters = Parameters(
-      description_calphad, tdbfile, paramh5file,
+      description_calphad,  paramh5file,
       list_of_aux_gf_index_for_tabulation, list_of_dataset_tabulation_parameters,
       list_of_dataset_name_mob, list_of_dataset_name_mu, list_of_elements);  //, reference_states);
 
