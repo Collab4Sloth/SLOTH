@@ -78,15 +78,15 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //    Melting factor
-  const auto& alpha(-7.e3);
+  const double alpha(-7.e3);
   // Interface thickness
-  const auto& epsilon(5.e-4);
+  const double epsilon(5.e-4);
   // Interfacial energy
-  const auto& sigma(6.e-2);
+  const double sigma(6.e-2);
   // Two-phase mobility
-  const auto& mob(1.e-5);
-  const auto& lambda = 3. * sigma * epsilon / 2.;
-  const auto& omega = 12. * sigma / epsilon;
+  const double mob(1.e-5);
+  const double lambda = 3. * sigma * epsilon / 2.;
+  const double omega = 12. * sigma / epsilon;
   auto params = Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
                            Parameter("sigma", sigma), Parameter("lambda", lambda),
                            Parameter("omega", omega), Parameter("melting_factor", alpha));
@@ -100,9 +100,9 @@ int main(int argc, char* argv[]) {
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-  const std::string& main_folder_path = "Saves";
-  const auto& level_of_detail = 1;
-  const auto& frequency = 1;
+  const std::string main_folder_path = "Saves";
+  const int level_of_detail = 1;
+  const int frequency = 1;
   std::string calculation_path = "Problem1";
   auto p_pst1 =
       Parameters(Parameter("main_folder_path", main_folder_path),
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
+  const double crit_cvg_1 = 1.e-12;
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
@@ -136,9 +136,9 @@ int main(int argc, char* argv[]) {
   //            Time-integration              //
   // ###########################################
   // ###########################################
-  const auto& t_initial = 0.0;
-  const auto& t_final = 10.;
-  const auto& dt = 0.25;
+  const double t_initial = 0.0;
+  const double t_final = 10.;
+  const double dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
