@@ -29,7 +29,7 @@ class MPI_Problem : public ProblemBase<VAR, PST> {
 
   /////////////////////////////////////////////////////
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
-                    const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                    const int iter, std::vector<std::unique_ptr<mfem::BlockVector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info) override;
 
   /////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ MPI_Problem<VAR, PST>::MPI_Problem(VAR& variables, PST& pst, const PhysicalConve
 template <class VAR, class PST>
 void MPI_Problem<VAR, PST>::do_time_step(double& next_time, const double& current_time,
                                          double current_time_step, const int iter,
-                                         std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+                                         std::vector<std::unique_ptr<mfem::BlockVector>>& vect_unk,
                                          const std::vector<std::vector<std::string>>& unks_info) {
   int rank = mfem::Mpi::WorldRank();
 

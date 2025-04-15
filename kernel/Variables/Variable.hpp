@@ -35,7 +35,7 @@ class Variable {
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
   std::map<int, mfem::Vector> map_of_unk_;
   int depth_ = 2;
-  mfem::Vector unk_;
+  mfem::BlockVector unk_;
   mfem::ParGridFunction uh_;
 
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
@@ -107,8 +107,8 @@ class Variable {
   std::string getVariableName() const;
   std::vector<std::string> get_additional_variable_info() const;
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
-  void update(const mfem::Vector& unk);
-  mfem::Vector get_unknown() const;
+  void update(const mfem::BlockVector& unk);
+  mfem::BlockVector get_unknown() const;
   std::map<int, mfem::Vector> get_map_unknown();
   mfem::ParGridFunction get_gf() const;
   mfem::ParGridFunction get_igf() const;
@@ -478,7 +478,7 @@ mfem::Vector Variable<T, DIM>::get_last() const {
  *
  */
 template <class T, int DIM>
-void Variable<T, DIM>::update(const mfem::Vector& unk) {
+void Variable<T, DIM>::update(const mfem::BlockVector& unk) {
   this->saveBeforeUpdate();
   this->unk_ = unk;
   this->uh_.SetFromTrueDofs(this->unk_);
@@ -511,7 +511,7 @@ void Variable<T, DIM>::saveBeforeUpdate() {
  *
  */
 template <class T, int DIM>
-mfem::Vector Variable<T, DIM>::get_unknown() const {
+mfem::BlockVector Variable<T, DIM>::get_unknown() const {
   return this->unk_;
 }
 

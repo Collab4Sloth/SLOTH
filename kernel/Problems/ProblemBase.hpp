@@ -38,7 +38,7 @@ class ProblemBase {
   std::vector<VAR*> auxvariables_;
   PST& pst_;
   const std::list<int> pop_elem_;
-  std::vector<mfem::Vector> unknown_;
+  std::vector<mfem::BlockVector> unknown_;
   PhysicalConvergence convergence_;
 
  public:
@@ -64,7 +64,7 @@ class ProblemBase {
                                                               const double& current_time_step);
 
   virtual void do_time_step(double& next_time, const double& current_time, double current_time_step,
-                            const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                            const int iter, std::vector<std::unique_ptr<mfem::BlockVector>>& unks,
                             const std::vector<std::vector<std::string>>& unks_info) = 0;
 
   virtual void post_execute(const int& iter, const double& current_time,
@@ -238,7 +238,7 @@ std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execu
     SlothInfo::verbose("   ============================== ");
   }
 
-  std::vector<std::unique_ptr<mfem::Vector>> vect_unk;
+  std::vector<std::unique_ptr<mfem::BlockVector>> vect_unk;
   std::vector<std::vector<std::string>> vect_unk_info;
 
   size_t num_vars = this->variables_.getVariables().size();
@@ -246,7 +246,7 @@ std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execu
   vect_unk_info.reserve(num_vars);
 
   for (auto& var : this->variables_.getVariables()) {
-    vect_unk.push_back(std::make_unique<mfem::Vector>(var.get_unknown()));
+    vect_unk.push_back(std::make_unique<mfem::BlockVector>(var.get_unknown()));
 
     auto& unk_info = vect_unk_info.emplace_back(var.get_additional_variable_info());
     unk_info.insert(unk_info.begin(), var.getVariableName());
@@ -310,7 +310,7 @@ void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& curre
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& current_time,
                                          double current_time_step, const int iter,
-                                         std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                                         std::vector<std::unique_ptr<mfem::BlockVector>>& unks,
                                          const std::vector<std::vector<std::string>>& unks_info) {}
 
 /**

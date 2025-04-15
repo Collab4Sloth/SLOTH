@@ -133,7 +133,7 @@ class OperatorBase : public mfem::Operator {
   // virtual void solve(mfem::Vector &unk, double &next_time, const double &current_time,
   //   double current_time_step, const int iter) = 0;
 
-  virtual void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+  virtual void solve(std::vector<std::unique_ptr<mfem::BlockVector>> &vect_unk, double &next_time,
                      const double &current_time, double current_time_step, const int iter) = 0;
 
   virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;

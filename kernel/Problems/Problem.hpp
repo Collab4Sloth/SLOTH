@@ -51,7 +51,7 @@ class Problem : public ProblemBase<VAR, PST> {
   void initialize(const double& initial_time) override;
 
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
-                    const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
+                    const int iter, std::vector<std::unique_ptr<mfem::BlockVector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info) override;
 
   void post_execute(const int& iter, const double& current_time,
@@ -259,7 +259,7 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& current_time,
                                           double current_time_step, const int iter,
-                                          std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+                                          std::vector<std::unique_ptr<mfem::BlockVector>>& vect_unk,
                                           const std::vector<std::vector<std::string>>& unks_info) {
   // auto& unk = *(vect_unk[0]);
 
