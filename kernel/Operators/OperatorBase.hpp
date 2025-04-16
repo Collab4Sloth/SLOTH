@@ -133,7 +133,7 @@ class OperatorBase : public mfem::Operator {
   // virtual void solve(mfem::Vector &unk, double &next_time, const double &current_time,
   //   double current_time_step, const int iter) = 0;
 
-  virtual void solve(std::vector<std::unique_ptr<mfem::BlockVector>> &vect_unk, double &next_time,
+  virtual void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
                      const double &current_time, double current_time_step, const int iter) = 0;
 
   virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;
@@ -258,7 +258,6 @@ template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variables<T, DIM> &vars,
                                             std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("OperatorBase::initialize");
-
   this->auxvariables_ = auxvars;
 
   auto &vv = vars.getIVariable(0);
@@ -267,12 +266,13 @@ void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variable
   this->bcs_ = vv.get_boundary_conditions();
   this->ess_tdof_list_ = this->bcs_->GetEssentialDofs();
   this->bcs_->SetBoundaryConditions(u);
+  vv.update(u);
 
   this->SetConstantParameters(this->current_dt_, u);
 
   this->SetTransientParameters(this->current_dt_, u);
 
-  vv.update(u);
+  // vv.update(u);
 }
 
 //////////////////////////////////////////////////////////////////////////////

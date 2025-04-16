@@ -125,7 +125,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
 
   // void solve(mfem::Vector &unk, double &next_time, const double &current_time,
   //            double current_time_step, const int iter) override;
-  void solve(std::vector<std::unique_ptr<mfem::BlockVector>> &vect_unk, double &next_time,
+  void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
              const double &current_time, double current_time_step, const int iter) override;
 
   NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override = 0;
@@ -318,7 +318,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
  */
 template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(
-    std::vector<std::unique_ptr<mfem::BlockVector>> &vect_unk, double &next_time,
+    std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
     const double &current_time, double current_time_step, const int iter) {
   auto &unk = *(vect_unk[0]);
   this->current_time_ = current_time;

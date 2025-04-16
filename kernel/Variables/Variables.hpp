@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "Variables/Variable.hpp"
-#include "mfem.hpp"
 #pragma once
 
 /**
