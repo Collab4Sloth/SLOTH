@@ -9,7 +9,6 @@
  * Copyright CEA (c) 2025
  *
  */
-#include <boost/multi_array.hpp>
 #include <functional>
 #include <memory>
 #include <string>
