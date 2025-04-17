@@ -65,8 +65,13 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;
-  SPA spatial("InlineLineWithSegments", 1, refinement_level, std::make_tuple(30, 1.e-3));
+  const std::string& mesh_type = "InlineLineWithSegments";  // type of mesh
+  const int order_fe = 1;                                   // finite element order
+  const int refinement_level = 0;  // number of levels of uniform refinement
+  const std::tuple<int, double>& tuple_of_dimensions =
+      std::make_tuple(30, 1.e-3);  // Number of elements and maximum length
+
+  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   // ##############################
   //     Boundary conditions     //
   // ##############################

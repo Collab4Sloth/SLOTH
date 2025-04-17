@@ -248,7 +248,7 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
 void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVector(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::Vector& elvect) {
-  Catch_Time_Section("AllenCahnNLFormIntegrator:AssembleElementVector");
+  // Catch_Time_Section("AllenCahnNLFormIntegrator:AssembleElementVector");
   int nd = el.GetDof();
   int dim = el.GetDim();
   gradPsi.SetSize(nd, dim);
@@ -297,7 +297,7 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
 void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
     const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
     mfem::DenseMatrix& elmat) {
-  Catch_Time_Section("AllenCahnNLFormIntegrator::AssembleElementGrad");
+  // Catch_Time_Section("AllenCahnNLFormIntegrator::AssembleElementGrad");
 
   int nd = el.GetDof();
   int dim = el.GetDim();
