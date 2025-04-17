@@ -16,7 +16,6 @@
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
-
 ///---------------
 /// Main program
 ///---------------
@@ -49,45 +48,29 @@ int main(int argc, char* argv[]) {
   const int refinement_level = 0;
   const int fe_order = 1;
 
-//   SPA spatial("GMSH", fe_order, refinement_level, "camembert2D.msh", false);
-    SPA spatial("GMSH", fe_order, refinement_level, "camembert3D.msh", false);
+  SPA spatial("GMSH", fe_order, refinement_level, "camembert3D.msh", false);
   // ##############################
   //     Boundary conditions     //
   // ##############################
 
-//   auto interdiffu_bcs =
-//       BCS(&spatial, Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Neumann", 0.),
-//           Boundary("upper", 1, "Neumann", 0.));
-//   auto thermal_bcs =
-//       BCS(&spatial, Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Dirichlet", 835.),
-//           Boundary("upper", 1, "Neumann", 0.));
-//   auto calphad_bcs =
-//       BCS(&spatial, Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Neumann", 0.),
-//           Boundary("upper", 1, "Neumann", 0.));
-//   auto pressure_bcs =
-//       BCS(&spatial, Boundary("lower", 0, "Dirichlet", 5.e6),
-//           Boundary("external", 2, "Dirichlet", 5.e6), Boundary("upper", 1, "Dirichlet", 5.e6));
-
-    auto interdiffu_bcs = BCS(
-        &spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
-        Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
-        Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4, "Neumann",
-        0.));
-    auto thermal_bcs =
-        BCS(&spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
-            Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann",
-            0.), Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4,
-            "Dirichlet", 835.));
-    auto calphad_bcs = BCS(
-        &spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
-        Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
-        Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4, "Neumann",
-        0.));
-    auto pressure_bcs = BCS(&spatial, Boundary("InterPelletPlane", 0, "Dirichlet", 5.e6),
-                            Boundary("MidPelletPlane", 1, "Dirichlet", 5.e6),
-                            Boundary("FrontSurface", 3, "Dirichlet", 5.e6),
-                            Boundary("BehindSurface", 2, "Dirichlet", 5.e6),
-                            Boundary("ExternalSurface", 4, "Dirichlet", 5.e6));
+  auto interdiffu_bcs = BCS(
+      &spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
+      Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
+      Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4, "Neumann", 0.));
+  auto thermal_bcs =
+      BCS(&spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
+          Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
+          Boundary("BehindSurface", 2, "Neumann", 0.),
+          Boundary("ExternalSurface", 4, "Dirichlet", 835.));
+  auto calphad_bcs = BCS(
+      &spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
+      Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
+      Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4, "Neumann", 0.));
+  auto pressure_bcs = BCS(&spatial, Boundary("InterPelletPlane", 0, "Dirichlet", 5.e6),
+                          Boundary("MidPelletPlane", 1, "Dirichlet", 5.e6),
+                          Boundary("FrontSurface", 3, "Dirichlet", 5.e6),
+                          Boundary("BehindSurface", 2, "Dirichlet", 5.e6),
+                          Boundary("ExternalSurface", 4, "Dirichlet", 5.e6));
 
   //---------------------------------------
   // Multiphysics coupling scheme
@@ -162,12 +145,13 @@ int main(int argc, char* argv[]) {
   auto calphad_outputs = VARS(muo, muu, mupu, mobO, mobU, mobPU);
 
   // TDB file
-  auto description_calphad =
-      Parameter("description", "Calphad description for a ternary system");
+  auto description_calphad = Parameter("description", "Calphad description for a ternary system");
   auto element_removed_from_ic = Parameter("element_removed_from_ic", "PU");
   std::map<std::string, double> map_unsuspended_phases = {{"C1_MO2", -1}};
   auto unsuspended_phases = Parameter("unsuspended_phases", map_unsuspended_phases);
 
+  int interpol_dim = 3;
+  auto input_interpol_dim = Parameter("dimension_of_interpolation", interpol_dim);
   std::vector<std::string> composition_order{"O", "U", "PU"};
   auto input_composition_order = Parameter("InputCompositionOrder", composition_order);
   std::vector<std::string> vec;
@@ -183,16 +167,16 @@ int main(int argc, char* argv[]) {
   std::vector<std::size_t> indexgf = {0, 2, 4};
   auto list_of_aux_gf_index_for_tabulation =
       Parameter("list_of_aux_gf_index_for_tabulation", indexgf);
-  std::string hffilename = "NT_1201_Nc_251_Ncu_111.h5";
+  std::string hffilename = "ternary_database.h5";
   auto paramh5file = Parameter("data filename", hffilename);
   //   std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>
   //   map_reference_states =
   //       {{std::make_tuple("O", "GAS"), std::make_tuple(-1, 1.e5)}};
   //   auto reference_states = Parameter("reference_states", map_reference_states);
   auto calphad_parameters = Parameters(
-      description_calphad,  paramh5file,
-      list_of_aux_gf_index_for_tabulation, list_of_dataset_tabulation_parameters,
-      list_of_dataset_name_mob, list_of_dataset_name_mu, list_of_elements);  //, reference_states);
+      description_calphad, paramh5file, list_of_aux_gf_index_for_tabulation,
+      list_of_dataset_tabulation_parameters, list_of_dataset_name_mob, list_of_dataset_name_mu,
+      list_of_elements, input_interpol_dim);  //, reference_states);
 
   //==========================================
   //======      Inter-diffusion         ======
@@ -228,7 +212,7 @@ int main(int argc, char* argv[]) {
   //--- Post-Processing
   const std::string& main_folder_path = "Saves";
   std::string calculation_path = "InterDiffusion_O";
-  const auto& frequency = 20;
+  const auto& frequency = 1;
   auto pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
                                    Parameter("calculation_path", calculation_path),
                                    Parameter("frequency", frequency));
@@ -254,9 +238,9 @@ int main(int argc, char* argv[]) {
   // Problems
   //-----------------------
   // Calphad
-  Calphad_Problem<MultiParamsTabulation<mfem::Vector, 3>, VARS, PST> cc_problem(
-      calphad_parameters, calphad_outputs, cc_pst, convergence, heat_vars, p_vars, xo_vars,xu_vars,xpu_vars
-      );
+  Calphad_Problem<MultiParamsTabulation<mfem::Vector>, VARS, PST> cc_problem(
+      calphad_parameters, calphad_outputs, cc_pst, convergence, heat_vars, p_vars, xo_vars, xu_vars,
+      xpu_vars);
 
   // InterDiffusion : equation on O
   Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
@@ -280,11 +264,10 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   const auto& dt = 0.5;
   const auto& t_initial = 0.0;
-  const auto& t_final = .5;
+  const auto& t_final = 5.;
   auto time_parameters = Parameters(Parameter("initial_time", t_initial),
                                     Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_parameters, main_coupling);
-
   time.solve();
   //---------------------------------------
   // Profiling stop
