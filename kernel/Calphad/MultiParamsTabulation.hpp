@@ -177,26 +177,26 @@ void MultiParamsTabulation<T>::initialize(
     FlattenedTensor<double> myVec;
 
     DATASET_NAME = list_of_dataset_name_mu[i];
-    HDF54Sloth<0>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myVec);
+    HDF54Sloth<std::monostate>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myVec);
     myVec.apply_scalling(this->scalling_func_potentials);
     flatten_mu.emplace(list_of_element[i], myVec);
 
     DATASET_NAME = list_of_dataset_name_mob[i];
-    HDF54Sloth<0>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myVec);
+    HDF54Sloth<std::monostate>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myVec);
     myVec.apply_scalling(this->scalling_func_mob);
     flatten_mobility.emplace(list_of_element[i], myVec);
   }
 
   for (size_t i = 0; i < list_of_dataset_name_energies.size(); i++) {
     DATASET_NAME = list_of_dataset_name_energies[i];
-    HDF54Sloth<0>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, flatten_g);
+    HDF54Sloth<std::monostate>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, flatten_g);
     flatten_g.apply_scalling(this->scalling_func_energy);
   }
   grid_values.resize(this->INTERP_DIM);
   for (size_t i = 0; i < list_of_dataset_tabulation_parameters.size(); i++) {
     std::vector<double> temp_vec;
     DATASET_NAME = list_of_dataset_tabulation_parameters[i];
-    HDF54Sloth<1>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, temp_vec);
+    HDF54Sloth<std::monostate>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, temp_vec);
     grid_values[i] = temp_vec;
   }
 
