@@ -13,7 +13,6 @@
 #include <H5Cpp.h>
 
 #include <algorithm>
-#include <boost/multi_array.hpp>
 #include <functional>
 #include <map>
 #include <memory>
@@ -29,22 +28,22 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
+#include "kernel/Utils/Utils.hpp"
 #pragma once
 
-template <typename T, std::size_t INTERP_DIM = 2>
+template <typename T>
 class MultiParamsTabulation : CalphadBase<T> {
  private:
   std::map<std::string, unsigned int> idx_elem_;
   std::vector<std::string> input_composition_order_;
-
+  std::size_t INTERP_DIM;
   std::string filename;
 
-  boost::multi_array<double, INTERP_DIM> array_g;
+  FlattenedTensor<double> flatten_g;
+  std::map<std::string, FlattenedTensor<double>> flatten_mu;
+  std::map<std::string, FlattenedTensor<double>> flatten_mobility;
 
-  std::map<std::string, boost::multi_array<double, INTERP_DIM>> array_mu;
-  std::map<std::string, boost::multi_array<double, INTERP_DIM>> array_mobility;
-
-  std::array<std::vector<double>, INTERP_DIM> grid_values;
+  std::vector<std::vector<double>> grid_values;
 
   std::vector<std::size_t> list_of_aux_gf_index_for_tabulation;
 
@@ -95,8 +94,8 @@ class MultiParamsTabulation : CalphadBase<T> {
  * @brief Get the parameters associated with the MultiParamsTabulation object
  * @tparam T
  */
-template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::get_parameters() {
+template <typename T>
+void MultiParamsTabulation<T>::get_parameters() {
   this->description_ = this->params_.template get_param_value_or_default<std::string>(
       "description",
       "Analytical thermodynamic description for an ideal solution using tabulated data");
@@ -129,6 +128,24 @@ void MultiParamsTabulation<T, INTERP_DIM>::get_parameters() {
           "list_of_aux_gf_index_for_tabulation", {0, 2});
   this->filename = this->params_.template get_param_value_or_default<std::string>("data filename",
                                                                                   "no input file");
+  this->INTERP_DIM = static_cast<std::size_t>(
+      this->params_.template get_param_value<int>("dimension_of_interpolation"));
+
+  bool check_parameters_mob_mu =
+      (list_of_dataset_name_mob.size() == list_of_dataset_name_mu.size()) &&
+      (list_of_dataset_name_mob.size() == list_of_element.size());
+  bool check_parameters_tab_params =
+      (list_of_aux_gf_index_for_tabulation.size() ==
+       list_of_dataset_tabulation_parameters.size()) &&
+      (list_of_aux_gf_index_for_tabulation.size() == this->INTERP_DIM);
+  MFEM_VERIFY(
+      check_parameters_tab_params,
+      " Parameters : (1) list_of_aux_gf_index_for_tabulation , (2) "
+      "list_of_dataset_tabulation_parameters , (3) dimension_of_interpolation are not consistent");
+  MFEM_VERIFY(
+      check_parameters_mob_mu,
+      " Parameters : (1) list_of_dataset_name_mob , (2) "
+      "list_of_dataset_name_mu , (3) list_of_element are not consistent");
 }
 
 ////////////////////////////////
@@ -138,9 +155,8 @@ void MultiParamsTabulation<T, INTERP_DIM>::get_parameters() {
  *
  * @param params
  */
-template <typename T, std::size_t INTERP_DIM>
-MultiParamsTabulation<T, INTERP_DIM>::MultiParamsTabulation(const Parameters& params)
-    : CalphadBase<T>(params) {
+template <typename T>
+MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params) : CalphadBase<T>(params) {
   this->CU_ = std::make_unique<CalphadUtils<T>>();
   this->get_parameters();
 }
@@ -149,8 +165,8 @@ MultiParamsTabulation<T, INTERP_DIM>::MultiParamsTabulation(const Parameters& pa
  * @brief Initialization of the thermodynamic calculation
  * @tparam T
  */
-template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::initialize(
+template <typename T>
+void MultiParamsTabulation<T>::initialize(
     const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {
   Catch_Time_Section("MultiParamsTabulation::initialize");
 
@@ -158,22 +174,25 @@ void MultiParamsTabulation<T, INTERP_DIM>::initialize(
   const H5std_string FILE_NAME(this->filename);
 
   for (size_t i = 0; i < list_of_element.size(); i++) {
-    boost::multi_array<double, INTERP_DIM> myArray;
+    FlattenedTensor<double> myVec;
 
     DATASET_NAME = list_of_dataset_name_mu[i];
-    HDF54Sloth<INTERP_DIM>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
-    array_mu.emplace(list_of_element[i], myArray);
+    HDF54Sloth<0>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myVec);
+    myVec.apply_scalling(this->scalling_func_potentials);
+    flatten_mu.emplace(list_of_element[i], myVec);
 
     DATASET_NAME = list_of_dataset_name_mob[i];
-    HDF54Sloth<INTERP_DIM>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myArray);
-    array_mobility.emplace(list_of_element[i], myArray);
+    HDF54Sloth<0>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, myVec);
+    myVec.apply_scalling(this->scalling_func_mob);
+    flatten_mobility.emplace(list_of_element[i], myVec);
   }
 
   for (size_t i = 0; i < list_of_dataset_name_energies.size(); i++) {
     DATASET_NAME = list_of_dataset_name_energies[i];
-    HDF54Sloth<INTERP_DIM>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, array_g);
+    HDF54Sloth<0>::get_data_from_HDF5(FILE_NAME, DATASET_NAME, flatten_g);
+    flatten_g.apply_scalling(this->scalling_func_energy);
   }
-
+  grid_values.resize(this->INTERP_DIM);
   for (size_t i = 0; i < list_of_dataset_tabulation_parameters.size(); i++) {
     std::vector<double> temp_vec;
     DATASET_NAME = list_of_dataset_tabulation_parameters[i];
@@ -221,8 +240,8 @@ void MultiParamsTabulation<T, INTERP_DIM>::initialize(
  * @param
  * output_system
  */
-template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::execute(
+template <typename T>
+void MultiParamsTabulation<T>::execute(
     const int dt, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
@@ -245,8 +264,8 @@ void MultiParamsTabulation<T, INTERP_DIM>::execute(
  * @param chemical_system
  * @param output_system
  */
-template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::compute(
+template <typename T>
+void MultiParamsTabulation<T>::compute(
     const size_t nb_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
@@ -257,12 +276,11 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
   std::vector<double> tp_gf_at_node(tp_gf.size());
 
   std::vector<int> sorted_n_t_p = this->CU_->sort_nodes(tp_gf[0], tp_gf[1], "No", "No");
-  const std::size_t N = INTERP_DIM;
+  std::size_t N = this->INTERP_DIM;
 
-  std::array<double, N> point_to_interpolate;
-  std::array<std::size_t, N> lower_indices;
-  std::array<double, N> alpha;
-
+  std::vector<double> point_to_interpolate(N);
+  std::vector<std::size_t> lower_indices(N);
+  std::vector<double> alpha(N);
   for (const auto& id : sorted_n_t_p) {
     std::transform(tp_gf.begin(), tp_gf.end(), tp_gf_at_node.begin(),
                    [&id](const T& vec) { return vec[id]; });
@@ -282,34 +300,34 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
         index = grid_values[i].size() - 1;
       }
       lower_indices[i] = index;
-
     }
 
-    alpha = MultiLinearInterpolator<double, N>::computeInterpolationCoefficients(
-        point_to_interpolate, lower_indices, grid_values);
+    alpha = MultiLinearInterpolator<double>::computeInterpolationCoefficients(
+        N, point_to_interpolate, lower_indices, grid_values);
 
     // Energies
     for (const auto& energy_name : energy_names) {
       const auto& key = std::make_tuple(id, phase, energy_name);
 
-      this->energies_of_phases_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
-          lower_indices, alpha, array_g, this->scalling_func_energy);
+      this->energies_of_phases_[key] =
+          MultiLinearInterpolator<double>::computeInterpolation(N, lower_indices, alpha, flatten_g);
     }
 
     for (std::size_t id_elem = 0; id_elem < chemical_system.size(); ++id_elem) {
       const auto& elem = std::get<0>(chemical_system[id_elem]);
       // Chemical potentials
+
       this->chemical_potentials_[std::make_tuple(id, elem)] =
-          MultiLinearInterpolator<double, N>::computeInterpolation(
-              lower_indices, alpha, array_mu[elem], this->scalling_func_potentials);
+          MultiLinearInterpolator<double>::computeInterpolation(N, lower_indices, alpha,
+                                                                flatten_mu[elem]);
 
       // Molar fractions
       const auto& key = std::make_tuple(id, phase, elem);
       this->elem_mole_fraction_by_phase_[key] = tp_gf_at_node[this->idx_elem_[elem] + 2];
 
       // Mobilities
-      this->mobilities_[key] = MultiLinearInterpolator<double, N>::computeInterpolation(
-          lower_indices, alpha, array_mobility[elem], this->scalling_func_mob);
+      this->mobilities_[key] = MultiLinearInterpolator<double>::computeInterpolation(
+          N, lower_indices, alpha, flatten_mobility[elem]);
     }
   }
 }
@@ -318,8 +336,8 @@ void MultiParamsTabulation<T, INTERP_DIM>::compute(
  * @tparam T
  * @param output_system
  */
-template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::check_variables_consistency(
+template <typename T>
+void MultiParamsTabulation<T>::check_variables_consistency(
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
   for (auto& [output_infos, output_value] : output_system) {
     const std::string& output_type = output_infos.back();
@@ -336,17 +354,18 @@ void MultiParamsTabulation<T, INTERP_DIM>::check_variables_consistency(
     }
   }
 }
+
 /**
  * @brief Finalization actions (free memory)
  *
  * @tparam T
  */
-template <typename T, std::size_t INTERP_DIM>
-void MultiParamsTabulation<T, INTERP_DIM>::finalize() {}
+template <typename T>
+void MultiParamsTabulation<T>::finalize() {}
 
 /**
  * @brief Destroy the Binary Melting< T>::Binary Melting object
  * @tparam T
  */
-template <typename T, std::size_t INTERP_DIM>
-MultiParamsTabulation<T, INTERP_DIM>::~MultiParamsTabulation() {}
+template <typename T>
+MultiParamsTabulation<T>::~MultiParamsTabulation() {}

@@ -9,53 +9,60 @@
  * Copyright CEA (c) 2025
  *
  */
+#include <boost/multi_array.hpp>
 #include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <boost/multi_array.hpp>
+
+#include "kernel/Utils/Utils.hpp"
 
 #pragma once
-
-template <typename T, std::size_t N>
+/**
+ * @brief 
+ * 
+ * @tparam T 
+ */
+template <typename T>
 class MultiLinearInterpolator {
  private:
  public:
   MultiLinearInterpolator();
-  template <typename SCALEF>
-  static double computeInterpolation(const std::array<std::size_t, N> &lower_indices,
-                                     const std::array<double, N> &alpha,
-                                     const boost::multi_array<T, N> &array, SCALEF scalling_func);
-  static std::array<double, N> computeInterpolationCoefficients(
-      const std::array<double, N> &point_to_interpolate,
-      const std::array<std::size_t, N> &lower_indices,
-      const std::array<std::vector<double>, N> &grid_values);
+  static double computeInterpolation(const std::size_t &N,
+                                     const std::vector<std::size_t> &lower_indices,
+                                     const std::vector<double> &alpha,
+                                     const FlattenedTensor<double> &array);
+  static std::vector<double> computeInterpolationCoefficients(
+      const std::size_t &N, const std::vector<double> &point_to_interpolate,
+      const std::vector<std::size_t> &lower_indices,
+      const std::vector<std::vector<double>> &grid_values);
   ~MultiLinearInterpolator();
 };
-template <typename T, std::size_t N>
-MultiLinearInterpolator<T, N>::MultiLinearInterpolator() {}
+template <typename T>
+MultiLinearInterpolator<T>::MultiLinearInterpolator() {}
 
 /**
- * @brief Calculate interpolation using the alpha weighting factor
- *
- * @tparam T
- * @tparam N
- * @param alpha
- * @param array
- * @param scalling_func
+ * @brief 
+ * 
+ * @tparam T 
+ * @param N 
+ * @param lower_indices 
+ * @param alpha 
+ * @param array 
+ * @return double 
  */
-template <typename T, std::size_t N>
-template <typename SCALEF>
-double MultiLinearInterpolator<T, N>::computeInterpolation(
-    const std::array<std::size_t, N> &lower_indices, const std::array<double, N> &alpha,
-    const boost::multi_array<T, N> &array, SCALEF scalling_func) {
+template <typename T>
+double MultiLinearInterpolator<T>::computeInterpolation(
+    const std::size_t &N, const std::vector<std::size_t> &lower_indices,
+    const std::vector<double> &alpha, const FlattenedTensor<double> &array) {
   double val_interpolated = 0.0;
   std::size_t number_of_hypercube_neighbors(1 << N);
+  std::size_t vectorized_ind = 0;
+  std::vector<std::size_t> indices(N);
 
   for (std::size_t i = 0; i < number_of_hypercube_neighbors; ++i) {
-    std::array<std::size_t, N> indices;
     double weight = 1.0;
 
     for (std::size_t j = 0; j < N; ++j) {
@@ -63,28 +70,31 @@ double MultiLinearInterpolator<T, N>::computeInterpolation(
       weight *= condition ? alpha[j] : (1.0 - alpha[j]);
       indices[j] = lower_indices[j] + condition;
     }
-    val_interpolated += weight * scalling_func(array(indices));
-  }
 
+    // vectorized_ind = array.flattened_index(indices);
+    val_interpolated += weight * array.evaluate(indices);
+  }
   return val_interpolated;
 }
+
 /**
- * @brief Calculation of the alpha weighting factor for interpolation
- *
- * @tparam T
- * @tparam N
- * @param point_to_interpolate
- * @param lower_indices
- * @param grid_values
+ * @brief 
+ * 
+ * @tparam T 
+ * @param N 
+ * @param point_to_interpolate 
+ * @param lower_indices 
+ * @param grid_values 
+ * @return std::vector<double> 
  */
-template <typename T, std::size_t N>
-std::array<double, N> MultiLinearInterpolator<T, N>::computeInterpolationCoefficients(
-    const std::array<double, N> &point_to_interpolate,
-    const std::array<std::size_t, N> &lower_indices,
-    const std::array<std::vector<double>, N> &grid_values) {
+template <typename T>
+std::vector<double> MultiLinearInterpolator<T>::computeInterpolationCoefficients(
+    const std::size_t &N, const std::vector<double> &point_to_interpolate,
+    const std::vector<std::size_t> &lower_indices,
+    const std::vector<std::vector<double>> &grid_values) {
   double val_interpolated = 0.0;
 
-  std::array<double, N> alpha;
+  std::vector<double> alpha(N);
   for (std::size_t i = 0; i < N; ++i) {
     double x0 = grid_values[i][lower_indices[i]];
     double x1 = grid_values[i][lower_indices[i] + 1];
@@ -93,5 +103,10 @@ std::array<double, N> MultiLinearInterpolator<T, N>::computeInterpolationCoeffic
   return alpha;
 }
 
-template <typename T, std::size_t N>
-MultiLinearInterpolator<T, N>::~MultiLinearInterpolator() {}
+/**
+ * @brief Destroy the Multi Linear Interpolator< T>:: Multi Linear Interpolator object
+ * 
+ * @tparam T 
+ */
+template <typename T>
+MultiLinearInterpolator<T>::~MultiLinearInterpolator() {}
