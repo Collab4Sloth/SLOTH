@@ -25,19 +25,27 @@
 template <class CALPHAD, class VAR, class PST>
 class Calphad_Problem : public ProblemBase<VAR, PST> {
  private:
+  const Parameters& params_;
+  bool is_KKS_;
   CALPHAD* CC_;
   int findIndexOfTuple(const std::vector<std::tuple<std::string, std::string>>& vec,
                        const std::string& target);
   void check_variables_consistency();
 
   std::vector<mfem::Vector> get_tp_conditions();
+  std::tuple<std::string, mfem::Vector> get_phasefields();
   std::vector<std::tuple<std::string, std::string>> get_chemical_system();
+  void check_phasefield();
+
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
   get_output_system(const std::vector<std::vector<std::string>>& unks_info,
                     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk);
 
+  void get_parameters();
+
  protected:
   std::vector<std::tuple<std::string, std::string>> sorted_chemical_system_;
+  std::vector<std::string> sorted_KKS_phases_;
 
  public:
   template <class... Args>
@@ -66,8 +74,6 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
                     const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info) override;
-
-  void get_parameters();
 
   /////////////////////////////////////////////////////
   void finalize() override;
@@ -102,11 +108,18 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
                                                     const PhysicalConvergence& convergence,
                                                     std::list<int> pop_elem, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, pop_elem,
-                            auxvariables...) {
-  this->check_variables_consistency();
-  this->CC_ = new CALPHAD(params);
+                            auxvariables...),
+      params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
+  this->check_variables_consistency();
+
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+
   this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+  }
 }
 
 /**
@@ -131,11 +144,17 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     PST& pst,
                                                     const PhysicalConvergence& convergence,
                                                     std::list<int> pop_elem, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...) {
-  this->check_variables_consistency();
-  this->CC_ = new CALPHAD(params);
+    : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
+      params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
+  this->check_variables_consistency();
+
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
   this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+  }
 }
 
 /**
@@ -157,12 +176,17 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
                                                     PST& pst,
                                                     const PhysicalConvergence& convergence,
                                                     Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, auxvariables...) {
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, auxvariables...),
+      params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
   this->check_variables_consistency();
 
-  this->CC_ = new CALPHAD(params);
-  this->get_parameters();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
   this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+  }
 }
 
 /**
@@ -186,11 +210,15 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     PST& pst,
                                                     const PhysicalConvergence& convergence,
                                                     Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...) {
-  this->check_variables_consistency();
-  this->CC_ = new CALPHAD(params);
+    : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
+  this->check_variables_consistency();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
   this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+  }
 }
 
 /**
@@ -327,17 +355,23 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
     const std::vector<std::vector<std::string>>& unks_info) {
-  int rank = mfem::Mpi::WorldRank();
-
   std::vector<mfem::Vector> tp_gf = this->get_tp_conditions();
-
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
       output_system = this->get_output_system(unks_info, vect_unk);
 
   const size_t unk_size = vect_unk.size();
 
-  this->CC_->execute(iter, tp_gf, this->sorted_chemical_system_, output_system);
+  // Execute
+  if (!this->is_KKS_) {
+    this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system);
+  } else {
+    // Specific treatment for KKS problems
+    std::tuple<std::string, mfem::Vector> phasefields_gf = this->get_phasefields();
+    this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system,
+                              phasefields_gf);
+  }
 
+  // Recover unknowns
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
     this->unknown_.emplace_back(unk_i);
@@ -355,7 +389,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
  */
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::get_parameters() {
-  this->CC_->get_parameters();
+  this->is_KKS_ = this->params_.template get_param_value_or_default<bool>("enable_KKS", false);
 }
 
 /**
@@ -368,6 +402,31 @@ void Calphad_Problem<CALPHAD, VAR, PST>::get_parameters() {
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
   this->CC_->finalize();
+}
+
+/**
+ * @brief Return GridFunctions associated with Phase-fields
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<mfem::Vector>
+ */
+template <class CALPHAD, class VAR, class PST>
+std::tuple<std::string, mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_phasefields() {
+  std::tuple<std::string, mfem::Vector> aux_gf;
+
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      const auto gf = auxvar.get_unknown();
+      auto variable_info = auxvar.get_additional_variable_info();
+      if (variable_info[0] == "PhaseField") {
+        aux_gf = std::make_tuple(variable_info[1], gf);
+      }
+    }
+  }
+
+  return aux_gf;
 }
 
 /**
@@ -426,6 +485,7 @@ int Calphad_Problem<CALPHAD, VAR, PST>::findIndexOfTuple(
     return -1;  // Return -1 if the element is not found
   }
 }
+
 /**
  * @brief Define the composition use to calculate  equilibria
  * @warning By convention temperature, pressure are given in the first Variables objet Composition
@@ -448,10 +508,9 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
       // For composition, 2 information are required : element symbol, unit symbol
       if (variable_info[0] == "Temperature") continue;
       if (variable_info[0] == "Pressure") continue;
-      MFEM_VERIFY(
-          variable_info.size() == 2,
-          "Error while getting chemical system. Three  additional informations are excepted "
-          ": the element symbol, the unit symbol");
+      MFEM_VERIFY(variable_info.size() == 2,
+                  "Error while getting chemical system. Two additional informations are excepted "
+                  ": the element symbol, the unit symbol");
       chemical_system.emplace_back(std::make_tuple(variable_info[0], variable_info[1]));
     }
   }
@@ -460,6 +519,36 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
                     [](const auto& a, const auto& b) { return std::get<0>(a) < std::get<0>(b); });
 
   return chemical_system;
+}
+
+/**
+ * @brief Return the list of phases involved in the KKS problem
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::string>
+ */
+template <class CALPHAD, class VAR, class PST>
+void Calphad_Problem<CALPHAD, VAR, PST>::check_phasefield() {
+  bool has_phasefield = false;
+
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      auto variable_info = auxvar.get_additional_variable_info();
+      // Check consistency of additional info
+      // For phase-fields, 2 information are required : "PhaseField", the name of the phase
+      if (variable_info[0] != "PhaseField") continue;
+      MFEM_VERIFY(
+          variable_info.size() == 2,
+          "Error while getting phases for KKS problems. Two additional informations are excepted "
+          ": PhaseField and the name of the phase");
+      has_phasefield = true;
+    }
+  }
+  MFEM_VERIFY(has_phasefield,
+              "Error while getting phases for KKS problems. One phase-field variable is expected "
+              "as auxiliary variable");
 }
 
 /**

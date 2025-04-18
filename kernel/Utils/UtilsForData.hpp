@@ -221,8 +221,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void debug(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
-
     if (Verbosity::Debug <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
@@ -235,7 +233,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void error(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
     if (Verbosity::Error <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
@@ -249,7 +246,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void verbose(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
     if (Verbosity::Verbose <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
@@ -263,7 +259,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void print(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
     if (Verbosity::Normal <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
