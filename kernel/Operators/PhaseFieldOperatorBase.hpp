@@ -100,6 +100,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   /** Solve the Backward-Euler equation: k = f(u + dt*k, t), for the unknown k.
       This is the only requirement for high-order SDIRK implicit integration.*/
   void ImplicitSolve(const double dt, const mfem::Vector &u, mfem::Vector &k) override;
+  // void ImplicitSolve(const double dt, const mfem::BlockVector &u, mfem::BlockVector &k);
 
   virtual ~PhaseFieldOperatorBase();
 
@@ -320,9 +321,23 @@ template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(
     std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
     const double &current_time, double current_time_step, const int iter) {
-  auto &unk = *(vect_unk[0]);
+
+  //// Constructing array of offsets
+  const size_t unk_size = vect_unk.size();
+  mfem::Array<size_t> unk_offsets(unk_size);
+  for (size_t i = 0; i < unk_size; i++){
+    auto &unk_i = *(vect_unk[i]);
+    unk_offsets[i] = unk_i.Size();
+  }
+
+  //// Constructing BlockVector
+  mfem::BlockVector block_unk(unk_offsets);
+  for (size_t i = 0; i < unk_size; i++){
+    auto &unk_i = *(vect_unk[i]);
+    block_unk.MakeRef(unk_i, 0, unk_i.Size());
+  }
   this->current_time_ = current_time;
-  this->ode_solver_->Step(unk, next_time, current_time_step);
+  this->ode_solver_->Step(block_unk, next_time, current_time_step);
 }
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
