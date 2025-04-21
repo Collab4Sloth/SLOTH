@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <filesystem>
+#include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <iostream>
 #include <limits>
