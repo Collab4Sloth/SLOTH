@@ -17,43 +17,58 @@
 #include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <memory>
+#include <regex>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <regex>
 
 #include "Options/Options.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+/**
+ * @brief Helper structure for handling mesh file patterns and counts.
+ *
+ * This structure provides functionality to count the number of mesh files
+ * in the current directory that match a given prefix pattern, and to compare
+ * the count to an expected number.
+ */
+struct split_mesh_helper {
+  /**
+   * @brief Counts the number of files in the current directory matching the given prefix.
+   *
+   * @param mesh_prefix
+   * @return int
+   */
+  int count_mesh_files(const std::string &mesh_prefix) {
+    namespace fs = std::filesystem;
+    std::regex pattern("^" + mesh_prefix + ".*$");
 
+    int count = 0;
 
-struct split_mesh_helper
-{
-  // from internet
-	int count_mesh_files(std::string mesh_pattern) {
-		namespace fs = std::filesystem;
-    mesh_pattern += "*";
-		std::regex pattern(mesh_pattern); 
-		int count = 0;
- 
-    std::string directory_path = ".";
-
-	  for (const auto& entry : fs::directory_iterator(directory_path)) {
-		  if (entry.is_regular_file()) {
-				const std::string filename = entry.path().filename().string();
-				if (std::regex_match(filename, pattern)) {
-					++count;
-				}
-			}
-		}
-		return count;
+    for (const auto &entry : fs::directory_iterator(".")) {
+      if (entry.is_regular_file()) {
+        const std::string filename = entry.path().filename().string();
+        if (std::regex_match(filename, pattern)) {
+          ++count;
+        }
+      }
+    }
+    return count;
   }
 
+  /**
+   * @brief Checks whether the number of mesh files matches the expected count.
+   *
+   * @param n_files
+   * @param mesh_pattern
+   * @return true
+   * @return false
+   */
   bool operator()(int n_files, std::string mesh_pattern) {
     return (count_mesh_files(mesh_pattern) == n_files);
-	}
+  }
 };
 
 /**
@@ -102,30 +117,26 @@ class SpatialDiscretization {
     init(*this, mesh_type, fe_order, ref_level, tup_args, translations);
   }
 
-  bool GMSHReaderSplitFiles(const std::string mesh_file)
-  {
-    if(!mesh_file.ends_with(".")) return false;
+  bool GMSHReaderSplitFiles(const std::string mesh_file) {
+    if (!mesh_file.ends_with(".")) return false;
 
     split_mesh_helper checker;
 
-    int myid;
-    int mpi_size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+    int myid = mfem::Mpi::WorldRank();
+    int mpi_size = mfem::Mpi::WorldSize();
 
-    if(!checker(mpi_size, mesh_file))
-    {
-       std::string msg = "SpatialDiscretization::SpatialDiscretization: " + mesh_file +
-                        "* files is not correctly used. The number of MPI processes is different of of the number of files.";
-       mfem::mfem_error(msg.c_str());
+    if (!checker(mpi_size, mesh_file)) {
+      std::string msg = "SpatialDiscretization::SpatialDiscretization: " + mesh_file +
+                        "* files is not correctly used. The number of MPI processes is different "
+                        "of the number of files.";
+      mfem::mfem_error(msg.c_str());
     }
     std::string fname(mfem::MakeParFilename(mesh_file, myid));
     std::ifstream ifs(fname);
-    if(!ifs.good())
-    {
-       std::string msg = "SpatialDiscretization::SpatialDiscretization: " + fname +
+    if (!ifs.good()) {
+      std::string msg = "SpatialDiscretization::SpatialDiscretization: " + fname +
                         " doesn't exist. Please check your data.";
-       mfem::mfem_error(msg.c_str());
+      mfem::mfem_error(msg.c_str());
     }
     mesh_ = mfem::ParMesh(MPI_COMM_WORLD, ifs);
     return true;
@@ -193,10 +204,10 @@ struct specialized_spatial_constructor<T, 1> {
 
           // CCI
           break;
-        }
-        else if (a_my_class.GMSHReaderSplitFiles(file))
-        {
-          // Add mesh details here
+        } else if (a_my_class.GMSHReaderSplitFiles(file)) {
+          SlothInfo::verbose(
+              "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
+              file);
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
@@ -398,9 +409,10 @@ struct specialized_spatial_constructor<T, 2> {
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file))
-        {
-          // Add mesh details here
+        } else if (a_my_class.GMSHReaderSplitFiles(file)) {
+          SlothInfo::verbose(
+              "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
+              file);
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
@@ -612,9 +624,10 @@ struct specialized_spatial_constructor<T, 3> {
           tmp_mesh.Clear();
           // CCI
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file))
-        {
-          // Add Mesh details here
+        } else if (a_my_class.GMSHReaderSplitFiles(file)) {
+          SlothInfo::verbose(
+              "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
+              file);
           break;
         } else {
           std::string msg = "SpatialDiscretization::SpatialDiscretization: " + file +
