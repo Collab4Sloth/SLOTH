@@ -140,7 +140,7 @@ class SpatialDiscretization {
                         " doesn't exist. Please check your data.";
       mfem::mfem_error(msg.c_str());
     }
-    mesh_ = mfem::ParMesh(MPI_COMM_WORLD, ifs);
+    this->mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, ifs);
     return true;
   }
 
