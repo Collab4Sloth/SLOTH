@@ -783,7 +783,7 @@ void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value
   this->uh_ = 0.;
   if (this->el_attr_.Size() > 0) {
     mfem::VectorArrayCoefficient vc(1);
-    std::cout << el_attr_.Size() << std::endl;
+    // std::cout << el_attr_.Size() << std::endl;
     vc.Set(0, &ic_fc, false);
     for (int i = 0; i < this->el_attr_.Size(); i++) {
       this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
