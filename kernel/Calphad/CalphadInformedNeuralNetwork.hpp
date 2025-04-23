@@ -32,6 +32,7 @@
 
 #pragma once
 
+// TODO(cci) : metamodele per phase also for potential
 template <typename T>
 class CalphadInformedNeuralNetwork : public CalphadBase<T> {
  private:
