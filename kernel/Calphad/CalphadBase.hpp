@@ -26,6 +26,9 @@
 
 #pragma once
 
+// TODO(ci) ajouter des conditions kks pour etre obligatoirement en x, avoir acces au dernier
+// element, à la nucleation, à delta_x, delta_t
+
 template <typename T>
 class CalphadBase {
  private:
@@ -44,9 +47,19 @@ class CalphadBase {
  protected:
   std::unique_ptr<CalphadUtils<T>> CU_;
   std::string description_{"UNKNOWN CALPHAD"};
-
+  std::string element_removed_from_ic_;
   const Parameters &params_;
-  MapStringDouble unsuspended_phases_;
+
+  // KKS
+  mfem::SparseMatrix get_A4linearKKS(
+      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+      const std::string &phase, const int node);
+  mfem::Vector get_h4linearKKS(
+      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+      const std::string &phase, const int node);
+  mfem::Vector get_m4linearKKS(
+      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+      const std::string &phase, const int node);
 
   // Containers used to store the results of the equilibrium calculations
   // Chemical potentials for each element. Nodal values
@@ -54,10 +67,11 @@ class CalphadBase {
   // Chemical potential. Nodal values
   // key: [node, elem]
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
+  std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_by_phase_;
   std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_left_T_;
-  std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_left_x_;
+  std::map<std::tuple<int, int, std::string, std::string>, double> chemical_potentials_left_x_;
   std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_right_T_;
-  std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_right_x_;
+  std::map<std::tuple<int, int, std::string, std::string>, double> chemical_potentials_right_x_;
   // Element molar fraction for each phase .Nodal values
   // Element mole fraction by phase. Nodal values
   // key: [node, phase, elem]
@@ -152,6 +166,8 @@ constexpr CalphadBase<T>::CalphadBase(const Parameters &params, bool is_KKS)
  */
 template <typename T>
 void CalphadBase<T>::get_parameters() {
+  this->element_removed_from_ic_ = this->params_.template get_param_value_or_default<std::string>(
+      "element_removed_from_ic", CalphadDefaultConstant::element_removed_from_ic);
   if (this->is_KKS_) {
     this->get_KKS_parameters();
   }
@@ -174,6 +190,11 @@ void CalphadBase<T>::get_KKS_parameters() {
   //     this->params_.template get_param_value<std::string>("KKS_temperature_scheme");
   this->KKS_threshold_ =
       this->params_.template get_param_value_or_default<double>("KKS_threshold", 1.e-2);
+
+  //
+  MFEM_VERIFY(this->params_.has_parameter("element_removed_from_ic"),
+              "Error while defining Calphad object with KKS.  Parameter element_removed_from_ic "
+              "must be defined. Please check your data.");
 }
 
 /**
@@ -198,7 +219,7 @@ void CalphadBase<T>::KKS_execute(
   // List of nodes by phases and within interface
   ////////////////////////////////////////////////////////
   const auto &[phase, phi_gf] = phasefields_gf;
-
+  // TODO(cci) add nucleation managment
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
   std::set<int> indices_inter;
@@ -214,17 +235,14 @@ void CalphadBase<T>::KKS_execute(
   ////////////////////////////////////////////////////////
   /// Calculation of all thermodynamic contribution
   ////////////////////////////////////////////////////////
-  // Primary phase
-  this->execute(dt, indices_ph_1, tp_gf, chemicalsystem, phase);
-  // Secondary phase
-  this->execute(dt, indices_ph_2, tp_gf, chemicalsystem, this->KKS_secondary_phase_);
 
   // Interface calculations
-  auto calculate_interface = [&](const std::vector<T> &delta_tp_gf, const std::string &given_phase,
+  auto calculate_interface = [&](const std::set<int> &indices, const std::vector<T> &delta_tp_gf,
+                                 const std::string &given_phase,
                                  std::map<std::tuple<int, std::string, std::string>, double>
                                      &chemical_potential_interface) {
-    this->execute(dt, indices_inter, delta_tp_gf, chemicalsystem, given_phase);
-    for (const auto &in : indices_inter) {
+    this->execute(dt, indices, delta_tp_gf, chemicalsystem, given_phase);
+    for (const auto &in : indices) {
       for (const auto &elem : chemicalsystem) {
         const auto &[elem1, unit] = elem;
         const double mu = this->chemical_potentials_.at(std::make_tuple(in, elem1));
@@ -232,41 +250,202 @@ void CalphadBase<T>::KKS_execute(
       }
     }
   };
+  //
+  auto calculate_interface_x = [&](const std::vector<T> &delta_tp_gf,
+                                   const std::string &given_phase, const int index_el,
+                                   std::map<std::tuple<int, int, std::string, std::string>, double>
+                                       &chemical_potential_interface) {
+    this->execute(dt, indices_inter, delta_tp_gf, chemicalsystem, given_phase);
+    for (const auto &in : indices_inter) {
+      for (const auto &elem : chemicalsystem) {
+        const auto &[elem1, unit] = elem;
+        const double mu = this->chemical_potentials_.at(std::make_tuple(in, elem1));
+        chemical_potential_interface.emplace(std::make_tuple(index_el, in, elem1, given_phase), mu);
+      }
+    }
+  };
+  // T
+  calculate_interface(indices_ph_1, tp_gf, phase, this->chemical_potentials_by_phase_);
+  calculate_interface(indices_ph_2, tp_gf, this->KKS_secondary_phase_,
+                      this->chemical_potentials_by_phase_);
 
   // T-dT
   std::vector<T> delta_tp_gf = tp_gf;
   delta_tp_gf[0] += this->KKS_temperature_increment_;
-  calculate_interface(delta_tp_gf, phase, this->chemical_potentials_left_T_);
-  calculate_interface(delta_tp_gf, this->KKS_secondary_phase_, this->chemical_potentials_left_T_);
+  calculate_interface(indices_inter, delta_tp_gf, phase, this->chemical_potentials_left_T_);
+  calculate_interface(indices_inter, delta_tp_gf, this->KKS_secondary_phase_,
+                      this->chemical_potentials_left_T_);
 
   // T+dT
   delta_tp_gf = tp_gf;
   delta_tp_gf[0] -= this->KKS_temperature_increment_;
-  calculate_interface(delta_tp_gf, phase, this->chemical_potentials_right_T_);
-  calculate_interface(delta_tp_gf, this->KKS_secondary_phase_, this->chemical_potentials_right_T_);
+  calculate_interface(indices_inter, delta_tp_gf, phase, this->chemical_potentials_right_T_);
+  calculate_interface(indices_inter, delta_tp_gf, this->KKS_secondary_phase_,
+                      this->chemical_potentials_right_T_);
 
   // Loop over chemicalsystem
   for (std::size_t i = 0; i < chemicalsystem.size(); ++i) {
     // x+dx
     delta_tp_gf = tp_gf;
     delta_tp_gf[i + 2] += this->KKS_composition_increment_;
-    calculate_interface(delta_tp_gf, phase, this->chemical_potentials_right_x_);
-    calculate_interface(delta_tp_gf, this->KKS_secondary_phase_,
-                        this->chemical_potentials_right_x_);
+    calculate_interface_x(delta_tp_gf, phase, i, this->chemical_potentials_right_x_);
+    calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, i,
+                          this->chemical_potentials_right_x_);
 
     // x-dx
     delta_tp_gf = tp_gf;
     delta_tp_gf[i + 2] -= this->KKS_composition_increment_;
-    calculate_interface(delta_tp_gf, phase, this->chemical_potentials_left_x_);
-    calculate_interface(delta_tp_gf, this->KKS_secondary_phase_, this->chemical_potentials_left_x_);
+    calculate_interface_x(delta_tp_gf, phase, i, this->chemical_potentials_left_x_);
+    calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, i,
+                          this->chemical_potentials_left_x_);
   }
   ////////////////////////////////////////////////////////
   /// Solve linear systems
   ////////////////////////////////////////////////////////
+  auto ss = std::make_shared<mfem::HypreGMRES>(MPI_COMM_WORLD);
+
+  int node = 0;
+
+  mfem::SparseMatrix Al = get_A4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+  mfem::SparseMatrix As = get_A4linearKKS(chemicalsystem, phase, node);
+  mfem::Vector hs = get_h4linearKKS(chemicalsystem, phase, node);
+  mfem::Vector hl = get_h4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+  mfem::Vector ms = get_m4linearKKS(chemicalsystem, phase, node);
+  mfem::Vector ml = get_m4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+  mfem::Vector b;
+  b = ms;
+  b -= ml;
+
+  // mfem::SparseMatrix A(3);
+
+  // A.Add(i, j, mu);
+
+  // A.Finalize();
+
+  // mfem::HypreParVector x;
+
+  // mfem::HyprePCG solver(A);
+  // solver.SetTol(1e-12);
+  // solver.SetMaxIter(500);
+  // solver.SetPrintLevel(2);
+
+  // mfem::HypreBoomerAMG precond;
+  // precond.SetPrintLevel(0);
+  // solver.SetPreconditioner(precond);
+
+  // solver.Mult(b, x);  // solve Ax = B
 
   ////////////////////////////////////////////////////////
   /// Recover thermodynamic contribution
   ////////////////////////////////////////////////////////
+}
+
+/**
+ * @brief Second order finite difference approximation
+ *
+ *
+ * @tparam T
+ * @return mfem::SparseMatrix
+ */
+template <typename T>
+mfem::SparseMatrix CalphadBase<T>::get_A4linearKKS(
+    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+    const std::string &phase, const int node) {
+  mfem::SparseMatrix AA;
+  // TODO(cci) remove last_component
+  //  Diagonal
+  // elem_id corresponds to index of variable with delta_x, index of derivative
+  int elem_id = 0;
+  for (const auto &[elem, unit] : chemicalsystem) {
+    double d2gd2x =
+        this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, elem, phase)] -
+        this->chemical_potentials_right_x_[std::make_tuple(elem_id, node,
+                                                           this->element_removed_from_ic_, phase)] +
+        this->chemical_potentials_left_x_[std::make_tuple(elem_id, node, elem, phase)] -
+        this->chemical_potentials_left_x_[std::make_tuple(elem_id, node,
+                                                          this->element_removed_from_ic_, phase)];
+    d2gd2x /= 2. * this->KKS_composition_increment_;
+    AA.Add(elem_id, elem_id, d2gd2x);
+    elem_id++;
+  }
+  // Off-diagonal
+  elem_id = 0;
+  int elem_jd = 1;
+  for (const auto &[ielem, unit] : chemicalsystem) {
+    elem_jd = 1;
+    for (const auto &[jelem, unit] : chemicalsystem) {
+      // d2dxdy = 0.5 d(mu_x - mu-n)/dy + 0.5 d(mu_y - mu-n)/dx
+      if (ielem != jelem) {
+        double d2gdxdy =
+            0.5 *
+                (this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, jelem, phase)] -
+                 this->chemical_potentials_right_x_[std::make_tuple(
+                     elem_id, node, this->element_removed_from_ic_, phase)]) +
+            0.5 * (this->chemical_potentials_left_x_[std::make_tuple(elem_jd, node, ielem, phase)] -
+                   this->chemical_potentials_left_x_[std::make_tuple(
+                       elem_jd, node, this->element_removed_from_ic_, phase)]);
+        d2gdxdy /= 2. * this->KKS_composition_increment_;
+
+        AA.Add(elem_id, elem_jd, d2gdxdy);
+
+        elem_jd++;
+      }
+    }
+    elem_id++;
+  }
+  return AA;
+}
+
+/**
+ * @brief First order finite difference approximation
+ *
+ * @tparam T
+ * @param phase
+ * @param node
+ * @return mfem::Vector
+ */
+template <typename T>
+mfem::Vector CalphadBase<T>::get_m4linearKKS(
+    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+    const std::string &phase, const int node) {
+  mfem::Vector mm;
+  int elem_id = 0;
+  for (const auto &[ielem, unit] : chemicalsystem) {
+    mm(elem_id) = this->chemical_potentials_by_phase_[std::make_tuple(node, ielem, phase)] -
+                  this->chemical_potentials_by_phase_[std::make_tuple(
+                      node, this->element_removed_from_ic_, phase)];
+    elem_id++;
+  }
+
+  return mm;
+}
+
+/**
+ * @brief Second order finite difference approximation (cross derivatives)
+ *
+ * @tparam T
+ * @param phase
+ * @param node
+ * @return mfem::Vector
+ */
+template <typename T>
+mfem::Vector CalphadBase<T>::get_h4linearKKS(
+    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+    const std::string &phase, const int node) {
+  mfem::Vector hh;
+  int elem_id = 0;
+  for (const auto &[ielem, unit] : chemicalsystem) {
+    hh(elem_id) = this->chemical_potentials_right_T_[std::make_tuple(node, ielem, phase)] -
+                  this->chemical_potentials_right_T_[std::make_tuple(
+                      node, this->element_removed_from_ic_, phase)] +
+                  this->chemical_potentials_left_T_[std::make_tuple(node, ielem, phase)] -
+                  this->chemical_potentials_left_T_[std::make_tuple(
+                      node, this->element_removed_from_ic_, phase)];
+    hh(elem_id) /= 2. * this->KKS_temperature_increment_;
+    elem_id++;
+  }
+
+  return hh;
 }
 
 /**
@@ -287,6 +466,7 @@ void CalphadBase<T>::global_execute(
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   // Reinitialize containers
   this->clear_containers();
+
   // Execute
   if (!this->is_KKS_) {
     // Creation list of nodes
