@@ -5,6 +5,6 @@ add_subdirectory(HeatTransfer)
 add_subdirectory(SimpleCoupling)
 add_subdirectory(Calphad)
 # EXTERNAL ??
-if(SLOTH_USE_EXTERNAL AND NOT "$ENV{EXT_TEST}" STREQUAL "")
+if((SLOTH_USE_EXTERNAL OR SLOTH_USE_AUTO_EXTERNAL) AND NOT "$ENV{EXT_TEST}" STREQUAL "")
     add_subdirectory($ENV{EXT_TEST} "external")
 endif()

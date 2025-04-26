@@ -21,6 +21,7 @@ function to_absolute_path() {
 #=============================================
 built_code="Release"
 use_external="OFF"
+use_auto_external="OFF"
 use_libtorch="OFF"
 local_mfem_version="No"
 ADDITIONAL_OPTION=""
@@ -39,11 +40,11 @@ for argument; do
         if [[ ! -d "$MFEM4SLOTH" ]]; then
             Print "\nError: "$MFEM4SLOTH" directory does not exist. Please check the path of the local MFEM version!"
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1  
+                return 1
             else
-                exit 1  
+                exit 1
             fi
-        else 
+        else
             Print "Sloth built with a local MFEM version: $MFEM4SLOTH"
             export MFEM4SLOTH=$MFEM4SLOTH
         fi
@@ -69,11 +70,11 @@ for argument; do
         if [[ ! -d "$LIBTORCH" ]]; then
             Print "\nError: "$LIBTORCH" directory does not exist. Please check the path of the local LIBTORCH version!"
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1  
+                return 1
             else
-                exit 1  
+                exit 1
             fi
-        else 
+        else
             export ADDITIONAL_OPTION=" -DCMAKE_PREFIX_PATH=$LIBTORCH "$ADDITIONAL_OPTION
             Print "Sloth built with libTorch "
             # Set libtorch flag
@@ -81,8 +82,64 @@ for argument; do
         fi
 
         ;;
+    --auto_external)
+        Print "Sloth built with an autonomous external package"
+        count=$(echo "$value" | grep -o ',' | wc -l)
+
+        if [[ "${count}" -eq 0 ]]; then
+            export EXT_SRC=$(echo "$value")
+        elif [[ "${count}" -eq 1 ]]; then
+            export EXT_SRC=$(echo "$value" | cut -f1 -d',')
+            export EXT_TEST=$(echo "$value" | cut -f2 -d',')
+        else
+            Print "\nError: --external must contain 1 or 2 values separated by a comma."
+            Print " --auto_external=EXT_SRC,EXT_TEST "
+            Print " EXT_SRC : path of the source files of the interface between the external package and SLOTH"
+            Print " EXT_TEST : path of the SLOTH tests involving the external package"
+
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1
+            else
+                exit 1
+            fi
+        fi
+        EXT_SRC=$(to_absolute_path "$EXT_SRC")
+        if [[ -n "$EXT_TEST" ]]; then
+            EXT_TEST=$(to_absolute_path "$EXT_TEST")
+        fi
+
+        # Validate EXT_SRC
+        if [[ ! -d "$EXT_SRC" ]]; then
+            Print "\nError: Source files directory does not exist. Please check the data!"
+
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1
+            else
+                exit 1
+            fi
+        fi
+
+        # Validate EXT_TEST if present
+        if [[ -n "$EXT_TEST" && ! -d "$EXT_TEST" ]]; then
+            Print "\nError: Tests directory does not exist. Please check the data!"
+
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1
+            else
+                exit 1
+            fi
+        fi
+
+        # Set external flag
+        use_auto_external='ON'
+
+        Print "\nConfiguration successful:"
+        Print " EXT_SRC=$EXT_SRC"
+        Print " EXT_TEST=${EXT_TEST:-'Not Provided'}"
+
+        ;;
     --external)
-        Print "Sloth built with an external package"
+        Print "Sloth built with an external package that requires linking to an external library."
         count=$(echo "$value" | grep -o ',' | wc -l)
 
         if [[ "${count}" -lt 2 ]]; then
@@ -92,11 +149,11 @@ for argument; do
             Print " EXT_LIBNAME : path of the external dynamic library linked to SLOTH"
             Print " EXT_SRC : path of the source files of the interface between the external package and SLOTH"
             Print " EXT_TEST : path of the SLOTH tests involving the external package"
-            
+
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1  
+                return 1
             else
-                exit 1  
+                exit 1
             fi
         fi
         export EXT_LIBDIR=$(echo "$value" | cut -f1 -d',')
@@ -112,33 +169,33 @@ for argument; do
         # Validate EXT_LIBDIR
         if [[ ! -d "$EXT_LIBDIR" ]]; then
             Print "\nError: External package directory does not exist. Please check the data!"
-            
+
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1  
+                return 1
             else
-                exit 1  
+                exit 1
             fi
         fi
 
         # Validate EXT_SRC
         if [[ ! -d "$EXT_SRC" ]]; then
             Print "\nError: Source files directory does not exist. Please check the data!"
-            
+
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1  
+                return 1
             else
-                exit 1  
+                exit 1
             fi
         fi
 
         # Validate EXT_TEST if present
         if [[ -n "$EXT_TEST" && ! -d "$EXT_TEST" ]]; then
             Print "\nError: Tests directory does not exist. Please check the data!"
-            
+
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1  
+                return 1
             else
-                exit 1  
+                exit 1
             fi
         fi
 
@@ -151,41 +208,40 @@ for argument; do
         Print " EXT_SRC=$EXT_SRC"
         Print " EXT_TEST=${EXT_TEST:-'Not Provided'}"
 
-
         ;;
     *)
         Print "\nERROR with $arg in shell script options"
-        
+
         if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-            return 1  
+            return 1
         else
-            exit 1  
+            exit 1
         fi
         ;;
     esac
 done
 
 #=============================================
-#  Environment variables 
+#  Environment variables
 #=============================================
 if [[ "$local_mfem_version" == "Yes" ]]; then
     export MFEM_DIR="$MFEM4SLOTH/mfem/INSTALLDIR/"
     export HYPRE_DIR="$MFEM4SLOTH/hypre/src/hypre/"
     export METIS_DIR="$MFEM4SLOTH/metis-4.0/"
     export SuiteSparse_DIR="$MFEM4SLOTH/SuiteSparse/"
-else 
-#=============================================
-#=============================================
-#  Linux and Spack
-#=============================================
+else
+    #=============================================
+    #=============================================
+    #  Linux and Spack
+    #=============================================
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         spack load mfem
         export HYPRE_DIR=$(spack location -i hypre)
         export MPI_DIR=$(spack location -i mpi)
         export METIS_DIR=$(spack location -i metis)
-#=============================================
-#  Mac and Homebrew
-#=============================================
+        #=============================================
+        #  Mac and Homebrew
+        #=============================================
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         export HYPRE_DIR=$(echo $(brew --prefix hypre))
         export MPI_DIR=$(echo $(brew --prefix open-mpi))
@@ -203,5 +259,5 @@ Print "Create a new build..."
 
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
-cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_LIBTORCH=$use_libtorch
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_AUTO_EXTERNAL=$use_auto_external -DSLOTH_USE_LIBTORCH=$use_libtorch
 Print "Done!"
