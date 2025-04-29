@@ -161,6 +161,7 @@ class Variable {
   void set_additional_information(Args&&... add_var_info);
 
   mfem::Vector get_last() const;
+  mfem::Vector get_second_to_last() const;
   std::string getVariableName() const;
   std::vector<std::string> get_additional_variable_info() const;
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
@@ -819,6 +820,19 @@ void Variable<T, DIM>::setAnalyticalSolution(
   this->analytical_solution_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
       analytical_solution_function);
 }
+
+/**
+ * @brief Return the second-to-last term of the saved variables
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return mfem::Vector
+ */
+template <class T, int DIM>
+mfem::Vector Variable<T, DIM>::get_second_to_last() const {
+  return std::prev(std::prev(this->map_of_unk_.end()))->second;
+}
+
 /**
  * @brief Return the last term of the saved variables
  *
