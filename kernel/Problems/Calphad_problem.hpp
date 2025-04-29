@@ -33,9 +33,13 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   void check_variables_consistency();
 
   std::vector<mfem::Vector> get_tp_conditions();
-  std::tuple<std::string, mfem::Vector> get_phasefields();
+  std::vector<mfem::Vector> get_old_tp_conditions();
+  std::tuple<std::string, mfem::Vector, mfem::Vector> get_phasefields();
+  std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>>
+  get_molar_fractions();
   std::vector<std::tuple<std::string, std::string>> get_chemical_system();
   void check_phasefield();
+  void check_molar_fractions();
 
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
   get_output_system(const std::vector<std::vector<std::string>>& unks_info,
@@ -119,6 +123,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
   this->sorted_chemical_system_ = this->get_chemical_system();
   if (this->is_KKS_) {
     this->check_phasefield();
+    this->check_molar_fractions();
   }
 }
 
@@ -154,6 +159,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
   this->sorted_chemical_system_ = this->get_chemical_system();
   if (this->is_KKS_) {
     this->check_phasefield();
+    this->check_molar_fractions();
   }
 }
 
@@ -186,6 +192,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
   this->sorted_chemical_system_ = this->get_chemical_system();
   if (this->is_KKS_) {
     this->check_phasefield();
+    this->check_molar_fractions();
   }
 }
 
@@ -218,6 +225,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
   this->sorted_chemical_system_ = this->get_chemical_system();
   if (this->is_KKS_) {
     this->check_phasefield();
+    this->check_molar_fractions();
   }
 }
 
@@ -366,9 +374,14 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system);
   } else {
     // Specific treatment for KKS problems
-    std::tuple<std::string, mfem::Vector> phasefields_gf = this->get_phasefields();
+    std::tuple<std::string, mfem::Vector, mfem::Vector> phasefields_gf = this->get_phasefields();
+    std::vector<mfem::Vector> tp_gf_old = this->get_old_tp_conditions();
+    // vector<element, phase, x, x_old>
+    std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> x_phase_gf =
+        this->get_molar_fractions();
+
     this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system,
-                              phasefields_gf);
+                              phasefields_gf, tp_gf_old, x_phase_gf);
   }
 
   // Recover unknowns
@@ -405,7 +418,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
 }
 
 /**
- * @brief Return GridFunctions associated with Phase-fields
+ * @brief Return unknown associated with Phase-fields at current and previous time-step
  *
  * @tparam CALPHAD
  * @tparam VAR
@@ -413,15 +426,17 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
  * @return std::vector<mfem::Vector>
  */
 template <class CALPHAD, class VAR, class PST>
-std::tuple<std::string, mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_phasefields() {
-  std::tuple<std::string, mfem::Vector> aux_gf;
+std::tuple<std::string, mfem::Vector, mfem::Vector>
+Calphad_Problem<CALPHAD, VAR, PST>::get_phasefields() {
+  std::tuple<std::string, mfem::Vector, mfem::Vector> aux_gf;
 
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       const auto gf = auxvar.get_unknown();
+      const auto gf_old = auxvar.get_second_to_last();
       auto variable_info = auxvar.get_additional_variable_info();
       if (variable_info[0] == "PhaseField") {
-        aux_gf = std::make_tuple(variable_info[1], gf);
+        aux_gf = std::make_tuple(variable_info[1], gf, gf_old);
       }
     }
   }
@@ -430,9 +445,40 @@ std::tuple<std::string, mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_ph
 }
 
 /**
- * @brief Define the temperature and the pressure use to calculate  equilibria
- * @warning By convention temperature, pressure are given in the first Variables objet Composition
- * is  given in the second Variables objet
+ * @brief Return unknown associated with element molar fractions by phase at current and previous
+ * time-step (vector<element, phase, x, x_old>)
+ * @remark Element are sorted as the chemical system read for equilibrium calculations
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::string,std::string, mfem::Vector, mfem::Vector>>
+ */
+template <class CALPHAD, class VAR, class PST>
+std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>>
+Calphad_Problem<CALPHAD, VAR, PST>::get_molar_fractions() {
+  const auto size_v = this->sorted_chemical_system_.size();
+  std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> aux_gf(size_v);
+
+  for (const auto& var : this->variables_.getVariables()) {
+    const std::string& symbol = toLowerCase(var.get_additional_variable_info().back());
+    if (var.get_additional_variable_info().size() == 3 &&
+        (calphad_outputs::from(symbol) == calphad_outputs::x)) {
+      const auto gf = var.get_unknown();
+      const auto gf_old = var.get_second_to_last();
+      auto variable_info = var.get_additional_variable_info();
+      const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+      aux_gf[id] = std::make_tuple(variable_info[0], variable_info[1], gf, gf_old);
+    }
+  }
+
+  return aux_gf;
+}
+
+/**
+ * @brief Get temperature, pressure and composition used to calculate  equilibria
+ * @warning By convention temperature, pressure are given in the first Variables objet, Composition
+ * is given in the second Variables objet
  * @tparam CALPHAD
  * @tparam VAR
  * @tparam PST
@@ -446,6 +492,41 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       const auto gf = auxvar.get_unknown();
+      auto variable_info = auxvar.get_additional_variable_info();
+      if (variable_info[0] == "Temperature") {
+        aux_gf[0] = gf;
+      } else if (variable_info[0] == "Pressure") {
+        aux_gf[1] = gf;
+      } else {
+        const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+        aux_gf[id + 2] = gf;
+      }
+    }
+  }
+
+  return aux_gf;
+}
+
+/**
+ * @brief Get the values at point expansion for temperature, pressure and composition used to
+ * calculate equilibria in KKS model
+ * @warning By convention temperature, pressure are given in the first Variables objet, Composition
+ * is given in the second Variables objet
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<mfem::Vector>
+ */
+template <class CALPHAD, class VAR, class PST>
+std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditions() {
+  const auto size_v = this->sorted_chemical_system_.size() + 2;
+  std::vector<mfem::Vector> aux_gf(size_v);
+
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      // Get values at previous time-step (see Variable.hpp)
+      const auto gf = auxvar.get_second_to_last();
+      //
       auto variable_info = auxvar.get_additional_variable_info();
       if (variable_info[0] == "Temperature") {
         aux_gf[0] = gf;
@@ -543,12 +624,19 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_phasefield() {
           variable_info.size() == 2,
           "Error while getting phases for KKS problems. Two additional informations are excepted "
           ": PhaseField and the name of the phase");
+
       has_phasefield = true;
     }
   }
   MFEM_VERIFY(has_phasefield,
               "Error while getting phases for KKS problems. One phase-field variable is expected "
               "as auxiliary variable");
+}
+
+template <class CALPHAD, class VAR, class PST>
+void Calphad_Problem<CALPHAD, VAR, PST>::check_molar_fractions() {
+  // Molar fractions by phase for KKS problem
+  // TODO(cci ): check if well defined
 }
 
 /**

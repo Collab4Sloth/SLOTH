@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "Calphad/CalphadUtils.hpp"
+#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -37,12 +38,16 @@ class CalphadBase {
   double KKS_temperature_increment_;
   double KKS_composition_increment_;
   double KKS_threshold_;
-  std::string KKS_temperature_scheme_;
+  bool KKS_temperature_scheme_;
 
+  PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
+                     ThermodynamicsPotentials::H>
+      interpolation_func_;
   void get_KKS_parameters();
-  void KKS_execute(const int dt, const std::vector<T> &tp_gf,
-                   const std::tuple<std::string, T> &phasefields_gf,
-                   const std::vector<std::tuple<std::string, std::string>> &chemicalsystem);
+  void KKS_execute(const int dt, const std::vector<T> &tp_gf, const std::vector<T> &tp_gf_old,
+                   const std::tuple<std::string, T, T> &phasefields_gf,
+                   const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+                   const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf);
 
  protected:
   std::unique_ptr<CalphadUtils<T>> CU_;
@@ -116,7 +121,10 @@ class CalphadBase {
       const int dt, const std::vector<T> &tp_gf,
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
-      std::optional<const std::tuple<std::string, T>> phase_fields = std::nullopt);
+      std::optional<const std::tuple<std::string, T, T>> phase_fields = std::nullopt,
+      std::optional<const std::vector<T>> tp_gf_old = std::nullopt,
+      std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf =
+          std::nullopt);
 
   virtual void finalize() = 0;
 
@@ -186,8 +194,8 @@ void CalphadBase<T>::get_KKS_parameters() {
       this->params_.template get_param_value<double>("KKS_temperature_increment");
   this->KKS_composition_increment_ =
       this->params_.template get_param_value<double>("KKS_composition_increment");
-  // this->KKS_temperature_scheme_ =
-  //     this->params_.template get_param_value<std::string>("KKS_temperature_scheme");
+  this->KKS_temperature_scheme_ = this->params_.template get_param_value_or_default<bool>(
+      "KKS_temperature_explicit_scheme", false);
   this->KKS_threshold_ =
       this->params_.template get_param_value_or_default<double>("KKS_threshold", 1.e-2);
 
@@ -207,8 +215,10 @@ void CalphadBase<T>::get_KKS_parameters() {
  */
 template <typename T>
 void CalphadBase<T>::KKS_execute(
-    const int dt, const std::vector<T> &tp_gf, const std::tuple<std::string, T> &phasefields_gf,
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem) {
+    const int dt, const std::vector<T> &tp_gf, const std::vector<T> &tp_gf_old,
+    const std::tuple<std::string, T, T> &phasefields_gf,
+    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+    const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf) {
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   std::set<int> list_nodes;
@@ -216,9 +226,15 @@ void CalphadBase<T>::KKS_execute(
     list_nodes.insert(i);
   }
   ////////////////////////////////////////////////////////
+  // Interpolation: H(phi, t+dt)=Hphi , H(phi, t)=Hphi_old
+  ////////////////////////////////////////////////////////
+  T Hphi(nb_nodes);
+  T Hphi_old(nb_nodes);
+
+  ////////////////////////////////////////////////////////
   // List of nodes by phases and within interface
   ////////////////////////////////////////////////////////
-  const auto &[phase, phi_gf] = phasefields_gf;
+  const auto &[phase, phi_gf, phi_gf_old] = phasefields_gf;
   // TODO(cci) add nucleation managment
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
@@ -231,7 +247,43 @@ void CalphadBase<T>::KKS_execute(
     } else {
       indices_inter.insert(index);
     }
+
+    FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(index));
+    Hphi(index) = H(phi_gf(index));
+    Hphi_old(index) = H(phi_gf_old(index));
   }
+
+  ////////////////////////////////////////////////////////
+  // Point of expansion (Tbar,Xbar)
+  ////////////////////////////////////////////////////////
+
+  std::vector<T> bar_tp_gf_ph_1(tp_gf.size());
+  std::vector<T> bar_tp_gf_ph_2(tp_gf.size());
+  // Tbar
+  if (!this->KKS_temperature_scheme_) {
+    bar_tp_gf_ph_1[0] = tp_gf[0];
+    bar_tp_gf_ph_2[0] = tp_gf[0];
+  } else {
+    bar_tp_gf_ph_1[0] = tp_gf_old[0];
+    bar_tp_gf_ph_2[0] = tp_gf_old[0];
+  }
+  // Pressure
+  bar_tp_gf_ph_1[1] = tp_gf[1];
+  bar_tp_gf_ph_2[1] = tp_gf[1];
+
+  // Xbar
+  for (int j = 0; j < x_gf.size(); j++) {
+  const auto & [elem, phase_elem, x_elem, x_elem_old]= x_gf[j];
+    if (phase_elem == phase) {
+      bar_tp_gf_ph_1[j + 2] = x_elem;
+    } else if (phase_elem == this->KKS_secondary_phase_) {
+      bar_tp_gf_ph_2[j + 2] = x_elem;
+    } else {
+      std::runtime_error(
+          "Error while setting molar fraction at point approximation. Unknown phase " + phase_elem);
+    }
+  }
+
   ////////////////////////////////////////////////////////
   /// Calculation of all thermodynamic contribution
   ////////////////////////////////////////////////////////
@@ -265,37 +317,45 @@ void CalphadBase<T>::KKS_execute(
     }
   };
   // T
-  calculate_interface(indices_ph_1, tp_gf, phase, this->chemical_potentials_by_phase_);
-  calculate_interface(indices_ph_2, tp_gf, this->KKS_secondary_phase_,
+  calculate_interface(indices_ph_1, bar_tp_gf_ph_1, phase, this->chemical_potentials_by_phase_);
+  calculate_interface(indices_ph_2, bar_tp_gf_ph_2, this->KKS_secondary_phase_,
                       this->chemical_potentials_by_phase_);
 
   // T-dT
-  std::vector<T> delta_tp_gf = tp_gf;
+  std::vector<T> delta_tp_gf = bar_tp_gf_ph_1;
   delta_tp_gf[0] += this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, phase, this->chemical_potentials_left_T_);
+  delta_tp_gf = bar_tp_gf_ph_2;
+  delta_tp_gf[0] += this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, this->KKS_secondary_phase_,
                       this->chemical_potentials_left_T_);
 
   // T+dT
-  delta_tp_gf = tp_gf;
+  delta_tp_gf = bar_tp_gf_ph_1;
   delta_tp_gf[0] -= this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, phase, this->chemical_potentials_right_T_);
+  delta_tp_gf = bar_tp_gf_ph_2;
+  delta_tp_gf[0] -= this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, this->KKS_secondary_phase_,
                       this->chemical_potentials_right_T_);
 
   // Loop over chemicalsystem
   for (std::size_t i = 0; i < chemicalsystem.size(); ++i) {
     // x+dx
-    delta_tp_gf = tp_gf;
+    delta_tp_gf = bar_tp_gf_ph_1;
     delta_tp_gf[i + 2] += this->KKS_composition_increment_;
     calculate_interface_x(delta_tp_gf, phase, i, this->chemical_potentials_right_x_);
+    delta_tp_gf = bar_tp_gf_ph_2;
+    delta_tp_gf[i + 2] += this->KKS_composition_increment_;
     calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, i,
                           this->chemical_potentials_right_x_);
 
     // x-dx
-    delta_tp_gf = tp_gf;
+    delta_tp_gf = bar_tp_gf_ph_1;
     delta_tp_gf[i + 2] -= this->KKS_composition_increment_;
     calculate_interface_x(delta_tp_gf, phase, i, this->chemical_potentials_left_x_);
+    delta_tp_gf = bar_tp_gf_ph_2;
+    delta_tp_gf[i + 2] -= this->KKS_composition_increment_;
     calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, i,
                           this->chemical_potentials_left_x_);
   }
@@ -306,12 +366,12 @@ void CalphadBase<T>::KKS_execute(
 
   int node = 0;
 
-  mfem::SparseMatrix Al = get_A4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
-  mfem::SparseMatrix As = get_A4linearKKS(chemicalsystem, phase, node);
-  mfem::Vector hs = get_h4linearKKS(chemicalsystem, phase, node);
-  mfem::Vector hl = get_h4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
-  mfem::Vector ms = get_m4linearKKS(chemicalsystem, phase, node);
-  mfem::Vector ml = get_m4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+  mfem::SparseMatrix Al = this->get_A4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+  mfem::SparseMatrix As = this->get_A4linearKKS(chemicalsystem, phase, node);
+  mfem::Vector hs = this->get_h4linearKKS(chemicalsystem, phase, node);
+  mfem::Vector hl = this->get_h4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+  mfem::Vector ms = this->get_m4linearKKS(chemicalsystem, phase, node);
+  mfem::Vector ml = this->get_m4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
   mfem::Vector b;
   b = ms;
   b -= ml;
@@ -462,7 +522,9 @@ void CalphadBase<T>::global_execute(
     const int dt, const std::vector<T> &tp_gf,
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
-    std::optional<const std::tuple<std::string, T>> phase_field_gf) {
+    std::optional<const std::tuple<std::string, T, T>> phase_field_gf,
+    std::optional<const std::vector<T>> tp_gf_old,
+    std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf) {
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   // Reinitialize containers
   this->clear_containers();
@@ -479,7 +541,9 @@ void CalphadBase<T>::global_execute(
   } else {
     MFEM_VERIFY(phase_field_gf.has_value(),
                 "Error: phase_fields_gf is required for KKS execution.");
-    this->KKS_execute(dt, tp_gf, *phase_field_gf, chemicalsystem);
+    MFEM_VERIFY(tp_gf_old.has_value(), "Error: tp_gf_old is required for KKS execution.");
+    MFEM_VERIFY(x_gf.has_value(), "Error: x_gf is required for KKS execution.");
+    this->KKS_execute(dt, tp_gf, *tp_gf_old, *phase_field_gf, chemicalsystem, *x_gf);
   }
   // Use containers to update output_system
   this->update_outputs(nb_nodes, output_system);
