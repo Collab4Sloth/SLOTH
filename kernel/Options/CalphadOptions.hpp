@@ -17,6 +17,24 @@
 
 #pragma once
 
+namespace CalphadDefaultConstant {
+
+/// @brief Threshold used to identify component to exclude from the initial
+/// system
+const auto residual_threshold = 1.e-10;
+/// @brief Order for sorting nodes as function of the temperature
+const std::string temperature_sort_method = "Descending";
+/// @brief Order for sorting nodes as function of the pressure
+const std::string pressure_sort_method = "No";
+
+/// @brief Element removed when moles fractions initialization is considered
+const std::string element_removed_from_ic = "Undefined ";
+
+/// @brief Flag to indicate if the heat capacity must be calculated
+const bool compute_heat_capacity = true;
+
+}  // namespace CalphadDefaultConstant
+
 /**
  * @brief Available outputs for Calphad problems
  */
