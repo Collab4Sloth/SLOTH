@@ -39,7 +39,6 @@ int main(int argc, char* argv[]) {
         std::vector<double>{-1.0, 0.0, 1., 1.5, 2.0},
     };
     std::vector<std::size_t> lower_indices = {1};
-    // boost::multi_array<double, 1> array(boost::extents[5]);
 
     std::vector<double> data(5);
     data[0] = 1.0;
@@ -105,15 +104,6 @@ int main(int argc, char* argv[]) {
                                                     std::vector<double>{0.0, 1.0},
                                                     std::vector<double>{0.0, 1.0}};
 
-    // boost::multi_array<double, 3> array(boost::extents[2][2][2]);
-    // array[0][0][0] = 1.0;
-    // array[1][0][0] = 2.0;
-    // array[0][1][0] = 3.0;
-    // array[1][1][0] = 4.0;
-    // array[0][0][1] = 5.0;
-    // array[1][0][1] = 6.0;
-    // array[0][1][1] = 7.0;
-    // array[1][1][1] = 8.0;
 
     FlattenedTensor<double> farray;
     farray.resize(8);
