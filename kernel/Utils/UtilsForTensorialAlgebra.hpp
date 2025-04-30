@@ -53,10 +53,10 @@ class FlattenedTensor {
 
   void emplace_back(const T &value) { vec.emplace_back(value); }
   void emplace_back_and_move(const T &value) { vec.emplace_back(std::move(value)); }
-  size_t size() const { return vec.size(); }
+  std::size_t size() const { return vec.size(); }
   void resize(const std::size_t &newsize) { return vec.resize(newsize); }
-  T &operator[](size_t i) { return vec[i]; }
-  const T &operator[](size_t i) const { return vec[i]; }
+  T &operator[](std::size_t i) { return vec[i]; }
+  const T &operator[](std::size_t i) const { return vec[i]; }
   const T *data() const { return vec.data(); }
   T *data() { return vec.data(); }
 
@@ -64,7 +64,7 @@ class FlattenedTensor {
   std::size_t flattened_index(std::vector<std::size_t> indices) const;
   T evaluate(std::vector<std::size_t> indices) const;
   void apply_scalling(const std::function<double(double)> &f) {
-    std::transform(this->vec.begin(), this->vec.end(), this->vec.begin(), f);
+  std::transform(this->vec.begin(), this->vec.end(), this->vec.begin(), f);
   };
 
   ~FlattenedTensor();
