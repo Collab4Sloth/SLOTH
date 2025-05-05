@@ -191,10 +191,10 @@ void CalphadBase<T>::get_parameters() {
  */
 template <typename T>
 void CalphadBase<T>::get_KKS_parameters() {
-  this->KKS_check_nucleation_ =
-      this->params_.template get_param_value_or_default<bool>("KKS_check_nucleation", true);
-  this->KKS_nucleation_seed_ =
-      this->params_.template get_param_value_or_default<double>("KKS_nucleation_seed", true);
+  // this->KKS_check_nucleation_ =
+  //     this->params_.template get_param_value_or_default<bool>("KKS_check_nucleation", true);
+  // this->KKS_nucleation_seed_ =
+  //     this->params_.template get_param_value_or_default<double>("KKS_nucleation_seed", true);
 
   this->KKS_secondary_phase_ =
       this->params_.template get_param_value<std::string>("KKS_secondary_phase");
@@ -787,6 +787,12 @@ void CalphadBase<T>::global_execute(
 template <typename T>
 void CalphadBase<T>::clear_containers() {
   // Clear before filling with new results
+  this->diffusion_chemical_potentials_.clear();
+  this->chemical_potentials_by_phase_.clear();
+  this->chemical_potentials_left_T_.clear();
+  this->chemical_potentials_left_x_.clear();
+  this->chemical_potentials_right_T_.clear();
+  this->chemical_potentials_right_x_.clear();
   this->chemical_potentials_.clear();
   this->elem_mole_fraction_by_phase_.clear();
   this->site_fraction_.clear();
