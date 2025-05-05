@@ -219,6 +219,10 @@ void CalphadBase<T>::KKS_execute(
     const std::tuple<std::string, T, T> &phasefields_gf,
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf) {
+  // TODO(cci) add nucleation managment
+  // TODO(cci): gerer le cas xalpha_old < xmin_tol ou premier dt, prendre x
+
+  const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   std::set<int> list_nodes;
@@ -235,29 +239,31 @@ void CalphadBase<T>::KKS_execute(
   // List of nodes by phases and within interface
   ////////////////////////////////////////////////////////
   const auto &[phase, phi_gf, phi_gf_old] = phasefields_gf;
-  // TODO(cci) add nucleation managment
+
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
   std::set<int> indices_inter;
-  for (int index = 0; index < nb_nodes; ++index) {
-    if (phi_gf[index] > 1 - this->KKS_threshold_) {
-      indices_ph_1.insert(index);
-    } else if (phi_gf[index] < this->KKS_threshold_) {
-      indices_ph_2.insert(index);
+  for (int i = 0; i < nb_nodes; ++i) {
+    if (phi_gf[i] > 1 - this->KKS_threshold_) {
+      indices_ph_1.insert(i);
+    } else if (phi_gf[i] < this->KKS_threshold_) {
+      indices_ph_2.insert(i);
     } else {
-      indices_inter.insert(index);
+      indices_inter.insert(i);
     }
 
-    FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(index));
-    Hphi(index) = H(phi_gf(index));
-    Hphi_old(index) = H(phi_gf_old(index));
+    // Interpolation function at node
+    FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(i));
+    Hphi(i) = H(phi_gf(i));
+    Hphi_old(i) = H(phi_gf_old(i));
   }
 
-  ////////////////////////////////////////////////////////
-  // Point of expansion (Tbar,Xbar)
-  ////////////////////////////////////////////////////////
-
+  ////////////////////////////////////////////////
+  // Point of expansion (Tbar,Xbar)         //////
+  ////////////////////////////////////////////////
+  // Phase : index _1
   std::vector<T> bar_tp_gf_ph_1(tp_gf.size());
+  // KKS_secondary_phase : index _2
   std::vector<T> bar_tp_gf_ph_2(tp_gf.size());
   // Tbar
   if (!this->KKS_temperature_scheme_) {
@@ -273,11 +279,11 @@ void CalphadBase<T>::KKS_execute(
 
   // Xbar
   for (int j = 0; j < x_gf.size(); j++) {
-  const auto & [elem, phase_elem, x_elem, x_elem_old]= x_gf[j];
+    const auto &[elem, phase_elem, x_elem, x_elem_old] = x_gf[j];
     if (phase_elem == phase) {
-      bar_tp_gf_ph_1[j + 2] = x_elem;
+      bar_tp_gf_ph_1[j + 2] = x_elem_old;
     } else if (phase_elem == this->KKS_secondary_phase_) {
-      bar_tp_gf_ph_2[j + 2] = x_elem;
+      bar_tp_gf_ph_2[j + 2] = x_elem_old;
     } else {
       std::runtime_error(
           "Error while setting molar fraction at point approximation. Unknown phase " + phase_elem);
@@ -285,7 +291,7 @@ void CalphadBase<T>::KKS_execute(
   }
 
   ////////////////////////////////////////////////////////
-  /// Calculation of all thermodynamic contribution
+  /// Calculation of all thermodynamic contributions
   ////////////////////////////////////////////////////////
 
   // Interface calculations
@@ -316,88 +322,233 @@ void CalphadBase<T>::KKS_execute(
       }
     }
   };
-  // T
+  // TODO(cci) reordonner pour ne pas faire inutilement sur les phases non presentes et sur
+  // interface
+  // TODO(cci) : nucleation faire un test sur l'apparition de la secondary_phase
+  //  T : equilibrium calculations in both phases (Tbar, Xbar)
   calculate_interface(indices_ph_1, bar_tp_gf_ph_1, phase, this->chemical_potentials_by_phase_);
   calculate_interface(indices_ph_2, bar_tp_gf_ph_2, this->KKS_secondary_phase_,
                       this->chemical_potentials_by_phase_);
 
-  // T-dT
+  // T-dT : equilibrium calculations in both phases (Tbar - deltaT, Xbar)
   std::vector<T> delta_tp_gf = bar_tp_gf_ph_1;
-  delta_tp_gf[0] += this->KKS_temperature_increment_;
+  delta_tp_gf[0] -= this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, phase, this->chemical_potentials_left_T_);
   delta_tp_gf = bar_tp_gf_ph_2;
-  delta_tp_gf[0] += this->KKS_temperature_increment_;
+  delta_tp_gf[0] -= this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, this->KKS_secondary_phase_,
                       this->chemical_potentials_left_T_);
 
-  // T+dT
+  // T+dT : equilibrium calculations in both phases (Tbar + deltaT, Xbar)
   delta_tp_gf = bar_tp_gf_ph_1;
-  delta_tp_gf[0] -= this->KKS_temperature_increment_;
+  delta_tp_gf[0] += this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, phase, this->chemical_potentials_right_T_);
   delta_tp_gf = bar_tp_gf_ph_2;
-  delta_tp_gf[0] -= this->KKS_temperature_increment_;
+  delta_tp_gf[0] += this->KKS_temperature_increment_;
   calculate_interface(indices_inter, delta_tp_gf, this->KKS_secondary_phase_,
                       this->chemical_potentials_right_T_);
 
-  // Loop over chemicalsystem
-  for (std::size_t i = 0; i < chemicalsystem.size(); ++i) {
-    // x+dx
-    delta_tp_gf = bar_tp_gf_ph_1;
-    delta_tp_gf[i + 2] += this->KKS_composition_increment_;
-    calculate_interface_x(delta_tp_gf, phase, i, this->chemical_potentials_right_x_);
-    delta_tp_gf = bar_tp_gf_ph_2;
-    delta_tp_gf[i + 2] += this->KKS_composition_increment_;
-    calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, i,
-                          this->chemical_potentials_right_x_);
+  // Loop over chemical system (except the reference element)
+  int ielem = 0;
+  for (const auto &[elem, unit] : chemicalsystem) {
+    if (elem != this->element_removed_from_ic_) {
+      // x + dx
+      // Equilibrium calculations in both phases at (Tbar, Xbar + delta X)
+      delta_tp_gf = bar_tp_gf_ph_1;
+      delta_tp_gf[ielem + 2] += this->KKS_composition_increment_;
+      calculate_interface_x(delta_tp_gf, phase, ielem, this->chemical_potentials_right_x_);
+      delta_tp_gf = bar_tp_gf_ph_2;
+      delta_tp_gf[ielem + 2] += this->KKS_composition_increment_;
+      calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, ielem,
+                            this->chemical_potentials_right_x_);
 
-    // x-dx
-    delta_tp_gf = bar_tp_gf_ph_1;
-    delta_tp_gf[i + 2] -= this->KKS_composition_increment_;
-    calculate_interface_x(delta_tp_gf, phase, i, this->chemical_potentials_left_x_);
-    delta_tp_gf = bar_tp_gf_ph_2;
-    delta_tp_gf[i + 2] -= this->KKS_composition_increment_;
-    calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, i,
-                          this->chemical_potentials_left_x_);
+      // x - dx
+      // Equilibrium calculations in both phases at (Tbar, Xbar - delta X)
+      delta_tp_gf = bar_tp_gf_ph_1;
+      delta_tp_gf[ielem + 2] -= this->KKS_composition_increment_;
+      calculate_interface_x(delta_tp_gf, phase, ielem, this->chemical_potentials_left_x_);
+      delta_tp_gf = bar_tp_gf_ph_2;
+      delta_tp_gf[ielem + 2] -= this->KKS_composition_increment_;
+      calculate_interface_x(delta_tp_gf, this->KKS_secondary_phase_, ielem,
+                            this->chemical_potentials_left_x_);
+    }
+    ielem++;
   }
+
   ////////////////////////////////////////////////////////
   /// Solve linear systems
   ////////////////////////////////////////////////////////
-  auto ss = std::make_shared<mfem::HypreGMRES>(MPI_COMM_WORLD);
 
-  int node = 0;
+  for (const auto &node : indices_inter) {
+    mfem::SparseMatrix Al = this->get_A4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+    mfem::SparseMatrix As = this->get_A4linearKKS(chemicalsystem, phase, node);
+    mfem::Vector hs = this->get_h4linearKKS(chemicalsystem, phase, node);
+    mfem::Vector hl = this->get_h4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+    mfem::Vector ms = this->get_m4linearKKS(chemicalsystem, phase, node);
+    mfem::Vector ml = this->get_m4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
+    //================
+    // ml - ms + (T - Tbar) * (hl - hs)
+    // ml - ms
+    mfem::Vector ml_minus_ms = ml;
+    ml_minus_ms -= ms;
+    // T - Tbar
+    mfem::Vector deltaT = tp_gf[0];
+    deltaT -= bar_tp_gf_ph_1[0];
+    // hl * (T - Tbar)
+    mfem::Vector hl_deltaT = hl;
+    hl_deltaT *= deltaT;
+    // hs * (T - Tbar)
+    mfem::Vector hs_deltaT = hs;
+    hs_deltaT *= deltaT;
+    // hl * (T - Tbar) - hs * (T - Tbar)
+    mfem::Vector hl_minus_hs = hl_deltaT;
+    hl_minus_hs -= hs_deltaT;
 
-  mfem::SparseMatrix Al = this->get_A4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
-  mfem::SparseMatrix As = this->get_A4linearKKS(chemicalsystem, phase, node);
-  mfem::Vector hs = this->get_h4linearKKS(chemicalsystem, phase, node);
-  mfem::Vector hl = this->get_h4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
-  mfem::Vector ms = this->get_m4linearKKS(chemicalsystem, phase, node);
-  mfem::Vector ml = this->get_m4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
-  mfem::Vector b;
-  b = ms;
-  b -= ml;
+    // DeltaX
+    mfem::Vector deltaX(nb_elem - 1);
+    int ielem = 0;
+    int jelem = 0;
+    for (const auto &[elem, unit] : chemicalsystem) {
+      if (elem != this->element_removed_from_ic_) {
+        const double dx = tp_gf[jelem + 2](node) - tp_gf_old[jelem + 2](node);
+        const double xdH = (bar_tp_gf_ph_1[jelem + 2](node) - bar_tp_gf_ph_2[jelem + 2](node)) *
+                           (Hphi(node) - Hphi_old(node));
 
-  // mfem::SparseMatrix A(3);
+        deltaX(ielem) = dx - xdH;
+        ielem++;
+      }
+      jelem++;
+    }
 
-  // A.Add(i, j, mu);
+    // Assemble
 
-  // A.Finalize();
+    mfem::Array<int> offsets(2);
+    offsets[0] = 0;
+    offsets[1] = nb_elem;
 
-  // mfem::HypreParVector x;
+    mfem::BlockVector bb(offsets);
+    mfem::Vector &b0 = bb.GetBlock(0);
+    b0 = ml_minus_ms;
+    b0 += hl_minus_hs;
+    mfem::Vector &b1 = bb.GetBlock(1);
+    b1 = deltaX;
 
-  // mfem::HyprePCG solver(A);
-  // solver.SetTol(1e-12);
-  // solver.SetMaxIter(500);
-  // solver.SetPrintLevel(2);
+    mfem::BlockMatrix AA(offsets, offsets);
+    AA.SetBlock(0, 0, &As);
+    Al *= -1.;
+    AA.SetBlock(0, 0, &Al);
 
-  // mfem::HypreBoomerAMG precond;
-  // precond.SetPrintLevel(0);
-  // solver.SetPreconditioner(precond);
+    // identity
 
-  // solver.Mult(b, x);  // solve Ax = B
+    mfem::Vector HphiNode(nb_elem);
+    HphiNode = Hphi(node);
+    mfem::Vector one_minus_HphiNode(nb_elem);
+    one_minus_HphiNode = 1. - Hphi(node);
 
-  ////////////////////////////////////////////////////////
-  /// Recover thermodynamic contribution
-  ////////////////////////////////////////////////////////
+    mfem::SparseMatrix A10(HphiNode);
+    mfem::SparseMatrix A11(one_minus_HphiNode);
+    AA.SetBlock(1, 0, &A10);
+    AA.SetBlock(1, 1, &A11);
+
+    // Solve
+    auto solver = std::make_shared<mfem::CGSolver>();
+    auto prec = std::make_shared<mfem::BlockDiagonalPreconditioner>(offsets);
+    auto smoother0 = std::make_shared<mfem::GSSmoother>(AA.GetBlock(0, 0));
+    auto smoother1 = std::make_shared<mfem::GSSmoother>(AA.GetBlock(1, 1));
+    prec->SetDiagonalBlock(0, smoother0.get());
+    prec->SetDiagonalBlock(1, smoother1.get());
+
+    solver->SetOperator(AA);
+    solver->SetAbsTol(1e-12);
+    solver->SetRelTol(1e-12);
+    solver->SetMaxIter(50);
+    solver->SetPrintLevel(2);
+    solver->SetPreconditioner(*prec);
+
+    mfem::BlockVector deltaX_phase(offsets);
+    solver->Mult(bb, deltaX_phase);
+    // Back to Al
+    Al *= -1.;
+    ////////////////////////////////////////////////////////
+    /// Recover thermodynamic contribution
+    ////////////////////////////////////////////////////////
+    const mfem::Vector delta_XS = deltaX_phase.GetBlock(0);
+    const mfem::Vector delta_XL = deltaX_phase.GetBlock(1);
+    // Xs, Xl
+    int i = 0;
+    double sumS = 0.;
+    double sumL = 0.;
+    for (const auto &[elem, unit] : chemicalsystem) {
+      if (elem != this->element_removed_from_ic_) {
+        this->elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)] =
+            bar_tp_gf_ph_1[i + 2](node) + delta_XS(i);
+        this->elem_mole_fraction_by_phase_[std::make_tuple(
+            node, this->KKS_secondary_phase_, elem)] = bar_tp_gf_ph_2[i + 2](node) + delta_XL(i);
+        sumS += elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)];
+        sumL +=
+            elem_mole_fraction_by_phase_[std::make_tuple(node, this->KKS_secondary_phase_, elem)];
+      }
+      ++i;
+    }
+    // TODO(cci) initialization with XX global to have continuity?
+    this->elem_mole_fraction_by_phase_[std::make_tuple(node, phase,
+                                                       this->element_removed_from_ic_)] = 1. - sumS;
+    this->elem_mole_fraction_by_phase_[std::make_tuple(node, this->KKS_secondary_phase_,
+                                                       this->element_removed_from_ic_)] = 1. - sumL;
+
+    i = 0;
+    for (const auto &[elem, unit] : chemicalsystem) {
+      SlothInfo::debug(" LinearKKS verification at node  ", node, " elem ", elem,
+                       " DeltaX to obtain ", tp_gf[i + 2](node) - tp_gf_old[i + 2](node),
+                       " DeltaX predicted ",
+                       delta_XS(i) * Hphi(node) + delta_XL(i) * (1. - Hphi(node)));
+      SlothInfo::debug(
+          " LinearKKS verification at node  ", node, "  elem ", elem, " X to obtain ",
+          tp_gf[i + 2](node), " X predicted ",
+          this->elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)] * Hphi(node) +
+              this->elem_mole_fraction_by_phase_[std::make_tuple(node, this->KKS_secondary_phase_,
+                                                                 elem)] *
+                  (1. - Hphi(node)));
+      i++;
+    }
+
+    // Difference of chemical potentials
+    mfem::Vector dmu_s = ms;
+    dmu_s += hs_deltaT;
+    mfem::Vector AsDeltaXs;
+    As.Mult(delta_XS, AsDeltaXs);
+    dmu_s += AsDeltaXs;
+    mfem::Vector dmu_l = ml;
+    dmu_l += hl_deltaT;
+    mfem::Vector AlDeltaXl;
+    Al.Mult(delta_XL, AlDeltaXl);
+    dmu_l += AlDeltaXl;
+
+    for (int i = 0; i < nb_elem; i++) {
+      SlothInfo::debug(" LinearKKS verification at node : dmu  ", node, " elem ", i, " dmu_s ",
+                       dmu_s(i), " dmu_l ", dmu_l(i));
+    }
+    // Gibbs energies (implicit case)
+    double gs = this->energies_of_phases_[std::make_tuple(node, phase, "GM")];
+    double gl = this->energies_of_phases_[std::make_tuple(node, this->KKS_secondary_phase_, "GM")];
+    auto DeltaXsAsDeltaXs = AsDeltaXs * delta_XS;
+    DeltaXsAsDeltaXs *= 0.5;
+    auto DeltaXlAlDeltaXl = AlDeltaXl * delta_XL;
+    DeltaXlAlDeltaXl *= 0.5;
+    auto DeltaXsMs = ms * delta_XS;
+    auto DeltaXlMl = ml * delta_XL;
+    gs += DeltaXsMs;
+    gs += DeltaXsAsDeltaXs;
+    gl += DeltaXlMl;
+    gl += DeltaXlAlDeltaXl;
+
+    SlothInfo::debug(" LinearKKS verification at node g: ", node, " gs ", gs, " gl ", gl);
+  }
+  // TODO(cci) : utiliser energies_of_phases_ et chemical_potentials_by_phase_ pour mettre une phase
+  // "interface"
+  // TODO(cci) : modifier interDiffusionNLFIntegrator  pour  avoir mu/T et des potentiels
+  // d'interdiffusion
+  chemical_potentials_by_phase_
 }
 
 /**
@@ -411,43 +562,49 @@ template <typename T>
 mfem::SparseMatrix CalphadBase<T>::get_A4linearKKS(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::string &phase, const int node) {
-  mfem::SparseMatrix AA;
+  const int nb_elem = chemicalsystem.size();
+  mfem::SparseMatrix AA(nb_elem - 1, nb_elem - 1);
   // TODO(cci) remove last_component
   //  Diagonal
   // elem_id corresponds to index of variable with delta_x, index of derivative
   int elem_id = 0;
   for (const auto &[elem, unit] : chemicalsystem) {
-    double d2gd2x =
-        this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, elem, phase)] -
-        this->chemical_potentials_right_x_[std::make_tuple(elem_id, node,
-                                                           this->element_removed_from_ic_, phase)] +
-        this->chemical_potentials_left_x_[std::make_tuple(elem_id, node, elem, phase)] -
-        this->chemical_potentials_left_x_[std::make_tuple(elem_id, node,
-                                                          this->element_removed_from_ic_, phase)];
-    d2gd2x /= 2. * this->KKS_composition_increment_;
-    AA.Add(elem_id, elem_id, d2gd2x);
+    if (elem != this->element_removed_from_ic_) {
+      double d2gd2x =
+          this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, elem, phase)] -
+          this->chemical_potentials_right_x_[std::make_tuple(
+              elem_id, node, this->element_removed_from_ic_, phase)] +
+          this->chemical_potentials_left_x_[std::make_tuple(elem_id, node, elem, phase)] -
+          this->chemical_potentials_left_x_[std::make_tuple(elem_id, node,
+                                                            this->element_removed_from_ic_, phase)];
+      d2gd2x /= 2. * this->KKS_composition_increment_;
+      AA.Add(elem_id, elem_id, d2gd2x);
+    }
     elem_id++;
   }
   // Off-diagonal
   elem_id = 0;
   int elem_jd = 1;
   for (const auto &[ielem, unit] : chemicalsystem) {
-    elem_jd = 1;
-    for (const auto &[jelem, unit] : chemicalsystem) {
-      // d2dxdy = 0.5 d(mu_x - mu-n)/dy + 0.5 d(mu_y - mu-n)/dx
-      if (ielem != jelem) {
-        double d2gdxdy =
-            0.5 *
-                (this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, jelem, phase)] -
-                 this->chemical_potentials_right_x_[std::make_tuple(
-                     elem_id, node, this->element_removed_from_ic_, phase)]) +
-            0.5 * (this->chemical_potentials_left_x_[std::make_tuple(elem_jd, node, ielem, phase)] -
-                   this->chemical_potentials_left_x_[std::make_tuple(
-                       elem_jd, node, this->element_removed_from_ic_, phase)]);
-        d2gdxdy /= 2. * this->KKS_composition_increment_;
+    if (ielem != this->element_removed_from_ic_) {
+      elem_jd = 1;
+      for (const auto &[jelem, unit] : chemicalsystem) {
+        if (jelem != this->element_removed_from_ic_) {
+          // d2dxdy = 0.5 d(mu_x - mu-n)/dy + 0.5 d(mu_y - mu-n)/dx
+          if (ielem != jelem) {
+            double d2gdxdy = 0.5 * (this->chemical_potentials_right_x_[std::make_tuple(
+                                        elem_id, node, jelem, phase)] -
+                                    this->chemical_potentials_right_x_[std::make_tuple(
+                                        elem_id, node, this->element_removed_from_ic_, phase)]) +
+                             0.5 * (this->chemical_potentials_left_x_[std::make_tuple(
+                                        elem_jd, node, ielem, phase)] -
+                                    this->chemical_potentials_left_x_[std::make_tuple(
+                                        elem_jd, node, this->element_removed_from_ic_, phase)]);
+            d2gdxdy /= 2. * this->KKS_composition_increment_;
 
-        AA.Add(elem_id, elem_jd, d2gdxdy);
-
+            AA.Add(elem_id, elem_jd, d2gdxdy);
+          }
+        }
         elem_jd++;
       }
     }
@@ -468,12 +625,15 @@ template <typename T>
 mfem::Vector CalphadBase<T>::get_m4linearKKS(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::string &phase, const int node) {
-  mfem::Vector mm;
+  const int nb_elem = chemicalsystem.size();
+  mfem::Vector mm(nb_elem - 1);
   int elem_id = 0;
   for (const auto &[ielem, unit] : chemicalsystem) {
-    mm(elem_id) = this->chemical_potentials_by_phase_[std::make_tuple(node, ielem, phase)] -
-                  this->chemical_potentials_by_phase_[std::make_tuple(
-                      node, this->element_removed_from_ic_, phase)];
+    if (ielem != this->element_removed_from_ic_) {
+      mm(elem_id) = this->chemical_potentials_by_phase_[std::make_tuple(node, ielem, phase)] -
+                    this->chemical_potentials_by_phase_[std::make_tuple(
+                        node, this->element_removed_from_ic_, phase)];
+    }
     elem_id++;
   }
 
@@ -492,16 +652,19 @@ template <typename T>
 mfem::Vector CalphadBase<T>::get_h4linearKKS(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::string &phase, const int node) {
-  mfem::Vector hh;
+  const int nb_elem = chemicalsystem.size();
+  mfem::Vector hh(nb_elem - 1);
   int elem_id = 0;
   for (const auto &[ielem, unit] : chemicalsystem) {
-    hh(elem_id) = this->chemical_potentials_right_T_[std::make_tuple(node, ielem, phase)] -
-                  this->chemical_potentials_right_T_[std::make_tuple(
-                      node, this->element_removed_from_ic_, phase)] +
-                  this->chemical_potentials_left_T_[std::make_tuple(node, ielem, phase)] -
-                  this->chemical_potentials_left_T_[std::make_tuple(
-                      node, this->element_removed_from_ic_, phase)];
-    hh(elem_id) /= 2. * this->KKS_temperature_increment_;
+    if (ielem != this->element_removed_from_ic_) {
+      hh(elem_id) = this->chemical_potentials_right_T_[std::make_tuple(node, ielem, phase)] -
+                    this->chemical_potentials_right_T_[std::make_tuple(
+                        node, this->element_removed_from_ic_, phase)] +
+                    this->chemical_potentials_left_T_[std::make_tuple(node, ielem, phase)] -
+                    this->chemical_potentials_left_T_[std::make_tuple(
+                        node, this->element_removed_from_ic_, phase)];
+      hh(elem_id) /= 2. * this->KKS_temperature_increment_;
+    }
     elem_id++;
   }
 
