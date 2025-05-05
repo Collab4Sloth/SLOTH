@@ -256,6 +256,18 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
         SlothInfo::debug("Output : chemical potential for ", var.get_additional_variable_info()[0]);
         break;
       }
+      case calphad_outputs::dmu: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 3,
+                    "Calphad problems requires that diffusion chemical potential ouputs are "
+                    "defined with three "
+                    "additional informations: first an element, second the element of reference, "
+                    "third the symbol 'dmu'. \n");
+
+        SlothInfo::debug("Output : diffusion chemical potential for ",
+                         var.get_additional_variable_info()[0], " and ",
+                         var.get_additional_variable_info()[1]);
+        break;
+      }
       case calphad_outputs::x: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 3,
                     "Calphad problems requires that element molar fraction ouputs are defined with "
