@@ -63,6 +63,7 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
  protected:
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
+  std::vector<std::vector<std::string>> aux_gf_infos_;
 
   virtual FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
                                    const mfem::IntegrationPoint& ir);
@@ -230,6 +231,7 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->aux_gf_ = this->get_aux_gf();
+  this->aux_gf_infos_ = this->get_aux_infos();
 }
 
 /**
