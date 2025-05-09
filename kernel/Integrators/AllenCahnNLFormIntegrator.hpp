@@ -64,6 +64,8 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   std::vector<std::vector<std::string>> aux_gf_infos_;
+  mfem::ParGridFunction temp_gf_;
+  bool scale_mobility_by_temperature_{false};
 
   virtual FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
                                    const mfem::IntegrationPoint& ir);
@@ -129,8 +131,13 @@ template <typename... Args>
 double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
     const Parameters& parameters) {
+  const int nElement = Tr.ElementNo;
   MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_, parameters);
-  return mobi_coeff.Eval(Tr, ip);
+  double mob_coeff = mobi_coeff.Eval(Tr, ip);
+  if (scale_mobility_by_temperature_) {
+    mob_coeff /= this->temp_gf_.GetValue(nElement, ip);
+  }
+  return mob_coeff;
 }
 
 /**
@@ -232,6 +239,29 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->aux_gf_ = this->get_aux_gf();
   this->aux_gf_infos_ = this->get_aux_infos();
+
+  // Temperature scaling for mobility
+  bool temperature_found = false;
+
+  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_gf_infos_[i];
+
+    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+    const std::string& symbol = toLowerCase(variable_info.back());
+
+    if (symbol == "Temperature") {
+      this->temp_gf_ = this->aux_gf_[i];
+      temperature_found = true;
+      break;
+    }
+  }
+  if (this->params_.has_parameter("ScaleMobilityByTemperature")) {
+    this->scale_mobility_by_temperature_ = true;
+  }
+  MFEM_VERIFY(
+      this->scale_mobility_by_temperature_ && temperature_found,
+      "AllenCahnNLFormIntegrator: "
+      "Temperature variable required to scale mobility, but not found in auxiliary variables");
 }
 
 /**
