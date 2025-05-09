@@ -42,18 +42,23 @@ class DiffusionFluxNLFormIntegrator : public mfem::NonlinearFormIntegrator,
   double coeff_stab_;
 
   void add_diffusion_flux(mfem::ElementTransformation& Tr, const int nElement,
-                          const mfem::IntegrationPoint& ip);
+                          const mfem::IntegrationPoint& ip, const int dim);
 
  protected:
   SlothGridFunction u_old_;
 
   mfem::DenseMatrix gradPsi;
-  mfem::Vector Psi, gradMu_;
+  mfem::Vector Psi, Flux_;
 
   virtual void get_parameters();
 
-  virtual std::vector<mfem::Vector> get_flux_gradient() = 0;
-  virtual std::vector<mfem::Coefficient> get_flux_coefficient() = 0;
+  virtual std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr,
+                                                      const int nElement,
+                                                      const mfem::IntegrationPoint& ip,
+                                                      const int dim) = 0;
+  virtual std::vector<double> get_flux_coefficient(mfem::ElementTransformation& Tr,
+                                                   const int nElement,
+                                                   const mfem::IntegrationPoint& ip) = 0;
 
  public:
   DiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
@@ -122,7 +127,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(const mfem::Fini
   this->Psi.SetSize(nd);
   this->gradPsi.SetSize(nd, dim);
 
-  this->gradMu_.SetSize(dim);
+  this->Flux_.SetSize(dim);
 
   elvect.SetSize(nd);
   mfem::Vector grad_uold;
@@ -145,18 +150,18 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(const mfem::Fini
 
     // Stabilization contribution : D_stab * (Grad u - Grad un)
     el.CalcPhysDShape(Tr, this->gradPsi);
-    this->gradPsi.MultTranspose(elfun, this->gradMu_);
+    this->gradPsi.MultTranspose(elfun, this->Flux_);
     this->u_old_.GetGradient(Tr, this->gradPsi, grad_uold);
 
-    this->gradMu_.Add(-1, grad_uold);
-    this->gradMu_ *= this->coeff_stab_;
+    this->Flux_.Add(-1, grad_uold);
+    this->Flux_ *= this->coeff_stab_;
 
     // Diffusion flux (see child classes)
-    this->add_interdiffusion_flux(Tr, nElement, ip, dim);
+    this->add_diffusion_flux(Tr, nElement, ip, dim);
 
-    this->gradMu_ *= ip.weight * Tr.Weight();
+    this->Flux_ *= ip.weight * Tr.Weight();
 
-    this->gradPsi.AddMult(this->gradMu_, elvect, 1.0);
+    this->gradPsi.AddMult(this->Flux_, elvect, 1.0);
   }
 }
 
@@ -213,13 +218,12 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(const mfem::Finite
 template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::add_diffusion_flux(mfem::ElementTransformation& Tr,
                                                              const int nElement,
-                                                             const mfem::IntegrationPoint& ip) {
-  std::vector<mfem::Vector> gradient = this->get_flux_gradient();
-  std::vector<mfem::Coefficient> coef = this->get_flux_coefficient();
-
+                                                             const mfem::IntegrationPoint& ip,
+                                                             const int dim) {
+  std::vector<mfem::Vector> gradient = this->get_flux_gradient(Tr, nElement, ip, dim);
+  std::vector<double> coef = this->get_flux_coefficient(Tr, nElement, ip);
   for (int i = 0; i < gradient.size(); i++) {
-    double xx = coef[i].Eval(Tr, ip);
-    this->gradMu_.Add(xx, gradient[i]);
+    this->Flux_.Add(coef[i], gradient[i]);
   }
 }
 

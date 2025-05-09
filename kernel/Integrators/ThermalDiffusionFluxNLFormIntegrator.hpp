@@ -44,8 +44,12 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
   mfem::ParGridFunction diffu_gf_;
 
   void get_parameters() override;
-  std::vector<mfem::Vector> get_flux_gradient() override;
-  std::vector<mfem::Coefficient> get_flux_coefficient() override;
+  std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr, const int nElement,
+                                              const mfem::IntegrationPoint& ip,
+                                              const int dim) override;
+  std::vector<mfem::Coefficient> get_flux_coefficient(mfem::ElementTransformation& Tr,
+                                                      const int nElement,
+                                                      const mfem::IntegrationPoint& ip) override;
 
  public:
   ThermalDiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
