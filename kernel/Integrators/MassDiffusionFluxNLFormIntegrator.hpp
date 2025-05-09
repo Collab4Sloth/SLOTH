@@ -43,6 +43,7 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
 
  protected:
   std::map<std::string, mfem::ParGridFunction> mu_gf_;
+  std::map<std::string, mfem::ParGridFunction> dmu_gf_;
   std::map<std::string, mfem::ParGridFunction> mob_gf_;
   mfem::ParGridFunction temp_gf_;
   bool scaling_by_temperature_{false};
@@ -121,6 +122,14 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 
       const std::string& elem_name = variable_info[0];
       this->mu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+    } else if (symbol == "dmu") {
+      MFEM_VERIFY(
+          variable_info.size() == 2,
+          "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
+          "getting diffusion chemical potentials. Expected [element, 'dmu']");
+
+      const std::string& elem_name = variable_info[0];
+      this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
     } else if (symbol == "mob") {
       MFEM_VERIFY(
           variable_info.size() > 2,
@@ -135,9 +144,16 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
     }
   }
 
-  MFEM_VERIFY(!this->mu_gf_.empty(),
-              "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
-              "No chemical potentials found. At least one is required.");
+  MFEM_VERIFY(
+      !this->mu_gf_.empty() || !this->dmu_gf_.empty(),
+      "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+      "Neither chemical potentials, nor diffusion chemical potentials found. At least one of them "
+      "is required.");
+
+  MFEM_VERIFY(
+      this->mu_gf_.empty() || this->dmu_gf_.empty(),
+      "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+      "Either chemical potentials or diffusion chemical potentials can be used, but not both");
 
   MFEM_VERIFY(
       !this->mob_gf_.empty(),
