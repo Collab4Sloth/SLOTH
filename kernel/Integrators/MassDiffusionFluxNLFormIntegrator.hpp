@@ -234,11 +234,14 @@ template <class VARS>
 std::vector<double> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficient(
     const int nElement, const mfem::IntegrationPoint& ip) {
   std::vector<double> coefficient;
+  double scaling_factor = 1.;
+  if (this->scale_coefficients_by_temperature_) {
+    scaling_factor = Physical::R * this->temp_gf_.GetValue(nElement, ip);
+  }
   if (this->mobilities_found_) {
     coefficient.reserve(this->mob_gf_.size());
-
     for (const auto& [component, mob_gf] : this->mob_gf_) {
-      coefficient.emplace_back(mob_gf.GetValue(nElement, ip));
+      coefficient.emplace_back(mob_gf.GetValue(nElement, ip) / scaling_factor);
     }
   }
   return coefficient;
