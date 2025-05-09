@@ -188,7 +188,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 }
 
 /**
- * @brief Return the gradient part of the diffusion flux
+ * @brief Return the gradient part of the mass diffusion flux
  *
  * @tparam VARS
  * @return std::vector<mfem::Vector>

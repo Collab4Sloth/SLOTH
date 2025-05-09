@@ -46,10 +46,7 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
   void get_parameters() override;
   std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr, const int nElement,
                                               const mfem::IntegrationPoint& ip,
-                                              const int dim) override;
-  std::vector<mfem::Coefficient> get_flux_coefficient(mfem::ElementTransformation& Tr,
-                                                      const int nElement,
-                                                      const mfem::IntegrationPoint& ip) override;
+                                              const int dim) final;
 
  public:
   ThermalDiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
@@ -127,6 +124,30 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
   MFEM_VERIFY(diffusivity_found,
               "ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: Thermal "
               "diffusivity not found. Please check your data.");
+}
+
+/**
+ * @brief Return the gradient part of the thermal diffusion flux
+ *
+ * @tparam VARS
+ * @param Tr
+ * @param nElement
+ * @param ip
+ * @param dim
+ * @return std::vector<mfem::Vector>
+ */
+template <class VARS>
+std::vector<mfem::Vector> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient(
+    mfem::ElementTransformation& Tr, const int nElement, const mfem::IntegrationPoint& ip,
+    const int dim) {
+  std::vector<mfem::Vector> gradient;
+  mfem::Vector gradT;
+  gradT.SetSize(dim);
+  auto temp = SlothGridFunction(this->temp_gf_);
+  temp.GetGradient(Tr, this->gradPsi, gradT);
+
+  gradient.emplace_back(gradT);
+  return gradient;
 }
 
 /**
