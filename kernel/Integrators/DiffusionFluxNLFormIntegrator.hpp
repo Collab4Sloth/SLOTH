@@ -56,8 +56,7 @@ class DiffusionFluxNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                                                       const int nElement,
                                                       const mfem::IntegrationPoint& ip,
                                                       const int dim) = 0;
-  virtual std::vector<double> get_flux_coefficient(mfem::ElementTransformation& Tr,
-                                                   const int nElement,
+  virtual std::vector<double> get_flux_coefficient(const int nElement,
                                                    const mfem::IntegrationPoint& ip) = 0;
 
  public:

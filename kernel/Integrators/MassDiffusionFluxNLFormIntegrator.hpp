@@ -41,6 +41,7 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
  private:
   bool dmu_found_{false};
   bool mu_found_{false};
+  bool mobilities_found_{false};
 
   void check_variables_consistency();
   std::vector<mfem::Vector> get_flux_gradient_dmu(mfem::ElementTransformation& Tr,
@@ -65,6 +66,9 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
   std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr, const int nElement,
                                               const mfem::IntegrationPoint& ip,
                                               const int dim) final;
+
+  std::vector<double> get_flux_coefficient(const int nElement,
+                                           const mfem::IntegrationPoint& ip) override;
 
  public:
   MassDiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
@@ -150,13 +154,17 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
       this->dmu_found_ = true;
     } else if (symbol == "mob") {
+      // Mobilities can be directly supplied within this integrator or overloaded by considering a
+      // child class. In the first case, only two additional infos are expected because the name of
+      // the phase must be treated elsewhere.
       MFEM_VERIFY(
-          variable_info.size() > 2,
+          variable_info.size() == 2,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
           "getting mobilities.Expected at least [element, 'mob']");
 
-      const std::string& elem_name = variable_info[variable_info.size() - 2];
+      const std::string& elem_name = variable_info[0];
       this->mob_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->mobilities_found_ = true;
     } else if (symbol == "Temperature") {
       this->temp_gf_ = aux_gf[i];
       temperature_found = true;
@@ -173,12 +181,16 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       !this->dmu_found_ || !this->mu_found_,
       "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
       "Either chemical potentials or diffusion chemical potentials can be used, but not both");
-
-  MFEM_VERIFY(
-      !this->mob_gf_.empty(),
-      "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
-      "No mobilities found. At least as many mobilities as chemical potentials are expected.");
-
+  if (this->mobilities_found_ && this->dmu_found_) {
+    MFEM_VERIFY(this->mob_gf_.size() == this->dmu_gf_.size(),
+                "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+                "As many mobilities as diffusion chemical potentials are expected.");
+  }
+  if (this->mobilities_found_ && this->mu_found_) {
+    MFEM_VERIFY(this->mob_gf_.size() == this->mu_gf_.size(),
+                "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+                "As many mobilities as chemical potentials are expected.");
+  }
   if (this->scale_coefficients_by_temperature_ || this->scale_variables_by_temperature_) {
     MFEM_VERIFY(
         temperature_found,
@@ -210,6 +222,29 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
 }
 
 /**
+ * @brief Return the coefficient part of the mass diffusion flux
+ *
+ * @tparam VARS
+ * @param Tr
+ * @param nElement
+ * @param ip
+ * @return std::vector<double>
+ */
+template <class VARS>
+std::vector<double> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficient(
+    const int nElement, const mfem::IntegrationPoint& ip) {
+  std::vector<double> coefficient;
+  if (this->mobilities_found_) {
+    coefficient.reserve(this->mob_gf_.size());
+
+    for (const auto& [component, mob_gf] : this->mob_gf_) {
+      coefficient.emplace_back(mob_gf.GetValue(nElement, ip));
+    }
+  }
+  return coefficient;
+}
+
+/**
  * @brief Return the gradient part of the diffusion flux calculated with diffusion chemical
  * potentials (dmu)
  *
@@ -231,9 +266,8 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
       this->get_cross_thermal_flux(grad_mu, dmu, Tr, nElement, ip, dim);
     }
     gradient.emplace_back(grad_mu);
-
-    return gradient;
   }
+  return gradient;
 }
 
 /**

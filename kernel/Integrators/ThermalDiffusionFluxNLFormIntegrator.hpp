@@ -37,6 +37,7 @@
 template <class VARS>
 class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<VARS> {
  private:
+  bool diffusivity_found_{false};
   void check_variables_consistency();
 
  protected:
@@ -47,6 +48,9 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
   std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr, const int nElement,
                                               const mfem::IntegrationPoint& ip,
                                               const int dim) final;
+
+  std::vector<double> get_flux_coefficient(const int nElement,
+                                           const mfem::IntegrationPoint& ip) override;
 
  public:
   ThermalDiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
@@ -110,8 +114,10 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       this->temp_gf_ = aux_gf[i];
       temperature_found = true;
     } else if (symbol == "Diffusivity") {
+      // Diffusivity can be directly supplied within this integrator or overloaded by considering a
+      // child class.
       this->diffu_gf_ = aux_gf[i];
-      diffusivity_found = true;
+      this->diffusivity_found_ = true;
     }
 
     if (temperature_found && diffusivity_found) break;
@@ -120,10 +126,25 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
   MFEM_VERIFY(temperature_found,
               "ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
               "Temperature not found. Please check your data.");
+}
 
-  MFEM_VERIFY(diffusivity_found,
-              "ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: Thermal "
-              "diffusivity not found. Please check your data.");
+/**
+ * @brief Return the coefficient part of the thermal diffusion flux
+ *
+ * @tparam VARS
+ * @param Tr
+ * @param nElement
+ * @param ip
+ * @return std::vector<double>
+ */
+template <class VARS>
+std::vector<double> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficient(
+    const int nElement, const mfem::IntegrationPoint& ip) {
+  std::vector<double> coefficient;
+  if (this->diffusivity_found_) {
+    coefficient.emplace_back(this->diffu_gf_.GetValue(nElement, ip));
+  }
+  return coefficient;
 }
 
 /**
