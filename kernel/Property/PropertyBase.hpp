@@ -28,30 +28,30 @@
 class PropertyBase {
  protected:
   const Parameters &params_;
-
-  virtual void check_variables_consistency() = 0;
-  virtual void get_property(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk,
-                            const std::vector<std::vector<std::string>> &unks_info,
-                            const std::vector<mfem::ParGridFunction> &vect_aux_gf,
-                            const std::vector<std::vector<std::string>> &vect_aux_infos) = 0;
+  bool is_checked_{false};
+  virtual void check_variables_consistency(
+      const std::vector<std::vector<std::string>> &unks_info,
+      const std::vector<std::vector<std::string>> &vect_aux_infos) = 0;
+  virtual void get_property(
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+          &output_system,
+      std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) = 0;
 
  public:
   explicit PropertyBase(const Parameters &params);
-  void compute(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk,
-               const std::vector<std::vector<std::string>> &unks_info,
-               const std::vector<mfem::ParGridFunction> &vect_aux_gf,
-               const std::vector<std::vector<std::string>> &vect_aux_infos);
+  void compute(
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+          &output_system,
+      std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system);
 
-  virtual ~PropertyBase();
+  virtual ~PropertyBase() = default;
 };
 
 /**
  * @brief Construct a new PropertyBase::PropertyBase object
  *
  */
-PropertyBase::PropertyBase(const Parameters &params) : params_(params) {
-  this->check_variables_consistency();
-}
+PropertyBase::PropertyBase(const Parameters &params) : params_(params) {}
 
 /**
  * @brief Compute the variables (properties) as functions of auxialiary variables
@@ -61,15 +61,14 @@ PropertyBase::PropertyBase(const Parameters &params) : params_(params) {
  * @param vect_aux_gf
  * @param vect_aux_infos
  */
-void PropertyBase::compute(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk,
-                           const std::vector<std::vector<std::string>> &unks_info,
-                           const std::vector<mfem::ParGridFunction> &vect_aux_gf,
-                           const std::vector<std::vector<std::string>> &vect_aux_infos) {
-  this->get_property(vect_unk, unks_info, vect_aux_gf, vect_aux_infos);
-}
+void PropertyBase::compute(
+    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+        &output_system,
+    std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) {
+  // if (!this->is_checked_) {
+  //   this->check_variables_consistency(unks_info, vect_aux_infos);
+  //   this->is_checked_ = true;
+  // }
 
-/**
- * @brief Destroy the PropertyBase::PropertyBase object
- *
- */
-PropertyBase::~PropertyBase() {}
+  this->get_property(output_system, input_system);
+}

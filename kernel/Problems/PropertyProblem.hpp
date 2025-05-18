@@ -27,6 +27,11 @@ class Property_problem : public ProblemBase<VAR, PST> {
  private:
   PROPERTY* PP_;
 
+  std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+  get_output_system(const std::vector<std::vector<std::string>>& unks_info,
+                    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk);
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> get_input_system();
+
  public:
   template <class... Args>
   Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
@@ -34,6 +39,8 @@ class Property_problem : public ProblemBase<VAR, PST> {
   template <class... Args>
   Property_problem(const Parameters& params, VAR& variables, PST& pst,
                    const PhysicalConvergence& convergence, Args&&... auxvariable);
+
+  void initialize(const double& initial_time) override;
 
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
                     const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
@@ -94,6 +101,17 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
 }
 
 /**
+ * @brief
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @param initial_time
+ */
+template <class PROPERTY, class VAR, class PST>
+void Property_problem<PROPERTY, VAR, PST>::initialize(const double& initial_time) {}
+
+/**
  * @brief  Do a time-step by calling Step method of the ODE
 
  *
@@ -112,34 +130,73 @@ void Property_problem<PROPERTY, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
     const std::vector<std::vector<std::string>>& unks_info) {
-  std::vector<mfem::Vector> tp_gf = this->get_tp_conditions();
+  // Primary variables
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
       output_system = this->get_output_system(unks_info, vect_unk);
+  // Auxiliary variables
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system =
+      this->get_input_system();
 
-  const size_t unk_size = vect_unk.size();
-
-  std::vector<mfem::ParGridFunction> vect_aux_gf;
-  std::vector<std::vector<std::string>> vect_aux_infos;
-  for (const auto& auxvar_vec : this->auxvariables_) {
-    for (const auto& auxvar : auxvar_vec->getVariables()) {
-      // GF
-      vect_aux_gf.emplace_back(std::move(auxvar.get_gf()));
-      // Information
-      std::vector<std::string> var_info = auxvar.get_additional_variable_info();
-      var_info.push_back(auxvar.getVariableName());
-      vect_aux_infos.emplace_back(std::move(var_info));
-    }
-  }
-
-  this->PP_->compute(vect_unk, unks_info, vect_aux_gf, vect_aux_infos);
+  this->PP_->compute(output_system, input_system);
 
   // Recover unknowns
+  const size_t unk_size = vect_unk.size();
+
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
     this->unknown_.emplace_back(unk_i);
   }
 
   next_time = current_time + current_time_step;
+}
+
+/**
+ * @brief
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @param unks_info
+ * @param vect_unk
+ * @return std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+ */
+template <class PROPERTY, class VAR, class PST>
+std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+Property_problem<PROPERTY, VAR, PST>::get_output_system(
+    const std::vector<std::vector<std::string>>& unks_info,
+    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk) {
+  std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+      output_system;
+  for (size_t i = 0; i < vect_unk.size(); ++i) {
+    output_system.emplace_back(unks_info[i], *vect_unk[i]);
+  }
+
+  return output_system;
+}
+
+/**
+ * @brief
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+ */
+template <class PROPERTY, class VAR, class PST>
+std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+Property_problem<PROPERTY, VAR, PST>::get_input_system() {
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system;
+
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      const auto gf = auxvar.get_unknown();
+
+      auto variable_info = auxvar.get_additional_variable_info();
+      input_system.emplace_back(std::make_tuple(variable_info, gf));
+    }
+  }
+
+  return input_system;
 }
 
 /**
