@@ -70,7 +70,7 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
       const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
   void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& aux_gf,
-               const std::vector<std::tuple<std::string, std::string>>& chemical_system, ,
+               const std::vector<std::tuple<std::string, std::string>>& chemical_system,
                std::optional<std::vector<std::tuple<std::string, std::string>>> status_phase =
                    std::nullopt) override;
 
