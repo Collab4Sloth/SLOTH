@@ -959,6 +959,7 @@ std::string Variable<T, DIM>::getVariableName() const {
 /**
  * @brief Set the variable depth and initialize at the given initial condition
  * @remark By default, 2 levels are considered. Not optimal in term of memory?
+ * @remark By default, 3 levels in case of adaptive time-step?
  *
  * @tparam T
  * @tparam DIM
