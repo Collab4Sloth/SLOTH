@@ -1,7 +1,7 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief 2D coupling problem Thermal-AC
+ * @brief 2D coupling problem
  * @version 0.1
  * @date 2024-09-3
  *

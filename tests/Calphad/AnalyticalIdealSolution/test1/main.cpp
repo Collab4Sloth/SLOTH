@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
   // Heat
 
   auto temp = VAR(&spatial, Tbcs, "T", 2, 750.);
-  temp.set_additional_information("Temperature", "K");
+  temp.set_additional_information("K", "T");
 
   auto heat_vars = VARS(temp);
   auto plmax = 12.e4;
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
   auto outputs = VARS(muo, xso, gs);
 
   auto pres = VAR(&spatial, Calphadbcs, "pressure", 2, 50.e5);
-  pres.set_additional_information("Pressure", "Pa");
+  pres.set_additional_information("Pa", "P");
 
   auto p_vars = VARS(pres);
 

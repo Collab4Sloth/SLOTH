@@ -23,6 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  setVerbosity(Verbosity::Verbose);
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -105,18 +106,21 @@ int main(int argc, char* argv[]) {
   //--- Variables
   const auto& stabCoeff(1.e-7);
   auto td_parameters = Parameters(Parameter("last_component", "U"),
-                                  Parameter("InterdiffusionScalingByTemperature", false));
+                                  Parameter("ScaleCoefficientsByTemperature", false),
+                                  Parameter("EnableDiffusionChemicalPotentials", true));
   //   Parameter("MO", diffusionCoeff), Parameter("MU", diffusionCoeff),
   auto mobO = VAR(&spatial, bcs, "Mo", 2, diffusionCoeff);
-  mobO.set_additional_information("C1_MO2", "O", "mob");
+  mobO.set_additional_information("O", "mob");
   auto mobU = VAR(&spatial, bcs, "Mu", 2, diffusionCoeff);
-  mobU.set_additional_information("C1_MO2", "U", "mob");
-  auto mobo_var = VARS(mobO);
-  auto mobu_var = VARS(mobU);
+  mobU.set_additional_information("U", "mob");
+  auto mobilities = VARS(mobO, mobU);
+
+  auto inter_mob = VAR(&spatial, bcs, "MO", 2, 0.);
+  inter_mob.set_additional_information("O", "inter_mob");
+  auto MO = VARS(inter_mob);
+
   //--- Integrator : alias definition for the sake of clarity
-  using InterDiffusionIntegrator =
-      BinaryInterDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
-                                           Diffusion::Constant>;
+  using InterDiffusionIntegrator = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Operator definition
   DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
       &spatial, td_parameters, TimeScheme::RungeKutta4);
@@ -128,25 +132,23 @@ int main(int argc, char* argv[]) {
   //--- Variables
   // Temperature
   auto temp = VAR(&spatial, bcs, "T", level_of_storage, 1. / Physical::R);
-  temp.set_additional_information("Temperature", "K");
+  temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
   // Pressure
   auto pres = VAR(&spatial, bcs, "pressure", level_of_storage, 1.);
-  pres.set_additional_information("Pressure", "Pa");
+  pres.set_additional_information("Pa", "P");
   auto p_vars = VARS(pres);
 
   // Initial condition for composition
   auto xo = VAR(&spatial, bcs, "O", 2, initial_compo, analytical_compo);
-  xo.set_additional_information("O", "X");
+  xo.set_additional_information("O", "x");
   auto compo_vars = VARS(xo);
 
   // Chemical potential
-  auto muo = VAR(&spatial, bcs, "muO", 2, 0.);
-  muo.set_additional_information("O", "mu");
+  auto muo = VAR(&spatial, bcs, "dmu", 2, 0.);
+  muo.set_additional_information("O", "dmu");
+
   auto mu_var = VARS(muo);
-  auto muu = VAR(&spatial, bcs, "muU", 2, 0.);
-  muu.set_additional_information("U", "mu");
-  auto muu_var = VARS(muu);
 
   auto description_calphad =
       Parameter("description", "Analytical thermodynamic description for an ideal solution ");
@@ -156,8 +158,14 @@ int main(int argc, char* argv[]) {
   //==========================================
   //--- Post-Processing
   const std::string& main_folder_path = "Saves";
-  std::string calculation_path = "InterDiffusion";
-  const auto& frequency = 50;
+  std::string calculation_path = "MobilitiesO";
+  const auto& frequency = 1;
+  auto pst_parameters_mob = Parameters(Parameter("main_folder_path", main_folder_path),
+                                       Parameter("calculation_path", calculation_path),
+                                       Parameter("frequency", frequency));
+  auto mob_pst_o = PST(&spatial, pst_parameters_mob);
+
+  calculation_path = "InterDiffusion";
   auto pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
                                    Parameter("calculation_path", calculation_path),
                                    Parameter("frequency", frequency));
@@ -184,18 +192,26 @@ int main(int argc, char* argv[]) {
   Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST> cc_problem(
       calphad_parameters, mu_var, cc_pst, convergence, heat_vars, p_vars, compo_vars);
 
+  auto pp_parameters =
+      Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
+                 Parameter("last_component", "U"));
+  Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
+      "Oxygen inter-diffusion mobilities", pp_parameters, MO, mob_pst_o, convergence, compo_vars,
+      heat_vars, mobilities);
+
   Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
           PST>
-      interdiffu_problem(interdiffu_oper, compo_vars, interdiffu_pst, convergence, mu_var, muu_var,
-                         mobo_var, mobu_var);
+      interdiffu_problem("InterDiffusion", interdiffu_oper, compo_vars, interdiffu_pst, convergence,
+                         mu_var, MO);
 
   Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant>, VARS, PST>
-      diffu_problem(diffu_oper, diffu_vars, diffu_pst, convergence);
+      diffu_problem("Fick", diffu_oper, diffu_vars, diffu_pst, convergence);
 
   //-----------------------
   // Coupling
   //-----------------------
-  auto main_coupling = Coupling("Main coupling", cc_problem, interdiffu_problem);
+  auto main_coupling =
+      Coupling("Main coupling", cc_problem, oxygen_interdiffusion_mobilities, interdiffu_problem);
   auto checking_coupling = Coupling("Checking coupling", diffu_problem);
 
   //---------------------------------------

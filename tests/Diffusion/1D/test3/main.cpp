@@ -47,8 +47,7 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = BinaryInterDiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit,
-                                                    Diffusion::Constant>;
+  using NLFI = MassDiffusionFluxNLFormIntegrator<VARS>;
 
   using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
   using PB = Problem<OPE, VARS, PST>;
@@ -141,7 +140,7 @@ int main(int argc, char* argv[]) {
       fictitious_mobU.set_additional_information("C1_MO2", "U", "mob");
       auto mobo_var = VARS(fictitious_mobO);
       auto mobu_var = VARS(fictitious_mobU);
-      // Fictitious chemical potentials
+      // Fictitious chemical potentials and mobilities
       auto fictitious_muo = VAR(&spatial, bcs, "muO", 2, 0.);
       fictitious_muo.set_additional_information("O", "mu");
       auto mu_var = VARS(fictitious_muo);
@@ -149,6 +148,12 @@ int main(int argc, char* argv[]) {
       fictitious_muu.set_additional_information("U", "mu");
       auto muu_var = VARS(fictitious_muu);
 
+      auto fictitious_Mo = VAR(&spatial, bcs, "Mo", 2, 1.);
+      fictitious_Mo.set_additional_information("O", "inter_mob");
+      auto fictitious_Mu = VAR(&spatial, bcs, "Mu", 2, 1.);
+      fictitious_Mu.set_additional_information("U", "inter_mob");
+
+      auto fictitious_mob = VARS(fictitious_Mo, fictitious_Mu);
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
       OPE oper(&spatial, td_parameters, TimeScheme::EulerImplicit);
@@ -157,7 +162,8 @@ int main(int argc, char* argv[]) {
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
       auto pst = PST(&spatial, p_pst);
 
-      PB problem1(oper, vars, pst, convergence, mu_var, muu_var, mobo_var, mobu_var);
+      PB problem1(oper, vars, pst, convergence, mu_var, muu_var, mobo_var, mobu_var,
+                  fictitious_mob);
 
       // Coupling 1
       auto cc = Coupling("coupling 1 ", problem1);
