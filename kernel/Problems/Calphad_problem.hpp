@@ -257,18 +257,16 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
         break;
       }
       case calphad_outputs::dmu: {
-        MFEM_VERIFY(var.get_additional_variable_info().size() == 3,
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
                     "Calphad problems requires that diffusion chemical potential ouputs are "
-                    "defined with three "
-                    "additional informations: first an element, second the element of reference, "
-                    "third the symbol 'dmu'. \n");
+                    "defined with two "
+                    "additional informations: first an element and second the symbol 'dmu'. \n");
 
         SlothInfo::debug("Output : diffusion chemical potential for ",
-                         var.get_additional_variable_info()[0], " and ",
-                         var.get_additional_variable_info()[1]);
+                         var.get_additional_variable_info()[0]);
         break;
       }
-      case calphad_outputs::x: {
+      case calphad_outputs::xp: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 3,
                     "Calphad problems requires that element molar fraction ouputs are defined with "
                     "three additional informations: first an element, second a phase and third "
@@ -328,10 +326,11 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
   bool has_pressure = false;
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
-      if (auxvar.get_additional_variable_info()[0] == "Temperature") {
+      const std::string& symbol = toUpperCase(auxvar.get_additional_variable_info().back());
+      if (symbol == "T") {
         has_temperature = true;
       }
-      if (auxvar.get_additional_variable_info()[0] == "Pressure") {
+      if (symbol == "P") {
         has_pressure = true;
       }
     }
@@ -447,9 +446,12 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_phasefields() {
       const auto gf = auxvar.get_unknown();
       const auto gf_old = auxvar.get_second_to_last();
       auto variable_info = auxvar.get_additional_variable_info();
-      if (variable_info[0] == "PhaseField") {
-        aux_gf = std::make_tuple(variable_info[1], gf, gf_old);
-      }
+      const std::string& symbol = toLowerCase(auxvar.get_additional_variable_info().back());
+
+      if (symbol != "phi") continue;
+      MFEM_VERIFY(variable_info.size() == 2,
+                  "Error while getting phase_field. Expected [name of the phase, 'phi']");
+      aux_gf = std::make_tuple(variable_info[0], gf, gf_old);
     }
   }
 
@@ -470,17 +472,17 @@ template <class CALPHAD, class VAR, class PST>
 std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>>
 Calphad_Problem<CALPHAD, VAR, PST>::get_molar_fractions() {
   const auto size_v = this->sorted_chemical_system_.size();
-  std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> aux_gf(size_v);
-
+  std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> aux_gf;
   for (const auto& var : this->variables_.getVariables()) {
     const std::string& symbol = toLowerCase(var.get_additional_variable_info().back());
     if (var.get_additional_variable_info().size() == 3 &&
-        (calphad_outputs::from(symbol) == calphad_outputs::x)) {
+        (calphad_outputs::from(symbol) == calphad_outputs::xp)) {
       const auto gf = var.get_unknown();
       const auto gf_old = var.get_second_to_last();
       auto variable_info = var.get_additional_variable_info();
-      const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
-      aux_gf[id] = std::make_tuple(variable_info[0], variable_info[1], gf, gf_old);
+      // const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+
+      aux_gf.emplace_back(std::make_tuple(variable_info[0], variable_info[1], gf, gf_old));
     }
   }
 
@@ -505,12 +507,19 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       const auto gf = auxvar.get_unknown();
       auto variable_info = auxvar.get_additional_variable_info();
-      if (variable_info[0] == "Temperature") {
+      MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+      const std::string& symbol = toUpperCase(variable_info.back());
+      if (symbol == "PHI") continue;
+      if (symbol == "T") {
         aux_gf[0] = gf;
-      } else if (variable_info[0] == "Pressure") {
+      } else if (symbol == "P") {
         aux_gf[1] = gf;
-      } else {
+      } else if (symbol == "X" || symbol == "N") {
+        MFEM_VERIFY(variable_info.size() == 2,
+                    " Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions() : expected "
+                    "[component, 'x'] or [component, 'N']");
         const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+
         aux_gf[id + 2] = gf;
       }
     }
@@ -540,12 +549,20 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditi
       const auto gf = auxvar.get_second_to_last();
       //
       auto variable_info = auxvar.get_additional_variable_info();
-      if (variable_info[0] == "Temperature") {
+      MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+      const std::string& symbol = toUpperCase(variable_info.back());
+      if (symbol == "PHI") continue;
+      if (symbol == "T") {
         aux_gf[0] = gf;
-      } else if (variable_info[0] == "Pressure") {
+      } else if (symbol == "P") {
         aux_gf[1] = gf;
-      } else {
-        const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+      } else if (symbol == "X" || symbol == "N") {
+        MFEM_VERIFY(variable_info.size() == 2,
+                    " Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions() : expected "
+                    "[component, 'x'] or [component, 'N']");
+        const int id =
+            this->findIndexOfTuple(this->sorted_chemical_system_, toUpperCase(variable_info[0]));
+
         aux_gf[id + 2] = gf;
       }
     }
@@ -597,14 +614,17 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       auto variable_info = auxvar.get_additional_variable_info();
+      MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+      const std::string& symbol = toUpperCase(variable_info.back());
       // Check consistency of additional info
       // For composition, 2 information are required : element symbol, unit symbol
-      if (variable_info[0] == "Temperature") continue;
-      if (variable_info[0] == "Pressure") continue;
+      if (symbol == "T") continue;
+      if (symbol == "P") continue;
+      if (symbol == "PHI") continue;
       MFEM_VERIFY(variable_info.size() == 2,
                   "Error while getting chemical system. Two additional informations are excepted "
                   ": the element symbol, the unit symbol");
-      chemical_system.emplace_back(std::make_tuple(variable_info[0], variable_info[1]));
+      chemical_system.emplace_back(std::make_tuple(toUpperCase(variable_info[0]), symbol));
     }
   }
   // Sort by alphabetical order
@@ -629,9 +649,10 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_phasefield() {
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       auto variable_info = auxvar.get_additional_variable_info();
+      const std::string& symbol = toUpperCase(variable_info.back());
       // Check consistency of additional info
       // For phase-fields, 2 information are required : "PhaseField", the name of the phase
-      if (variable_info[0] != "PhaseField") continue;
+      if (symbol != "PHI") continue;
       MFEM_VERIFY(
           variable_info.size() == 2,
           "Error while getting phases for KKS problems. Two additional informations are excepted "
