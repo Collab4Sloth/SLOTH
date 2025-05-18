@@ -166,7 +166,7 @@ void AnalyticalIdealSolution<T>::compute(
   // Usefull if the targeted list is lower than the complete list (eg. KKS problems)
   sorted_n_t_p.erase(
       std::remove_if(sorted_n_t_p.begin(), sorted_n_t_p.end(),
-                     [&list_nodes](int node) { return list_nodes.find(node) != list_nodes.end(); }),
+                     [&list_nodes](int node) { return list_nodes.find(node) == list_nodes.end(); }),
       sorted_n_t_p.end());
 
   // Process CALPHAD calculations for each node
@@ -188,6 +188,10 @@ void AnalyticalIdealSolution<T>::compute(
 
     // Chemical potential
     this->chemical_potentials_[std::make_tuple(id, elem)] =
+        Physical::R * Temp * (std::log(x) - std::log(1. - x));
+
+    // Diffusion chemical potential
+    this->diffusion_chemical_potentials_[std::make_tuple(id, elem)] =
         Physical::R * Temp * (std::log(x) - std::log(1. - x));
 
     // Molar fraction
