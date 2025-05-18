@@ -42,6 +42,7 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
   bool dmu_found_{false};
   bool mu_found_{false};
   bool mobilities_found_{false};
+  bool enable_diffusion_chemical_potentials_{false};
 
   void check_variables_consistency();
   std::vector<mfem::Vector> get_flux_gradient_dmu(mfem::ElementTransformation& Tr,
@@ -58,7 +59,7 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
   std::map<std::string, mfem::ParGridFunction> mu_gf_;
   std::map<std::string, mfem::ParGridFunction> dmu_gf_;
   std::map<std::string, mfem::ParGridFunction> mob_gf_;
-  mfem::ParGridFunction temp_gf_;
+  std::vector<mfem::ParGridFunction> temp_gf_;
   bool scale_variables_by_temperature_{false};
   bool scale_coefficients_by_temperature_{false};
 
@@ -96,6 +97,9 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
   this->scale_coefficients_by_temperature_ =
       this->params_.template get_param_value_or_default<bool>("ScaleCoefficientsByTemperature",
                                                               false);
+  this->enable_diffusion_chemical_potentials_ =
+      this->params_.template get_param_value_or_default<bool>("EnableDiffusionChemicalPotentials",
+                                                              false);
 }
 
 /**
@@ -111,6 +115,8 @@ template <class VARS>
 MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
     : DiffusionFluxNLFormIntegrator<VARS>(u_old, params, auxvars) {
+  this->get_parameters();
+
   this->check_variables_consistency();
 }
 
@@ -128,45 +134,51 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
   // Get chemical potentials and mobilities (aux. variables)
   //==========================================================
   bool temperature_found = false;
-
+  std::set<std::string> set_mob, set_pot;
   for (std::size_t i = 0; i < aux_infos.size(); ++i) {
     const auto& variable_info = aux_infos[i];
 
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    const std::string& symbol = toLowerCase(variable_info.back());
+    size_t vsize = variable_info.size();
+    const std::string& symbol = toLowerCase(variable_info[vsize - 2]);
 
     if (symbol == "mu") {
       MFEM_VERIFY(
-          variable_info.size() == 2,
+          variable_info.size() == 3,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
           "getting chemical potentials. Expected [element, 'mu']");
 
       const std::string& elem_name = variable_info[0];
       this->mu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
       this->mu_found_ = true;
-    } else if (symbol == "dmu") {
+      set_pot.insert(elem_name);
+    } else if (symbol == "dmu" && this->enable_diffusion_chemical_potentials_) {
       MFEM_VERIFY(
-          variable_info.size() == 2,
+          variable_info.size() == 3,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
           "getting diffusion chemical potentials. Expected [element, 'dmu']");
 
       const std::string& elem_name = variable_info[0];
       this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
       this->dmu_found_ = true;
-    } else if (symbol == "mob") {
+      set_pot.insert(elem_name);
+    } else if (symbol == "inter_mob") {
       // Mobilities can be directly supplied within this integrator or overloaded by considering a
-      // child class. In the first case, only two additional infos are expected because the name of
-      // the phase must be treated elsewhere.
+      // child class.
       MFEM_VERIFY(
-          variable_info.size() == 2,
+          variable_info.size() >= 3,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
-          "getting mobilities.Expected at least [element, 'mob']");
+          "getting mobilities.Expected [elem_name, 'mob'].");
 
-      const std::string& elem_name = variable_info[0];
+      const std::string& elem_name = toUpperCase(variable_info[variable_info.size() - 3]);
+
       this->mob_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
       this->mobilities_found_ = true;
-    } else if (symbol == "Temperature") {
-      this->temp_gf_ = aux_gf[i];
+      set_mob.insert(elem_name);
+    } else if (toUpperCase(variable_info[vsize - 2]) == "T") {
+      // this->temp_gf_ = std::move(aux_gf[i]);
+      const std::string& elem_name = toUpperCase(variable_info[variable_info.size() - 3]);
+      this->temp_gf_.emplace_back(std::move(aux_gf[i]));
       temperature_found = true;
     }
   }
@@ -177,19 +189,34 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       "Neither chemical potentials, nor diffusion chemical potentials found. At least one of them "
       "is required.");
 
-  MFEM_VERIFY(
-      !this->dmu_found_ || !this->mu_found_,
-      "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
-      "Either chemical potentials or diffusion chemical potentials can be used, but not both");
-  if (this->mobilities_found_ && this->dmu_found_) {
-    MFEM_VERIFY(this->mob_gf_.size() == this->dmu_gf_.size(),
+  if (this->enable_diffusion_chemical_potentials_) {
+    MFEM_VERIFY(this->dmu_found_,
                 "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
-                "As many mobilities as diffusion chemical potentials are expected.");
-  }
-  if (this->mobilities_found_ && this->mu_found_) {
-    MFEM_VERIFY(this->mob_gf_.size() == this->mu_gf_.size(),
+                "Expected diffusion chemical potentials.");
+
+    if (this->mobilities_found_) {
+      MFEM_VERIFY(this->mob_gf_.size() == this->dmu_gf_.size(),
+                  "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+                  "As many mobilities as diffusion chemical potentials are expected.");
+
+      MFEM_VERIFY(set_mob == set_pot,
+                  "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+                  "Elements must be the same for mobilities and diffusion chemical potentials.");
+    }
+
+  } else {
+    MFEM_VERIFY(this->mu_found_,
                 "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
-                "As many mobilities as chemical potentials are expected.");
+                "Expected chemical potentials.");
+    if (this->mobilities_found_) {
+      MFEM_VERIFY(this->mob_gf_.size() == this->mu_gf_.size(),
+                  "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+                  "As many mobilities as chemical potentials are expected.");
+
+      MFEM_VERIFY(set_mob == set_pot,
+                  "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
+                  "Elements must be the same for mobilities and chemical potentials.");
+    }
   }
   if (this->scale_coefficients_by_temperature_ || this->scale_variables_by_temperature_) {
     MFEM_VERIFY(
@@ -209,16 +236,11 @@ template <class VARS>
 std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient(
     mfem::ElementTransformation& Tr, const int nElement, const mfem::IntegrationPoint& ip,
     const int dim) {
-  if (this->mu_found_) {
+  if (this->enable_diffusion_chemical_potentials_) {
+    return this->get_flux_gradient_dmu(Tr, nElement, ip, dim);
+  } else {
     return this->get_flux_gradient_mu(Tr, nElement, ip, dim);
   }
-  if (this->dmu_found_) {
-    return this->get_flux_gradient_dmu(Tr, nElement, ip, dim);
-  }
-  MFEM_ABORT(
-      "MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient: neither chemical potentials, "
-      "nor diffusion chemical potentials found.");
-  return {};
 }
 
 /**
@@ -236,14 +258,16 @@ std::vector<double> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficien
   std::vector<double> coefficient;
   double scaling_factor = 1.;
   if (this->scale_coefficients_by_temperature_) {
-    scaling_factor = Physical::R * this->temp_gf_.GetValue(nElement, ip);
+    scaling_factor = Physical::R * this->temp_gf_[0].GetValue(nElement, ip);
   }
+
   if (this->mobilities_found_) {
     coefficient.reserve(this->mob_gf_.size());
     for (const auto& [component, mob_gf] : this->mob_gf_) {
       coefficient.emplace_back(mob_gf.GetValue(nElement, ip) / scaling_factor);
     }
   }
+
   return coefficient;
 }
 
@@ -289,6 +313,7 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
   grad_mu.SetSize(dim);
   for (const auto& [component, mu_gf] : this->mu_gf_) {
     auto mu = SlothGridFunction(mu_gf);
+
     mu.GetGradient(Tr, this->gradPsi, grad_mu);
     if (this->scale_variables_by_temperature_) {
       this->get_cross_thermal_flux(grad_mu, mu, Tr, nElement, ip, dim);
@@ -311,9 +336,9 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_cross_thermal_flux(
     const int nElement, const mfem::IntegrationPoint& ip, const int dim) {
   mfem::Vector gradT;
   gradT.SetSize(dim);
-  auto temp = SlothGridFunction(this->temp_gf_);
+  auto temp = SlothGridFunction(this->temp_gf_[0]);
   const auto pot_at_ip = potential.GetValue(nElement, ip);
-  const auto temp_at_ip = this->temp_gf_.GetValue(nElement, ip);
+  const auto temp_at_ip = this->temp_gf_[0].GetValue(nElement, ip);
   const auto dmu_over_square_temp_at_ip = pot_at_ip / (temp_at_ip * temp_at_ip);
 
   temp.GetGradient(Tr, this->gradPsi, gradT);
