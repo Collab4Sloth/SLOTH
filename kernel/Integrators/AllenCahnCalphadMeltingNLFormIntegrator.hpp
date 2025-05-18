@@ -28,7 +28,7 @@ class AllenCahnCalphadMeltingNLFormIntegrator final
   double alpha_;
   std::string primary_phase_;
   std::string secondary_phase_;
-  std::vector<mfem::Vector> dgm_;
+  std::vector<mfem::ParGridFunction> dgm_;
   void get_parameters();
 
   void check_driving_forces();
@@ -84,7 +84,7 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
                                              INTERPOLATION>::get_parameters() {
-  this->alpha_ = this->params_.template get_param_value<double>("melting_factor");
+  this->alpha_ = this->params_.template get_param_value_or_default<double>("melting_factor", 1.);
   //
   this->primary_phase_ = this->params_.template get_param_value<std::string>("primary_phase");
   this->secondary_phase_ = this->params_.template get_param_value<std::string>("secondary_phase");
@@ -106,23 +106,23 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
   bool primary_phase_found = false;
   bool secondary_phase_found = false;
 
-  this->dgm_.resize(2);
-
   for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
     const auto& variable_info = this->aux_gf_infos_[i];
-    const std::string& symbol = toLowerCase(variable_info.back());
+    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+
+    size_t vsize = variable_info.size();
+    const std::string& symbol = toLowerCase(variable_info[vsize - 2]);
 
     if (calphad_outputs::from(symbol) != calphad_outputs::dgm) continue;
-    // TODO(cci) maybe it could be better to have a variable already calcukated for Deltadgm
-    MFEM_VERIFY(variable_info.size() == 2,
+    MFEM_VERIFY(variable_info.size() >= 2,
                 "Error while getting driving forces. Two additional informations are excepted "
                 ": the name of the phase and the symbol 'dgm'");
 
     if (variable_info[0] == this->primary_phase_) {
-      this->dgm_[0] = this->aux_gf[i];
+      this->dgm_.insert(this->dgm_.begin(), this->aux_gf_[i]);
       primary_phase_found = true;
     } else if (variable_info[0] == this->secondary_phase_) {
-      this->dgm_[1] = this->aux_gf[i];
+      this->dgm_.emplace_back(this->aux_gf_[i]);
       secondary_phase_found = true;
     }
   }
@@ -145,8 +145,13 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 double AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
-  double phase_change_at_ip = this->dgm_[0].GetValue(Tr, ir) - this->dgm_[1].GetValue(Tr, ir);
-  return phase_change_at_ip;
+  double val0 = 0.;
+  double val1 = -1.;
+  if (this->dgm_.size() == 2) {
+    val0 = this->dgm_[0].GetValue(Tr, ir);
+    val1 = this->dgm_[1].GetValue(Tr, ir);
+  }
+  return (val0 > 0. && val1 > 0.) ? (val0 - val1) : 0.;
 }
 /**
  * @brief Destroy the AAllenCahnCalphadMeltingNLFormIntegrator object

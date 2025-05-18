@@ -118,7 +118,7 @@ std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> Coupling<Args..
         ((pp_next_time = current_time,
           results.emplace_back(
               problem.execute(iter, pp_next_time, current_time, current_time_step)),
-          next_time = pp_next_time),
+          next_time = pp_next_time, problem.update()),
          ...);
       },
       problems_);
@@ -150,7 +150,7 @@ void Coupling<Args...>::post_execute(const int& iter, const double& current_time
  */
 template <class... Args>
 void Coupling<Args...>::update() {
-  std::apply([](auto&... problem) { (problem.update(), ...); }, problems_);
+  // std::apply([](auto&... problem) { (problem.update(), ...); }, problems_);
 }
 
 /**

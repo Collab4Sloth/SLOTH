@@ -63,6 +63,7 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
  protected:
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
+  std::vector<mfem::Vector> aux_old_gf_;
   std::vector<std::vector<std::string>> aux_gf_infos_;
   mfem::ParGridFunction temp_gf_;
   bool scale_mobility_by_temperature_{false};
@@ -238,18 +239,17 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->aux_gf_ = this->get_aux_gf();
+  this->aux_old_gf_ = this->get_aux_old_gf();
   this->aux_gf_infos_ = this->get_aux_infos();
 
   // Temperature scaling for mobility
   bool temperature_found = false;
-
   for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
     const auto& variable_info = this->aux_gf_infos_[i];
-
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    const std::string& symbol = toLowerCase(variable_info.back());
-
-    if (symbol == "Temperature") {
+    size_t vsize = variable_info.size();
+    const std::string& symbol = toUpperCase(variable_info[vsize - 2]);
+    if (symbol == "T") {
       this->temp_gf_ = this->aux_gf_[i];
       temperature_found = true;
       break;
@@ -257,11 +257,11 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator
   }
   if (this->params_.has_parameter("ScaleMobilityByTemperature")) {
     this->scale_mobility_by_temperature_ = true;
+    MFEM_VERIFY(
+        temperature_found,
+        "AllenCahnNLFormIntegrator: "
+        "Temperature variable required to scale mobility, but not found in auxiliary variables");
   }
-  MFEM_VERIFY(
-      this->scale_mobility_by_temperature_ && temperature_found,
-      "AllenCahnNLFormIntegrator: "
-      "Temperature variable required to scale mobility, but not found in auxiliary variables");
 }
 
 /**

@@ -35,6 +35,8 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
  private:
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
+  std::vector<mfem::Vector> aux_old_gf_;
+  std::vector<std::vector<std::string>> aux_infos_;
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
@@ -131,6 +133,8 @@ DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->aux_gf_ = this->get_aux_gf();
+  this->aux_old_gf_ = this->get_aux_old_gf();
+  this->aux_infos_ = this->get_aux_infos();
 }
 
 /**
