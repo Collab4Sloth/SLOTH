@@ -145,13 +145,13 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 double AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
-  double val0 = 0.;
-  double val1 = -1.;
+  double primary_dgm = -1.;
+  double secondary_dgm = -1.;
   if (this->dgm_.size() == 2) {
-    val0 = this->dgm_[0].GetValue(Tr, ir);
-    val1 = this->dgm_[1].GetValue(Tr, ir);
+    primary_dgm = this->dgm_[0].GetValue(Tr, ir);
+    secondary_dgm = this->dgm_[1].GetValue(Tr, ir);
   }
-  return (val0 > 0. && val1 > 0.) ? (val0 - val1) : 0.;
+  return (primary_dgm > 0. && secondary_dgm > 0.) ? (secondary_dgm - primary_dgm) : 0.;
 }
 /**
  * @brief Destroy the AAllenCahnCalphadMeltingNLFormIntegrator object
