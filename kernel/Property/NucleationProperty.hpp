@@ -29,9 +29,11 @@
 class Nucleation : public PropertyBase {
  private:
   std::string secondary_phase_;
+  bool nucleation_already_detected_{false};
 
  protected:
   std::vector<mfem::Vector> dgm_;
+  std::vector<mfem::Vector> xph_;
   void check_variables_consistency(
       const std::vector<std::vector<std::string>>& unks_info,
       const std::vector<std::vector<std::string>>& vect_aux_infos) override;
@@ -94,35 +96,52 @@ void Nucleation::get_property(
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
         output_system,
     std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) {
-  this->dgm_.clear();
-  for (const auto& [aux_infos, aux_gf] : input_system) {
-    if (!aux_infos.empty()) {
-      const int size = aux_infos.size();
-      const std::string_view type_info_view(aux_infos.back());
-      if (!type_info_view.empty() && type_info_view.starts_with("dgm") &&
-          toUpperCase(aux_infos[size - 2]) == toUpperCase(this->secondary_phase_)) {
-        this->dgm_.emplace_back(aux_gf);
+  if (!this->nucleation_already_detected_) {
+    this->dgm_.clear();
+    this->xph_.clear();
+    for (const auto& [aux_infos, aux_gf] : input_system) {
+      if (!aux_infos.empty()) {
+        const int size = aux_infos.size();
+        const std::string_view type_info_view(aux_infos.back());
+        if (!type_info_view.empty() && type_info_view.starts_with("dgm") &&
+            toUpperCase(aux_infos[size - 2]) == toUpperCase(this->secondary_phase_)) {
+          this->dgm_.emplace_back(aux_gf);
+        }
+        if (!type_info_view.empty() && type_info_view == "xph" &&
+            toUpperCase(aux_infos[size - 2]) == toUpperCase(this->secondary_phase_)) {
+          std::cout << " get prop liquid" << std::endl;
+
+          this->xph_.emplace_back(aux_gf);
+        }
       }
     }
-  }
 
-  const int size_gf = this->dgm_[0].Size();
-  std::vector<double> dgm(size_gf, 0.);
-  for (int k = 0; k < size_gf; k++) {
-    dgm[k] = this->dgm_[0](k);
-  }
-
-  for (auto& [output_infos, output_value] : output_system) {
-    mfem::Vector vv(dgm.size());
-    for (int k = 0; k < dgm.size(); k++) {
-      if (dgm[k] > 0.) {
-        vv(k) = 0.;
-        SlothInfo::print(" Nucleation at node  ", k);
-      } else {
-        vv(k) = output_value.get()[k];
-      }
+    // const int size_gf = this->dgm_[0].Size();
+    const int size_gf = this->xph_[0].Size();
+    std::vector<double> dgm(size_gf, 0.);
+    std::vector<double> xph(size_gf, 0.);
+    for (int k = 0; k < size_gf; k++) {
+      dgm[k] = this->dgm_[0](k);
+      xph[k] = this->xph_[0](k);
     }
-    output_value.get() = vv;
+
+    for (auto& [output_infos, output_value] : output_system) {
+      mfem::Vector vv(dgm.size());
+      for (int k = 0; k < dgm.size(); k++) {
+        if (dgm[k] > 0.) {
+          // vv(k) = 0.;
+          vv(k) = 1. - xph[k];
+          // SlothInfo::print(" Nucleation at node  ", k);
+          SlothInfo::print(" Nucleation at node  ", k, " with phase fraction ", xph[k]);
+          this->nucleation_already_detected_ = true;
+        } else {
+          vv(k) = output_value.get()[k];
+        }
+      }
+      output_value.get() = vv;
+    }
+  } else {
+    std::cout << "NUCLEATION ALREADY FOUND" << std::endl;
   }
 }
 
