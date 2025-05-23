@@ -134,7 +134,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
   // Get chemical potentials and mobilities (aux. variables)
   //==========================================================
   bool temperature_found = false;
-  std::set<std::string> set_mob, set_pot;
+  std::set<std::string> set_mob, set_pot, set_dpot;
   for (std::size_t i = 0; i < aux_infos.size(); ++i) {
     const auto& variable_info = aux_infos[i];
 
@@ -161,7 +161,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       const std::string& elem_name = variable_info[0];
       this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
       this->dmu_found_ = true;
-      set_pot.insert(elem_name);
+      set_dpot.insert(elem_name);
     } else if (symbol == "inter_mob") {
       // Mobilities can be directly supplied within this integrator or overloaded by considering a
       // child class.
@@ -199,7 +199,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
                   "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
                   "As many mobilities as diffusion chemical potentials are expected.");
 
-      MFEM_VERIFY(set_mob == set_pot,
+      MFEM_VERIFY(set_mob == set_dpot,
                   "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: "
                   "Elements must be the same for mobilities and diffusion chemical potentials.");
     }
