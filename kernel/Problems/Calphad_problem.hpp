@@ -44,6 +44,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
   get_output_system(const std::vector<std::vector<std::string>>& unks_info,
                     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk);
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> get_previous_output_system();
 
   void get_parameters();
 
@@ -266,11 +267,18 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
                          var.get_additional_variable_info()[0]);
         break;
       }
+      case calphad_outputs::xph: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
+                    "Calphad problems requires that phase molar fraction ouputs are defined with "
+                    "two additional informations: first a phase and second the symbol 'xph'. \n");
+        SlothInfo::debug("Output : molar fraction for ", var.get_additional_variable_info()[0]);
+        break;
+      }
       case calphad_outputs::xp: {
         MFEM_VERIFY(var.get_additional_variable_info().size() == 3,
                     "Calphad problems requires that element molar fraction ouputs are defined with "
                     "three additional informations: first an element, second a phase and third "
-                    "the symbol 'x'. \n");
+                    "the symbol 'xp'. \n");
         SlothInfo::debug("Output : molar fraction for ", var.get_additional_variable_info()[0]);
         break;
       }
@@ -378,11 +386,15 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
       output_system = this->get_output_system(unks_info, vect_unk);
 
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> previous_output =
+      get_previous_output_system();
+
   const size_t unk_size = vect_unk.size();
 
   // Execute
   if (!this->is_KKS_) {
-    this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system);
+    this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system,
+                              previous_output);
   } else {
     // Specific treatment for KKS problems
     std::tuple<std::string, mfem::Vector, mfem::Vector> phasefields_gf = this->get_phasefields();
@@ -392,7 +404,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
         this->get_molar_fractions();
 
     this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system,
-                              phasefields_gf, tp_gf_old, x_phase_gf);
+                              previous_output, phasefields_gf, tp_gf_old, x_phase_gf);
   }
 
   // Recover unknowns
@@ -484,6 +496,19 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_molar_fractions() {
 
       aux_gf.emplace_back(std::make_tuple(variable_info[0], variable_info[1], gf, gf_old));
     }
+  }
+
+  return aux_gf;
+}
+
+template <class CALPHAD, class VAR, class PST>
+std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+Calphad_Problem<CALPHAD, VAR, PST>::get_previous_output_system() {
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> aux_gf;
+  for (const auto& var : this->variables_.getVariables()) {
+    const auto gf = var.get_unknown();
+
+    aux_gf.emplace_back(std::make_tuple(var.get_additional_variable_info(), gf));
   }
 
   return aux_gf;
