@@ -71,8 +71,8 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
 
   void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-               std::optional<std::vector<std::tuple<std::string, std::string>>> status_phase =
-                   std::nullopt) override;
+               std::optional<std::vector<std::tuple<std::string, std::string, double>>>
+                   status_phase = std::nullopt) override;
 
   void finalize() override;
 
@@ -268,7 +268,7 @@ template <typename T>
 void CalphadInformedNeuralNetwork<T>::execute(
     const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-    std::optional<std::vector<std::tuple<std::string, std::string>>> status_phase) {
+    std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::execute");
   // Clear containers and recalculation of the numbers of nodes
   // const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
