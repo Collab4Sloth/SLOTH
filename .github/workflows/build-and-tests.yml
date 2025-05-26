@@ -58,7 +58,7 @@ jobs:
         modules: []
         environment: {}
         extra_rpaths: []
-    EOF
+EOF
     - name: Download and extract libtorch
       run: |
         wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
