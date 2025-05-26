@@ -12,7 +12,7 @@ jobs:
       CORES: $(nproc)
     strategy:
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-latest]
         # os: [ubuntu-22.04, ubuntu-24.04]
         # gcc_version: [11, 14]
         # exclude:
@@ -36,35 +36,20 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y mpich wget unzip gfortran
 
-    - name: Configure Spack to use system gcc and gfortran
+    - name: Configure Fortran environment
       run: |
-        GCC_VER=$(gcc -dumpversion)
-        OS=$(spack arch -o)
-        TARGET=$(spack arch -t)
+        echo "FC=$(which gfortran)" >> $GITHUB_ENV
+        echo "F77=$(which gfortran)" >> $GITHUB_ENV
 
-        mkdir -p ~/.spack/${OS}
-        cat <<EOF > ~/.spack/${OS}/compilers.yaml
-        compilers:
-          - compiler:
-              spec: gcc@${GCC_VER}
-              paths:
-                cc: /usr/bin/gcc
-                cxx: /usr/bin/g++
-                f77: /usr/bin/gfortran
-                fc: /usr/bin/gfortran
-              flags: {}
-              operating_system: ${OS}
-              target: ${TARGET}
-              modules: []
-              environment: {}
-              extra_rpaths: []
-        EOF
-    - name: Set Spack compiler
+    - name: Find system compiler with Spack
+      shell: spack-bash {0}
       run: |
         spack compiler find
-        echo "SPACK_F77=/usr/bin/gfortran" >> $GITHUB_ENV
-        echo "SPACK_FC=/usr/bin/gfortran" >> $GITHUB_ENV
-      
+        spack compilers
+
+    - name: Clean Spack environment
+      run: spack clean --all
+
     - name: Cache Spack build stage
       uses: actions/cache@v4
       with:
@@ -72,6 +57,7 @@ jobs:
         key: ${{ runner.os }}-spack-stage
         
     - name: Install MFEM
+      shell: spack-bash {0}
       run: |
           spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
         
