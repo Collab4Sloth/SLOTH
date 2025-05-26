@@ -37,11 +37,11 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y wget unzip gfortran
-
-    - name: Install wget unzip
+        
+    - name: Configure Spack to use Fortran compiler
       run: |
-        sudo apt-get update
-        sudo apt-get install -y wget unzip
+        spack compiler find
+        spack config add "compilers:" "  - compiler:" "    spec: gcc@$(gcc --version | head -n 1 | awk '{print $3}')" "    paths:" "      cc: /usr/bin/gcc" "      cxx: /usr/bin/g++" "      f77: /usr/bin/gfortran" "      fc: /usr/bin/gfortran"
 
     - name: Download and extract libtorch
       run: |
