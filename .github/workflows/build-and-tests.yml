@@ -48,7 +48,7 @@ jobs:
       
     - name: Install MFEM
       run: |
-        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
+        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
         
     - name: Setup Python 
       uses: actions/setup-python@v5
