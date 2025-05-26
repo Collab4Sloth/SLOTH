@@ -34,19 +34,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich wget unzip gfortran
-
-    - name: Configure Fortran environment
-      run: |
-        echo "FC=$(which gfortran)" >> $GITHUB_ENV
-        echo "F77=$(which gfortran)" >> $GITHUB_ENV
-
-    - name: Find system compiler with Spack
-      shell: spack-bash {0}
-      run: |
-        spack compiler find
-        spack compilers
-
+        sudo apt-get install -y mpich wget unzip
+        
     - name: Cache Spack build stage
       uses: actions/cache@v4
       with:
@@ -57,9 +46,11 @@ jobs:
       shell: spack-bash {0}
       run: |
           spack install gcc@14
-          spack install gfortran@14
           spack load gcc
-          spack load gfortran
+          spack compiler find
+          spack compilers
+          echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          echo "F77=$(which gfortran)" >> $GITHUB_ENV
           spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
         
     - name: Download and extract libtorch
