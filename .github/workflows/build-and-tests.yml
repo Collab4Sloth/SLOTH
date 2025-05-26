@@ -44,21 +44,21 @@ jobs:
 
         mkdir -p ~/.spack/${OS}
         cat <<EOF > ~/.spack/${OS}/compilers.yaml
-            compilers:
-            - compiler:
-                spec: gcc@${GCC_VER}
-                paths:
-                  cc: /usr/bin/gcc
-                  cxx: /usr/bin/g++
-                  f77: /usr/bin/gfortran
-                  fc: /usr/bin/gfortran
-                flags: {}
-                operating_system: ${OS}
-                target: ${TARGET}
-                modules: []
-                environment: {}
-                extra_rpaths: []
-            EOF
+    compilers:
+    - compiler:
+        spec: gcc@${GCC_VER}
+        paths:
+          cc: /usr/bin/gcc
+          cxx: /usr/bin/g++
+          f77: /usr/bin/gfortran
+          fc: /usr/bin/gfortran
+        flags: {}
+        operating_system: ${OS}
+        target: ${TARGET}
+        modules: []
+        environment: {}
+        extra_rpaths: []
+    EOF
     - name: Download and extract libtorch
       run: |
         wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
@@ -74,9 +74,7 @@ jobs:
         
     - name: Install MFEM
       run: |
-        if ! spack find mfem@4.7.0 >/dev/null; then
           spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
-        fi
         
     - name: Setup Python 
       uses: actions/setup-python@v5
