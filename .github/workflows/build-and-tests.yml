@@ -56,10 +56,10 @@ jobs:
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
-          spack install gcc@11.4.0 
-          spack install gfortran@11.4.0 
-          spack load gcc@11.4.0 
-          spack load gfortran@11.4.0 
+          spack install gcc@14
+          spack install gfortran@14
+          spack load gcc
+          spack load gfortran
           spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
         
     - name: Download and extract libtorch
