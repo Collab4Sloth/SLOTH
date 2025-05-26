@@ -62,13 +62,8 @@ jobs:
     - name: Set Spack compiler
       run: |
         spack compiler find
-      
-    - name: Download and extract libtorch
-      run: |
-        wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
-        unzip libtorch-shared-with-deps-latest.zip
-        LIBTORCH_DIR=$(realpath libtorch)
-        echo "LIBTORCH_DIR=$LIBTORCH_DIR" >> $GITHUB_ENV
+        echo "SPACK_F77=/usr/bin/gfortran" >> $GITHUB_ENV
+        echo "SPACK_FC=/usr/bin/gfortran" >> $GITHUB_ENV
       
     - name: Cache Spack build stage
       uses: actions/cache@v4
@@ -79,6 +74,13 @@ jobs:
     - name: Install MFEM
       run: |
           spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
+        
+    - name: Download and extract libtorch
+      run: |
+        wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
+        unzip libtorch-shared-with-deps-latest.zip
+        LIBTORCH_DIR=$(realpath libtorch)
+        echo "LIBTORCH_DIR=$LIBTORCH_DIR" >> $GITHUB_ENV
         
     - name: Setup Python 
       uses: actions/setup-python@v5
