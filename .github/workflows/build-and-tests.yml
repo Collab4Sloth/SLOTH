@@ -59,6 +59,9 @@ jobs:
               environment: {}
               extra_rpaths: []
         EOF
+    - name: Set Spack compiler
+      run: |
+        spack compiler find
       
     - name: Download and extract libtorch
       run: |
