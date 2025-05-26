@@ -10,6 +10,7 @@
  *
  */
 #include <algorithm>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -151,7 +152,7 @@ double AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTER
     primary_dgm = this->dgm_[0].GetValue(Tr, ir);
     secondary_dgm = this->dgm_[1].GetValue(Tr, ir);
   }
-  return (primary_dgm > 0. && secondary_dgm > 0.) ? (secondary_dgm - primary_dgm) : 0.;
+  return (primary_dgm > 0. && secondary_dgm > 0.) ? (primary_dgm - secondary_dgm) : 0.;
 }
 /**
  * @brief Destroy the AAllenCahnCalphadMeltingNLFormIntegrator object
