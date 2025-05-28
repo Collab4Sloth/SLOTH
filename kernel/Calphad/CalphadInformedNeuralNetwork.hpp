@@ -15,6 +15,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -31,8 +32,9 @@
 
 #pragma once
 
+// TODO(cci) : metamodele per phase also for potential
 template <typename T>
-class CalphadInformedNeuralNetwork : CalphadBase<T> {
+class CalphadInformedNeuralNetwork : public CalphadBase<T> {
  private:
   std::unique_ptr<torch::jit::script::Module> chemical_potentials_nn_;
   std::unordered_map<std::string, std::unique_ptr<torch::jit::script::Module>> mobilities_nn_;
@@ -54,24 +56,23 @@ class CalphadInformedNeuralNetwork : CalphadBase<T> {
   double input_composition_factor_;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
-  void compute(
-      const size_t nb_nodes, const std::vector<T>& tp_gf,
-      const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system);
+  void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+               const std::vector<std::tuple<std::string, std::string>>& chemical_system);
 
   void check_variables_consistency(
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system);
 
  public:
-  explicit CalphadInformedNeuralNetwork(const Parameters& params);
+  constexpr explicit CalphadInformedNeuralNetwork(const Parameters& params);
+  constexpr CalphadInformedNeuralNetwork(const Parameters& params, bool is_KKS);
 
   void initialize(
       const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
-  void execute(const int dt, const std::vector<T>& aux_gf,
+  void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-               std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>&
-                   output_system) override;
+               std::optional<std::vector<std::tuple<std::string, std::string, double>>>
+                   status_phase = std::nullopt) override;
 
   void finalize() override;
 
@@ -94,8 +95,7 @@ class CalphadInformedNeuralNetwork : CalphadBase<T> {
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::get_parameters() {
-  this->description_ = this->params_.template get_param_value_or_default<std::string>(
-      "description", "Calphad-informed Neural Network ");
+  CalphadBase<T>::get_parameters();
 
   // Chemical potentials
   if (this->params_.has_parameter("ChemicalPotentialsNeuralNetwork")) {
@@ -159,8 +159,25 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
  * @param params
  */
 template <typename T>
-CalphadInformedNeuralNetwork<T>::CalphadInformedNeuralNetwork(const Parameters& params)
-    : CalphadBase<T>(params) {
+constexpr CalphadInformedNeuralNetwork<T>::CalphadInformedNeuralNetwork(const Parameters& params)
+    : CalphadBase<T>(params, false) {
+  this->CU_ = std::make_unique<CalphadUtils<T>>();
+
+  // torch::set_num_threads(8);
+
+  this->get_parameters();
+}
+
+/**
+ * @brief Construct a new CalphadInformedNeuralNetwork::CalphadInformedNeuralNetwork object
+ *
+ * @param params
+ * @param is_KKS
+ */
+template <typename T>
+constexpr CalphadInformedNeuralNetwork<T>::CalphadInformedNeuralNetwork(const Parameters& params,
+                                                                        bool is_KKS)
+    : CalphadBase<T>(params, is_KKS) {
   this->CU_ = std::make_unique<CalphadUtils<T>>();
 
   // torch::set_num_threads(8);
@@ -179,6 +196,7 @@ void CalphadInformedNeuralNetwork<T>::initialize(
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::initialize");
   at::set_num_interop_threads(1);
   at::set_num_threads(1);
+  // torch::AutoGradMode enable_grad(false);
   ////////////////////////////////////////////////////////////
   // Check input composition consistency
   for (int i = 0; i < sorted_chemical_system.size(); i++) {
@@ -246,19 +264,19 @@ void CalphadInformedNeuralNetwork<T>::initialize(
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::execute(
-    const int dt, const std::vector<T>& tp_gf,
+    const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
+    std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::execute");
   // Clear containers and recalculation of the numbers of nodes
-  const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
-  this->clear_containers();
+  // const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
+  // this->clear_containers();
 
   // Thermodynamic Calculations
-  this->compute(nb_nodes, tp_gf, chemical_system, output_system);
+  this->compute(list_nodes, tp_gf, chemical_system);
 
   // Use containers to update output_system
-  this->update_outputs(nb_nodes, output_system);
+  // this->update_outputs(nb_nodes, output_system);
 }
 
 /**
@@ -271,19 +289,19 @@ void CalphadInformedNeuralNetwork<T>::execute(
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::compute(
-    const size_t nb_nodes, const std::vector<T>& tp_gf,
-    const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
+    const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+    const std::vector<std::tuple<std::string, std::string>>& chemical_system) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::compute");
-
+  const size_t nb_nodes = list_nodes.size();
   std::vector<double> tp_gf_at_node(tp_gf.size());
 
   // TODO(cci) add pressure as default inputs
   const int nb_input = chemical_system.size() + 1;  // +2
   auto options = torch::TensorOptions().dtype(torch::kDouble);
-  auto tensor = torch::zeros({nb_nodes, nb_input}, options);
+  auto tensor =
+      torch::zeros({static_cast<int64_t>(nb_nodes), static_cast<int64_t>(nb_input)}, options);
 
-  for (auto i = 0; i < nb_nodes; i++) {
+  for (const auto& i : list_nodes) {
     // Populate tp_gf_at_node for the current node
     std::transform(tp_gf.begin(), tp_gf.end(), tp_gf_at_node.begin(),
                    [&i](const T& vec) { return vec[i]; });
@@ -308,8 +326,12 @@ void CalphadInformedNeuralNetwork<T>::compute(
   std::unordered_map<std::string, int> output_mob_size;
   std::unordered_map<std::string, const double*> output_data_mob;
 
+  auto output_mu_tmp = this->chemical_potentials_nn_->forward(inputs);
+
+  at::Tensor output_mu = output_mu_tmp.toTensor().detach();
+
   for (const auto& [phase, mob_model] : this->mobilities_nn_) {
-    at::Tensor output_mob_tensor = mob_model->forward(inputs).toTensor().detach();
+    at::Tensor output_mob_tensor = output_mu;  // mob_model->forward(inputs).toTensor().detach();
     if (!output_mob_tensor.is_contiguous()) {
       output_mob_tensor = output_mob_tensor.contiguous();
     }
@@ -318,15 +340,15 @@ void CalphadInformedNeuralNetwork<T>::compute(
     output_data_mob[phase] = output_mob_tensor.data_ptr<double>();
   }
 
-  auto output_mu_tmp = this->chemical_potentials_nn_->forward(inputs);
+  // auto output_mu_tmp = this->chemical_potentials_nn_->forward(inputs);
 
-  at::Tensor output_mu = output_mu_tmp.toTensor().detach();
+  // at::Tensor output_mu = output_mu_tmp.toTensor().detach();
   if (!output_mu.is_contiguous()) {
     output_mu = output_mu.contiguous();
   }
   const int output_mu_size = output_mu.sizes()[1];
   const double* output_data_mu = output_mu.data_ptr<double>();
-  for (auto i = 0; i < nb_nodes; i++) {
+  for (const auto& i : list_nodes) {
     for (std::size_t iel = 0; iel < chemical_system.size(); ++iel) {
       const std::string& elem = std::get<0>(chemical_system[iel]);
       this->chemical_potentials_[std::make_tuple(i, elem)] =

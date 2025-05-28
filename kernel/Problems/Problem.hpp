@@ -87,7 +87,7 @@ template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
                                 const PhysicalConvergence& convergence, std::list<int> pop_elem,
                                 Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence, pop_elem,
+    : ProblemBase<VAR, PST>("Unnamed problem", variables, pst, convergence, pop_elem,
                             auxvariables...),
       oper_(oper) {}
 
@@ -108,7 +108,7 @@ template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
                                 const PhysicalConvergence& convergence, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence, auxvariables...),
+    : ProblemBase<VAR, PST>("Unnamed problem", variables, pst, convergence, auxvariables...),
       oper_(oper) {}
 
 /**

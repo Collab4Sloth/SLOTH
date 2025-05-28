@@ -1,7 +1,7 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief 2D coupling problem Thermal-AC
+ * @brief 2D coupling problem
  * @version 0.1
  * @date 2024-09-3
  *
@@ -126,7 +126,9 @@ int main(int argc, char* argv[]) {
   auto ac_vars = VARS(VAR(&spatial, bcs, "phi", 2, ac_ic));
 
   // Heat
-  auto heat_vars = VARS(VAR(&spatial, Tbcs, "T", 2, 1073.15));
+  auto temp = VAR(&spatial, Tbcs, "T", 2, 1073.15);
+  temp.set_additional_information("T");
+  auto heat_vars = VARS(temp);
   auto pl = 15.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
       [pl, pellet_radius](const mfem::Vector& vcoord, double time) {

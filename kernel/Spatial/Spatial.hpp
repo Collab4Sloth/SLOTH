@@ -17,7 +17,7 @@
 #include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <memory>
-#include <regex>
+#include <regex>  // NOLINT [avoid  <filesystem> is an unapproved C++11 header.]
 #include <set>
 #include <string>
 #include <tuple>
