@@ -69,8 +69,6 @@ class AnalyticalIdealSolution : public CalphadBase<T> {
 template <typename T>
 void AnalyticalIdealSolution<T>::get_parameters() {
   CalphadBase<T>::get_parameters();
-  this->description_ = this->params_.template get_param_value_or_default<std::string>(
-      "description", "Analytical thermodynamic description for an ideal solution ");
 }
 
 ////////////////////////////////

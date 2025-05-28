@@ -96,8 +96,6 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::get_parameters() {
   CalphadBase<T>::get_parameters();
-  this->description_ = this->params_.template get_param_value_or_default<std::string>(
-      "description", "Calphad-informed Neural Network ");
 
   // Chemical potentials
   if (this->params_.has_parameter("ChemicalPotentialsNeuralNetwork")) {

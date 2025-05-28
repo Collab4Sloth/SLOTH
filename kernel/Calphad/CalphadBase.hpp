@@ -29,7 +29,6 @@
 #include "Profiling/Profiling.hpp"
 
 #pragma once
-
 // Previous declaration of the KKS class
 template <typename T>
 class KKS;
@@ -43,7 +42,6 @@ class CalphadBase {
   std::shared_ptr<KKS<T>> KKS_;
 
   std::shared_ptr<CalphadUtils<T>> CU_;
-  std::string description_{"UNKNOWN CALPHAD"};
 
   void clear_containers();
 
@@ -117,8 +115,6 @@ class CalphadBase {
   ////////////////////////////////
 
   virtual ~CalphadBase();
-
-  std::string get_description() { return this->description_; }
 };
 
 /**

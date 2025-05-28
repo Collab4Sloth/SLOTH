@@ -33,7 +33,7 @@ class ProblemBase {
   std::tuple<bool, double> check_convergence(const mfem::Vector& unk, const mfem::Vector& prev_unk);
 
  protected:
-  std::string description_{"UNKNOWN PROBLEM"};
+  std::string description_{"Unnamed problem"};
   VAR& variables_;
   std::vector<VAR*> auxvariables_;
   PST& pst_;
@@ -51,7 +51,7 @@ class ProblemBase {
   ProblemBase(const std::string& name, VAR& variables, PST& pst,
               const PhysicalConvergence& convergence, Args&&... auxvariables);
 
-  std::string get_description();
+  std::string get_name();
   VAR get_problem_variables();
 
   /////////////////////////////////////////////////////
@@ -160,7 +160,7 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
  * @return const std::string
  */
 template <class VAR, class PST>
-std::string ProblemBase<VAR, PST>::get_description() {
+std::string ProblemBase<VAR, PST>::get_name() {
   return this->description_;
 }
 

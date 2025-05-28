@@ -21,7 +21,7 @@
 template <class... Args>
 class Coupling {
  private:
-  std::string name_{"UNKNOWN COUPLING"};
+  std::string name_{"Unnamed Coupling"};
   std::tuple<Args...> problems_;
 
  public:
