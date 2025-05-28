@@ -84,7 +84,7 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
 
       // Information
       std::vector<std::string> var_info = auxvar.get_additional_variable_info();
-      var_info.push_back(auxvar.getVariableName());
+      // var_info.push_back(auxvar.getVariableName());
 
       this->vect_aux_infos_.emplace_back(std::move(var_info));
     }

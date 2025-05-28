@@ -110,12 +110,17 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
 
     size_t vsize = variable_info.size();
-    const std::string& symbol = toUpperCase(variable_info[vsize - 2]);
 
-    if (toUpperCase(variable_info[vsize - 2]) == "T") {
+    MFEM_VERIFY(vsize > 1,
+                "ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: at least "
+                "two additionnal information are expected for auxiliary variables associated with "
+                "this integrator");
+    const std::string& symbol = toUpperCase(variable_info.back());
+
+    if (toUpperCase(symbol) == "T") {
       this->temp_gf_ = aux_gf[i];
       temperature_found = true;
-    } else if (toLowerCase(variable_info[vsize - 2]) == "lambda") {
+    } else if (toLowerCase(symbol) == "lambda") {
       // Diffusivity can be directly supplied within this integrator or overloaded by considering a
       // child class.
       this->diffu_gf_ = aux_gf[i];

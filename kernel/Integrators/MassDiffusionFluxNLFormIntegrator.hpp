@@ -140,11 +140,16 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
-    const std::string& symbol = toLowerCase(variable_info[vsize - 2]);
+
+    MFEM_VERIFY(vsize > 1,
+                "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: at least "
+                "two additionnal information are expected for auxiliary variables associated with "
+                "this integrator");
+    const std::string& symbol = toLowerCase(variable_info.back());
 
     if (symbol == "mu") {
       MFEM_VERIFY(
-          variable_info.size() == 3,
+          vsize == 2,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
           "getting chemical potentials. Expected [element, 'mu']");
 
@@ -154,7 +159,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       set_pot.insert(elem_name);
     } else if (symbol == "dmu" && this->enable_diffusion_chemical_potentials_) {
       MFEM_VERIFY(
-          variable_info.size() == 3,
+          vsize == 2,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
           "getting diffusion chemical potentials. Expected [element, 'dmu']");
 
@@ -166,18 +171,18 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
       // Mobilities can be directly supplied within this integrator or overloaded by considering a
       // child class.
       MFEM_VERIFY(
-          variable_info.size() >= 3,
+          vsize >= 2,
           "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: error while "
           "getting mobilities.Expected [elem_name, 'mob'].");
 
-      const std::string& elem_name = toUpperCase(variable_info[variable_info.size() - 3]);
+      const std::string& elem_name = toUpperCase(variable_info[vsize - 2]);
 
       this->mob_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
       this->mobilities_found_ = true;
       set_mob.insert(elem_name);
-    } else if (toUpperCase(variable_info[vsize - 2]) == "T") {
+    } else if (toUpperCase(variable_info.back()) == "T") {
       // this->temp_gf_ = std::move(aux_gf[i]);
-      const std::string& elem_name = toUpperCase(variable_info[variable_info.size() - 3]);
+      // const std::string& elem_name = toUpperCase(variable_info[vsize - 2]);
       this->temp_gf_.emplace_back(std::move(aux_gf[i]));
       temperature_found = true;
     }

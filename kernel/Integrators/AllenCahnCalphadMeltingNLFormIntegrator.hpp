@@ -112,10 +112,15 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
 
     size_t vsize = variable_info.size();
-    const std::string& symbol = toLowerCase(variable_info[vsize - 2]);
+    MFEM_VERIFY(vsize > 1,
+                "AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, "
+                "MOBI,INTERPOLATION>: at least "
+                "one additionnal information is expected for auxiliary variables associated with "
+                "this integrator");
+    const std::string& symbol = toLowerCase(variable_info.back());
 
     if (calphad_outputs::from(symbol) != calphad_outputs::dgm) continue;
-    MFEM_VERIFY(variable_info.size() >= 2,
+    MFEM_VERIFY(vsize == 2,
                 "Error while getting driving forces. Two additional informations are excepted "
                 ": the name of the phase and the symbol 'dgm'");
 
