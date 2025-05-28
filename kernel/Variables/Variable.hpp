@@ -161,6 +161,7 @@ class Variable {
   void set_additional_information(Args&&... add_var_info);
 
   mfem::Vector get_last() const;
+  mfem::Vector get_second_to_last() const;
   std::string getVariableName() const;
   std::vector<std::string> get_additional_variable_info() const;
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
@@ -783,7 +784,7 @@ void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value
   this->uh_ = 0.;
   if (this->el_attr_.Size() > 0) {
     mfem::VectorArrayCoefficient vc(1);
-    std::cout << el_attr_.Size() << std::endl;
+    // std::cout << el_attr_.Size() << std::endl;
     vc.Set(0, &ic_fc, false);
     for (int i = 0; i < this->el_attr_.Size(); i++) {
       this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
@@ -819,6 +820,19 @@ void Variable<T, DIM>::setAnalyticalSolution(
   this->analytical_solution_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
       analytical_solution_function);
 }
+
+/**
+ * @brief Return the second-to-last term of the saved variables
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return mfem::Vector
+ */
+template <class T, int DIM>
+mfem::Vector Variable<T, DIM>::get_second_to_last() const {
+  return std::prev(std::prev(this->map_of_unk_.end()))->second;
+}
+
 /**
  * @brief Return the last term of the saved variables
  *
@@ -945,6 +959,7 @@ std::string Variable<T, DIM>::getVariableName() const {
 /**
  * @brief Set the variable depth and initialize at the given initial condition
  * @remark By default, 2 levels are considered. Not optimal in term of memory?
+ * @remark By default, 3 levels in case of adaptive time-step?
  *
  * @tparam T
  * @tparam DIM

@@ -103,22 +103,25 @@ struct UtilsSolvers {
    */
   template <typename Solv>
   static void print_solver_name(const Solv&) {
-    if constexpr (std::is_same<Solv, sptr<mfem::HyprePCG>>::value)
-      SlothInfo::debug("Solver used: HyprePCG ");
-    else if constexpr (std::is_same<Solv, sptr<mfem::HypreGMRES>>::value)
-      SlothInfo::debug("Solver used: HypreGMRES ");
-    else if constexpr (std::is_same<Solv, sptr<mfem::HypreFGMRES>>::value)
-      SlothInfo::debug("Solver used: HypreFGMRES ");
-    else if constexpr (std::is_same<Solv, sptr<mfem::BiCGSTABSolver>>::value)
-      SlothInfo::debug("Solver used: BiCGSTABSolver ");
-    else if constexpr (std::is_same<Solv, sptr<mfem::MINRESSolver>>::value)
-      SlothInfo::debug("Solver used: MINRESSolver ");
-    else if constexpr (std::is_same<Solv, sptr<mfem::CGSolver>>::value)
-      SlothInfo::debug("Solver used: CGSolver ");
-    else if constexpr (std::is_same<Solv, sptr<mfem::GMRESSolver>>::value)
-      SlothInfo::debug("Solver used: GMRESSolver ");
-    else
-      SlothInfo::debug("Solver used: unknown ");
+    int rank = mfem::Mpi::WorldRank();
+    if (rank == 0) {
+      if constexpr (std::is_same<Solv, sptr<mfem::HyprePCG>>::value)
+        SlothInfo::debug("Solver used: HyprePCG ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::HypreGMRES>>::value)
+        SlothInfo::debug("Solver used: HypreGMRES ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::HypreFGMRES>>::value)
+        SlothInfo::debug("Solver used: HypreFGMRES ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::BiCGSTABSolver>>::value)
+        SlothInfo::debug("Solver used: BiCGSTABSolver ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::MINRESSolver>>::value)
+        SlothInfo::debug("Solver used: MINRESSolver ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::CGSolver>>::value)
+        SlothInfo::debug("Solver used: CGSolver ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::GMRESSolver>>::value)
+        SlothInfo::debug("Solver used: GMRESSolver ");
+      else
+        SlothInfo::debug("Solver used: unknown ");
+    }
   }
 
   /**
@@ -128,20 +131,23 @@ struct UtilsSolvers {
    */
   template <typename Prec>
   static void print_prec_name(const Prec&) {
-    if constexpr (std::is_same<Prec, sptr<mfem::HypreILU>>::value)
-      SlothInfo::debug("Preconditioner used: HypreILU ");
-    else if constexpr (std::is_same<Prec, sptr<mfem::HypreBoomerAMG>>::value)
-      SlothInfo::debug("Preconditioner used: HypreBoomerAMG ");
-    else if constexpr (std::is_same<Prec, sptr<mfem::HypreDiagScale>>::value)
-      SlothInfo::debug("Preconditioner used: HypreDiagScale ");
-    else if constexpr (std::is_same<Prec, sptr<mfem::HypreSmoother>>::value)
-      SlothInfo::debug("Preconditioner used: HypreSmoother ");
-    else if constexpr (std::is_same<Prec, sptr<mfem::DSmoother>>::value)
-      SlothInfo::debug("Preconditioner used: DSmoother ");
-    else if constexpr (std::is_same<Prec, sptr<std::monostate>>::value)
-      SlothInfo::debug("No Preconditioner used ");
-    else
-      SlothInfo::debug("Preconditioner used: unknown ");
+    int rank = mfem::Mpi::WorldRank();
+    if (rank == 0) {
+      if constexpr (std::is_same<Prec, sptr<mfem::HypreILU>>::value)
+        SlothInfo::debug("Preconditioner used: HypreILU ");
+      else if constexpr (std::is_same<Prec, sptr<mfem::HypreBoomerAMG>>::value)
+        SlothInfo::debug("Preconditioner used: HypreBoomerAMG ");
+      else if constexpr (std::is_same<Prec, sptr<mfem::HypreDiagScale>>::value)
+        SlothInfo::debug("Preconditioner used: HypreDiagScale ");
+      else if constexpr (std::is_same<Prec, sptr<mfem::HypreSmoother>>::value)
+        SlothInfo::debug("Preconditioner used: HypreSmoother ");
+      else if constexpr (std::is_same<Prec, sptr<mfem::DSmoother>>::value)
+        SlothInfo::debug("Preconditioner used: DSmoother ");
+      else if constexpr (std::is_same<Prec, sptr<std::monostate>>::value)
+        SlothInfo::debug("No Preconditioner used ");
+      else
+        SlothInfo::debug("Preconditioner used: unknown ");
+    }
   }
 };
 
@@ -216,6 +222,7 @@ struct SetPrecondNLSolver {
   inline void operator()(Solv&& solv, Prec&& prec) {
     using TT = std::decay_t<decltype(solv)>;
     using PP = std::decay_t<decltype(prec)>;
+
     UtilsSolvers::print_solver_name(solv);
     UtilsSolvers::print_prec_name(prec);
     if constexpr (!std::is_same_v<PP, sptr<std::monostate>>) {

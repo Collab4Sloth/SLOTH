@@ -32,6 +32,7 @@ class SlothNLFormIntegrator {
  private:
   void manage_auxiliary_variables(std::vector<VARS*> auxvars);
   std::vector<mfem::ParGridFunction> vect_aux_gf_;
+  std::vector<mfem::Vector> vect_aux_old_gf_;
   std::vector<std::vector<std::string>> vect_aux_infos_;
 
  protected:
@@ -39,6 +40,7 @@ class SlothNLFormIntegrator {
   const Parameters params_;
 
   std::vector<mfem::ParGridFunction> get_aux_gf();
+  std::vector<mfem::Vector> get_aux_old_gf();
   std::vector<std::vector<std::string>> get_aux_infos();
 
  public:
@@ -74,14 +76,15 @@ template <class VARS>
 void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> auxvars) {
   this->auxvariables_ = auxvars;
   for (const auto& auxvar_vec : this->auxvariables_) {
-    size_t num_vars = auxvar_vec->getVariables().size();
-
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       // GF
       this->vect_aux_gf_.emplace_back(std::move(auxvar.get_gf()));
+      // GF at previous time-step
+      this->vect_aux_old_gf_.emplace_back(std::move(auxvar.get_second_to_last()));
+
       // Information
       std::vector<std::string> var_info = auxvar.get_additional_variable_info();
-      var_info.push_back(auxvar.getVariableName());
+      // var_info.push_back(auxvar.getVariableName());
 
       this->vect_aux_infos_.emplace_back(std::move(var_info));
     }
@@ -98,6 +101,19 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
 template <class VARS>
 std::vector<mfem::ParGridFunction> SlothNLFormIntegrator<VARS>::get_aux_gf() {
   return vect_aux_gf_;
+}
+
+/**
+ * @brief Return a vector of GridFunction associated with auxiliary variables at the previous
+ * time-step
+ * @remark Order of the vector is implicitly the same as the order of auxiliary variables
+ *
+ * @tparam VARS
+ * @return std::vector<mfem::ParGridFunction>
+ */
+template <class VARS>
+std::vector<mfem::Vector> SlothNLFormIntegrator<VARS>::get_aux_old_gf() {
+  return vect_aux_old_gf_;
 }
 
 /**

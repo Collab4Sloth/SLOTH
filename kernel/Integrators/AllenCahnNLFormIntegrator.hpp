@@ -11,7 +11,9 @@
  */
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "Coefficients/LambdaCoefficient.hpp"
@@ -60,9 +62,15 @@ class AllenCahnNLFormIntegrator : public mfem::NonlinearFormIntegrator,
   FType double_well_derivative(const int order_derivative, mfem::ElementTransformation& Tr,
                                const mfem::IntegrationPoint& ir);
 
+  void check_variables_consistency();
+
  protected:
   mfem::ParGridFunction u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
+  std::vector<mfem::Vector> aux_old_gf_;
+  std::vector<std::vector<std::string>> aux_gf_infos_;
+  std::vector<mfem::ParGridFunction> temp_gf_;
+  bool scale_mobility_by_temperature_{false};
 
   virtual FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
                                    const mfem::IntegrationPoint& ir);
@@ -128,8 +136,13 @@ template <typename... Args>
 double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
     const Parameters& parameters) {
+  const int nElement = Tr.ElementNo;
   MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_, parameters);
-  return mobi_coeff.Eval(Tr, ip);
+  double mob_coeff = mobi_coeff.Eval(Tr, ip);
+  if (this->scale_mobility_by_temperature_) {
+    mob_coeff /= this->temp_gf_[0].GetValue(nElement, ip);
+  }
+  return mob_coeff;
 }
 
 /**
@@ -229,7 +242,52 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
 AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
     const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+  this->check_variables_consistency();
+}
+
+/**
+ * @brief Check variables consistency
+ *
+ * @tparam VARS
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ */
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI>
+void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_consistency() {
   this->aux_gf_ = this->get_aux_gf();
+  this->aux_old_gf_ = this->get_aux_old_gf();
+  this->aux_gf_infos_ = this->get_aux_infos();
+
+  // Temperature scaling for mobility
+  bool temperature_found = false;
+  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_gf_infos_[i];
+    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+    size_t vsize = variable_info.size();
+
+    MFEM_VERIFY(vsize >= 1,
+                "AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>: at least "
+                "one additionnal information is expected for auxiliary variables associated with "
+                "this integrator");
+    const std::string& symbol = toUpperCase(variable_info.back());
+    if (symbol == "T") {
+      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
+      temperature_found = true;
+      break;
+    }
+  }
+  if (this->params_.has_parameter("ScaleMobilityByTemperature")) {
+    this->scale_mobility_by_temperature_ =
+        this->params_.template get_param_value<bool>("ScaleMobilityByTemperature");
+    if (this->scale_mobility_by_temperature_) {
+      MFEM_VERIFY(
+          temperature_found,
+          "AllenCahnNLFormIntegrator: "
+          "Temperature variable required to scale mobility, but not found in auxiliary variables");
+    }
+  }
 }
 
 /**

@@ -31,24 +31,36 @@ jobs:
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
 
-    - name: Install mpich
-      run: sudo apt-get install mpich
-
-    - name: Install wget unzip
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y wget unzip
-
+        sudo apt-get install -y mpich wget unzip
+        
+    - name: Cache Spack build stage
+      uses: actions/cache@v4
+      with:
+        path: ~/.spack/stage
+        key: ${{ runner.os }}-spack-stage
+        
+    - name: Install MFEM
+      shell: spack-bash {0}
+      run: |
+          spack install gcc@14
+          spack load gcc
+          spack compiler find
+          spack compilers
+          echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          echo "F77=$(which gfortran)" >> $GITHUB_ENV
+          echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
+          spack install hypre@2.33.0%gcc
+          spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
+        
     - name: Download and extract libtorch
       run: |
         wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
         unzip libtorch-shared-with-deps-latest.zip
         LIBTORCH_DIR=$(realpath libtorch)
         echo "LIBTORCH_DIR=$LIBTORCH_DIR" >> $GITHUB_ENV
-      
-    - name: Install MFEM
-      run: |
-        spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
         
     - name: Setup Python 
       uses: actions/setup-python@v5

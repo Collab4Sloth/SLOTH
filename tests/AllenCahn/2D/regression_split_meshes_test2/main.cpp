@@ -1,13 +1,14 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief Allen-Cahn problem solved in a square
+ * @brief Allen-Cahn problem solved in a 2D pellet fragment with a constant enthalpy melting
  * @version 0.1
  * @date 2024-05-23
  *
  * @copyright Copyright (c) 2024
  *
  */
+
 #include <iostream>
 #include <map>
 #include <memory>
@@ -25,13 +26,12 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Debug);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
   //
   //---------------------------------------
-  // Profiling start
+  // Profiling
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
@@ -45,11 +45,12 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
+  using NLFI = AllenCahnConstantMeltingNLFormIntegrator<
+      VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
+      Mobility::Constant, ThermodynamicsPotentials::H>;
+
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -58,19 +59,14 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  const std::string mesh_type =
-      "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
-  const int order_fe = 1;             // finite element order
-  const int refinement_level = 0;     // number of levels of uniform refinement
-  const std::tuple<int, int, double, double>& tuple_of_dimensions = std::make_tuple(
-      30, 30, 1.e-3, 1.e-3);  // Number of elements and maximum length in each direction
+  auto refinement_level = 0;
+  SPA spatial("GMSH", 1, refinement_level, "camembert2D.", false);
 
-  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Dirichlet", 1.),
-                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
+  auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Neumann", 0.),
+                     Boundary("upper", 1, "Neumann", 0.)};
   auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
@@ -81,48 +77,50 @@ int main(int argc, char* argv[]) {
   // ####################
   //     parameters    //
   // ####################
-  //  Interface thickness
-  const double epsilon(5.e-4);
+  //    Melting factor
+  const auto& alpha(7.e3);
+  // Interface thickness
+  const auto& epsilon(5.e-4);
   // Interfacial energy
-  const double sigma(6.e-2);
+  const auto& sigma(6.e-2);
   // Two-phase mobility
-  const double mob(1.e-5);
-  const double lambda = 3. * sigma * epsilon / 2.;
-  const double omega = 12. * sigma / epsilon;
-  auto params =
-      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                 Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
+  const auto& mob(1.e-5);
+  const auto& lambda = 3. * sigma * epsilon / 2.;
+  const auto& omega = 12. * sigma / epsilon;
+  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
+                           Parameter("sigma", sigma), Parameter("lambda", lambda),
+                           Parameter("omega", omega), Parameter("melting_factor", alpha));
   // ####################
   //     variables     //
   // ####################
-  const double center_x = 0.;
-  const double center_y = 0.;
-  const double a_x = 1.;
-  const double a_y = 0.;
-  const double thickness = 5.e-5;
-  const double radius = 5.e-4;
+  const auto& pellet_radius = 0.00465;
+  const auto& center_x = 0.;
+  const auto& center_y = 0.;
+  const auto& a_x = 1.;
+  const auto& a_y = 1.;
+  const auto& thickness = 5.e-5;
+  const auto& radius = 1.e-2 * pellet_radius;
 
   auto initial_condition = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
-  auto analytical_solution = AnalyticalFunctions<DIM>(
-      AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
 
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition));
 
   // ###########################################
   // ###########################################
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-
   const std::string& main_folder_path = "Saves";
-  const int level_of_detail = 1;
-  const int frequency = 1;
+  const auto& level_of_detail = 1;
+  const auto& frequency = 1;
   std::string calculation_path = "Problem1";
-  auto p_pst =
+  auto p_pst1 =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
+  auto pst = PST(&spatial, p_pst1);
+
   // ####################
   //     operators     //
   // ####################
@@ -131,34 +129,22 @@ int main(int argc, char* argv[]) {
   const auto crit_cvg_1 = 1.e-12;
   OPE oper(&spatial, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
+
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-  auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
 
-  auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [](const mfem::Vector& x, double time) { return 0.; });
+  PB problem1("AllenCahn", oper, vars, pst, convergence);
 
-  auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-  auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
-
-  calculation_path = "ProblemMPI_";
-  auto p_pst1 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  auto pst1 = PST(&spatial, p_pst1);
-  PB1 problem2(vars1, pst1, convergence);
   // Coupling 1
-  auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
+  auto cc = Coupling("Default Coupling", problem1);
 
   // ###########################################
   // ###########################################
   //            Time-integration              //
   // ###########################################
   // ###########################################
-  const double t_initial = 0.0;
-  const double t_final = 1.;
-  const double dt = 0.25;
+  const auto& t_initial = 0.0;
+  const auto& t_final = 1.;
+  const auto& dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);

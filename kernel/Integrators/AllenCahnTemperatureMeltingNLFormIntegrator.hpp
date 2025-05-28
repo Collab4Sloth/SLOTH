@@ -11,6 +11,7 @@
  *
  */
 #include <algorithm>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -29,6 +30,7 @@ class AllenCahnTemperatureMeltingNLFormIntegrator final
   double melting_temperature_;
   double melting_enthalpy_;
   void get_parameters();
+  void check_variables_consistency();
 
  protected:
   double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
@@ -66,9 +68,44 @@ AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOL
     : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
                                                                                       auxvars) {
   this->get_parameters();
-  MFEM_VERIFY(this->aux_gf_.size() == 1,
-              "AllenCahnTemperatureMeltingNLFormIntegrator requires temperature as the only "
-              "auxiliary variable.");
+  this->check_variables_consistency();
+}
+
+/**
+ * @brief Check variables consistency
+ *
+ * @tparam VARS
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ * @tparam INTERPOLATION
+ */
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
+void AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
+                                                 INTERPOLATION>::check_variables_consistency() {
+  this->aux_gf_infos_ = this->get_aux_infos();
+
+  bool temperature_found = false;
+  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_gf_infos_[i];
+    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+    size_t vsize = variable_info.size();
+
+    MFEM_VERIFY(vsize >= 1,
+                "AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, "
+                "INTERPOLATION>: at least "
+                "one additionnal information is expected for auxiliary variables associated with "
+                "this integrator");
+    const std::string& symbol = toUpperCase(variable_info.back());
+    if (symbol == "T") {
+      temperature_found = true;
+      break;
+    }
+  }
+  MFEM_VERIFY(temperature_found,
+              "AllenCahnTemperatureMeltingNLFormIntegrator: "
+              "Temperature variable is required as auxiliary variable for this integrator");
 }
 
 /**
@@ -104,7 +141,7 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 double AllenCahnTemperatureMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
-  const double temperature_at_ip = this->aux_gf_[0].GetValue(Tr, ir);
+  const double temperature_at_ip = this->temp_gf_[0].GetValue(Tr, ir);
   double phase_change_at_ip = 0.;
   if (temperature_at_ip > this->melting_temperature_) {
     phase_change_at_ip = this->melting_enthalpy_;

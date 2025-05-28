@@ -10,10 +10,13 @@
  */
 #include <unistd.h>
 
-#include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <filesystem>
+
+//
+
+#include <algorithm>
+#include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -37,6 +40,7 @@ using vTupleStringString = std::vector<std::tuple<std::string, std::string>>;
 using vString = std::vector<std::string>;
 
 using MapStringDouble = std::map<std::string, double>;
+using vTuple2StringDouble = std::vector<std::tuple<std::string, std::string, double>>;
 using Map2String2Double =
     std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>;
 using SpecializedValue = std::pair<std::string, double>;
@@ -221,8 +225,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void debug(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
-
     if (Verbosity::Debug <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
@@ -235,7 +237,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void error(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
     if (Verbosity::Error <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
@@ -249,7 +250,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void verbose(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
     if (Verbosity::Verbose <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
@@ -263,7 +263,6 @@ class SlothInfo {
    */
   template <typename... Args>
   static void print(Args... args) {
-    int rank = mfem::Mpi::WorldRank();
     if (Verbosity::Normal <= verbosityLevel) {
       (std::cout << ... << args) << "\n";
     }
