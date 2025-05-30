@@ -57,9 +57,6 @@ class CalphadBase {
   // Site fraction. Nodal values. key: [node, phase, cons, sub]
   std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
 
-  // Mole fraction of phase. Nodal values. key: [node, phase]
-  std::map<std::tuple<int, std::string>, double> mole_fraction_of_phase_;
-
   //  Heat capacity. Nodal values. key: [node]
   std::map<int, double> heat_capacity_;
 
@@ -73,6 +70,8 @@ class CalphadBase {
   // Chemical potential. Nodal values. key: [node, elem]
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
   std::map<std::tuple<int, std::string>, double> diffusion_chemical_potentials_;
+  // Mole fraction of phase. Nodal values. key: [node, phase]
+  std::map<std::tuple<int, std::string>, double> mole_fraction_of_phase_;
 
   // Element mole fraction by phase. Nodal values. key: [node, phase, elem]
   std::map<std::tuple<int, std::string, std::string>, double> elem_mole_fraction_by_phase_;
@@ -82,6 +81,7 @@ class CalphadBase {
 
   // Driving force for each phase. Nodal values. key: [node, phase]
   std::map<std::tuple<int, std::string>, double> driving_forces_;
+  std::map<std::tuple<int, std::string>, double> nucleus_;
 
   explicit CalphadBase(const Parameters &params);
   CalphadBase(const Parameters &params, bool is_KKS);
@@ -217,6 +217,7 @@ void CalphadBase<T>::clear_containers() {
   this->site_fraction_.clear();
   this->energies_of_phases_.clear();
   this->driving_forces_.clear();
+  this->nucleus_.clear();
   this->heat_capacity_.clear();
   this->mobilities_.clear();
   this->error_equilibrium_.clear();
@@ -245,17 +246,19 @@ void CalphadBase<T>::update_outputs(
   T output(nb_nodes);
   auto get_or_default = [&](const auto &map, const auto &key, auto default_value) {
     if (map.contains(key)) {
+      SlothInfo::debug("Key found apply this value ", map.at(key));
       return map.at(key);
     } else {
+      SlothInfo::debug("Key not found, apply default value ");
       return default_value;
     }
   };
-  int id_output = 0;
+  int id_output = -1;
   double default_value = 0.;
 
   for (auto &[output_infos, output_value] : output_system) {
     const std::string &output_type = output_infos.back();
-
+    id_output++;
     // Fill output with the relevant values
     switch (calphad_outputs::from(output_type)) {
       case calphad_outputs::mu: {
@@ -264,6 +267,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for mu: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->chemical_potentials_, std::make_tuple(i, output_elem),
                                      default_value);
@@ -276,6 +281,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for dmu: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->diffusion_chemical_potentials_,
                                      std::make_tuple(i, output_elem), default_value);
@@ -288,6 +295,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for xph: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->mole_fraction_of_phase_,
                                      std::make_tuple(i, output_phase), default_value);
@@ -301,6 +310,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for xp: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->elem_mole_fraction_by_phase_,
                                      std::make_tuple(i, output_phase, output_elem), default_value);
@@ -315,6 +326,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for y: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->site_fraction_,
                                      std::make_tuple(i, output_phase, output_cons, output_sub),
@@ -328,6 +341,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for g: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->energies_of_phases_,
                                      std::make_tuple(i, output_phase, "G"), default_value);
@@ -340,6 +355,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for gm: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->energies_of_phases_,
                                      std::make_tuple(i, output_phase, "GM"), default_value);
@@ -352,6 +369,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for h: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->energies_of_phases_,
                                      std::make_tuple(i, output_phase, "H"), default_value);
@@ -364,6 +383,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for hm: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->energies_of_phases_,
                                      std::make_tuple(i, output_phase, "HM"), default_value);
@@ -376,6 +397,8 @@ void CalphadBase<T>::update_outputs(
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for dgm: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->driving_forces_, std::make_tuple(i, output_phase),
                                      default_value);
@@ -386,6 +409,8 @@ void CalphadBase<T>::update_outputs(
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             output[i] = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for cp: ", default_value,
+                             " at node ", i);
           } else {
             output[i] = this->heat_capacity_[i];
           }
@@ -399,9 +424,25 @@ void CalphadBase<T>::update_outputs(
           default_value = -std::numeric_limits<double>::max();
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for mob: ", default_value,
+                             " at node ", i);
           }
           output[i] = get_or_default(this->mobilities_,
                                      std::make_tuple(i, output_phase, output_elem), default_value);
+        }
+        break;
+      }
+      case calphad_outputs::nucleus: {
+        const std::string &output_phase = output_infos[1];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          default_value = -1.;
+          if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
+            default_value = std::get<1>(previous_output_system[id_output])(i);
+            SlothInfo::debug("Equilibrium not found default_value for nucleus: ", default_value,
+                             " at node ", i);
+          }
+          output[i] =
+              get_or_default(this->nucleus_, std::make_tuple(i, output_phase), default_value);
         }
         break;
       }
