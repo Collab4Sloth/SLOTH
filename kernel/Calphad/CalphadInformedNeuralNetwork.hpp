@@ -55,6 +55,9 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
   std::vector<std::string> input_composition_order_;
   double input_composition_factor_;
 
+  bool model_built_with_pressure_{false};
+  bool own_mobilities_model_{false};
+
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system);
@@ -149,6 +152,18 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
   }
   this->input_composition_factor_ =
       this->params_.template get_param_value_or_default<double>("InputCompositionFactor", 1.);
+
+  // Check if pressure is an input of the model
+  if (this->params_.has_parameter("ModelBuiltWithPressure")) {
+    this->model_built_with_pressure_ =
+        this->params_.template get_param_value<bool>("ModelBuiltWithPressure");
+  }
+
+  // Check if a specific model is used for mobilities. Otherwise the model for chemical potential is
+  // used
+  if (this->params_.has_parameter("OwnMobilityModel")) {
+    this->own_mobilities_model_ = this->params_.template get_param_value<bool>("OwnMobilityModel");
+  }
 }
 
 ////////////////////////////////
@@ -296,7 +311,10 @@ void CalphadInformedNeuralNetwork<T>::compute(
   std::vector<double> tp_gf_at_node(tp_gf.size());
 
   // TODO(cci) add pressure as default inputs
-  const int nb_input = chemical_system.size() + 1;  // +2
+  int nb_input = chemical_system.size() + 1;
+  if (this->model_built_with_pressure_) {
+    nb_input++;
+  }
   auto options = torch::TensorOptions().dtype(torch::kDouble);
   auto tensor =
       torch::zeros({static_cast<int64_t>(nb_nodes), static_cast<int64_t>(nb_input)}, options);
@@ -309,29 +327,37 @@ void CalphadInformedNeuralNetwork<T>::compute(
     const double temperature = tp_gf_at_node[0];
     const double pressure = tp_gf_at_node[1];
     tensor[i][0] = temperature;
-    // tensor[i][1] = pressure;
+
+    // id_elem starts to 1 if pressure is not an input of the model. Otherwise it starts to 2.
+    int id_elem = 1;
+    if (this->model_built_with_pressure_) {
+      tensor[i][1] = pressure;
+      id_elem = 2;
+    }
+    //
     for (std::size_t iel = 0; iel < chemical_system.size(); ++iel) {
-      // tensor[i][this->idx_elem_[elem] + 2] = tp_gf_at_node[i + 2] * input_composition_factor_;
       const std::string& elem = std::get<0>(chemical_system[iel]);
-      tensor[i][this->idx_elem_[elem] + 1] = tp_gf_at_node[iel + 2] * input_composition_factor_;
+      tensor[i][this->idx_elem_[elem] + id_elem] =
+          tp_gf_at_node[iel + 2] * input_composition_factor_;
     }
   }
 
   std::vector<torch::jit::IValue> inputs;
   inputs.push_back(tensor);
-
   // Get CALPHAD contributions from Neural Networks
 
   std::unordered_map<std::string, at::Tensor> output_mob;
   std::unordered_map<std::string, int> output_mob_size;
   std::unordered_map<std::string, const double*> output_data_mob;
-
   auto output_mu_tmp = this->chemical_potentials_nn_->forward(inputs);
 
   at::Tensor output_mu = output_mu_tmp.toTensor().detach();
 
   for (const auto& [phase, mob_model] : this->mobilities_nn_) {
-    at::Tensor output_mob_tensor = output_mu;  // mob_model->forward(inputs).toTensor().detach();
+    at::Tensor output_mob_tensor = output_mu;
+    if (this->own_mobilities_model_) {
+      output_mob_tensor = mob_model->forward(inputs).toTensor().detach();
+    }
     if (!output_mob_tensor.is_contiguous()) {
       output_mob_tensor = output_mob_tensor.contiguous();
     }
