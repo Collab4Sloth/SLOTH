@@ -156,7 +156,8 @@ int main(int argc, char* argv[]) {
       auto fictitious_mob = VARS(fictitious_Mo, fictitious_Mu);
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
-      OPE oper(&spatial, td_parameters, TimeScheme::EulerImplicit);
+      std::vector<SPA*> spatials{&spatial};
+      OPE oper(spatials, td_parameters, TimeScheme::EulerImplicit);
       oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);

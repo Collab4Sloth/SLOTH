@@ -66,16 +66,18 @@ class OperatorBase : public mfem::Operator {
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_, time_iso_specialized_;
   /// Finite Element Space and BCs
+  mfem::Array<mfem::ParFiniteElementSpace *> fes_;
   mfem::ParFiniteElementSpace *fespace_;
-  mfem::Array<int> ess_tdof_list_;
+  std::vector<mfem::Array<int>> ess_tdof_list_;
+  mfem::Array<int> block_trueOffsets_;
 
   /// Right-Hand-Side
-  mfem::ParNonlinearForm *N;
+  mfem::ParBlockNonlinearForm *N;
   NLSolver *rhs_solver_;
   std::shared_ptr<mfem::NewtonSolver> newton_solver_;
 
   /// Boundary conditions
-  BoundaryConditions<T, DIM> *bcs_;
+  std::vector<BoundaryConditions<T, DIM> *> bcs_;
 
   std::function<double(const mfem::Vector &, double)> src_func_;
 
@@ -84,17 +86,19 @@ class OperatorBase : public mfem::Operator {
   int height_;
   mutable mfem::Vector z;  // auxiliary vector
   NLFI *nlfi_ptr_;
-  void build_nonlinear_form(const double dt, const mfem::Vector &u);
+  void build_nonlinear_form(const double dt, const std::vector<mfem::Vector> &u);
   void SetNewtonAlgorithm(mfem::Operator *oper);
 
+  int compute_total_size(const std::vector<SpatialDiscretization<T, DIM> *> &spatials);
+
  public:
-  explicit OperatorBase(SpatialDiscretization<T, DIM> const *spatial);
+  explicit OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials);
 
-  OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+  OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                AnalyticalFunctions<DIM> source_term_name);
-  OperatorBase(SpatialDiscretization<T, DIM> const *spatial, const Parameters &params);
+  OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params);
 
-  OperatorBase(SpatialDiscretization<T, DIM> const *spatial, const Parameters &params,
+  OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
                AnalyticalFunctions<DIM> source_term_name);
 
   void ComputeError(const int &it, const double &t, const double &dt, const mfem::Vector &u,
@@ -127,10 +131,10 @@ class OperatorBase : public mfem::Operator {
 
   // Pure virtual methods
   virtual void set_default_properties() = 0;
-  virtual void SetConstantParameters(const double dt, mfem::Vector &u) = 0;
-  virtual void SetTransientParameters(const double dt, const mfem::Vector &u) = 0;
-  virtual void solve(mfem::Vector &unk, double &next_time, const double &current_time,
-                     double current_time_step, const int iter) = 0;
+  virtual void SetConstantParameters(const double dt, const std::vector<mfem::Vector> &u_vect) = 0;
+  virtual void SetTransientParameters(const double dt, const std::vector<mfem::Vector> &u_vect) = 0;
+  virtual void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+                     const double &current_time, double current_time_step, const int iter) = 0;
   virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;
   virtual void get_parameters() = 0;
   virtual void ComputeEnergies(const int &it, const double &dt, const double &t,
@@ -139,6 +143,16 @@ class OperatorBase : public mfem::Operator {
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
+
+template <class T, int DIM, class NLFI>
+int OperatorBase<T, DIM, NLFI>::compute_total_size(
+    const std::vector<SpatialDiscretization<T, DIM> *> &spatials) {
+  int total_size = 0;
+  for (const auto *s : spatials) {
+    total_size += s->getSize();
+  }
+  return total_size;
+}
 
 /**
  * @brief Construct a new OperatorBase object
@@ -149,8 +163,8 @@ class OperatorBase : public mfem::Operator {
  * @param spatial
  */
 template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial)
-    : mfem::Operator(spatial->getSize()),
+OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials)
+    : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
       N(NULL),
       current_dt_(0.0),
@@ -158,7 +172,20 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
       height_(height),
       z(height),
       nlfi_ptr_(nullptr) {
-  this->fespace_ = spatial->get_finite_element_space();
+  this->fes_.SetSize(spatials.size());
+  this->bcs_.reserve(spatials.size());
+  this->ess_tdof_list_.reserve(spatials.size());
+  this->block_trueOffsets_.SetSize(spatials.size() + 1);
+
+  this->block_trueOffsets_[0] = 0;
+  int i = 0;
+  for (const auto *s : spatials) {
+    this->fes_[i] = s->get_finite_element_space();
+    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
+    i++;
+  }
+  this->block_trueOffsets_.PartialSum();
+  this->fespace_ = this->fes_[0];
   this->set_default_solver();
 }
 
@@ -172,9 +199,9 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
  * @param source_term_name
  */
 template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                                          AnalyticalFunctions<DIM> source_term_name)
-    : mfem::Operator(spatial->getSize()),
+    : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
       N(NULL),
       current_dt_(0.0),
@@ -182,7 +209,20 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
       height_(height),
       z(height),
       nlfi_ptr_(nullptr) {
-  this->fespace_ = spatial->get_finite_element_space();
+  this->fes_.SetSize(spatials.size());
+  this->bcs_.reserve(spatials.size());
+  this->ess_tdof_list_.reserve(spatials.size());
+  this->block_trueOffsets_.SetSize(spatials.size() + 1);
+
+  this->block_trueOffsets_[0] = 0;
+  int i = 0;
+  for (const auto *s : spatials) {
+    this->fes_[i] = s->get_finite_element_space();
+    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
+    i++;
+  }
+  this->block_trueOffsets_.PartialSum();
+  this->fespace_ = this->fes_[0];
   this->src_func_ = source_term_name.getFunction();
   this->set_default_solver();
 }
@@ -197,9 +237,9 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
  * @param params
  */
 template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                                          const Parameters &params)
-    : mfem::Operator(spatial->getSize()),
+    : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
       N(NULL),
       current_dt_(0.0),
@@ -207,7 +247,20 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
       height_(height),
       z(height),
       nlfi_ptr_(nullptr) {
-  this->fespace_ = spatial->get_finite_element_space();
+  this->fes_.SetSize(spatials.size());
+  this->bcs_.reserve(spatials.size());
+  this->ess_tdof_list_.reserve(spatials.size());
+  this->block_trueOffsets_.SetSize(spatials.size() + 1);
+
+  this->block_trueOffsets_[0] = 0;
+  int i = 0;
+  for (const auto *s : spatials) {
+    this->fes_[i] = s->get_finite_element_space();
+    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
+    i++;
+  }
+  this->block_trueOffsets_.PartialSum();
+  this->fespace_ = this->fes_[0];
   this->set_default_solver();
 }
 
@@ -224,10 +277,10 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
  * @param source_term_name
  */
 template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *spatial,
+OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                                          const Parameters &params,
                                          AnalyticalFunctions<DIM> source_term_name)
-    : mfem::Operator(spatial->getSize()),
+    : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
       N(NULL),
       current_dt_(0.0),
@@ -235,7 +288,20 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(SpatialDiscretization<T, DIM> const *sp
       height_(height),
       z(height),
       nlfi_ptr_(nullptr) {
-  this->fespace_ = spatial->get_finite_element_space();
+  this->fes_.SetSize(spatials.size());
+  this->bcs_.reserve(spatials.size());
+  this->ess_tdof_list_.reserve(spatials.size());
+  this->block_trueOffsets_.SetSize(spatials.size() + 1);
+
+  this->block_trueOffsets_[0] = 0;
+  int i = 0;
+  for (const auto *s : spatials) {
+    this->fes_[i] = s->get_finite_element_space();
+    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
+    i++;
+  }
+  this->block_trueOffsets_.PartialSum();
+  this->fespace_ = this->fes_[0];
   this->src_func_ = source_term_name.getFunction();
   this->set_default_solver();
 }
@@ -255,19 +321,22 @@ void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variable
   Catch_Time_Section("OperatorBase::initialize");
 
   this->auxvariables_ = auxvars;
+  const auto nvars = vars.get_variables_number();
+  std::vector<mfem::Vector> u_vect;
+  u_vect.reserve(nvars);
+  for (auto iv = 0; iv < nvars; iv++) {
+    auto &vv = vars.getIVariable(iv);
+    auto u = vv.get_unknown();
 
-  auto &vv = vars.getIVariable(0);
-  auto u = vv.get_unknown();
+    this->bcs_.emplace_back(vv.get_boundary_conditions());
+    this->ess_tdof_list_.emplace_back(this->bcs_[iv]->GetEssentialDofs());
+    this->bcs_[iv]->SetBoundaryConditions(u);
+    vv.update(u);
+    u_vect.emplace_back(u);
+  }
+  this->SetConstantParameters(this->current_dt_, u_vect);
 
-  this->bcs_ = vv.get_boundary_conditions();
-  this->ess_tdof_list_ = this->bcs_->GetEssentialDofs();
-  this->bcs_->SetBoundaryConditions(u);
-
-  this->SetConstantParameters(this->current_dt_, u);
-
-  this->SetTransientParameters(this->current_dt_, u);
-
-  vv.update(u);
+  this->SetTransientParameters(this->current_dt_, u_vect);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -284,23 +353,31 @@ void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variable
  * @param u
  */
 template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt, const mfem::Vector &u) {
+void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt,
+                                                      const std::vector<mfem::Vector> &u_vect) {
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
+
+  // TODO(cci) change methods
+
+  auto u = u_vect[0];
+
   if (N != nullptr) {
     delete N;
   }
-  N = new mfem::ParNonlinearForm(this->fespace_);
+  N = new mfem::ParBlockNonlinearForm(this->fes_);
   mfem::ParGridFunction un_gf(this->fespace_);
   un_gf.SetFromTrueDofs(u);
   mfem::ParGridFunction un(this->fespace_);
   un.SetFromTrueDofs(u);
 
+  // TODO(cci) : pass a vector of GF.
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u);
 
   N->AddDomainIntegrator(this->nlfi_ptr_);
-  N->SetEssentialTrueDofs(this->ess_tdof_list_);
+  // TODO(cci) check BCs
+  // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
 }
 
 /**
@@ -454,7 +531,7 @@ void OperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_term,
   source_term.SetSize(this->fespace_->GetTrueVSize());
   RHSS->ParallelAssemble(source_term);
 
-  source_term.SetSubVector(this->ess_tdof_list_, 0.);
+  source_term.SetSubVector(this->ess_tdof_list_[0], 0.);
 }
 
 /**

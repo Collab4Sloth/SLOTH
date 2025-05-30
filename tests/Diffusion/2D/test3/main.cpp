@@ -120,7 +120,8 @@ int main(int argc, char* argv[]) {
   auto src_term = AnalyticalFunctions<DIM>(user_func_source_term);
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, src_term);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, src_term);
   oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);

@@ -119,7 +119,8 @@ int main(int argc, char* argv[]) {
 
     // Problem 1:
     const auto crit_cvg_1 = 1.e-12;
-    OPE oper(&spatial, TimeScheme::EulerImplicit);
+    std::vector<SPA*> spatials{&spatial};
+    OPE oper(spatials, TimeScheme::EulerImplicit);
     oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
 
     PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);

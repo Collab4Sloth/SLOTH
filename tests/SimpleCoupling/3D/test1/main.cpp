@@ -196,7 +196,8 @@ int main(int argc, char* argv[]) {
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
   // AllenCahn:
-  OPE oper(&spatial, ac_params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, ac_params, TimeScheme::EulerImplicit);
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-20)));
@@ -207,7 +208,7 @@ int main(int argc, char* argv[]) {
 
   // Heat:
   auto source_term = AnalyticalFunctions<DIM>(src_func);
-  OPE2 oper2(&spatial, TimeScheme::EulerImplicit, source_term);
+  OPE2 oper2(spatials, TimeScheme::EulerImplicit, source_term);
   oper2.overload_density(Parameters(Parameter("rho", rho)));
   oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));

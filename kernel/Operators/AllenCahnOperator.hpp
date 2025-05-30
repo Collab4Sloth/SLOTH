@@ -51,14 +51,15 @@ class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI> {
 
  public:
   template <typename... Args>
-  explicit AllenCahnOperatorBase(SpatialDiscretization<T, DIM> const *spatial, Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, std::forward<Args>(args)...) {
+  explicit AllenCahnOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                                 Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatials, std::forward<Args>(args)...) {
     this->get_parameters();
   }
   template <typename... Args>
-  AllenCahnOperatorBase(SpatialDiscretization<T, DIM> const *spatial, const Parameters &params,
-                        Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, params, std::forward<Args>(args)...) {
+  AllenCahnOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                        const Parameters &params, Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatials, params, std::forward<Args>(args)...) {
     this->get_parameters();
   }
 
@@ -188,16 +189,16 @@ class SteadyAllenCahnOperator final
 
  public:
   template <typename... Args>
-  SteadyAllenCahnOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
+  SteadyAllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
       : AllenCahnOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(
-            spatial, std::forward<Args>(args)...) {
+            spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  SteadyAllenCahnOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                          Args &&...args)
+  SteadyAllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                          const Parameters &params, Args &&...args)
       : AllenCahnOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(
-            spatial, params, std::forward<Args>(args)...) {
+            spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   void overload_mobility(const Parameters &p_params);
@@ -247,15 +248,15 @@ class AllenCahnOperator final : public AllenCahnOperatorBase<T, DIM, NLFI, Phase
 
  public:
   template <typename... Args>
-  AllenCahnOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : AllenCahnOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial,
+  AllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : AllenCahnOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatials,
                                                                     std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  AllenCahnOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
+  AllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
                     Args &&...args)
-      : AllenCahnOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial, params,
+      : AllenCahnOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatials, params,
                                                                     std::forward<Args>(args)...) {
     this->set_default_properties();
   }

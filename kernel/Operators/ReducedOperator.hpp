@@ -20,7 +20,7 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   // Mass matrix
   mfem::ParBilinearForm *M_;
   // PhaseField Matrix
-  mfem::ParNonlinearForm *N_;
+  mfem::ParBlockNonlinearForm *N_;
   // Jacobian matrix
   mutable mfem::HypreParMatrix *Jacobian;
 
@@ -33,7 +33,7 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   const mfem::Array<int> &ess_tdof_list;
 
  public:
-  PhaseFieldReducedOperator(mfem::ParBilinearForm *M, mfem::ParNonlinearForm *N,
+  PhaseFieldReducedOperator(mfem::ParBilinearForm *M, mfem::ParBlockNonlinearForm *N,
                             const mfem::Array<int> &ess_tdof);
 
   /// Set current dt, unk values - needed to compute action and Jacobian.
@@ -54,9 +54,10 @@ class PhaseFieldReducedOperator : public mfem::Operator {
  * @param N
  */
 PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBilinearForm *M,
-                                                     mfem::ParNonlinearForm *N,
+                                                     mfem::ParBlockNonlinearForm *N,
                                                      const mfem::Array<int> &ess_tdof)
-    : Operator(N->ParFESpace()->TrueVSize()),
+    : Operator(N->Height()),
+      // : Operator(N->ParFESpace()->TrueVSize()),
       M_(M),
       N_(N),
       Jacobian(NULL),
@@ -100,14 +101,14 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
     delete Jacobian;
   }
 
-  std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
+  // std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
 
-  add(*unk_, dt_, k, z);
+  // add(*unk_, dt_, k, z);
 
-  localJ->Add(dt_, N_->GetLocalGradient(z));
-  Jacobian = M_->ParallelAssemble(localJ.get());
+  // localJ->Add(dt_, N_->GetLocalGradient(z));
+  // Jacobian = M_->ParallelAssemble(localJ.get());
 
-  std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
+  // std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
 
   return *Jacobian;
 }

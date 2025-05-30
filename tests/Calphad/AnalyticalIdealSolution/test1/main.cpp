@@ -164,7 +164,8 @@ int main(int argc, char* argv[]) {
   // Heat transfer
   //---------------
   auto source_term = AnalyticalFunctions<DIM>(src_func);
-  OPE2 Heat_op(&spatial, TimeScheme::EulerImplicit, source_term);
+  std::vector<SPA*> spatials{&spatial};
+  OPE2 Heat_op(spatials, TimeScheme::EulerImplicit, source_term);
   Heat_op.overload_density(Parameters(Parameter("rho", rho)));
   Heat_op.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   Heat_op.overload_conductivity(Parameters(Parameter("lambda", cond)));

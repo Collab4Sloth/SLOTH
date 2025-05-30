@@ -87,7 +87,7 @@ template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
                                 const PhysicalConvergence& convergence, std::list<int> pop_elem,
                                 Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Unnamed problem", variables, pst, convergence, pop_elem,
+    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence, pop_elem,
                             auxvariables...),
       oper_(oper) {}
 
@@ -108,7 +108,7 @@ template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
                                 const PhysicalConvergence& convergence, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Unnamed problem", variables, pst, convergence, auxvariables...),
+    : ProblemBase<VAR, PST>("AllenCahn problem", variables, pst, convergence, auxvariables...),
       oper_(oper) {}
 
 /**
@@ -261,15 +261,21 @@ void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& curre
                                           double current_time_step, const int iter,
                                           std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                           const std::vector<std::vector<std::string>>& unks_info) {
-  // TODO(cci) generaliser au niveau des opérateurs pour le multivariable avec des verros
+  // auto& unk = *(vect_unk[0]);
 
-  auto& unk = *(vect_unk[0]);
+  const size_t unk_size = vect_unk.size();
 
-  this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
+  // this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
+  this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
   // calculation converges
-  this->unknown_.emplace_back(unk);
+  // this->unknown_.emplace_back(unk);
+
+  for (size_t i = 0; i < unk_size; i++) {
+    auto& unk_i = *(vect_unk[i]);
+    this->unknown_.emplace_back(unk_i);
+  }
 }
 
 /**

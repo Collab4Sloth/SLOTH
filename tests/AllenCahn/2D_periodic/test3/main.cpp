@@ -153,7 +153,8 @@ int main(int argc, char* argv[]) {
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
       auto src_term = AnalyticalFunctions<DIM>(user_func_source_term);
-      OPE oper(&spatial, params, src_term);
+      std::vector<SPA*> spatials{&spatial};
+      OPE oper(spatials, params, src_term);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
       auto pst = PST(&spatial, p_pst);

@@ -124,7 +124,9 @@ int main(int argc, char* argv[]) {
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
       auto source_terme = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega);
-      OPE oper(&spatial, params, TimeScheme::from(time_scheme), source_terme);
+
+      std::vector<SPA*> spatials{&spatial};
+      OPE oper(spatials, params, TimeScheme::from(time_scheme), source_terme);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);

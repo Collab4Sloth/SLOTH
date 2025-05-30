@@ -51,13 +51,14 @@ class DiffusionOperatorBase : public OPEBASE<T, DIM, NLFI> {
 
  public:
   template <typename... Args>
-  explicit DiffusionOperatorBase(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, std::forward<Args>(args)...) {}
+  explicit DiffusionOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                                 Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatials, std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  DiffusionOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                        Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, params, std::forward<Args>(args)...) {
+  DiffusionOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                        const Parameters &params, Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatials, params, std::forward<Args>(args)...) {
     this->get_parameters();
   }
 
@@ -176,16 +177,16 @@ class SteadyDiffusionOperator final
 
  public:
   template <typename... Args>
-  SteadyDiffusionOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                          Args &&...args)
+  SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                          const Parameters &params, Args &&...args)
       : DiffusionOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(
-            spatial, params, std::forward<Args>(args)...) {
+            spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  SteadyDiffusionOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
+  SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
       : DiffusionOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(
-            spatial, std::forward<Args>(args)...) {
+            spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   void overload_diffusion(const Parameters &p_params);
@@ -238,15 +239,15 @@ class DiffusionOperator final : public DiffusionOperatorBase<T, DIM, NLFI, Phase
 
  public:
   template <typename... Args>
-  DiffusionOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
+  DiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
                     Args &&...args)
-      : DiffusionOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial, params,
+      : DiffusionOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatials, params,
                                                                     std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  DiffusionOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : DiffusionOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial,
+  DiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : DiffusionOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatials,
                                                                     std::forward<Args>(args)...) {
     this->set_default_properties();
   }

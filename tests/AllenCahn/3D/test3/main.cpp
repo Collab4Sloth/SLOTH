@@ -124,7 +124,8 @@ int main(int argc, char* argv[]) {
   //     operator     //
   // ####################
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerImplicit);
 
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 

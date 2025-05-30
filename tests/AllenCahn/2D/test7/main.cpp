@@ -146,7 +146,8 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerExplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerExplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
@@ -155,7 +156,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 2:
 
-  OPE2 oper2(&spatial, TimeScheme::EulerExplicit);
+  OPE2 oper2(spatials, TimeScheme::EulerExplicit);
   oper2.overload_diffusion(Parameters(Parameter("D", mob)));
   auto pst2 = PST(&spatial, p_pst2);
   PB2 problem2(oper2, vars2, pst2, convergence);

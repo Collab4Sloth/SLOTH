@@ -138,7 +138,8 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst1);
@@ -151,7 +152,7 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE2 oper2(&spatial, params, TimeScheme::EulerExplicit);
+  OPE2 oper2(spatials, params, TimeScheme::EulerExplicit);
   oper2.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence2(ConvergenceType::RELATIVE_MAX, crit_cvg_2);
   auto pst2 = PST(&spatial, p_pst2);
@@ -164,7 +165,7 @@ int main(int argc, char* argv[]) {
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
   const auto crit_cvg_3 = 1.e-12;
-  OPE3 oper3(&spatial, params, TimeScheme::RungeKutta4);
+  OPE3 oper3(spatials, params, TimeScheme::EulerImplicit);
   oper3.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence3(ConvergenceType::RELATIVE_MAX, crit_cvg_3);
   auto pst3 = PST(&spatial, p_pst3);

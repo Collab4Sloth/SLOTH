@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
 
   SPA spatial("InlineSquareWithQuadrangles", 1, refinement_level,
               std::make_tuple(nb_fe, nb_fe, length, length));
+  std::vector<SPA*> spatials{&spatial};
   // ##############################
   //     Boundary conditions     //
   // ##############################
@@ -116,10 +117,10 @@ int main(int argc, char* argv[]) {
   using InterDiffusionIntegrator = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Operator definition
   DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
-      &spatial, td_parameters, TimeScheme::RungeKutta4);
+      spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>
-      interdiffu_oper_u(&spatial, td_parameters, TimeScheme::RungeKutta4);
+      interdiffu_oper_u(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
   //==========================================

@@ -50,13 +50,14 @@ class HeatOperatorBase : public OPEBASE<T, DIM, NLFI> {
 
  public:
   template <typename... Args>
-  explicit HeatOperatorBase(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, std::forward<Args>(args)...) {
+  explicit HeatOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatials, std::forward<Args>(args)...) {
     this->get_parameters();
   }
   template <typename... Args>
-  HeatOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params, Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, params, std::forward<Args>(args)...) {
+  HeatOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
+                   Args &&...args)
+      : OPEBASE<T, DIM, NLFI>(spatials, params, std::forward<Args>(args)...) {
     this->get_parameters();
   }
 
@@ -174,15 +175,15 @@ class SteadyHeatOperator final
 
  public:
   template <typename... Args>
-  SteadyHeatOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(spatial,
+  SteadyHeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(spatials,
                                                                      std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  SteadyHeatOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(spatial, params,
+  SteadyHeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params, Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(spatials, params,
                                                                      std::forward<Args>(args)...) {
     this->set_default_properties();
   }
@@ -238,14 +239,15 @@ class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, PhaseFieldOpera
 
  public:
   template <typename... Args>
-  HeatOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial,
+  HeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatials,
                                                                std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  HeatOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial, params,
+  HeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
+               Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatials, params,
                                                                std::forward<Args>(args)...) {
     this->set_default_properties();
   }
