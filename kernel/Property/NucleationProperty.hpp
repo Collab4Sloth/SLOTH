@@ -109,6 +109,8 @@ void Nucleation::get_property(
         }
         if (!type_info_view.empty() && type_info_view == "xph" &&
             toUpperCase(aux_infos[size - 2]) == toUpperCase(this->secondary_phase_)) {
+          std::cout << " get prop liquid" << std::endl;
+
           this->xph_.emplace_back(aux_gf);
         }
       }

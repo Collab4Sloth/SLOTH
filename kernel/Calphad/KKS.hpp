@@ -138,7 +138,10 @@ void KKS<T>::execute_linearization(
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
-
+  std::set<int> list_nodes;
+  for (int i = 0; i < nb_nodes; ++i) {
+    list_nodes.insert(i);
+  }
   ////////////////////////////////////////////////////////
   // Interpolation: H(phi, t+dt)=Hphi , H(phi, t)=Hphi_old
   ////////////////////////////////////////////////////////
@@ -150,16 +153,14 @@ void KKS<T>::execute_linearization(
   ////////////////////////////////////////////////////////
   const auto &[phase, phi_gf, phi_gf_old] = phasefields_gf;
 
-  std::set<int> indices_ph_fictitious{-1};
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
   std::set<int> indices_inter;
   for (int i = 0; i < nb_nodes; ++i) {
     if (phi_gf[i] > 1 - this->KKS_threshold_) {
-      SlothInfo::debug("Execute_linearization: primary node ", i);
       indices_ph_1.insert(i);
     } else if (phi_gf[i] < this->KKS_threshold_) {
-      SlothInfo::debug("Execute_linearization: secondary node ", i);
+      SlothInfo::debug("Execute_linearization: liquid node ", i);
       indices_ph_2.insert(i);
     } else {
       SlothInfo::debug("Execute_linearization: interfacial node  ", i, " phi_gf_old[i] ",
@@ -171,16 +172,6 @@ void KKS<T>::execute_linearization(
     FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(i));
     Hphi(i) = H(phi_gf(i));
     Hphi_old(i) = H(phi_gf_old(i));
-  }
-
-  // Propagate to other
-  if (this->nucleation_started_ && indices_inter.empty() && indices_ph_2.empty()) {
-    SlothInfo::print("Nucleus detected but not sufficiently strong to propagate. Try it again");
-    this->nucleation_started_ = false;
-
-    for (int i = 0; i < nb_nodes; ++i) {
-      CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = -1.;
-    }
   }
 
   // Lambda for equilibrium calculations performed in the pure phase or in the interface with a
@@ -276,7 +267,6 @@ void KKS<T>::execute_linearization(
     const bool is_secondary_phase = (phase_elem == this->KKS_secondary_phase_);
 
     if (is_primary_phase) {
-      SlothInfo::debug("Check 0 ", id_value);
       if (elem != this->element_removed_from_ic_) {
         bar_tp_gf_ph_1[id_value + 2] = x_elem;
       } else {
@@ -316,18 +306,16 @@ void KKS<T>::execute_linearization(
   /// Primary phase
   /////////////////////////
   std::vector<std::tuple<std::string, std::string, double>> st_phase_12 = {
-      {phase, "entered", 0.}, {this->KKS_secondary_phase_, "entered", 0.}};
-  if (this->nucleation_started_ || pure_bar_tp_gf_ph_1[0][0] < 2800.) {
-    SlothInfo::debug("Check nucleation_started_");
-    st_phase_12 = {{phase, "entered", 0.}};
+      {phase, "entered", 1.}, {this->KKS_secondary_phase_, "entered", 0.}};
+  if (this->nucleation_started_) {
+    st_phase_12 = {{phase, "entered", 1.}};
   }
-  SlothInfo::debug("Check nucleation after");
 
   // In practice, two entered phase seems to be more stable than considering dormant phase
   // {phase, "entered"}, {this->KKS_secondary_phase_, "dormant"}};
-  std::vector<std::tuple<std::string, std::string, double>> st_phase_1 = {{phase, "entered", 0.}};
+  std::vector<std::tuple<std::string, std::string, double>> st_phase_1 = {{phase, "entered", 1.}};
   std::vector<std::tuple<std::string, std::string, double>> st_phase_2 = {
-      {this->KKS_secondary_phase_, "entered", 0.}};
+      {this->KKS_secondary_phase_, "entered", 1.}};
 
   calculate_interface(indices_ph_1, pure_bar_tp_gf_ph_1, 0., -1,
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
@@ -336,19 +324,11 @@ void KKS<T>::execute_linearization(
   if (!this->nucleation_started_) {
     bool local_nucleation = false;
     for (const auto &node : indices_ph_1) {
-      // Check if secondary phase is found
+      // Check if liquid is found
       if (CALPHAD.elem_mole_fraction_by_phase_.contains(
               std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
-        if (CALPHAD.mole_fraction_of_phase_[std::make_tuple(node, this->KKS_secondary_phase_)] >
-            0.01) {
-          CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 1.;
-          local_nucleation = true;
-          CALPHAD.nucleus_[std::make_tuple(node, this->KKS_secondary_phase_)] = 1.;
-          SlothInfo::print("Secondary phase detected at ", node, " in sufficient quantity ");
-        } else {
-          SlothInfo::print("Secondary phase detected at ", node,
-                           " but not in sufficient quantity ");
-        }
+        CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 1.;
+        local_nucleation = true;
       } else {
         CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 0.;
       }
@@ -360,10 +340,6 @@ void KKS<T>::execute_linearization(
       int global_flag = 0;
       MPI_Allreduce(&local_flag, &global_flag, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
       this->nucleation_started_ = (global_flag == 1);
-    }
-  } else {
-    for (int i = 0; i < nb_nodes; ++i) {
-      CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = -1.;
     }
   }
 
@@ -529,16 +505,16 @@ void KKS<T>::execute_linearization(
       AA->SetBlock(1, 1, A11);
 
       // Check linear system
-      // if (Verbosity::Debug <= verbosityLevel) {
-      SlothInfo::debug("Block A(0,0) -> As ");
-      SlothInfo::debug("Matrice A(0,1) -> -Al");
-      SlothInfo::debug("Block A(1,0) -> H(phi)Id");
-      SlothInfo::debug("Matrice A(1,1) -> (1-H(phi))Id");
-      AA->Print();
-      SlothInfo::debug("Matrice B(0) -> ml - ms + (hl -hs) * delta T");
-      SlothInfo::debug("Matrice B(1) -> delta X");
-      bb.Print();
-      // }
+      if (Verbosity::Debug <= verbosityLevel) {
+        SlothInfo::debug("Block A(0,0) -> As ");
+        SlothInfo::debug("Matrice A(0,1) -> -Al");
+        SlothInfo::debug("Block A(1,0) -> H(phi)Id");
+        SlothInfo::debug("Matrice A(1,1) -> (1-H(phi))Id");
+        AA->Print();
+        SlothInfo::debug("Matrice B(0) -> ml - ms + (hl -hs) * delta T");
+        SlothInfo::debug("Matrice B(1) -> delta X");
+        bb.Print();
+      }
 
       AA->Finalize();
 
@@ -686,7 +662,6 @@ void KKS<T>::execute_linearization(
                        CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)]);
     }
   }
-  SlothInfo::debug("Check end ");
 }
 
 /**

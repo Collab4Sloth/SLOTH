@@ -180,8 +180,7 @@ void InterDiffusionCoefficient::get_property(
   std::vector<double> phi(size_gf, 0.);
   if (!this->phi_gf_.empty()) {
     for (int k = 0; k < size_gf; k++) {
-      // Bounding to avoid unphysical terms
-      phi[k] = std::max(0., std::min(1., this->phi_gf_[0](k)));
+      phi[k] = this->phi_gf_[0](k);
     }
     for (auto& [compo, mobi] : this->mob_gf_) {
       const auto mobi_max = mobi.Max();
@@ -190,14 +189,10 @@ void InterDiffusionCoefficient::get_property(
           // No solid detected
           mobi(k) = mobi_max;
         } else {
-          if (phi[k] < 1.) {
-            std::cout << " Two phase detected " << k << " compo " << compo << " : before "
-                      << mobi(k) << " phi " << phi[k] << " mob max " << mobi_max << std::endl;
-          }
+          std::cout << " Two phase detected " << k << " compo " << compo << " : before " << mobi(k)
+                    << " phi " << phi[k] << " mob max " << mobi_max << std::endl;
           mobi(k) = mobi(k) * phi[k] + (1. - phi[k]) * mobi_max;
-          if (phi[k] < 1.) {
-            std::cout << " Two phase detected : after " << mobi(k) << std::endl;
-          }
+          std::cout << " Two phase detected : after " << mobi(k) << std::endl;
         }
       }
     }
