@@ -32,7 +32,7 @@
 #pragma once
 
 template <typename T>
-class MultiParamsTabulation : CalphadBase<T> {
+class MultiParamsTabulation : public CalphadBase<T> {
  private:
   std::map<std::string, unsigned int> idx_elem_;
   std::vector<std::string> input_composition_order_;
@@ -58,24 +58,24 @@ class MultiParamsTabulation : CalphadBase<T> {
   inline static std::function<double(double)> scalling_func_potentials;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
-  void compute(
-      const size_t nb_nodes, const std::vector<T>& tp_gf,
-      const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system);
+  void compute(const size_t nb_nodes, const std::vector<T>& tp_gf,
+               const std::vector<std::tuple<std::string, std::string>>& chemical_system);
 
   void check_variables_consistency(
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system);
 
  public:
-  explicit MultiParamsTabulation(const Parameters& params);
+  constexpr explicit MultiParamsTabulation(const Parameters& params);
+
+  constexpr MultiParamsTabulation(const Parameters& params, bool is_KKS);
 
   void initialize(
       const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
-  void execute(const int dt, const std::vector<T>& aux_gf,
+  void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-               std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>&
-                   output_system) override;
+               std::optional<std::vector<std::tuple<std::string, std::string, double>>>
+                   status_phase = std::nullopt) override;
   void finalize() override;
 
   ////////////////////////////////
@@ -96,9 +96,9 @@ class MultiParamsTabulation : CalphadBase<T> {
  */
 template <typename T>
 void MultiParamsTabulation<T>::get_parameters() {
-  this->description_ = this->params_.template get_param_value_or_default<std::string>(
-      "description",
-      "Analytical thermodynamic description for an ideal solution using tabulated data");
+  // this->description_ = this->params_.template get_param_value_or_default<std::string>(
+  //     "description",
+  //     "Analytical thermodynamic description for an ideal solution using tabulated data");
   this->scalling_func_mob =
       this->params_.template get_param_value_or_default<std::function<double(double)>>(
           "scalling_func_mobilities", [](double v) { return std::exp(v); });
@@ -142,10 +142,9 @@ void MultiParamsTabulation<T>::get_parameters() {
       check_parameters_tab_params,
       " Parameters : (1) list_of_aux_gf_index_for_tabulation , (2) "
       "list_of_dataset_tabulation_parameters , (3) dimension_of_interpolation are not consistent");
-  MFEM_VERIFY(
-      check_parameters_mob_mu,
-      " Parameters : (1) list_of_dataset_name_mob , (2) "
-      "list_of_dataset_name_mu , (3) list_of_element are not consistent");
+  MFEM_VERIFY(check_parameters_mob_mu,
+              " Parameters : (1) list_of_dataset_name_mob , (2) "
+              "list_of_dataset_name_mu , (3) list_of_element are not consistent");
 }
 
 ////////////////////////////////
@@ -156,7 +155,20 @@ void MultiParamsTabulation<T>::get_parameters() {
  * @param params
  */
 template <typename T>
-MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params) : CalphadBase<T>(params) {
+constexpr MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params)
+    : CalphadBase<T>(params, false) {
+  this->CU_ = std::make_unique<CalphadUtils<T>>();
+  this->get_parameters();
+}
+
+/**
+ * @brief Construct a new MultiParamsTabulation::MultiParamsTabulation object
+ *
+ * @param params
+ */
+template <typename T>
+constexpr MultiParamsTabulation<T>::MultiParamsTabulation(const Parameters& params, bool is_KKS)
+    : CalphadBase<T>(params, is_KKS) {
   this->CU_ = std::make_unique<CalphadUtils<T>>();
   this->get_parameters();
 }
@@ -242,18 +254,19 @@ void MultiParamsTabulation<T>::initialize(
  */
 template <typename T>
 void MultiParamsTabulation<T>::execute(
-    const int dt, const std::vector<T>& tp_gf,
+    const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
-  const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
+    std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
+  // const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
+  const size_t nb_nodes = list_nodes.size();
   this->clear_containers();
-  if (dt == 1) {
-    this->check_variables_consistency(output_system);
-  }
+  // if (dt == 1) {
+  //   this->check_variables_consistency(output_system);
+  // }
 
-  this->compute(nb_nodes, tp_gf, chemical_system, output_system);
+  this->compute(nb_nodes, tp_gf, chemical_system);
 
-  this->update_outputs(nb_nodes, output_system);
+  // this->update_outputs(nb_nodes, output_system);
 }
 
 /**
@@ -267,8 +280,7 @@ void MultiParamsTabulation<T>::execute(
 template <typename T>
 void MultiParamsTabulation<T>::compute(
     const size_t nb_nodes, const std::vector<T>& tp_gf,
-    const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system) {
+    const std::vector<std::tuple<std::string, std::string>>& chemical_system) {
   Catch_Time_Section("MultiParamsTabulation::compute");
 
   const std::string& phase = "C1_MO2";

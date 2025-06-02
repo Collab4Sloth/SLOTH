@@ -127,14 +127,11 @@ auto Parameter::get_value() const -> param_type {
                       std::is_same_v<T, std::string> || std::is_same_v<T, bool> ||
                       std::is_same_v<T, vString> || std::is_same_v<T, vTupleStringString> ||
                       std::is_same_v<T, vTupleStringInt> || std::is_same_v<T, MapStringDouble> ||
-<<<<<<< HEAD
                       std::is_same_v<T, Map2String2Double> ||
                       std::is_same_v<T, std::function<double(double)>> ||
-                      std::is_same_v<T, std::vector<std::size_t>>) {
-=======
+                      std::is_same_v<T, std::vector<std::size_t>> ||
                       std::is_same_v<T, vTuple2StringDouble> ||
                       std::is_same_v<T, Map2String2Double>) {
->>>>>>> master
           return arg;
         } else {
           mfem::mfem_error("Unsupported type");
@@ -142,6 +139,7 @@ auto Parameter::get_value() const -> param_type {
       },
       this->value_);
 }
+
 
 /**
  * @brief Return the name of the parameter
