@@ -393,8 +393,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
 
   // Execute
   if (!this->is_KKS_) {
-    this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system,
-                              previous_output);
+    this->CC_->global_execute(iter, current_time_step, tp_gf, this->sorted_chemical_system_,
+                              output_system, previous_output);
   } else {
     // Specific treatment for KKS problems
     std::tuple<std::string, mfem::Vector, mfem::Vector> phasefields_gf = this->get_phasefields();
