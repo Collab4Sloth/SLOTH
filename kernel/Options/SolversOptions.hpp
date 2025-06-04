@@ -172,7 +172,7 @@ const auto type = 0;  // ILU(k) locally and block Jacobi globally
 const auto iter_max = 1;
 const auto tol = 0.;
 const auto print_level = 0;
-const auto reorder_type = -1;  // 0 = no reordering, 1 = reverse Cuthill-McKee
+const auto reorder_type = 0;  // 0 = no reordering, 1 = reverse Cuthill-McKee
 }  // namespace HYPRE_ILU_DefaultConstant
 
 /**
