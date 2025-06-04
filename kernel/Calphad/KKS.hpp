@@ -41,6 +41,8 @@ class KKS {
   std::string element_removed_from_ic_;
   std::shared_ptr<CalphadUtils<T>> CU_;
   std::string KKS_secondary_phase_;
+  double KKS_mobility_for_seed_;
+  double KKS_seed_;
   double KKS_temperature_increment_;
   double KKS_composition_increment_;
   double KKS_threshold_;
