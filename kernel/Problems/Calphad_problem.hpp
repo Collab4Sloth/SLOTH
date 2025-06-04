@@ -403,8 +403,9 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> x_phase_gf =
         this->get_molar_fractions();
 
-    this->CC_->global_execute(iter, tp_gf, this->sorted_chemical_system_, output_system,
-                              previous_output, phasefields_gf, tp_gf_old, x_phase_gf);
+    this->CC_->global_execute(iter, current_time_step, tp_gf, this->sorted_chemical_system_,
+                              output_system, previous_output, phasefields_gf, tp_gf_old,
+                              x_phase_gf);
   }
 
   // Recover unknowns
