@@ -45,7 +45,7 @@ const auto iter_max = 100;
 const auto abs_tol = 1.e-13;
 const auto rel_tol = 1.e-13;
 const bool iterative_mode = false;
-const auto print_level = -1;
+const auto print_level = 0;
 }  // namespace NewtonDefaultConstant
 
 //////////////////////////////////////////////////////
@@ -60,7 +60,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = -1;
+const auto print_level = 0;
 }  // namespace BICGSTABDefaultConstant
 
 /**
@@ -72,7 +72,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = -1;
+const auto print_level = 0;
 }  // namespace CGDefaultConstant
 
 /**
@@ -84,7 +84,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = -1;
+const auto print_level = 0;
 }  // namespace MINRESDefaultConstant
 
 /**
@@ -97,7 +97,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = -1;
+const auto print_level = 0;
 }  // namespace GMRESDefaultConstant
 
 /**
@@ -105,7 +105,7 @@ const auto print_level = -1;
  *
  */
 namespace UMFPACK_DefaultConstant {
-const auto print_level = 1;
+const auto print_level = 0;
 }  // namespace UMFPACK_DefaultConstant
 
 //////////////////////////////////////////
@@ -118,7 +118,7 @@ const auto print_level = 1;
 namespace DSMOOTHER_DefaultConstant {
 const auto type = 0;  // 0, 1, 2 - scaled Jacobi, scaled l1-Jacobi, scaled lumped-Jacobi
 const bool positive_diagonal = false;
-const auto print_level = -1;
+const auto print_level = 0;
 }  // namespace DSMOOTHER_DefaultConstant
 
 //////////////////////////////////////////
@@ -172,7 +172,7 @@ const auto type = 0;  // ILU(k) locally and block Jacobi globally
 const auto iter_max = 1;
 const auto tol = 0.;
 const auto print_level = 0;
-const auto reorder_type = 0;  // 0 = no reordering, 1 = reverse Cuthill-McKee
+const auto reorder_type = -1;  // 0 = no reordering, 1 = reverse Cuthill-McKee
 }  // namespace HYPRE_ILU_DefaultConstant
 
 /**

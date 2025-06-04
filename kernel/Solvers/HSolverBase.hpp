@@ -115,7 +115,7 @@ std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverTyp
   ss->SetMaxIter(iter_max);
   ss->SetTol(tol);
   ss->SetKDim(kdim);
-  ss->SetPrintLevel(kdim);
+  ss->SetPrintLevel(print_level);
 
   return ss;
 }
@@ -169,7 +169,7 @@ std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverT
   ss->SetMaxIter(iter_max);
   ss->SetTol(tol);
   ss->SetKDim(kdim);
-  ss->SetPrintLevel(kdim);
+  ss->SetPrintLevel(print_level);
 
   return ss;
 }

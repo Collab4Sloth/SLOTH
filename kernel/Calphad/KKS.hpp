@@ -44,6 +44,7 @@ class KKS {
   double KKS_temperature_increment_;
   double KKS_composition_increment_;
   double KKS_threshold_;
+  double KKS_temperature_threshold_;
   bool KKS_temperature_scheme_;
   bool nucleation_started_{false};
 
@@ -114,7 +115,10 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
       "KKS_temperature_explicit_scheme", false);
 
   this->KKS_threshold_ =
-      CALPHAD.params_.template get_param_value_or_default<double>("KKS_threshold", 1.e-2);
+      CALPHAD.params_.template get_param_value_or_default<double>("KKS_threshold", 1.e-3);
+
+  this->KKS_temperature_threshold_ = CALPHAD.params_.template get_param_value_or_default<double>(
+      "KKS_temperature_threshold", 2800);
 }
 
 /**
@@ -160,10 +164,10 @@ void KKS<T>::execute_linearization(
     if (phi_gf[i] > 1 - this->KKS_threshold_) {
       indices_ph_1.insert(i);
     } else if (phi_gf[i] < this->KKS_threshold_) {
-      SlothInfo::debug("Execute_linearization: liquid node ", i);
+      SlothInfo::print("Execute_linearization: liquid node ", i);
       indices_ph_2.insert(i);
     } else {
-      SlothInfo::debug("Execute_linearization: interfacial node  ", i, " phi_gf_old[i] ",
+      SlothInfo::print("Execute_linearization: interfacial node  ", i, " phi_gf_old[i] ",
                        phi_gf_old[i], " phi_gf[i] ", phi_gf[i]);
       indices_inter.insert(i);
     }
@@ -306,16 +310,17 @@ void KKS<T>::execute_linearization(
   /// Primary phase
   /////////////////////////
   std::vector<std::tuple<std::string, std::string, double>> st_phase_12 = {
-      {phase, "entered", 1.}, {this->KKS_secondary_phase_, "entered", 0.}};
-  if (this->nucleation_started_) {
-    st_phase_12 = {{phase, "entered", 1.}};
+      {phase, "entered", 0.}, {this->KKS_secondary_phase_, "entered", 0.}};
+
+  if (this->nucleation_started_ || (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
+    st_phase_12 = {{phase, "entered", 0.}};
   }
 
   // In practice, two entered phase seems to be more stable than considering dormant phase
   // {phase, "entered"}, {this->KKS_secondary_phase_, "dormant"}};
-  std::vector<std::tuple<std::string, std::string, double>> st_phase_1 = {{phase, "entered", 1.}};
+  std::vector<std::tuple<std::string, std::string, double>> st_phase_1 = {{phase, "entered", 0.}};
   std::vector<std::tuple<std::string, std::string, double>> st_phase_2 = {
-      {this->KKS_secondary_phase_, "entered", 1.}};
+      {this->KKS_secondary_phase_, "entered", 0.}};
 
   calculate_interface(indices_ph_1, pure_bar_tp_gf_ph_1, 0., -1,
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
@@ -327,19 +332,36 @@ void KKS<T>::execute_linearization(
       // Check if liquid is found
       if (CALPHAD.elem_mole_fraction_by_phase_.contains(
               std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
-        CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 1.;
+        // CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 1.;
+        double seed =
+            CALPHAD.mole_fraction_of_phase_[std::make_tuple(node, this->KKS_secondary_phase_)];
+        // To enhance the chance to initiate the phase change
+        std::cout << " Phase change detected at node " << node << " with phase fraction " << seed
+                  << std::endl;
+        seed = 0.9;  // std::min(1., std::max(4. * this->KKS_threshold_, seed));
+        const double time_step = 1.e-3;
+        const double mob = 1.e-4;
+        CALPHAD.nucleus_[std::make_tuple(node, this->KKS_secondary_phase_)] =
+            -seed / (time_step * mob);
         local_nucleation = true;
       } else {
-        CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 0.;
+        // CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)] = 0.;
+
+        CALPHAD.nucleus_[std::make_tuple(node, this->KKS_secondary_phase_)] = 0.;
       }
     }
 
     // Synchronization of nucleation_started across all MPI ranks
-    if (local_nucleation) {
-      int local_flag = 1;
-      int global_flag = 0;
-      MPI_Allreduce(&local_flag, &global_flag, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-      this->nucleation_started_ = (global_flag == 1);
+    int local_flag = (local_nucleation ? 1 : 0);
+    int global_flag = 0;
+    MPI_Allreduce(&local_flag, &global_flag, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    this->nucleation_started_ = (global_flag == 1);
+
+  } else {
+    std::cout << " Phase change already detected " << std::endl;
+    // Cancel nucleus because of phase transition started
+    for (int i = 0; i < nb_nodes; ++i) {
+      CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
     }
   }
 
@@ -423,12 +445,19 @@ void KKS<T>::execute_linearization(
 
       // ml - ms + (T - Tbar) * (hl - hs)
       // ml - ms
+
+      SlothInfo::print("Matrice ml");
+      ml.Print();
+
+      SlothInfo::print("Matrice ms");
+      ms.Print();
       mfem::Vector ml_minus_ms(ml);
       ml_minus_ms -= ms;
 
       // T - Tbar
       const double deltaT = tp_gf[0](node) - bar_tp_gf_ph_1[0](node);
 
+      SlothInfo::print("Matrice deltaT = ", deltaT);
       // hl * (T - Tbar)
       mfem::Vector hl_deltaT(hl);
       hl_deltaT *= deltaT;
@@ -457,9 +486,9 @@ void KKS<T>::execute_linearization(
           const double xdH = (bar_tp_gf_ph_1[jelem + 2](node) - bar_tp_gf_ph_2[jelem + 2](node)) *
                              (current_Hphi - old_Hphi);
 
-          SlothInfo::debug("Calculation of dx at node ", node, " = ", dx, " for elem ", elem,
+          SlothInfo::print("Calculation of dx at node ", node, " = ", dx, " for elem ", elem,
                            " with x ", current_x, " and x_old ", old_x);
-          SlothInfo::debug("Calculation of xdH at node ", node, " = ", xdH, " for elem ", elem,
+          SlothInfo::print("Calculation of xdH at node ", node, " = ", xdH, " for elem ", elem,
                            " with xs_old ", bar_tp_gf_ph_1[jelem + 2](node), " xl_old ",
                            bar_tp_gf_ph_2[jelem + 2](node), " Hphi(node) ", current_Hphi,
                            " and Hphi_old(node) ", old_Hphi);
@@ -505,14 +534,16 @@ void KKS<T>::execute_linearization(
       AA->SetBlock(1, 1, A11);
 
       // Check linear system
-      if (Verbosity::Debug <= verbosityLevel) {
-        SlothInfo::debug("Block A(0,0) -> As ");
-        SlothInfo::debug("Matrice A(0,1) -> -Al");
-        SlothInfo::debug("Block A(1,0) -> H(phi)Id");
-        SlothInfo::debug("Matrice A(1,1) -> (1-H(phi))Id");
+      if (Verbosity::Normal <= verbosityLevel) {
+        SlothInfo::print("Block A(0,0) -> As ");
+        As->Print();
+        SlothInfo::print("Matrice A(0,1) -> -Al");
+        Al->Print();
+        SlothInfo::print("Block A(1,0) -> H(phi)Id");
+        SlothInfo::print("Matrice A(1,1) -> (1-H(phi))Id");
         AA->Print();
-        SlothInfo::debug("Matrice B(0) -> ml - ms + (hl -hs) * delta T");
-        SlothInfo::debug("Matrice B(1) -> delta X");
+        SlothInfo::print("Matrice B(0) -> ml - ms + (hl -hs) * delta T");
+        SlothInfo::print("Matrice B(1) -> delta X");
         bb.Print();
       }
 
@@ -532,8 +563,8 @@ void KKS<T>::execute_linearization(
       solver->Mult(bb, deltaX_phase);
 
       // Check result of linear system
-      if (Verbosity::Debug <= verbosityLevel) {
-        SlothInfo::debug("Linear system solution:");
+      if (Verbosity::Normal <= verbosityLevel) {
+        SlothInfo::print("Linear system solution:");
         deltaX_phase.Print();
       }
 
@@ -560,10 +591,10 @@ void KKS<T>::execute_linearization(
           sumL += CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(
               node, this->KKS_secondary_phase_, elem)];
 
-          SlothInfo::debug(
+          SlothInfo::print(
               "New molar fraction in primary phase at node ", node, " for elem ", elem, " = ",
               CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)]);
-          SlothInfo::debug("New molar fraction in secondary phase at node ", node, " for elem ",
+          SlothInfo::print("New molar fraction in secondary phase at node ", node, " for elem ",
                            elem, " = ",
                            CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(
                                node, this->KKS_secondary_phase_, elem)]);
@@ -577,9 +608,9 @@ void KKS<T>::execute_linearization(
       CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(
           node, this->KKS_secondary_phase_, this->element_removed_from_ic_)] = 1. - sumL;
 
-      SlothInfo::debug("New molar fraction in primary phase at node ", node, " for elem ",
+      SlothInfo::print("New molar fraction in primary phase at node ", node, " for elem ",
                        this->element_removed_from_ic_, " = ", 1. - sumS);
-      SlothInfo::debug("New molar fraction in secondary phase at node ", node, " for elem ",
+      SlothInfo::print("New molar fraction in secondary phase at node ", node, " for elem ",
                        this->element_removed_from_ic_, " = ", 1. - sumL);
 
       // Difference of chemical potentials
@@ -625,10 +656,10 @@ void KKS<T>::execute_linearization(
       ie = 0;
       for (const auto &[elem, unit] : chemicalsystem) {
         if (elem != this->element_removed_from_ic_) {
-          SlothInfo::debug("Recovering verification at node ", node, " for elem ", elem);
-          SlothInfo::debug("deltaX to obtain ", deltaX(ie), " deltaX predicted ",
+          SlothInfo::print("Recovering verification at node ", node, " for elem ", elem);
+          SlothInfo::print("deltaX to obtain ", deltaX(ie), " deltaX predicted ",
                            delta_XS(ie) * Hphi(node) + delta_XL(ie) * (1. - Hphi(node)));
-          SlothInfo::debug(
+          SlothInfo::print(
               "x to obtain ", tp_gf[i + 2](node), " x predicted ",
               CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)] *
                       Hphi(node) +
@@ -636,13 +667,14 @@ void KKS<T>::execute_linearization(
                       node, this->KKS_secondary_phase_, elem)] *
                       (1. - Hphi(node)));
 
-          SlothInfo::debug("Diffusion chemical potential: primary phase ", dmu_s(ie),
+          SlothInfo::print("Diffusion chemical potential: primary phase ", dmu_s(ie),
                            " ; secondary phase", dmu_l(ie));
 
           // Diffusion chemical potential
           CALPHAD.diffusion_chemical_potentials_[std::make_tuple(node, elem)] = dmu_s(ie);
 
-          // Driving force : contribution mu_i * x_i
+          // Driving force : contribution dmu_i * x_i
+          //
           CALPHAD.driving_forces_[std::make_tuple(node, phase)] +=
               CALPHAD.diffusion_chemical_potentials_[std::make_tuple(node, elem)] *
               CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)];
@@ -656,8 +688,8 @@ void KKS<T>::execute_linearization(
         i++;
       }
 
-      SlothInfo::debug("Gibbs energy: primary phase ", gs, " ; secondary phase ", gl);
-      SlothInfo::debug("Driving force (dmu * x - g): primary phase ",
+      SlothInfo::print("Gibbs energy: primary phase ", gs, " ; secondary phase ", gl);
+      SlothInfo::print("Driving force (dmu * x - g): primary phase ",
                        CALPHAD.driving_forces_[std::make_tuple(node, phase)], "; secondary phase ",
                        CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)]);
     }
@@ -680,7 +712,9 @@ mfem::SparseMatrix *KKS<T>::get_A4linearKKS(
   const int nb_elem = chemicalsystem.size();
   mfem::SparseMatrix *AA = new mfem::SparseMatrix(nb_elem - 1, nb_elem - 1);
 
+  // CCI debug : + -> - at line 725
   //  Diagonal
+  // d2dxdx =  d(mu_x - mu-n)/dx  =[ (mu_x - mu-n)(x+dx) - (mu_x - mu-n)(x-dx) ] / 2dx
   // elem_id corresponds to index of variable with delta_x, index of derivative
   int elem_id = 0;
   int vid = 0;
@@ -689,17 +723,17 @@ mfem::SparseMatrix *KKS<T>::get_A4linearKKS(
       double d2gd2x =
           this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, elem, phase)] -
           this->chemical_potentials_right_x_[std::make_tuple(
-              elem_id, node, this->element_removed_from_ic_, phase)] +
-          this->chemical_potentials_left_x_[std::make_tuple(elem_id, node, elem, phase)] -
-          this->chemical_potentials_left_x_[std::make_tuple(elem_id, node,
-                                                            this->element_removed_from_ic_, phase)];
+              elem_id, node, this->element_removed_from_ic_, phase)] -
+          (this->chemical_potentials_left_x_[std::make_tuple(elem_id, node, elem, phase)] -
+           this->chemical_potentials_left_x_[std::make_tuple(
+               elem_id, node, this->element_removed_from_ic_, phase)]);
       d2gd2x /= 2. * this->KKS_composition_increment_;
       AA->Set(vid, vid, d2gd2x);
       vid++;
     }
     elem_id++;
   }
-  // Off-diagonal (and symetry)
+  // Off-diagonal (and symmetry)
   elem_id = 0;
   vid = 0;
   for (const auto &[ielem, unit] : chemicalsystem) {
@@ -715,15 +749,25 @@ mfem::SparseMatrix *KKS<T>::get_A4linearKKS(
           //
           // d2dxdy = 0.5 d(mu_x - mu-n)/dy + 0.5 d(mu_y - mu-n)/dx
           if (ielem != jelem) {
-            double d2gdxdy = 0.5 * (this->chemical_potentials_right_x_[std::make_tuple(
-                                        elem_id, node, jelem, phase)] -
-                                    this->chemical_potentials_right_x_[std::make_tuple(
-                                        elem_id, node, this->element_removed_from_ic_, phase)]) +
-                             0.5 * (this->chemical_potentials_left_x_[std::make_tuple(
-                                        elem_jd, node, ielem, phase)] -
-                                    this->chemical_potentials_left_x_[std::make_tuple(
-                                        elem_jd, node, this->element_removed_from_ic_, phase)]);
-            d2gdxdy /= 2. * this->KKS_composition_increment_;
+            double dmuxdy =
+                (this->chemical_potentials_right_x_[std::make_tuple(elem_jd, node, ielem, phase)] -
+                 this->chemical_potentials_right_x_[std::make_tuple(
+                     elem_jd, node, this->element_removed_from_ic_, phase)]) -
+                ((this->chemical_potentials_left_x_[std::make_tuple(elem_jd, node, ielem, phase)] -
+                  this->chemical_potentials_left_x_[std::make_tuple(
+                      elem_jd, node, this->element_removed_from_ic_, phase)]));
+            dmuxdy /= 2. * this->KKS_composition_increment_;
+            double dmuydx =
+                (this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, jelem, phase)] -
+                 this->chemical_potentials_right_x_[std::make_tuple(
+                     elem_id, node, this->element_removed_from_ic_, phase)]) -
+                ((this->chemical_potentials_left_x_[std::make_tuple(elem_id, node, jelem, phase)] -
+                  this->chemical_potentials_left_x_[std::make_tuple(
+                      elem_id, node, this->element_removed_from_ic_, phase)]));
+            dmuydx /= 2. * this->KKS_composition_increment_;
+
+            double d2gdxdy = 0.5 * dmuxdy + 0.5 * dmuydx;
+
             AA->Set(vid, vjd, d2gdxdy);
           }
           vjd++;
@@ -789,10 +833,10 @@ mfem::Vector KKS<T>::get_h4linearKKS(
     if (ielem != this->element_removed_from_ic_) {
       hh(vid) = this->chemical_potentials_right_T_[std::make_tuple(node, ielem, phase)] -
                 this->chemical_potentials_right_T_[std::make_tuple(
-                    node, this->element_removed_from_ic_, phase)] +
-                this->chemical_potentials_left_T_[std::make_tuple(node, ielem, phase)] -
-                this->chemical_potentials_left_T_[std::make_tuple(
-                    node, this->element_removed_from_ic_, phase)];
+                    node, this->element_removed_from_ic_, phase)] -
+                (this->chemical_potentials_left_T_[std::make_tuple(node, ielem, phase)] -
+                 this->chemical_potentials_left_T_[std::make_tuple(
+                     node, this->element_removed_from_ic_, phase)]);
       hh(vid) /= 2.0 * this->KKS_temperature_increment_;
       vid++;
     }

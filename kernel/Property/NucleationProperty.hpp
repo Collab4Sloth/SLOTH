@@ -109,8 +109,6 @@ void Nucleation::get_property(
         }
         if (!type_info_view.empty() && type_info_view == "xph" &&
             toUpperCase(aux_infos[size - 2]) == toUpperCase(this->secondary_phase_)) {
-          std::cout << " get prop liquid" << std::endl;
-
           this->xph_.emplace_back(aux_gf);
         }
       }
@@ -130,7 +128,7 @@ void Nucleation::get_property(
       for (int k = 0; k < dgm.size(); k++) {
         if (dgm[k] > 0.) {
           // vv(k) = 0.;
-          vv(k) = 1. - xph[k];
+          vv(k) = 0.;  // 1. - xph[k];
           // SlothInfo::print(" Nucleation at node  ", k);
           SlothInfo::print(" Nucleation at node  ", k, " with phase fraction ", xph[k]);
           this->nucleation_already_detected_ = true;

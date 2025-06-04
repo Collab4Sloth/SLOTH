@@ -57,9 +57,6 @@ class CalphadBase {
   // Site fraction. Nodal values. key: [node, phase, cons, sub]
   std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
 
-  // Mole fraction of phase. Nodal values. key: [node, phase]
-  std::map<std::tuple<int, std::string>, double> mole_fraction_of_phase_;
-
   //  Heat capacity. Nodal values. key: [node]
   std::map<int, double> heat_capacity_;
 
@@ -74,6 +71,9 @@ class CalphadBase {
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
   std::map<std::tuple<int, std::string>, double> diffusion_chemical_potentials_;
 
+  // Mole fraction of phase. Nodal values. key: [node, phase]
+  std::map<std::tuple<int, std::string>, double> mole_fraction_of_phase_;
+
   // Element mole fraction by phase. Nodal values. key: [node, phase, elem]
   std::map<std::tuple<int, std::string, std::string>, double> elem_mole_fraction_by_phase_;
 
@@ -82,6 +82,7 @@ class CalphadBase {
 
   // Driving force for each phase. Nodal values. key: [node, phase]
   std::map<std::tuple<int, std::string>, double> driving_forces_;
+  std::map<std::tuple<int, std::string>, double> nucleus_;
 
   explicit CalphadBase(const Parameters &params);
   CalphadBase(const Parameters &params, bool is_KKS);
@@ -218,6 +219,7 @@ void CalphadBase<T>::clear_containers() {
   this->energies_of_phases_.clear();
   this->driving_forces_.clear();
   this->heat_capacity_.clear();
+  this->nucleus_.clear();
   this->mobilities_.clear();
   this->error_equilibrium_.clear();
   if (this->is_KKS_) {
@@ -250,10 +252,11 @@ void CalphadBase<T>::update_outputs(
       return default_value;
     }
   };
-  int id_output = 0;
+  int id_output = -1;
   double default_value = 0.;
 
   for (auto &[output_infos, output_value] : output_system) {
+    id_output++;
     const std::string &output_type = output_infos.back();
 
     // Fill output with the relevant values
@@ -402,6 +405,18 @@ void CalphadBase<T>::update_outputs(
           }
           output[i] = get_or_default(this->mobilities_,
                                      std::make_tuple(i, output_phase, output_elem), default_value);
+        }
+        break;
+      }
+      case calphad_outputs::nucleus: {
+        const std::string &output_phase = output_infos[1];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          default_value = 0.;
+          if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
+            default_value = std::get<1>(previous_output_system[id_output])(i);
+          }
+          output[i] =
+              get_or_default(this->nucleus_, std::make_tuple(i, output_phase), default_value);
         }
         break;
       }

@@ -37,6 +37,7 @@ class AllenCahnMeltingBaseNLFormIntegrator
                            const mfem::IntegrationPoint& ir) override;
   virtual double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                         const mfem::IntegrationPoint& ir) = 0;
+  virtual double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir);
 
  public:
   AllenCahnMeltingBaseNLFormIntegrator(const mfem::ParGridFunction& _u_old,
@@ -72,6 +73,27 @@ FType AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLA
 }
 
 /**
+ * @brief Get the value of the seed used to initiate the phase transformation
+ * @remark by default, 0. Child classes may re-implemented it.
+ *
+ * @tparam VARS
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ * @tparam INTERPOLATION
+ * @param Tr
+ * @param ir
+ * @return double
+ */
+template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
+          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
+double
+AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::get_seed_at_ip(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
+  return 0.0;
+}
+
+/**
  * @brief Enthalpy of melting derivatives
  *
  * @tparam SCHEME
@@ -99,7 +121,8 @@ FType AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLA
       std::runtime_error("Error while setting the order of derivative : only 1 and 2 are allowed.");
     }
     const auto& alpha = this->get_phase_change_at_ip(Tr, ir);
-    const auto& h_prime = alpha * H_derivative(u);
+    const auto& seed = this->get_seed_at_ip(Tr, ir);
+    const auto& h_prime = alpha * H_derivative(u) + seed;
     return h_prime;
   });
 }
