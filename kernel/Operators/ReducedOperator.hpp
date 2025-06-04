@@ -18,7 +18,7 @@
 class PhaseFieldReducedOperator : public mfem::Operator {
  private:
   // Mass matrix
-  mfem::ParBilinearForm *M_;
+  mfem::ParBlockNonlinearForm *LHS_;
   // PhaseField Matrix
   mfem::ParBlockNonlinearForm *N_;
   // Jacobian matrix
@@ -33,7 +33,7 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   const mfem::Array<int> &ess_tdof_list;
 
  public:
-  PhaseFieldReducedOperator(mfem::ParBilinearForm *M, mfem::ParBlockNonlinearForm *N,
+  PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *M, mfem::ParBlockNonlinearForm *N,
                             const mfem::Array<int> &ess_tdof);
 
   /// Set current dt, unk values - needed to compute action and Jacobian.
@@ -53,12 +53,12 @@ class PhaseFieldReducedOperator : public mfem::Operator {
  * @param M
  * @param N
  */
-PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBilinearForm *M,
+PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *LHS,
                                                      mfem::ParBlockNonlinearForm *N,
                                                      const mfem::Array<int> &ess_tdof)
     : Operator(N->Height()),
       // : Operator(N->ParFESpace()->TrueVSize()),
-      M_(M),
+      LHS_(LHS),
       N_(N),
       Jacobian(NULL),
       dt_(0.0),
@@ -86,7 +86,8 @@ void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk
 void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
   add(*unk_, dt_, k, z);
   N_->Mult(z, y);
-  M_->TrueAddMult(k, y);
+  // M_->TrueAddMult(k, y);
+  LHS_->AddMult(k, y);
   y.SetSubVector(ess_tdof_list, 0.0);
 }
 
@@ -100,15 +101,42 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
+  add(*unk_, dt_, k, z);
+  const mfem::Array<int> offsets = N_->GetBlockOffsets();
+  // Gets gradients of N_ and LHS_
+  mfem::Operator &LHS_grad = LHS_->GetGradient(z);
+  mfem::Operator &N_grad = N_->GetGradient(z);
+  const int fes_size = 2;
+  // Converts operators into BlockOperator
+  mfem::BlockOperator *LHS_block_grad = dynamic_cast<mfem::BlockOperator *>(&LHS_grad);
+  mfem::BlockOperator *N_block_grad = dynamic_cast<mfem::BlockOperator *>(&N_grad);
+  mfem::Array2D<mfem::HypreParMatrix *> tmp_blocks(fes_size, fes_size);
+
+  for (int i = 0; i < fes_size; ++i) {
+    for (int j = 0; j < fes_size; ++j) {
+      mfem::Operator *LHS_block = &(LHS_block_grad->GetBlock(i, j));
+      mfem::Operator *N_block = &(N_block_grad->GetBlock(i, j));
+
+      mfem::HypreParMatrix *LHS_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(LHS_block);
+      mfem::HypreParMatrix *N_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(N_block);
+
+      if (LHS_sparse_block && N_sparse_block) {
+        mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
+        block->Add(dt_, *N_sparse_block);
+        // Jacobian->SetBlock(i, j, block);
+        tmp_blocks(i, j) = block;
+      } else {
+        MFEM_ABORT("Failed to cast operator blocks to mfem::HypreParMatrix");
+      }
+    }
+  }
+  mfem::HypreParMatrix *JJ(mfem::HypreParMatrixFromBlocks(tmp_blocks));
+  Jacobian = JJ;
 
   // std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
-
-  // add(*unk_, dt_, k, z);
-
   // localJ->Add(dt_, N_->GetLocalGradient(z));
   // Jacobian = M_->ParallelAssemble(localJ.get());
-
-  // std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
+  std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
 
   return *Jacobian;
 }

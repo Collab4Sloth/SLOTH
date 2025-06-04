@@ -80,8 +80,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   void build_mass_matrix(const std::vector<mfem::Vector> &u_vect);
   bool constant_mass_matrix_{true};
 
-  /** Nonlinear operator defining the reduced backward Euler equation for the
-      velocity. Used in the implementation of method ImplicitSolve. */
+  // Reduced Operator
   PhaseFieldReducedOperator *reduced_oper;
 
  public:
@@ -385,9 +384,11 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(
   ////////////////////////////////////////////
   // Variable mass matrix
   ////////////////////////////////////////////
-  if (!this->constant_mass_matrix_) {
-    this->build_mass_matrix(u_vect);
-  }
+  // if (!this->constant_mass_matrix_) {
+  //   this->build_mass_matrix(u_vect);
+  // }
+  this->build_lhs_nonlinear_form(dt, u_vect);
+
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
@@ -398,7 +399,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(
   if (reduced_oper != nullptr) {
     delete reduced_oper;
   }
-  reduced_oper = new PhaseFieldReducedOperator(M, this->N, this->ess_tdof_list_[0]);
+  reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->N, this->ess_tdof_list_[0]);
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
@@ -419,9 +420,10 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetExplicitTransientParameters(
   ////////////////////////////////////////////
   // Variable mass matrix
   ////////////////////////////////////////////
-  if (!this->constant_mass_matrix_) {
-    this->build_mass_matrix(un_vect);
-  }
+  // if (!this->constant_mass_matrix_) {
+  //   this->build_mass_matrix(un_vect);
+  // }
+  this->build_lhs_nonlinear_form(0., un_vect);
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
@@ -439,9 +441,9 @@ template <class T, int DIM, class NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetConstantParameters");
-  if (this->constant_mass_matrix_) {
-    this->build_mass_matrix(u_vect);
-  }
+  // if (this->constant_mass_matrix_) {
+  //   this->build_mass_matrix(u_vect);
+  // }
 }
 
 //////////////////////////////////////////////////////////////////////////////

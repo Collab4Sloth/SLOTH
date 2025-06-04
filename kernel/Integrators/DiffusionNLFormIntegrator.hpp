@@ -31,7 +31,7 @@
  * @tparam DIFFU_NAME
  */
 template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
+class DiffusionNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                   public SlothNLFormIntegrator<VARS> {
  private:
   mfem::ParGridFunction u_old_;
@@ -53,11 +53,15 @@ class DiffusionNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                             std::vector<VARS*> auxvars);
   ~DiffusionNLFormIntegrator();
 
-  virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
-                                     const mfem::Vector& elfun, mfem::Vector& elvect);
+  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                                     mfem::ElementTransformation& Tr,
+                                     const mfem::Array<const mfem::Vector*>& elfun,
+                                     const mfem::Array<mfem::Vector*>& elvect);
 
-  virtual void AssembleElementGrad(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
-                                   const mfem::Vector& elfun, mfem::DenseMatrix& elmat);
+  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                                   mfem::ElementTransformation& Tr,
+                                   const mfem::Array<const mfem::Vector*>& elfun,
+                                   const mfem::Array2D<mfem::DenseMatrix*>& elmat);
 
   std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
       mfem::ParGridFunction* gfu, const double diffu);
@@ -149,32 +153,37 @@ DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
 
 template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
-    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
-    mfem::Vector& elvect) {
-  int nd = el.GetDof();
-  int dim = el.GetDim();
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  int blk = 0;
+  int nd = el[blk]->GetDof();
+  int dim = el[blk]->GetDim();
   gradPsi.SetSize(nd, dim);
   Psi.SetSize(nd);
   gradU.SetSize(dim);
-  elvect.SetSize(nd);
+  // elvect.SetSize(nd);
+
+  elvect[blk]->SetSize(nd);
+  *elvect[blk] = 0.;
+
   const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
-  elvect = 0.0;
+      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+  // elvect = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcShape(ip, Psi);
+    el[blk]->CalcShape(ip, Psi);
     Tr.SetIntPoint(&ip);
 
-    const auto& u = elfun * Psi;
+    const auto& u = *elfun[blk] * Psi;
 
     // Laplacian : given u, compute (grad(u), grad(psi)), psi is shape function.
     // given u (elfun), compute grad(u)
-    el.CalcPhysDShape(Tr, gradPsi);
-    gradPsi.MultTranspose(elfun, gradU);
+    el[blk]->CalcPhysDShape(Tr, gradPsi);
+    gradPsi.MultTranspose(*elfun[blk], gradU);
 
     const double coeff_diffu = this->diffusion(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
     gradU *= coeff_diffu;
-    gradPsi.AddMult(gradU, elvect);
+    gradPsi.AddMult(gradU, *elvect[blk]);
   }
 }
 
@@ -188,37 +197,43 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
  */
 template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
-    const mfem::FiniteElement& el, mfem::ElementTransformation& Tr, const mfem::Vector& elfun,
-    mfem::DenseMatrix& elmat) {
-  int nd = el.GetDof();
-  int dim = el.GetDim();
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
+  // int nd = el.GetDof();
+  // int dim = el.GetDim();
+  int blk = 0;
+  int nd = el[blk]->GetDof();
+  int dim = el[blk]->GetDim();
 
   Psi.SetSize(nd);
   gradPsi.SetSize(nd, dim);
-  elmat.SetSize(nd);
+  // elmat.SetSize(nd);
   mfem::Vector vec;
   vec.SetSize(nd);
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
+  elmat(blk, blk)->SetSize(nd);
+  *elmat(blk, blk) = 0.0;
 
-  elmat = 0.0;
+  const mfem::IntegrationRule* ir =
+      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+
+  // elmat = 0.0;
   vec = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcShape(ip, Psi);
-    const auto& u = elfun * Psi;
+    el[blk]->CalcShape(ip, Psi);
+    const auto& u = *elfun[blk] * Psi;
     // Laplacian : compute (grad(phi), grad(psi)), phi is shape function.
 
     Tr.SetIntPoint(&ip);
     const double coeff_diffu = this->diffusion(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
-    el.CalcPhysDShape(Tr, gradPsi);
-    AddMult_a_AAt(coeff_diffu, gradPsi, elmat);
+    el[blk]->CalcPhysDShape(Tr, gradPsi);
+    AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
 
-    gradPsi.MultTranspose(elfun, gradU);
+    gradPsi.MultTranspose(*elfun[blk], gradU);
     gradPsi.AddMult(gradU, vec);
     const auto coef_diffu_derivative = this->diffusion_prime(Tr, ip, u, this->params_);
-    AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, elmat);
+    AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
   }
 }
 
