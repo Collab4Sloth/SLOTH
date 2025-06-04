@@ -7,7 +7,7 @@
  *
  * Copyright CEA (c) 2024
  *
-*/
+ */
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
@@ -97,9 +97,3 @@
 #include "Utils/UtilsForVariants.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
-#include "/Users/clementintroini/Code/OC4SLOTH/src/FluoriteMobilities.hpp"
-#include "/Users/clementintroini/Code/OC4SLOTH/src/Mobilities.hpp"
-#include "/Users/clementintroini/Code/OC4SLOTH/src/OCCPPbindingsAPI.hpp"
-#include "/Users/clementintroini/Code/OC4SLOTH/src/OpenCalphad.hpp"
-#include "/Users/clementintroini/Code/OC4SLOTH/src/OpenCalphadOptions.hpp"
-#include "/Users/clementintroini/Code/OC4SLOTH/src/PhaseMobilities.hpp"
