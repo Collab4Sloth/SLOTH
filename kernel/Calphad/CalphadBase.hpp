@@ -91,7 +91,7 @@ class CalphadBase {
       const std::vector<std::tuple<std::string, std::string>> &sorted_chemical_system) = 0;
 
   void global_execute(
-      const int dt, const std::vector<T> &tp_gf,
+      const int dt, const double time_step, const std::vector<T> &tp_gf,
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
       const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
@@ -170,7 +170,7 @@ void CalphadBase<T>::get_parameters() {
  */
 template <typename T>
 void CalphadBase<T>::global_execute(
-    const int dt, const std::vector<T> &tp_gf,
+    const int dt, const double time_step, const std::vector<T> &tp_gf,
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
     const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
@@ -196,7 +196,7 @@ void CalphadBase<T>::global_execute(
     MFEM_VERIFY(tp_gf_old.has_value(), "Error: tp_gf_old is required for KKS execution.");
     MFEM_VERIFY(x_gf.has_value(), "Error: x_gf is required for KKS execution.");
     // Execute KKS linearization
-    this->KKS_->execute_linearization(*this, dt, tp_gf, *tp_gf_old, *phase_field_gf, chemicalsystem,
+    this->KKS_->execute_linearization(*this, dt, time_step, tp_gf, *tp_gf_old, *phase_field_gf, chemicalsystem,
                                       *x_gf);
   }
   // Use specific CALPHAD C++ containers to update output_system

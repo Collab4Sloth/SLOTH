@@ -180,17 +180,12 @@ void InterDiffusionCoefficient::get_property(
   std::vector<double> phi(size_gf, 0.);
   if (!this->phi_gf_.empty()) {
     for (int k = 0; k < size_gf; k++) {
-      phi[k] = std::max(0.0, std::min(1.0, this->phi_gf_[0](k)));
+      phi[k] = std::clamp(this->phi_gf_[0](k), 0.0, 1.0);
     }
     for (auto& [compo, mobi] : this->mob_gf_) {
       const auto mobi_max = mobi.Max();
       for (int k = 0; k < mobi.Size(); k++) {
-        // if (mobi(k) < 0.) {
-        //   // No solid detected
-        //   mobi(k) = mobi_max;
-        // } else {
         mobi(k) = mobi(k) * phi[k] + (1. - phi[k]) * mobi_max;
-        // }
       }
     }
   }
