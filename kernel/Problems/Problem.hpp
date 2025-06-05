@@ -190,24 +190,26 @@ void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
   int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    if (!this->pst_.get_enable_save_specialized_at_iter()) {
-      this->pst_.save_specialized(this->oper_.get_time_specialized());
-    }
-    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
-      std::string str = "iso_computation.csv";
-      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
-    }
+  // TODO(cci) to adapt
+  //  if (rank == 0) {
+  //    if (!this->pst_.get_enable_save_specialized_at_iter()) {
+  //      this->pst_.save_specialized(this->oper_.get_time_specialized());
+  //    }
+  //    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
+  //      std::string str = "iso_computation.csv";
+  //      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
+  //    }
 
-    SlothInfo::verbose(" ");
-    SlothInfo::verbose(" ============================== ");
-    SlothInfo::verbose(" Results are saved in the folder : ",
-                       this->pst_.get_post_processing_directory());
-  }
+  //   SlothInfo::verbose(" ");
+  //   SlothInfo::verbose(" ============================== ");
+  //   SlothInfo::verbose(" Results are saved in the folder : ",
+  //                      this->pst_.get_post_processing_directory());
+  // }
 }
 
 /**
- * @brief  Call the post_execute method of the given problem and saves variables according with PST
+ * @brief  Call the post_execute method of the given problem and saves variables according with
+ * PST
  *
  * @tparam OPE
  * @tparam VAR
@@ -266,7 +268,9 @@ void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& curre
   const size_t unk_size = vect_unk.size();
 
   // this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
+  std::cout << " solve---0" << std::endl;
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
+  std::cout << " solve---1" << std::endl;
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
   // calculation converges

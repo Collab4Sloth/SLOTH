@@ -125,7 +125,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   void SetTransientParameters(const double dt, const std::vector<mfem::Vector> &u_vect) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
              const double &current_time, double current_time_step, const int iter) override;
-  NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override = 0;
+  NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) override = 0;
   void get_parameters() override = 0;
   void ComputeEnergies(const int &it, const double &t, const double &dt,
                        const mfem::Vector &u) override = 0;
@@ -303,20 +303,29 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(
     const double &current_time, double current_time_step, const int iter) {
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
-  mfem::Array<size_t> unk_offsets(unk_size);
-  for (size_t i = 0; i < unk_size; i++) {
-    auto &unk_i = *(vect_unk[i]);
-    unk_offsets[i] = unk_i.Size();
-  }
 
   //// Constructing BlockVector
-  mfem::BlockVector block_unk(unk_offsets);
+  mfem::BlockVector block_unk(this->block_trueOffsets_);
   for (size_t i = 0; i < unk_size; i++) {
+    std::cout << " i " << i << " unk_size " << unk_size << " " << this->block_trueOffsets_.Size()
+              << std::endl;
     auto &unk_i = *(vect_unk[i]);
-    block_unk.MakeRef(unk_i, 0, unk_i.Size());
+    mfem::Vector &bb = block_unk.GetBlock(i);
+    bb = unk_i;
+
+    // block_unk.MakeRef(unk_i, i, i*this->block_trueOffsets_[i + 1]);
   }
+  std::cout << " ode_solver vect unk size ()" << block_unk.Size() << std::endl;
   this->current_time_ = current_time;
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
+  for (size_t i = 0; i < unk_size; i++) {
+    auto &unk_i = *(vect_unk[i]);
+    const mfem::Vector &bb = block_unk.GetBlock(i);
+    std::cout << " i " << i << " sol " << unk_i(10) << "  apres " << bb(10) << std::endl;
+    unk_i = bb;
+
+    // block_unk.MakeRef(unk_i, i, i*this->block_trueOffsets_[i + 1]);
+  }
 }
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -399,7 +408,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(
   if (reduced_oper != nullptr) {
     delete reduced_oper;
   }
-  reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->N, this->ess_tdof_list_[0]);
+  reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->N, this->ess_tdof_list_);
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
@@ -474,11 +483,12 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
 
   // Source term
   mfem::Vector source_term;
-  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
-  if (!(this->src_func_ == nullptr)) {
-    this->get_source_term(source_term, RHS);
-    this->z -= source_term;
-  }
+  // TODO(cci) to adapt
+  // mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
+  //  if (!(this->src_func_ == nullptr)) {
+  //    this->get_source_term(source_term, RHS);
+  //    this->z -= source_term;
+  //  }
 
   this->z.Neg();  // z = -z
 
@@ -490,7 +500,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
         }
       },
       this->M_solver_);
-  delete RHS;
+  // delete RHS;
 }
 
 /**
@@ -509,7 +519,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
 
-  this->bcs_[0]->SetBoundaryConditions(v);
+  // this->bcs_[0]->SetBoundaryConditions(v);
 
   // Todo(cci) change with BlockVector
   std::vector<mfem::Vector> v_vect;
@@ -520,23 +530,32 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   reduced_oper->SetParameters(dt, &v);
 
   // Source term
+  std::cout << " coucou----0 " << sc << " -- u size " << u.Size() << " dv size " << dv_dt.Size()
+            << std::endl;
   mfem::Vector source_term;
-  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
-  if (!(this->src_func_ == nullptr)) {
-    this->get_source_term(source_term, RHS);
-  }
+  // TODO(cci) to adpat
+  // mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
+  //  if (!(this->src_func_ == nullptr)) {
+  //    this->get_source_term(source_term, RHS);
+  //  }
+  std::cout << " coucou----1" << std::endl;
 
   dv_dt = v;
   dv_dt *= (1. / dt);
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
   this->newton_solver_->Mult(source_term, dv_dt);
+  std::cout << " coucou----2" << std::endl;
+  std::cout << " coucou----222" << std::endl;
   delete this->rhs_solver_;
-  delete RHS;
+  // delete RHS;
+  std::cout << " coucou----3" << std::endl;
 
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : after Newton
   // Mult");
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
+
+  std::cout << " coucou----3" << std::endl;
 }
 
 /**

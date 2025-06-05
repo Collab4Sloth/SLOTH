@@ -139,7 +139,7 @@ class OperatorBase : public mfem::Operator {
   virtual void SetTransientParameters(const double dt, const std::vector<mfem::Vector> &u_vect) = 0;
   virtual void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
                      const double &current_time, double current_time_step, const int iter) = 0;
-  virtual NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) = 0;
+  virtual NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) = 0;
   virtual void get_parameters() = 0;
   virtual void ComputeEnergies(const int &it, const double &dt, const double &t,
                                const mfem::Vector &u) = 0;
@@ -375,16 +375,16 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt,
     delete N;
   }
   N = new mfem::ParBlockNonlinearForm(this->fes_);
-  mfem::ParGridFunction un_gf(this->fespace_);
-  un_gf.SetFromTrueDofs(u);
-  mfem::ParGridFunction un(this->fespace_);
-  un.SetFromTrueDofs(u);
+  // mfem::ParGridFunction un_gf(this->fespace_);
+  // un_gf.SetFromTrueDofs(u);
+  // mfem::ParGridFunction un(this->fespace_);
+  // un.SetFromTrueDofs(u);
 
   // TODO(cci) : pass a vector of GF.
-  this->nlfi_ptr_ = set_nlfi_ptr(dt, u);
+  this->nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
 
   N->AddDomainIntegrator(this->nlfi_ptr_);
-  // TODO(cci) check BCs
+  // TODO(cci) check BCs if always usefull here
   // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
 }
 
@@ -399,28 +399,33 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt,
  */
 template <class T, int DIM, class NLFI>
 void OperatorBase<T, DIM, NLFI>::build_lhs_nonlinear_form(const double dt,
-                                                          const std::vector<mfem::Vector> &u_vect) {
+                                                          const std::vector<mfem::Vector> &u) {
   ////////////////////////////////////////////
   // PhaseField non linear form : LHS
   ////////////////////////////////////////////
 
-  auto u = u_vect[0];
+  // auto u = u_vect[0];
 
   if (LHS != nullptr) {
     delete LHS;
   }
   LHS = new mfem::ParBlockNonlinearForm(this->fes_);
-  mfem::ParGridFunction un_gf(this->fespace_);
-  un_gf.SetFromTrueDofs(u);
-  mfem::ParGridFunction un(this->fespace_);
-  un.SetFromTrueDofs(u);
+  // mfem::ParGridFunction un_gf(this->fespace_);
+  // un_gf.SetFromTrueDofs(u);
+  // mfem::ParGridFunction un(this->fespace_);
+  // un.SetFromTrueDofs(u);
 
   // TODO(cci) : pass a vector of GF.
 
   const Parameters &all_params = this->params_ - this->default_p_;
-
+  std::vector<mfem::ParGridFunction> vun;
+  for (int i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(un);
+  }
   TimeNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
-      new TimeNLFormIntegrator<Variables<T, DIM>>(un, all_params, this->auxvariables_);
+      new TimeNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_);
 
   LHS->AddDomainIntegrator(time_nlfi_ptr);
 

@@ -30,11 +30,11 @@ class PhaseFieldReducedOperator : public mfem::Operator {
   const mfem::Vector *unk_;
   mutable mfem::Vector z;
 
-  const mfem::Array<int> &ess_tdof_list;
+  const std::vector<mfem::Array<int>> &ess_tdof_list;
 
  public:
   PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *M, mfem::ParBlockNonlinearForm *N,
-                            const mfem::Array<int> &ess_tdof);
+                            const std::vector<mfem::Array<int>> &ess_tdof);
 
   /// Set current dt, unk values - needed to compute action and Jacobian.
   void SetParameters(double dt, const mfem::Vector *unk);
@@ -55,7 +55,7 @@ class PhaseFieldReducedOperator : public mfem::Operator {
  */
 PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *LHS,
                                                      mfem::ParBlockNonlinearForm *N,
-                                                     const mfem::Array<int> &ess_tdof)
+                                                     const std::vector<mfem::Array<int>> &ess_tdof)
     : Operator(N->Height()),
       // : Operator(N->ParFESpace()->TrueVSize()),
       LHS_(LHS),
@@ -84,11 +84,17 @@ void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk
  * @param y
  */
 void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
+  std::cout << " coucou-1" << std::endl;
   add(*unk_, dt_, k, z);
+  std::cout << " coucou0" << std::endl;
   N_->Mult(z, y);
+  std::cout << " coucou00" << std::endl;
   // M_->TrueAddMult(k, y);
   LHS_->AddMult(k, y);
-  y.SetSubVector(ess_tdof_list, 0.0);
+  std::cout << " coucou01" << std::endl;
+  // TODO(cci) adapt
+  // y.SetSubVector(ess_tdof_list, 0.0);
+  std::cout << " coucou02" << std::endl;
 }
 
 /**
@@ -101,12 +107,14 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
+  std::cout << " coucou0" << std::endl;
   add(*unk_, dt_, k, z);
+  std::cout << " coucou1" << std::endl;
   const mfem::Array<int> offsets = N_->GetBlockOffsets();
+  const int fes_size = offsets.Size() - 1;
   // Gets gradients of N_ and LHS_
   mfem::Operator &LHS_grad = LHS_->GetGradient(z);
   mfem::Operator &N_grad = N_->GetGradient(z);
-  const int fes_size = 2;
   // Converts operators into BlockOperator
   mfem::BlockOperator *LHS_block_grad = dynamic_cast<mfem::BlockOperator *>(&LHS_grad);
   mfem::BlockOperator *N_block_grad = dynamic_cast<mfem::BlockOperator *>(&N_grad);
@@ -122,7 +130,9 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
 
       if (LHS_sparse_block && N_sparse_block) {
         mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
+        std::cout << " coucou2" << std::endl;
         block->Add(dt_, *N_sparse_block);
+        std::cout << " coucou3" << std::endl;
         // Jacobian->SetBlock(i, j, block);
         tmp_blocks(i, j) = block;
       } else {
@@ -136,7 +146,8 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
   // std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
   // localJ->Add(dt_, N_->GetLocalGradient(z));
   // Jacobian = M_->ParallelAssemble(localJ.get());
-  std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
+  // TODO(cci) adapt
+  // std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
 
   return *Jacobian;
 }

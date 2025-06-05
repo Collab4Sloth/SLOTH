@@ -106,8 +106,9 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
-
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+  auto v1 = VAR(&spatial, bcs, "phi1", 2, initial_condition);
+  auto v2 = VAR(&spatial, bcs, "phi2", 2, initial_condition);
+  auto vars = VARS(v1, v2);
 
   // ###########################################
   // ###########################################
@@ -129,7 +130,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
-  std::vector<SPA*> spatials{&spatial};
+  std::vector<SPA*> spatials{&spatial, &spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);

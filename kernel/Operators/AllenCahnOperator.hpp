@@ -64,7 +64,7 @@ class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI> {
   }
 
   void set_default_properties() override = 0;
-  NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override;
+  NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) override;
   void get_parameters() override;
   void ComputeEnergies(const int &it, const double &t, const double &dt,
                        const mfem::Vector &u) override;
@@ -100,16 +100,19 @@ AllenCahnOperatorBase<T, DIM, NLFI, OPEBASE>::~AllenCahnOperatorBase() {}
  * @return NLFI*
  */
 template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-NLFI *AllenCahnOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt,
-                                                                 const mfem::Vector &u) {
+NLFI *AllenCahnOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(
+    const double dt, const std::vector<mfem::Vector> &u) {
   Catch_Time_Section("AllenCahnOperatorBase::set_nlfi_ptr");
-
-  mfem::ParGridFunction un(this->fespace_);
-  un.SetFromTrueDofs(u);
+  std::vector<mfem::ParGridFunction> vun;
+  for (int i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(un);
+  }
 
   const Parameters &all_params = this->mobility_params_ + this->params_ - this->default_p_;
 
-  NLFI *nlfi_ptr = new NLFI(un, all_params, this->auxvariables_);
+  NLFI *nlfi_ptr = new NLFI(vun, all_params, this->auxvariables_);
 
   return nlfi_ptr;
 }

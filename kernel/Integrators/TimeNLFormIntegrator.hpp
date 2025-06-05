@@ -45,14 +45,14 @@ class TimeNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
   void check_variables_consistency();
 
  protected:
-  mfem::ParGridFunction u_old_;
+  std::vector<mfem::ParGridFunction> u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   std::vector<mfem::Vector> aux_old_gf_;
   std::vector<std::vector<std::string>> aux_gf_infos_;
   std::vector<mfem::ParGridFunction> temp_gf_;
 
  public:
-  TimeNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
+  TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
                        std::vector<VARS*> auxvars);
   ~TimeNLFormIntegrator();
 
@@ -83,7 +83,7 @@ class TimeNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
  * @param mob
  */
 template <class VARS>
-TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const mfem::ParGridFunction& u_old,
+TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
                                                  const Parameters& params,
                                                  std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
