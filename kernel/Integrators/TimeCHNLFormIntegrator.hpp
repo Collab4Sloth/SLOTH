@@ -1,5 +1,5 @@
 /**
- * @file TimeNLFormIntegrator.hpp
+ * @file TimeCHNLFormIntegrator.hpp
  * @author ci230846  (clement.introini@cea.fr)
  * @brief VF of the time derivative
  * @version 0.1
@@ -36,8 +36,8 @@
  * @tparam MOBI
  */
 template <class VARS>
-class TimeNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                             public SlothNLFormIntegrator<VARS> {
+class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
+                               public SlothNLFormIntegrator<VARS> {
  private:
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
@@ -52,9 +52,9 @@ class TimeNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
   std::vector<mfem::ParGridFunction> temp_gf_;
 
  public:
-  TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-                       std::vector<VARS*> auxvars);
-  ~TimeNLFormIntegrator();
+  TimeCHNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+                         std::vector<VARS*> auxvars);
+  ~TimeCHNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
@@ -72,7 +72,7 @@ class TimeNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new TimeNLFormIntegrator object
+ * @brief Construct a new TimeCHNLFormIntegrator object
  *
  * @tparam SCHEME
  * @tparam ENERGY
@@ -83,9 +83,9 @@ class TimeNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
  * @param mob
  */
 template <class VARS>
-TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                                 const Parameters& params,
-                                                 std::vector<VARS*> auxvars)
+TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
+    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->check_variables_consistency();
 }
@@ -99,7 +99,7 @@ TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGrid
  * @tparam MOBI
  */
 template <class VARS>
-void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
+void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
   this->aux_gf_ = this->get_aux_gf();
   this->aux_old_gf_ = this->get_aux_old_gf();
   this->aux_gf_infos_ = this->get_aux_infos();
@@ -112,7 +112,7 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
     size_t vsize = variable_info.size();
 
     MFEM_VERIFY(vsize >= 1,
-                "TimeNLFormIntegrator<VARS>: at least "
+                "TimeCHNLFormIntegrator<VARS>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
                 "this integrator");
     const std::string& symbol = toUpperCase(variable_info.back());
@@ -136,35 +136,46 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
  * @param elvect
  */
 template <class VARS>
-void TimeNLFormIntegrator<VARS>::AssembleElementVector(
+void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    // Catch_Time_Section("TimeNLFormIntegrator:AssembleElementVector");
+  //////////////////////
+  // Block 0 R(phi) on mu term
+  {
+    int blk = 0;
+
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+    elvect[blk]->SetSize(nd);
+    *elvect[blk] = 0.;
+  }
+
+  //////////////////////
+  // Block 1 R(mu) on dphi/dt term
+  {
+    int blk = 1;
+
+    int off_blk = 0;
+
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
     gradU.SetSize(dim);
-    // elvect.SetSize(nd);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-    // elvect = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& u = *elfun[blk] * Psi;
+      const auto& phi = *elfun[off_blk] * Psi;
 
-      el[blk]->CalcPhysDShape(Tr, gradPsi);
-      gradPsi.MultTranspose(*elfun[blk], gradU);
-
-      const double ww = u * ip.weight * Tr.Weight();
+      const double ww = phi * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -182,44 +193,90 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
  * @param elmat
  */
 template <class VARS>
-void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
+void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Catch_Time_Section("TimeNLFormIntegrator::AssembleElementGrad");
+  // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
+  // loop over diagonal entries
   int num_blocks = el.Size();
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    // int nd = el.GetDof();
-    // int dim = el.GetDim();
+  // block 0 0  dR(phi)dphi
+  {
+    int blk = 0;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
 
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
-    // elmat.SetSize(nd);
+
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
+  }
+  // block 0 1  dR(phi)dmu
+  {
+    int blk = 0;
+    int off_blk = 1;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
 
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+
+    elmats(blk, off_blk)->SetSize(nd);
+    *elmats(blk, off_blk) = 0.0;
+  }
+
+  // block 1 0   dR(mu)dPhi
+  {
+    int blk = 1;
+    int off_blk = 0;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+
+    elmats(blk, off_blk)->SetSize(nd);
+    *elmats(blk, off_blk) = 0.0;
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-
-    // elmat = 0.0;
+    ///// CCI
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-      el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
-      double fun_val = ip.weight * Tr.Weight();
-      AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
+      el[blk]->CalcPhysShape(Tr, Psi);
+      double w = Tr.Weight() * ip.weight;
+      AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }
+  }
+  // block 1 1 dR(mu)dmu
+  {
+    int blk = 1;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+
+    elmats(blk, blk)->SetSize(nd);
+    *elmats(blk, blk) = 0.0;
   }
 }
 
 /**
- * @brief Destroy the TimeNLFormIntegrator  object
+ * @brief Destroy the TimeCHNLFormIntegrator  object
  *
  * @tparam SCHEME
  * @tparam ENERGY
  * @tparam MOBI
  */
 template <class VARS>
-TimeNLFormIntegrator<VARS>::~TimeNLFormIntegrator() {}
+TimeCHNLFormIntegrator<VARS>::~TimeCHNLFormIntegrator() {}

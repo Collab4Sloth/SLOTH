@@ -268,9 +268,7 @@ void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& curre
   const size_t unk_size = vect_unk.size();
 
   // this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
-  std::cout << " solve---0" << std::endl;
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
-  std::cout << " solve---1" << std::endl;
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
   // calculation converges

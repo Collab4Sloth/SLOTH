@@ -1,12 +1,11 @@
 /**
- * @file AllenCahnNLFormIntegrator.hpp
+ * @file BlockAllenCahnNLFormIntegrator.hpp
  * @author ci230846  (clement.introini@cea.fr)
- * @brief FV for the Allen Cahn equation
- * @todo Extend coefficient to omega and lambda
+ * @brief VF of the CahnHilliard equations
  * @version 0.1
- * @date 2024-06-06
+ * @date 2025-06-05
  *
- * Copyright CEA (c) 2024
+ * Copyright CEA (c) 2025
  *
  */
 #include <algorithm>
@@ -38,8 +37,8 @@
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-class AllenCahnNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                                  public SlothNLFormIntegrator<VARS> {
+class BlockAllenCahnNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
+                                       public SlothNLFormIntegrator<VARS> {
  private:
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
@@ -76,9 +75,9 @@ class AllenCahnNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                    const mfem::IntegrationPoint& ir);
 
  public:
-  AllenCahnNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                            const Parameters& params, std::vector<VARS*> auxvars);
-  ~AllenCahnNLFormIntegrator();
+  BlockAllenCahnNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                 const Parameters& params, std::vector<VARS*> auxvars);
+  ~BlockAllenCahnNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
@@ -111,7 +110,7 @@ class AllenCahnNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::energy_derivatives(
+FType BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::energy_derivatives(
     const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
   return [this, order_derivative, &Tr, &ir](const double& u) {
     return this->double_well_derivative(order_derivative, Tr, ir)(u);
@@ -137,16 +136,16 @@ FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::energy_derivatives(
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 template <typename... Args>
-double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
+double BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
     const Parameters& parameters) {
   const int nElement = Tr.ElementNo;
   // TODO(cci) return vector of double
   MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_[0], parameters);
-  double mob_coeff = mobi_coeff.Eval(Tr, ip);
-  if (this->scale_mobility_by_temperature_) {
-    mob_coeff /= this->temp_gf_[0].GetValue(nElement, ip);
-  }
+  double mob_coeff = 1.e-3 * mobi_coeff.Eval(Tr, ip);
+  // if (this->scale_mobility_by_temperature_) {
+  //   mob_coeff /= this->temp_gf_[0].GetValue(nElement, ip);
+  // }
   return mob_coeff;
 }
 
@@ -169,7 +168,7 @@ double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 template <typename... Args>
-double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::omega(
+double BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::omega(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
     const Parameters& parameters) {
   OmegaCoefficient<0, Omega::Constant> omega_coeff(&this->u_old_[0], parameters);
@@ -194,7 +193,7 @@ double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::omega(
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 template <typename... Args>
-double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::lambda(
+double BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::lambda(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
     const Parameters& parameters) {
   LambdaCoefficient<0, Lambda::Constant> lambda_coeff(&this->u_old_[0], parameters);
@@ -212,7 +211,7 @@ double AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::lambda(
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivative(
+FType BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivative(
     const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
   return FType([this, order_derivative, &Tr, &ir](const double& u) {
     const auto& un = this->u_old_[0].GetValue(Tr, ir);
@@ -232,7 +231,7 @@ FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivat
 }
 
 /**
- * @brief Construct a new AllenCahnNLFormIntegrator object
+ * @brief Construct a new BlockAllenCahnNLFormIntegrator object
  *
  * @tparam SCHEME
  * @tparam ENERGY
@@ -244,7 +243,7 @@ FType AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivat
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator(
+BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::BlockAllenCahnNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
@@ -261,7 +260,7 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnNLFormIntegrator
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_consistency() {
+void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_consistency() {
   this->aux_gf_ = this->get_aux_gf();
   this->aux_old_gf_ = this->get_aux_old_gf();
   this->aux_gf_infos_ = this->get_aux_infos();
@@ -274,7 +273,7 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_cons
     size_t vsize = variable_info.size();
 
     MFEM_VERIFY(vsize >= 1,
-                "AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>: at least "
+                "BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
                 "this integrator");
     const std::string& symbol = toUpperCase(variable_info.back());
@@ -290,7 +289,7 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_cons
     if (this->scale_mobility_by_temperature_) {
       MFEM_VERIFY(
           temperature_found,
-          "AllenCahnNLFormIntegrator: "
+          "BlockAllenCahnNLFormIntegrator: "
           "Temperature variable required to scale mobility, but not found in auxiliary variables");
     }
   }
@@ -309,42 +308,78 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_cons
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVector(
+void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  int num_blocks = el.Size();
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    // Catch_Time_Section("AllenCahnNLFormIntegrator:AssembleElementVector");
+  //
+  // Block 0 R(phi)=mu - w' + div lambda grad phi
+  //
+  {
+    int blk = 0;
+    int off_blk = 1;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
     gradU.SetSize(dim);
-    // elvect.SetSize(nd);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
-
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-    // elvect = 0.0;
+    ///// CCI
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& u = *elfun[blk] * Psi;
+      const auto& mu = *elfun[off_blk] * Psi;
 
-      // Laplacian : given u, compute (grad(u), grad(psi)), psi is shape function.
-      // given u (elfun), compute grad(u)
+      const auto& phi = *elfun[blk] * Psi;
+
+      const double xx = ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      const double coef_mob = this->mobility(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
-      const double lambda = this->lambda(Tr, ip, u, this->params_);
-      gradU *= coef_mob * lambda;
+      const double lambda = this->lambda(Tr, ip, phi, this->params_);
+
+      gradU *= -xx * lambda;
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // Given u, compute (w'(u), psi), psi is shape function
-      const double ww = coef_mob * this->energy_derivatives(1, Tr, ip)(u);
+
+      const double ww = xx * (mu - this->energy_derivatives(1, Tr, ip)(phi));
+
+      add(*elvect[blk], ww, Psi, *elvect[blk]);
+    }
+  }
+  //
+  // Block 1 R(mu) = mu
+  //
+  {
+    int blk = 1;
+    int off_blk = 0;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+    gradU.SetSize(dim);
+    elvect[blk]->SetSize(nd);
+    *elvect[blk] = 0.;
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);  //
+      Tr.SetIntPoint(&ip);
+
+      const auto& mu = *elfun[blk] * Psi;
+
+      const double ww = mu * ip.weight * Tr.Weight();
+
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -363,44 +398,116 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVecto
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
+void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Catch_Time_Section("AllenCahnNLFormIntegrator::AssembleElementGrad");
+  // loop over diagonal entries
   int num_blocks = el.Size();
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    // int nd = el.GetDof();
-    // int dim = el.GetDim();
+
+  // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
+
+  {
+    int blk = 0;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
 
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
-    // elmat.SetSize(nd);
+
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-
-    // elmat = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
-      const auto& u = *elfun[blk] * Psi;
+      Tr.SetIntPoint(&ip);
+      const auto& phi = *elfun[blk] * Psi;
+
+      const double xx = -ip.weight * Tr.Weight();
+      el[blk]->CalcPhysDShape(Tr, gradPsi);
+
+      const double lambda = this->lambda(Tr, ip, phi, this->params_);
+
+      AddMult_a_AAt(xx * lambda, gradPsi, *elmats(blk, blk));
+
+      double fun_val = xx * this->energy_derivatives(2, Tr, ip)(phi);
+      AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
+    }
+  }
+
+  // Block 0 1 dR(phi)dmu=d(mu - w' + div lambda grad phi)/dmu
+  {
+    int blk = 0;
+    int off_blk = 1;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+
+    elmats(blk, off_blk)->SetSize(nd);
+    *elmats(blk, off_blk) = 0.0;
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
 
-      // Laplacian : compute (grad(u), grad(psi)), psi is shape function.
-      const double coef_mob = this->mobility(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
+      double ww = ip.weight * Tr.Weight();
+      AddMult_a_VVt(ww, Psi, *elmats(blk, off_blk));
+    }
+  }
+  // Block 1 0  dR(mu)dphi=d(div M grad mu)/dphi
+  {
+    int blk = 1;
+    int off_blk = 0;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+
+    elmats(blk, off_blk)->SetSize(nd);
+    *elmats(blk, off_blk) = 0.0;
+  }
+
+  // Block 1 1  dR(mu)dmu=dR(mu)dphi=d(div M grad mu)/dmu
+  {
+    int blk = 1;
+    int off_blk = 0;
+    mfem::DenseMatrix gradPsi;
+    mfem::Vector Psi, gradU;
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+
+    elmats(blk, blk)->SetSize(nd);
+    *elmats(blk, blk) = 0.0;
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    ///// CCI
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);  //
+      Tr.SetIntPoint(&ip);
+
+      const auto& phi = *elfun[off_blk] * Psi;
+      const double coef_mob = this->mobility(Tr, ip, phi, this->params_) * ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
-      const double lambda = this->lambda(Tr, ip, u, this->params_);
 
-      AddMult_a_AAt(coef_mob * lambda, gradPsi, *elmats(blk, blk));
-
-      // Compute w'(u)*(du,psi), psi is shape function ( // w''(u))
-      double fun_val = coef_mob * this->energy_derivatives(2, Tr, ip)(u);
-      AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
+      AddMult_a_AAt(coef_mob, gradPsi, *elmats(blk, blk));
     }
   }
 }
@@ -420,8 +527,8 @@ void AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>>
-AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunction* gfu,
-                                                                  const double omega) {
+BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunction* gfu,
+                                                                       const double omega) {
   return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu, omega);
 }
 
@@ -438,13 +545,13 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridF
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 std::unique_ptr<GradientEnergyCoefficient>
-AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(mfem::ParGridFunction* gfu,
-                                                                       const double lambda) {
+BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(
+    mfem::ParGridFunction* gfu, const double lambda) {
   return std::make_unique<GradientEnergyCoefficient>(gfu, lambda);
 }
 
 /**
- * @brief Destroy the AllenCahnNLFormIntegrator  object
+ * @brief Destroy the BlockAllenCahnNLFormIntegrator  object
  *
  * @tparam SCHEME
  * @tparam ENERGY
@@ -452,4 +559,4 @@ AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(mfem::Par
  */
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
-AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::~AllenCahnNLFormIntegrator() {}
+BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::~BlockAllenCahnNLFormIntegrator() {}

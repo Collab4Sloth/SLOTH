@@ -34,6 +34,11 @@ class PotentialFunctions {
     potential_function<ORDER, SCHEME> func;
     return func.getW(args...);
   }
+  template <class... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    potential_function<ORDER, SCHEME> func;
+    return func.getWW(args...);
+  }
 
   template <class... Args>
   std::function<double(const double&)> getF(Args... args) {
@@ -97,6 +102,15 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Implicit> {
   std::function<double(const double&)> getW(Args... args) {
     return std::function<double(const double&)>([](double x) {
       const auto pot = x * x * (1.0 - x) * (1.0 - x);
+      return pot;
+    });
+  }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const double a = 0.3;
+      const double b = 0.7;
+      const auto pot = (x - a) * (x - a) * (b - x) * (b - x);
       return pot;
     });
   }
@@ -179,6 +193,15 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Implicit> {
       return pot;
     });
   }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const double a = 0.3;
+      const double b = 0.7;
+      const auto pot = 2. * (x - a) * (b - x) * (a + b - 2. * x);
+      return pot;
+    });
+  }
   /**
    * @brief First derivative of the F potential F(x)=(x^4 -2x^2)/4
    *
@@ -257,6 +280,15 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Implicit> {
       return pot;
     });
   }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const double a = 0.3;
+      const double b = 0.7;
+      const auto pot = 2. * (a * a + b * b + 4. * a * b - 6. * x * a - 6. * x * b + 6. * x * x);
+      return pot;
+    });
+  }
   /**
    * @brief Second derivative of the F potential F(x)=(x^4 -2x^2)/4
    *
@@ -328,6 +360,21 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Explicit> {
    */
   template <typename... Args>
   std::function<double(const double&)> getW(Args... args) {
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto xn = v[0];
+      return std::function<double(const double&)>([xn](double x) {
+        const auto pot = xn * xn * (1.0 - xn) * (1.0 - xn);
+        return pot;
+      });
+    } else {
+      mfem::mfem_error(
+          "potential_function::getW: only one argument is expected for explicit scheme");
+    }
+  }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
     auto v = std::vector<double>{args...};
 
     if (v.size() == 1) {
@@ -447,6 +494,21 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::Explicit> {
           "potential_function::getW: only one argument is expected for explicit scheme");
     }
   }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto xn = v[0];
+      return std::function<double(const double&)>([xn](double x) {
+        const auto pot = 2. * xn * (1.0 - xn) * (1.0 - 2. * xn);
+        return pot;
+      });
+    } else {
+      mfem::mfem_error(
+          "potential_function::getW: only one argument is expected for explicit scheme");
+    }
+  }
 
   /**
    * @brief First derivative of the F potential F(x)=(x² -1)/4
@@ -540,6 +602,13 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::Explicit> {
       return pot;
     });
   }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = 0.;  // 2. * (1. - 6. * x + 6. * x * x);
+      return pot;
+    });
+  }
   /**
    * @brief Second derivative of the F potential F(x)=(x² -1)/4
    *
@@ -615,6 +684,13 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::SemiImplicit
    */
   template <typename... Args>
   std::function<double(const double&)> getW(Args... args) {
+    return std::function<double(const double&)>([](double x) {
+      const auto pot = x * x * (1.0 - x) * (1.0 - x);
+      return pot;
+    });
+  }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
     return std::function<double(const double&)>([](double x) {
       const auto pot = x * x * (1.0 - x) * (1.0 - x);
       return pot;
@@ -704,6 +780,21 @@ struct potential_function<1, ThermodynamicsPotentialDiscretization::SemiImplicit
           "potential_function::getW: only one argument is expected for smei-implicit scheme");
     }
   }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto xn = v[0];
+      return std::function<double(const double&)>([xn](double x) {
+        const auto pot = (1.0 - x - xn) * (x + xn - x * x - xn * xn);
+        return pot;
+      });
+    } else {
+      mfem::mfem_error(
+          "potential_function::getW: only one argument is expected for smei-implicit scheme");
+    }
+  }
   /**
    * @brief First derivative of the F potential F(x)=(x² -1)/4
    *
@@ -775,6 +866,21 @@ struct potential_function<2, ThermodynamicsPotentialDiscretization::SemiImplicit
    */
   template <typename... Args>
   std::function<double(const double&)> getW(Args... args) {
+    auto v = std::vector<double>{args...};
+
+    if (v.size() == 1) {
+      const auto xn = v[0];
+      return std::function<double(const double&)>([xn](double x) {
+        const auto pot = ((1.0 - x - xn) * (1.0 - 2.0 * x) - (x + xn - x * x - xn * xn));
+        return pot;
+      });
+    } else {
+      mfem::mfem_error(
+          "potential_function::getW: only one argument is expected for smei-implicit scheme");
+    }
+  }
+  template <typename... Args>
+  std::function<double(const double&)> getWW(Args... args) {
     auto v = std::vector<double>{args...};
 
     if (v.size() == 1) {
@@ -875,6 +981,8 @@ PotentialFunctions<ORDER, SCHEME, POTENTIAL>::getPotentialFunction(Args... args)
       return this->getLog(args...);
     case ThermodynamicsPotentials::W:
       return this->getW(args...);
+    case ThermodynamicsPotentials::WW:
+      return this->getWW(args...);
     case ThermodynamicsPotentials::F:
       return this->getF(args...);
     case ThermodynamicsPotentials::H:
