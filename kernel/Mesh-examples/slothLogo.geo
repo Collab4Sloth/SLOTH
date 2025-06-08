@@ -2,7 +2,7 @@
 // cp273896
 // 25/11/2024
 // caracteristic length for elements
-lc = 1.;
+lc = 0.01;
 // --------------------------------------------
 // Points positions
 // --------------------------------------------
@@ -361,9 +361,12 @@ Physical Surface("SurfaceBetweenOutAndFirstOcto") = {1};
 Physical Surface("SurfaceBetweenSecondOctoAndSloth") = {2};
 Physical Surface("SurfaceMouth") = {3};
 Physical Surface("SurfaceNose") = {4};
-Physical Surface("SurfaceEye1") = {5};
+Physical Surface("SurfaceEye1") = {8};
 Physical Surface("SurfaceEye2") = {6};
 Physical Surface("SurfaceEar") = {7};
+
+
+
 
 // Génération du maillage 2D
 Mesh 2;
