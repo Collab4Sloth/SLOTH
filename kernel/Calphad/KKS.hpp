@@ -50,6 +50,7 @@ class KKS {
   double KKS_temperature_threshold_;
   bool KKS_temperature_scheme_;
   bool nucleation_started_{false};
+  bool KKS_freeze_nucleation_{true};
 
   PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
                      ThermodynamicsPotentials::H>
@@ -126,6 +127,9 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
 
   this->KKS_temperature_threshold_ = CALPHAD.params_.template get_param_value_or_default<double>(
       "KKS_temperature_threshold", 2500);
+
+  this->KKS_freeze_nucleation_ =
+      CALPHAD.params_.template get_param_value_or_default<double>("KKS_freeze_nucleation", true);
 
   this->KKS_mobility_for_seed_ =
       CALPHAD.params_.template get_param_value_or_default<double>("KKS_mobility", 1.);
@@ -321,7 +325,8 @@ void KKS<T>::execute_linearization(
   std::vector<std::tuple<std::string, std::string, double>> st_phase_12 = {
       {phase, "entered", 0.}, {this->KKS_secondary_phase_, "entered", 0.}};
 
-  if (this->nucleation_started_ || (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
+  if ((this->nucleation_started_ && this->KKS_freeze_nucleation_) ||
+      (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
     st_phase_12 = {{phase, "entered", 0.}};
   }
 
@@ -348,14 +353,17 @@ void KKS<T>::execute_linearization(
     std::unordered_set<int> indices_nucleation;
     bool local_nucleation = false;
     for (const auto &node : indices_ph_1) {
-      // Check if liquid is found
+      // Check if secondary phase  is found
       if (CALPHAD.elem_mole_fraction_by_phase_.contains(
               std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
+        // If nucleation is not frozen once detected, local_nucleation must be false
         local_nucleation = true;
+        local_nucleation &= this->KKS_freeze_nucleation_;
         indices_nucleation.insert(node);
       }
     }
 
+    // Create circular nucleus
     for (const auto &inuc : indices_nucleation) {
       const double nucleus_value = -this->KKS_seed_ / (time_step * this->KKS_mobility_for_seed_);
       CALPHAD.nucleus_[std::make_tuple(inuc, this->KKS_secondary_phase_)] = nucleus_value;
