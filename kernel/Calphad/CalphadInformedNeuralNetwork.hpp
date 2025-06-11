@@ -56,7 +56,7 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
   double input_composition_factor_;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
-  void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+  void compute(const std::unordered_set<int>& list_nodes, const std::vector<T>& tp_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system);
 
   void check_variables_consistency(
@@ -69,7 +69,8 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
   void initialize(
       const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
-  void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& aux_gf,
+  void execute(const int dt, const std::unordered_set<int>& list_nodes,
+               const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
                std::optional<std::vector<std::tuple<std::string, std::string, double>>>
                    status_phase = std::nullopt) override;
@@ -264,7 +265,7 @@ void CalphadInformedNeuralNetwork<T>::initialize(
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::execute(
-    const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+    const int dt, const std::unordered_set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::execute");
@@ -289,7 +290,7 @@ void CalphadInformedNeuralNetwork<T>::execute(
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::compute(
-    const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+    const std::unordered_set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::compute");
   const size_t nb_nodes = list_nodes.size();

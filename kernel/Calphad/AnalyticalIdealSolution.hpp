@@ -29,7 +29,7 @@ template <typename T>
 class AnalyticalIdealSolution : public CalphadBase<T> {
  private:
   std::unique_ptr<CalphadUtils<T>> CU_;
-  void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+  void compute(const std::unordered_set<int>& list_nodes, const std::vector<T>& tp_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system);
 
   void check_variables_consistency(
@@ -42,7 +42,8 @@ class AnalyticalIdealSolution : public CalphadBase<T> {
   void initialize(
       const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
 
-  void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& aux_gf,
+  void execute(const int dt, const std::unordered_set<int>& list_nodes,
+               const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
                std::optional<std::vector<std::tuple<std::string, std::string, double>>>
                    status_phase = std::nullopt) override;
@@ -118,7 +119,7 @@ void AnalyticalIdealSolution<T>::initialize(
  */
 template <typename T>
 void AnalyticalIdealSolution<T>::execute(
-    const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+    const int dt, const std::unordered_set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
   // Clear containers and recalculation of the numbers of nodes
@@ -144,7 +145,7 @@ void AnalyticalIdealSolution<T>::execute(
  */
 template <typename T>
 void AnalyticalIdealSolution<T>::compute(
-    const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+    const std::unordered_set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system) {
   // Let us assume an ideal mixing solution
   const std::string& phase = "SOLUTION";

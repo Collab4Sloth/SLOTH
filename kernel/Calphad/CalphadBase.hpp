@@ -102,7 +102,8 @@ class CalphadBase {
       std::optional<const std::vector<std::tuple<std::string, std::vector<double>>>> coordinates =
           std::nullopt);
 
-  virtual void execute(const int dt, const std::set<int> &list_nodes, const std::vector<T> &tp_gf,
+  virtual void execute(const int dt, const std::unordered_set<int> &list_nodes,
+                       const std::vector<T> &tp_gf,
                        const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
                        std::optional<std::vector<std::tuple<std::string, std::string, double>>>
                            status_phase = std::nullopt) = 0;
@@ -187,7 +188,7 @@ void CalphadBase<T>::global_execute(
   // Execute
   if (!this->is_KKS_) {
     // Creation list of nodes
-    std::set<int> list_nodes;
+    std::unordered_set<int> list_nodes;
     for (int i = 0; i < nb_nodes; ++i) {
       list_nodes.insert(i);
     }
