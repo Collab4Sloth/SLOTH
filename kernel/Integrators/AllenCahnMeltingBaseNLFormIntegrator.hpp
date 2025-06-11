@@ -112,16 +112,20 @@ FType AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLA
   return FType([this, order_derivative, &Tr, &ir](const double& u) {
     const auto& un = this->u_old_.GetValue(Tr, ir);
 
+    const auto& alpha = this->get_phase_change_at_ip(Tr, ir);
+    double seed = 0.0;
+
     FType H_derivative;
     if (order_derivative == 1) {
       H_derivative = this->interpolation_first_derivative_potential_.getPotentialFunction(un);
+      // Explicit term, not present in Jacobian (order two for H_derivative)
+      seed = this->get_seed_at_ip(Tr, ir);
+
     } else if (order_derivative == 2) {
       H_derivative = this->interpolation_second_derivative_potential_.getPotentialFunction(un);
     } else {
       std::runtime_error("Error while setting the order of derivative : only 1 and 2 are allowed.");
     }
-    const auto& alpha = this->get_phase_change_at_ip(Tr, ir);
-    const auto& seed = this->get_seed_at_ip(Tr, ir);
     const auto& h_prime = alpha * H_derivative(u) + seed;
     return h_prime;
   });
