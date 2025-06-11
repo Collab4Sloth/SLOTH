@@ -161,6 +161,7 @@ class SpatialDiscretization {
 
   mfem::ParMesh *get_mesh();
   mfem::ParFiniteElementSpace *get_finite_element_space() const;
+  std::vector<std::tuple<std::string, std::vector<double>>> get_coordinates();
 
   std::size_t getSize() const;
   std::size_t get_max_bdr_attributes() const;
@@ -898,6 +899,37 @@ std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_bdr_attr
 template <class T, int DIM>
 mfem::ParFiniteElementSpace *SpatialDiscretization<T, DIM>::get_finite_element_space() const {
   return this->fespace_;
+}
+
+/**
+ * @brief Return the coordinates as {(X1,{x1,....,xn}),(X2,{y1,....,yn}),(X3,{z1,....,zn})}
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return std::vector<std::tuple<std::string, std::vector<double>>>
+ */
+template <class T, int DIM>
+std::vector<std::tuple<std::string, std::vector<double>>>
+SpatialDiscretization<T, DIM>::get_coordinates() {
+  mfem::ParGridFunction nodes(this->fespace_);
+  this->mesh_->GetNodes(nodes);
+
+  const int nb_nodes = nodes.Size() / this->dimension_;
+
+  std::vector<std::tuple<std::string, std::vector<double>>> coordinates;
+  coordinates.reserve(this->dimension_);  // Reserve space for DIM dimensions
+
+  std::vector<double> coordinate;
+  for (int j = 0; j < this->dimension_; ++j) {
+    std::vector<double> coordinate;
+    coordinate.reserve(nb_nodes);
+    for (int i = 0; i < nb_nodes; ++i) {
+      coordinate.emplace_back(nodes(j * nb_nodes + i));
+    }
+    std::string str = "X" + std::to_string(j + 1);
+    coordinates.emplace_back(std::move(str), std::move(coordinate));
+  }
+  return coordinates;
 }
 
 /**
