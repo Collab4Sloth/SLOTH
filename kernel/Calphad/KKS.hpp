@@ -35,7 +35,7 @@ class KKS {
   const double kks_abs_tol_solver_ = 1.e-16;
   const double kks_rel_tol_solver_ = 1.e-16;
   const int kks_max_iter_solver_ = 100;
-  const int kks_print_level_solver_ = 1;
+  const int kks_print_level_solver_ = 0;
 
  protected:
   std::string element_removed_from_ic_;
@@ -43,6 +43,7 @@ class KKS {
   std::string KKS_secondary_phase_;
   double KKS_mobility_for_seed_;
   double KKS_seed_;
+  double KKS_seed_radius_;
   double KKS_temperature_increment_;
   double KKS_composition_increment_;
   double KKS_threshold_;
@@ -79,7 +80,8 @@ class KKS {
       CalphadBase<T> &CALPHAD, const int dt, const double time_step, const std::vector<T> &tp_gf,
       const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-      const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf);
+      const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
+      const std::vector<std::tuple<std::string, std::vector<double>>> &coord_gf);
 
   void clear_containers();
 
@@ -117,11 +119,13 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
       "KKS_temperature_explicit_scheme", false);
 
   this->KKS_seed_ = CALPHAD.params_.template get_param_value_or_default<double>("KKS_seed", 1.);
+  this->KKS_seed_radius_ =
+      CALPHAD.params_.template get_param_value_or_default<double>("KKS_seed_radius", 1.e-4);
   this->KKS_threshold_ =
       CALPHAD.params_.template get_param_value_or_default<double>("KKS_threshold", 1.e-3);
 
   this->KKS_temperature_threshold_ = CALPHAD.params_.template get_param_value_or_default<double>(
-      "KKS_temperature_threshold", 2800);
+      "KKS_temperature_threshold", 2500);
 
   this->KKS_mobility_for_seed_ =
       CALPHAD.params_.template get_param_value_or_default<double>("KKS_mobility", 1.);
@@ -144,10 +148,12 @@ void KKS<T>::execute_linearization(
     CalphadBase<T> &CALPHAD, const int dt, const double time_step, const std::vector<T> &tp_gf,
     const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf) {
+    const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
+    const std::vector<std::tuple<std::string, std::vector<double>>> &coordinates) {
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
+
   std::set<int> list_nodes;
   for (int i = 0; i < nb_nodes; ++i) {
     list_nodes.insert(i);
@@ -172,6 +178,7 @@ void KKS<T>::execute_linearization(
     } else if (phi_gf[i] < this->KKS_threshold_) {
       SlothInfo::debug("Execute_linearization: secondary_phase node ", i);
       indices_ph_2.insert(i);
+
     } else {
       SlothInfo::debug("Execute_linearization: interfacial node  ", i);
       indices_inter.insert(i);
@@ -331,21 +338,42 @@ void KKS<T>::execute_linearization(
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
 
   // Check "Nucleation" with driving force
-  //
+
+  // Cancel  before checking nucleation state
+  for (int i = 0; i < nb_nodes; ++i) {
+    // Must be zero except for nodes detected as  nucleus  in solid
+    CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
+    // Must be zero except for nodes in interface.
+    CALPHAD.driving_forces_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
+  }
+
   if (!this->nucleation_started_) {
+    std::set<int> indices_nucleation;
     bool local_nucleation = false;
     for (const auto &node : indices_ph_1) {
       // Check if liquid is found
       if (CALPHAD.elem_mole_fraction_by_phase_.contains(
               std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
-        // double seed =
-        //     CALPHAD.mole_fraction_of_phase_[std::make_tuple(node, this->KKS_secondary_phase_)];
-        // To enhance the chance to initiate the phase change
-        CALPHAD.nucleus_[std::make_tuple(node, this->KKS_secondary_phase_)] =
-            -this->KKS_seed_ / (time_step * this->KKS_mobility_for_seed_);
         local_nucleation = true;
-      } else {
-        CALPHAD.nucleus_[std::make_tuple(node, this->KKS_secondary_phase_)] = 0.;
+        indices_nucleation.insert(node);
+      }
+    }
+
+    for (const auto &inuc : indices_nucleation) {
+      const double nucleus_value = -this->KKS_seed_ / (time_step * this->KKS_mobility_for_seed_);
+      CALPHAD.nucleus_[std::make_tuple(inuc, this->KKS_secondary_phase_)] = nucleus_value;
+      for (const auto &j : indices_ph_1) {
+        double rr = 0;
+        for (const auto &[_, coord] : coordinates) {
+          const double coord_diff = coord[inuc] - coord[j];
+          rr += coord_diff * coord_diff;
+        }
+        if (rr < this->KKS_seed_radius_ * this->KKS_seed_radius_) {
+          // double seed =
+          //     CALPHAD.mole_fraction_of_phase_[std::make_tuple(node, this->KKS_secondary_phase_)];
+          // To enhance the chance to initiate the phase change
+          CALPHAD.nucleus_[std::make_tuple(j, this->KKS_secondary_phase_)] = nucleus_value;
+        }
       }
     }
 
@@ -354,12 +382,6 @@ void KKS<T>::execute_linearization(
     int global_flag = 0;
     MPI_Allreduce(&local_flag, &global_flag, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     this->nucleation_started_ = (global_flag == 1);
-
-  } else {
-    // Cancel nucleus because of phase transition started
-    for (int i = 0; i < nb_nodes; ++i) {
-      CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
-    }
   }
 
   /////////////////////////
@@ -493,12 +515,19 @@ void KKS<T>::execute_linearization(
       //
       // Assemble system
       //
+      // Allocate
       mfem::Array<int> offsets(3);
       offsets[0] = 0;
       offsets[1] = nb_elem - 1;
       offsets[2] = 2 * nb_elem - 2;
 
       mfem::BlockVector bb(offsets);
+      mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
+      mfem::Vector HphiNode(nb_elem - 1);
+      mfem::Vector one_minus_HphiNode(nb_elem - 1);
+      auto solver = std::make_shared<mfem::GMRESSolver>();
+
+      // Fill
       mfem::Vector &b0 = bb.GetBlock(0);
       b0 = ml_minus_ms;
       b0 += hl_minus_hs;
@@ -506,15 +535,12 @@ void KKS<T>::execute_linearization(
       mfem::Vector &b1 = bb.GetBlock(1);
       b1 = deltaX;
 
-      mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
       AA->SetBlock(0, 0, As);
       *Al *= -1.;
       AA->SetBlock(0, 1, Al);
 
       // identity
-      mfem::Vector HphiNode(nb_elem - 1);
       HphiNode = Hphi(node);
-      mfem::Vector one_minus_HphiNode(nb_elem - 1);
       one_minus_HphiNode = 1. - Hphi(node);
 
       mfem::SparseMatrix *A10 = new mfem::SparseMatrix(HphiNode);
@@ -527,7 +553,6 @@ void KKS<T>::execute_linearization(
       //
       // Solve system
       //
-      auto solver = std::make_shared<mfem::GMRESSolver>();
       solver->SetOperator(*AA);
       solver->SetAbsTol(this->kks_abs_tol_solver_);
       solver->SetRelTol(this->kks_rel_tol_solver_);
