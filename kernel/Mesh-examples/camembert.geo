@@ -1,5 +1,6 @@
 //+
-radius=0.00465;
+radius=0.0607; 
+//+ 0.00465;
 angle = Pi/4.;
 Point(1) = {0, 0, 0, 1.e-4};
 Point(2) = {radius, 0, 0, 1.e-4};
@@ -23,7 +24,7 @@ Physical Curve("external", 3) = {11};
 Physical Surface("Pellet", 4) = {1};
 
 // Maillage
-Transfinite Line {1} = 100;
-Transfinite Line {2} = 100;
+Transfinite Line {1} = 250;
+Transfinite Line {2} = 250;
 
 
