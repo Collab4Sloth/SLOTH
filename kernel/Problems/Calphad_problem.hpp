@@ -35,6 +35,9 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   std::vector<mfem::Vector> get_tp_conditions();
   std::vector<mfem::Vector> get_old_tp_conditions();
   std::tuple<std::string, mfem::Vector, mfem::Vector> get_phasefields();
+
+  std::vector<std::tuple<std::string, std::vector<double>>> get_coord();
+
   std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>>
   get_molar_fractions();
   std::vector<std::tuple<std::string, std::string>> get_chemical_system();
@@ -398,14 +401,16 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
   } else {
     // Specific treatment for KKS problems
     std::tuple<std::string, mfem::Vector, mfem::Vector> phasefields_gf = this->get_phasefields();
+    std::vector<std::tuple<std::string, std::vector<double>>> coordinates = this->get_coord();
+
     std::vector<mfem::Vector> tp_gf_old = this->get_old_tp_conditions();
     // vector<element, phase, x, x_old>
     std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> x_phase_gf =
         this->get_molar_fractions();
 
     this->CC_->global_execute(iter, current_time_step, tp_gf, this->sorted_chemical_system_,
-                              output_system, previous_output, phasefields_gf, tp_gf_old,
-                              x_phase_gf);
+                              output_system, previous_output, phasefields_gf, tp_gf_old, x_phase_gf,
+                              coordinates);
   }
 
   // Recover unknowns
@@ -469,6 +474,20 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_phasefields() {
   }
 
   return aux_gf;
+}
+
+/**
+ * @brief Return the coordinates as {(X1,{x1,....,xn}),(X2,{y1,....,yn}),(X3,{z1,....,zn})}
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::string, std::vector<double>>>
+ */
+template <class CALPHAD, class VAR, class PST>
+std::vector<std::tuple<std::string, std::vector<double>>>
+Calphad_Problem<CALPHAD, VAR, PST>::get_coord() {
+  return this->variables_.getIVariable(0).get_coordinates();
 }
 
 /**
@@ -536,6 +555,8 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
       if (symbol == "PHI") continue;
+      if (symbol == "XCOORD") continue;
+      if (symbol == "YCOORD") continue;
       if (symbol == "T") {
         aux_gf[0] = gf;
       } else if (symbol == "P") {
@@ -578,6 +599,8 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditi
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
       if (symbol == "PHI") continue;
+      if (symbol == "XCOORD") continue;
+      if (symbol == "YCOORD") continue;
       if (symbol == "T") {
         aux_gf[0] = gf;
       } else if (symbol == "P") {
@@ -647,6 +670,8 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
       if (symbol == "T") continue;
       if (symbol == "P") continue;
       if (symbol == "PHI") continue;
+      if (symbol == "XCOORD") continue;
+      if (symbol == "YCOORD") continue;
       MFEM_VERIFY(variable_info.size() == 2,
                   "Error while getting chemical system. Two additional informations are excepted "
                   ": the element symbol, the unit symbol");

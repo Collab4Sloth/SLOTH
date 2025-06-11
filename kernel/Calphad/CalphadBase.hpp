@@ -98,6 +98,8 @@ class CalphadBase {
       std::optional<const std::tuple<std::string, T, T>> phase_fields = std::nullopt,
       std::optional<const std::vector<T>> tp_gf_old = std::nullopt,
       std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf =
+          std::nullopt,
+      std::optional<const std::vector<std::tuple<std::string, std::vector<double>>>> coordinates =
           std::nullopt);
 
   virtual void execute(const int dt, const std::set<int> &list_nodes, const std::vector<T> &tp_gf,
@@ -176,7 +178,8 @@ void CalphadBase<T>::global_execute(
     const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
     std::optional<const std::tuple<std::string, T, T>> phase_field_gf,
     std::optional<const std::vector<T>> tp_gf_old,
-    std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf) {
+    std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf,
+    std::optional<const std::vector<std::tuple<std::string, std::vector<double>>>> coordinates) {
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   // Reinitialize containers
   this->clear_containers();
@@ -195,9 +198,10 @@ void CalphadBase<T>::global_execute(
                 "Error: phase_fields_gf is required for KKS execution.");
     MFEM_VERIFY(tp_gf_old.has_value(), "Error: tp_gf_old is required for KKS execution.");
     MFEM_VERIFY(x_gf.has_value(), "Error: x_gf is required for KKS execution.");
+    MFEM_VERIFY(coordinates.has_value(), "Error: coordinates is required for KKS execution.");
     // Execute KKS linearization
-    this->KKS_->execute_linearization(*this, dt, time_step, tp_gf, *tp_gf_old, *phase_field_gf, chemicalsystem,
-                                      *x_gf);
+    this->KKS_->execute_linearization(*this, dt, time_step, tp_gf, *tp_gf_old, *phase_field_gf,
+                                      chemicalsystem, *x_gf, *coordinates);
   }
   // Use specific CALPHAD C++ containers to update output_system
   this->update_outputs(dt, nb_nodes, output_system, previous_output_system);
