@@ -404,6 +404,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     std::vector<std::tuple<std::string, std::vector<double>>> coordinates = this->get_coord();
 
     std::vector<mfem::Vector> tp_gf_old = this->get_old_tp_conditions();
+
     // vector<element, phase, x, x_old>
     std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> x_phase_gf =
         this->get_molar_fractions();
@@ -555,8 +556,6 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
       if (symbol == "PHI") continue;
-      if (symbol == "XCOORD") continue;
-      if (symbol == "YCOORD") continue;
       if (symbol == "T") {
         aux_gf[0] = gf;
       } else if (symbol == "P") {
@@ -599,8 +598,6 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditi
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
       if (symbol == "PHI") continue;
-      if (symbol == "XCOORD") continue;
-      if (symbol == "YCOORD") continue;
       if (symbol == "T") {
         aux_gf[0] = gf;
       } else if (symbol == "P") {
@@ -670,8 +667,6 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
       if (symbol == "T") continue;
       if (symbol == "P") continue;
       if (symbol == "PHI") continue;
-      if (symbol == "XCOORD") continue;
-      if (symbol == "YCOORD") continue;
       MFEM_VERIFY(variable_info.size() == 2,
                   "Error while getting chemical system. Two additional informations are excepted "
                   ": the element symbol, the unit symbol");
