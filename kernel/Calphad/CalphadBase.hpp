@@ -102,8 +102,7 @@ class CalphadBase {
       std::optional<const std::vector<std::tuple<std::string, std::vector<double>>>> coordinates =
           std::nullopt);
 
-  virtual void execute(const int dt, const std::unordered_set<int> &list_nodes,
-                       const std::vector<T> &tp_gf,
+  virtual void execute(const int dt, const std::set<int> &list_nodes, const std::vector<T> &tp_gf,
                        const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
                        std::optional<std::vector<std::tuple<std::string, std::string, double>>>
                            status_phase = std::nullopt) = 0;
@@ -188,7 +187,7 @@ void CalphadBase<T>::global_execute(
   // Execute
   if (!this->is_KKS_) {
     // Creation list of nodes
-    std::unordered_set<int> list_nodes;
+    std::set<int> list_nodes;
     for (int i = 0; i < nb_nodes; ++i) {
       list_nodes.insert(i);
     }
@@ -201,6 +200,7 @@ void CalphadBase<T>::global_execute(
     MFEM_VERIFY(x_gf.has_value(), "Error: x_gf is required for KKS execution.");
     MFEM_VERIFY(coordinates.has_value(), "Error: coordinates is required for KKS execution.");
     // Execute KKS linearization
+
     this->KKS_->execute_linearization(*this, dt, time_step, tp_gf, *tp_gf_old, *phase_field_gf,
                                       chemicalsystem, *x_gf, *coordinates);
   }
