@@ -119,7 +119,7 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
 
     size_t vsize = variable_info.size();
-    MFEM_VERIFY(vsize > 1,
+    MFEM_VERIFY(vsize > 0,
                 "AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, "
                 "MOBI,INTERPOLATION>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
@@ -163,7 +163,7 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
 
     size_t vsize = variable_info.size();
-    MFEM_VERIFY(vsize > 1,
+    MFEM_VERIFY(vsize > 0,
                 "AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, "
                 "MOBI,INTERPOLATION>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
