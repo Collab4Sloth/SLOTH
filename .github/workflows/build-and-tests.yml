@@ -39,7 +39,7 @@ jobs:
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
-          spack clean --cache
+          spack clean --downloads
           spack install gcc@14
           spack load gcc
           spack compiler find
