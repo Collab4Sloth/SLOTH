@@ -33,7 +33,6 @@ class Variable {
   std::string variable_name_;
   mfem::ParFiniteElementSpace* fespace_;
 
-  std::vector<std::tuple<std::string, std::vector<double>>> coordinates_;
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
   std::map<int, mfem::Vector> map_of_unk_;
   int depth_ = 2;
@@ -176,7 +175,6 @@ class Variable {
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
   BoundaryConditions<T, DIM>* get_boundary_conditions();
   mfem::ParFiniteElementSpace* get_fespace();
-  std::vector<std::tuple<std::string, std::vector<double>>> get_coordinates();
 
   ~Variable();
 };
@@ -199,7 +197,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
+
   this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
@@ -227,7 +225,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -259,7 +256,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
+
   this->uh_.SetSpace(fespace_);
 
   const auto dim = spatial->get_dimension();
@@ -287,7 +284,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& initial_condition_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
@@ -314,7 +310,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -345,7 +340,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_function);
@@ -370,7 +364,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const int& depth, const double& initial_condition_value)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
+
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
@@ -394,7 +388,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -424,7 +417,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
@@ -453,7 +445,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const std::set<std::string>& attribute_names)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
+
   this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
@@ -482,7 +474,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -518,7 +509,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
 
@@ -550,7 +540,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const std::set<std::string>& attribute_names)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   this->set_attributes(spatial, attribute_names);
@@ -579,7 +568,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -613,7 +601,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
 
@@ -641,7 +628,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const std::set<std::string>& attribute_names)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
+
   this->uh_.SetSpace(fespace_);
 
   this->set_attributes(spatial, attribute_names);
@@ -668,7 +655,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
@@ -700,7 +686,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const mfem::FunctionCoefficient& analytical_solution_function)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
-  this->coordinates_ = spatial->get_coordinates();
 
   this->uh_.SetSpace(fespace_);
 
@@ -1013,18 +998,6 @@ void Variable<T, DIM>::add_variable_info(const std::string& var) {
 template <class T, int DIM>
 mfem::ParFiniteElementSpace* Variable<T, DIM>::get_fespace() {
   return this->fespace_;
-}
-
-/**
- * @brief Return the coordinates as {(X1,{x1,....,xn}),(X2,{y1,....,yn}),(X3,{z1,....,zn})}
- *
- * @tparam T
- * @tparam DIM
- * @return std::vector<std::tuple<std::string, std::vector<double>>>
- */
-template <class T, int DIM>
-std::vector<std::tuple<std::string, std::vector<double>>> Variable<T, DIM>::get_coordinates() {
-  return this->coordinates_;
 }
 
 /**
