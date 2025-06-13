@@ -49,14 +49,14 @@ class KKS {
   double KKS_threshold_;
   double KKS_temperature_threshold_;
   bool KKS_temperature_scheme_;
-  bool nucleation_started_{false};
+  bool KKS_nucleation_started_{false};
   bool KKS_freeze_nucleation_{true};
 
   PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
                      ThermodynamicsPotentials::H>
       interpolation_func_;
 
-  mfem::SparseMatrix *get_A4linearKKS(
+  std::unique_ptr<mfem::SparseMatrix> get_A4linearKKS(
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       const std::string &phase, const int node);
 
@@ -82,7 +82,7 @@ class KKS {
       const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
-      const std::vector<std::tuple<std::string, std::vector<double>>> &coord_gf);
+      const std::vector<std::tuple<std::string, T>> &coord_gf);
 
   void clear_containers();
 
@@ -109,9 +109,9 @@ KKS<T>::KKS() {
 template <typename T>
 void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
   this->element_removed_from_ic_ = CALPHAD.element_removed_from_ic_;
+
   this->KKS_secondary_phase_ =
       CALPHAD.params_.template get_param_value<std::string>("KKS_secondary_phase");
-
   this->KKS_temperature_increment_ =
       CALPHAD.params_.template get_param_value<double>("KKS_temperature_increment");
   this->KKS_composition_increment_ =
@@ -130,6 +130,9 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
 
   this->KKS_freeze_nucleation_ =
       CALPHAD.params_.template get_param_value_or_default<bool>("KKS_freeze_nucleation", true);
+
+  this->KKS_nucleation_started_ =
+      CALPHAD.params_.template get_param_value_or_default<bool>("KKS_nucleation_started", false);
 
   this->KKS_mobility_for_seed_ =
       CALPHAD.params_.template get_param_value_or_default<double>("KKS_mobility", 1.);
@@ -153,7 +156,7 @@ void KKS<T>::execute_linearization(
     const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
-    const std::vector<std::tuple<std::string, std::vector<double>>> &coordinates) {
+    const std::vector<std::tuple<std::string, T>> &coordinates) {
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
@@ -231,6 +234,7 @@ void KKS<T>::execute_linearization(
 
         CALPHAD.execute(dt, indices_inter, delta_tp, chemicalsystem, given_phase);
         for (const auto &in : indices_inter) {
+          if (CALPHAD.error_equilibrium_[in] == CalphadDefaultConstant::error_max) continue;
           for (const auto &elem : chemicalsystem) {
             const auto &[elem1, unit] = elem;
             const double mu = CALPHAD.chemical_potentials_.at(std::make_tuple(in, elem1));
@@ -326,10 +330,14 @@ void KKS<T>::execute_linearization(
   std::vector<std::tuple<std::string, std::string, double>> st_phase_12 = {
       {phase, "entered", 0.}, {this->KKS_secondary_phase_, "entered", 0.}};
 
-  if ((this->nucleation_started_ && this->KKS_freeze_nucleation_) ||
+  if ((this->KKS_nucleation_started_ && this->KKS_freeze_nucleation_) ||
       (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
     st_phase_12 = {{phase, "entered", 0.}};
   }
+  // if ((this->KKS_nucleation_started_) ||
+  //     (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
+  //   st_phase_12 = {{phase, "entered", 0.}};
+  // }
 
   // In practice, two entered phase seems to be more stable than considering dormant phase
   // {phase, "entered"}, {this->KKS_secondary_phase_, "dormant"}};
@@ -350,10 +358,12 @@ void KKS<T>::execute_linearization(
     CALPHAD.driving_forces_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
   }
 
-  if (!this->nucleation_started_) {
+  if (!this->KKS_nucleation_started_) {
     std::set<int> indices_nucleation;
     bool local_nucleation = false;
     for (const auto &node : indices_ph_1) {
+      // Check only if equilibrium is found
+      if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
       // Check if secondary phase  is found
       if (CALPHAD.elem_mole_fraction_by_phase_.contains(
               std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
@@ -364,7 +374,8 @@ void KKS<T>::execute_linearization(
       }
     }
 
-    // Create circular nucleus
+    // Create circular nucleus around the node where secondary phase is detected
+    // No need to check error_equilibrium because of already done when indices_nucleation is created
     for (const auto &inuc : indices_nucleation) {
       const double nucleus_value = -this->KKS_seed_ / (time_step * this->KKS_mobility_for_seed_);
       CALPHAD.nucleus_[std::make_tuple(inuc, this->KKS_secondary_phase_)] = nucleus_value;
@@ -389,7 +400,7 @@ void KKS<T>::execute_linearization(
     int local_flag = (local_nucleation ? 1 : 0);
     int global_flag = 0;
     MPI_Allreduce(&local_flag, &global_flag, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    this->nucleation_started_ = (global_flag == 1);
+    this->KKS_nucleation_started_ = (global_flag == 1);
   }
 
   /////////////////////////
@@ -461,15 +472,33 @@ void KKS<T>::execute_linearization(
     offsets[1] = nb_elem - 1;
     offsets[2] = 2 * nb_elem - 2;
 
+    mfem::BlockVector bb(offsets);
+    mfem::BlockVector deltaX_phase(offsets);
+    mfem::Vector HphiNode(nb_elem - 1);
+    mfem::Vector one_minus_HphiNode(nb_elem - 1);
+
+    std::unique_ptr<mfem::BlockMatrix> AA = std::make_unique<mfem::BlockMatrix>(offsets, offsets);
+
+    auto solver = std::make_shared<mfem::GMRESSolver>();
+    solver->SetOperator(*AA);
+    solver->SetAbsTol(this->kks_abs_tol_solver_);
+    solver->SetRelTol(this->kks_rel_tol_solver_);
+    solver->SetMaxIter(this->kks_max_iter_solver_);
+    solver->SetPrintLevel(this->kks_print_level_solver_);
+
     for (const auto &node : indices_inter) {
+      // Solve KKS only if an equilibrium is found. Otherwise, solution at previous time-step will
+      // be taken into account
+      if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
+
       //
       // Build system
       //
       // Matrix for primary and secondary phase
 
-      mfem::SparseMatrix *Al =
+      std::unique_ptr<mfem::SparseMatrix> Al =
           this->get_A4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
-      mfem::SparseMatrix *As = this->get_A4linearKKS(chemicalsystem, phase, node);
+      std::unique_ptr<mfem::SparseMatrix> As = this->get_A4linearKKS(chemicalsystem, phase, node);
       // Vector for primary and secondary phase
       mfem::Vector hs = this->get_h4linearKKS(chemicalsystem, phase, node);
       mfem::Vector hl = this->get_h4linearKKS(chemicalsystem, this->KKS_secondary_phase_, node);
@@ -530,7 +559,7 @@ void KKS<T>::execute_linearization(
       // Assemble system
       //
 
-      mfem::BlockVector bb(offsets);
+      // mfem::BlockVector bb(offsets);
       mfem::Vector &b0 = bb.GetBlock(0);
       b0 = ml_minus_ms;
       b0 += hl_minus_hs;
@@ -538,46 +567,41 @@ void KKS<T>::execute_linearization(
       mfem::Vector &b1 = bb.GetBlock(1);
       b1 = deltaX;
 
-      mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
-      AA->SetBlock(0, 0, As);
+      // mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
+      AA->SetBlock(0, 0, As.get());
       *Al *= -1.;
-      AA->SetBlock(0, 1, Al);
+      AA->SetBlock(0, 1, Al.get());
 
       // identity
-      mfem::Vector HphiNode(nb_elem - 1);
+      // mfem::Vector HphiNode(nb_elem - 1);
       HphiNode = Hphi(node);
-      mfem::Vector one_minus_HphiNode(nb_elem - 1);
+      // mfem::Vector one_minus_HphiNode(nb_elem - 1);
       one_minus_HphiNode = 1. - Hphi(node);
 
-      mfem::SparseMatrix *A10 = new mfem::SparseMatrix(HphiNode);
-      mfem::SparseMatrix *A11 = new mfem::SparseMatrix(one_minus_HphiNode);
+      // mfem::SparseMatrix *A10 = new mfem::SparseMatrix(HphiNode);
+      // mfem::SparseMatrix *A11 = new mfem::SparseMatrix(one_minus_HphiNode);
 
-      AA->SetBlock(1, 0, A10);
-      AA->SetBlock(1, 1, A11);
+      auto A10 = std::make_unique<mfem::SparseMatrix>(HphiNode);
+      auto A11 = std::make_unique<mfem::SparseMatrix>(one_minus_HphiNode);
+
+      AA->SetBlock(1, 0, A10.get());
+      AA->SetBlock(1, 1, A11.get());
 
       AA->Finalize();
 
-      auto solver = std::make_shared<mfem::GMRESSolver>();
-      solver->SetOperator(*AA);
-      solver->SetAbsTol(this->kks_abs_tol_solver_);
-      solver->SetRelTol(this->kks_rel_tol_solver_);
-      solver->SetMaxIter(this->kks_max_iter_solver_);
-      solver->SetPrintLevel(this->kks_print_level_solver_);
+      // auto solver = std::make_shared<mfem::GMRESSolver>();
+      // solver->SetOperator(*AA);
+      // solver->SetAbsTol(this->kks_abs_tol_solver_);
+      // solver->SetRelTol(this->kks_rel_tol_solver_);
+      // solver->SetMaxIter(this->kks_max_iter_solver_);
+      // solver->SetPrintLevel(this->kks_print_level_solver_);
 
       //
       // Solve system
       //
-      mfem::BlockVector deltaX_phase(offsets);
+      // mfem::BlockVector deltaX_phase(offsets);
 
       solver->Mult(bb, deltaX_phase);
-
-      // Delete
-      // delete As;
-      // delete Al;
-      // delete A10;
-      // delete A11;
-      // delete AA;
-
       // Check result of linear system
       if (Verbosity::Debug <= verbosityLevel) {
         SlothInfo::print("KKS linear system at node (A X = B):", node);
@@ -714,11 +738,11 @@ void KKS<T>::execute_linearization(
  * @return mfem::SparseMatrix*
  */
 template <typename T>
-mfem::SparseMatrix *KKS<T>::get_A4linearKKS(
+std::unique_ptr<mfem::SparseMatrix> KKS<T>::get_A4linearKKS(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::string &phase, const int node) {
   const int nb_elem = chemicalsystem.size();
-  mfem::SparseMatrix *AA = new mfem::SparseMatrix(nb_elem - 1, nb_elem - 1);
+  auto AA = std::make_unique<mfem::SparseMatrix>(nb_elem - 1, nb_elem - 1);
 
   //  Diagonal
   // d2dxdx =  d(mu_x - mu-n)/dx  =[ (mu_x - mu-n)(x+dx) - (mu_x - mu-n)(x-dx) ] / 2dx
