@@ -99,8 +99,7 @@ class CalphadBase {
       std::optional<const std::vector<T>> tp_gf_old = std::nullopt,
       std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf =
           std::nullopt,
-      std::optional<const std::vector<std::tuple<std::string, std::vector<double>>>> coordinates =
-          std::nullopt);
+      std::optional<const std::vector<std::tuple<std::string, T>>> coordinates = std::nullopt);
 
   virtual void execute(const int dt, const std::set<int> &list_nodes, const std::vector<T> &tp_gf,
                        const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
@@ -179,7 +178,7 @@ void CalphadBase<T>::global_execute(
     std::optional<const std::tuple<std::string, T, T>> phase_field_gf,
     std::optional<const std::vector<T>> tp_gf_old,
     std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf,
-    std::optional<const std::vector<std::tuple<std::string, std::vector<double>>>> coordinates) {
+    std::optional<const std::vector<std::tuple<std::string, T>>> coordinates) {
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   // Reinitialize containers
   this->clear_containers();
@@ -199,8 +198,8 @@ void CalphadBase<T>::global_execute(
     MFEM_VERIFY(tp_gf_old.has_value(), "Error: tp_gf_old is required for KKS execution.");
     MFEM_VERIFY(x_gf.has_value(), "Error: x_gf is required for KKS execution.");
     MFEM_VERIFY(coordinates.has_value(), "Error: coordinates is required for KKS execution.");
-    // Execute KKS linearization
 
+    // Execute KKS linearization
     this->KKS_->execute_linearization(*this, dt, time_step, tp_gf, *tp_gf_old, *phase_field_gf,
                                       chemicalsystem, *x_gf, *coordinates);
   }
@@ -422,6 +421,12 @@ void CalphadBase<T>::update_outputs(
           }
           output[i] =
               get_or_default(this->nucleus_, std::make_tuple(i, output_phase), default_value);
+        }
+        break;
+      }
+      case calphad_outputs::error: {
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          output[i] = this->error_equilibrium_[i];
         }
         break;
       }
