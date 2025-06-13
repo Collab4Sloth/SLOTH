@@ -36,7 +36,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   std::vector<mfem::Vector> get_old_tp_conditions();
   std::tuple<std::string, mfem::Vector, mfem::Vector> get_phasefields();
 
-  std::vector<std::tuple<std::string, std::vector<double>>> get_coord();
+  std::vector<std::tuple<std::string, mfem::Vector>> get_coordinates();
 
   std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>>
   get_molar_fractions();
@@ -367,7 +367,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::initialize(const double& initial_time) 
 }
 
 /**
- * @brief  Do a time-step by calling Step method of the ODE
+ * @brief  Do a time-step: calculate equilibrium at each node of the mesh
 
  *
  * @tparam CALPHAD
@@ -396,22 +396,24 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
 
   // Execute
   if (!this->is_KKS_) {
+    // Calculate equilibrium at each node of the mesh without KKS algorithm
     this->CC_->global_execute(iter, current_time_step, tp_gf, this->sorted_chemical_system_,
                               output_system, previous_output);
   } else {
     // Specific treatment for KKS problems
     std::tuple<std::string, mfem::Vector, mfem::Vector> phasefields_gf = this->get_phasefields();
-    std::vector<std::tuple<std::string, std::vector<double>>> coordinates = this->get_coord();
-
+    // Coordinates of each nodes to assess the radius of nucleii
+    std::vector<std::tuple<std::string, mfem::Vector>> coordinates_gf = this->get_coordinates();
+    // initial conditions at the previous time-step
     std::vector<mfem::Vector> tp_gf_old = this->get_old_tp_conditions();
-
-    // vector<element, phase, x, x_old>
+    // Molar fractions by phase at current and previous time-step : vector<element, phase, x, x_old>
     std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> x_phase_gf =
         this->get_molar_fractions();
 
+    // Calculate equilibrium at each node of the mesh with KKS algorithm
     this->CC_->global_execute(iter, current_time_step, tp_gf, this->sorted_chemical_system_,
                               output_system, previous_output, phasefields_gf, tp_gf_old, x_phase_gf,
-                              coordinates);
+                              coordinates_gf);
   }
 
   // Recover unknowns
@@ -419,7 +421,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::do_time_step(
     auto& unk_i = *(vect_unk[i]);
     this->unknown_.emplace_back(unk_i);
   }
-
+  // Update time
   next_time = current_time + current_time_step;
 }
 
@@ -478,17 +480,33 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_phasefields() {
 }
 
 /**
- * @brief Return the coordinates as {(X1,{x1,....,xn}),(X2,{y1,....,yn}),(X3,{z1,....,zn})}
+ * @brief Return the coordinates
  *
  * @tparam CALPHAD
  * @tparam VAR
  * @tparam PST
- * @return std::vector<std::tuple<std::string, std::vector<double>>>
+ * @return std::vector<std::tuple<std::string, mfem::Vector>>
  */
 template <class CALPHAD, class VAR, class PST>
-std::vector<std::tuple<std::string, std::vector<double>>>
-Calphad_Problem<CALPHAD, VAR, PST>::get_coord() {
-  return this->variables_.getIVariable(0).get_coordinates();
+std::vector<std::tuple<std::string, mfem::Vector>>
+Calphad_Problem<CALPHAD, VAR, PST>::get_coordinates() {
+  std::vector<std::tuple<std::string, mfem::Vector>> aux_gf;
+
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      const auto gf = auxvar.get_unknown();
+      auto variable_info = auxvar.get_additional_variable_info();
+      const std::string& symbol = toUpperCase(auxvar.get_additional_variable_info().back());
+
+      if ((symbol == "XCOORD") || (symbol == "YCOORD") || (symbol == "ZCOORD")) {
+        MFEM_VERIFY(variable_info.size() == 1,
+                    "Error while getting coordinates. Expected ['XYZCOORD']");
+        aux_gf.emplace_back(std::make_tuple(symbol, gf));
+      }
+    }
+  }
+
+  return aux_gf;
 }
 
 /**
@@ -513,23 +531,9 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_molar_fractions() {
       const auto gf = var.get_unknown();
       const auto gf_old = var.get_second_to_last();
       auto variable_info = var.get_additional_variable_info();
-      // const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
 
       aux_gf.emplace_back(std::make_tuple(variable_info[0], variable_info[1], gf, gf_old));
     }
-  }
-
-  return aux_gf;
-}
-
-template <class CALPHAD, class VAR, class PST>
-std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
-Calphad_Problem<CALPHAD, VAR, PST>::get_previous_output_system() {
-  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> aux_gf;
-  for (const auto& var : this->variables_.getVariables()) {
-    const auto gf = var.get_unknown();
-
-    aux_gf.emplace_back(std::make_tuple(var.get_additional_variable_info(), gf));
   }
 
   return aux_gf;
@@ -555,7 +559,7 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
       auto variable_info = auxvar.get_additional_variable_info();
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
-      if (symbol == "PHI") continue;
+
       if (symbol == "T") {
         aux_gf[0] = gf;
       } else if (symbol == "P") {
@@ -577,8 +581,6 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
 /**
  * @brief Get the values at point expansion for temperature, pressure and composition used to
  * calculate equilibria in KKS model
- * @warning By convention temperature, pressure are given in the first Variables objet, Composition
- * is given in the second Variables objet
  * @tparam CALPHAD
  * @tparam VAR
  * @tparam PST
@@ -597,7 +599,7 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditi
       auto variable_info = auxvar.get_additional_variable_info();
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
-      if (symbol == "PHI") continue;
+
       if (symbol == "T") {
         aux_gf[0] = gf;
       } else if (symbol == "P") {
@@ -615,31 +617,6 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditi
   }
 
   return aux_gf;
-}
-
-/**
- * @brief Find index of first element of a tuple inside a vector of tuple
- *
- * @tparam CALPHAD
- * @tparam VAR
- * @tparam PST
- * @param vec
- * @param target
- * @return int
- */
-template <class CALPHAD, class VAR, class PST>
-int Calphad_Problem<CALPHAD, VAR, PST>::findIndexOfTuple(
-    const std::vector<std::tuple<std::string, std::string>>& vec, const std::string& target) {
-  auto it = std::find_if(vec.begin(), vec.end(),
-                         [&target](const std::tuple<std::string, std::string>& t) {
-                           return std::get<0>(t) == target;
-                         });
-
-  if (it != vec.end()) {
-    return std::distance(vec.begin(), it);
-  } else {
-    return -1;  // Return -1 if the element is not found
-  }
 }
 
 /**
@@ -662,15 +639,13 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
       auto variable_info = auxvar.get_additional_variable_info();
       MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
       const std::string& symbol = toUpperCase(variable_info.back());
-      // Check consistency of additional info
-      // For composition, 2 information are required : element symbol, unit symbol
-      if (symbol == "T") continue;
-      if (symbol == "P") continue;
-      if (symbol == "PHI") continue;
-      MFEM_VERIFY(variable_info.size() == 2,
-                  "Error while getting chemical system. Two additional informations are excepted "
-                  ": the element symbol, the unit symbol");
-      chemical_system.emplace_back(std::make_tuple(toUpperCase(variable_info[0]), symbol));
+
+      if (symbol == "X" || symbol == "N") {
+        MFEM_VERIFY(variable_info.size() == 2,
+                    "Error while getting chemical system. Two additional informations are excepted "
+                    ": the element symbol, the unit symbol");
+        chemical_system.emplace_back(std::make_tuple(toUpperCase(variable_info[0]), symbol));
+      }
     }
   }
   // Sort by alphabetical order
@@ -681,7 +656,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_chemical_system() {
 }
 
 /**
- * @brief Return the list of phases involved in the KKS problem
+ * @brief Check if phase-field variable is an auxiliary variable. Mandatory for KKS.
  *
  * @tparam CALPHAD
  * @tparam VAR
@@ -712,10 +687,32 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_phasefield() {
               "as auxiliary variable");
 }
 
+/**
+ * @brief Check the molar fractions by phase. Mandatory for KKS.
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ */
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::check_molar_fractions() {
   // Molar fractions by phase for KKS problem
-  // TODO(cci ): check if well defined
+  const auto size_v = this->sorted_chemical_system_.size();
+  int check_counter = 0;
+  for (const auto& var : this->variables_.getVariables()) {
+    const std::string& symbol = toLowerCase(var.get_additional_variable_info().back());
+    if (var.get_additional_variable_info().size() == 3 &&
+        (calphad_outputs::from(symbol) == calphad_outputs::xp)) {
+      auto variable_info = var.get_additional_variable_info();
+
+      const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+      if (id > -1) check_counter++;
+    }
+  }
+  // Number of component times two phases
+  MFEM_VERIFY(
+      check_counter == 2 * size_v,
+      "Error while getting molar fractions by phase for KKS problems. Please check your data.");
 }
 
 /**
@@ -740,6 +737,52 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_output_system(
   }
 
   return output_system;
+}
+
+/**
+ * @brief Return the output system at the previous time-step
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+ */
+template <class CALPHAD, class VAR, class PST>
+std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+Calphad_Problem<CALPHAD, VAR, PST>::get_previous_output_system() {
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> aux_gf;
+  for (const auto& var : this->variables_.getVariables()) {
+    const auto gf = var.get_unknown();
+
+    aux_gf.emplace_back(std::make_tuple(var.get_additional_variable_info(), gf));
+  }
+
+  return aux_gf;
+}
+
+/**
+ * @brief Find index of first element of a tuple inside a vector of tuple
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @param vec
+ * @param target
+ * @return int
+ */
+template <class CALPHAD, class VAR, class PST>
+int Calphad_Problem<CALPHAD, VAR, PST>::findIndexOfTuple(
+    const std::vector<std::tuple<std::string, std::string>>& vec, const std::string& target) {
+  auto it = std::find_if(vec.begin(), vec.end(),
+                         [&target](const std::tuple<std::string, std::string>& t) {
+                           return std::get<0>(t) == target;
+                         });
+
+  if (it != vec.end()) {
+    return std::distance(vec.begin(), it);
+  } else {
+    return -1;  // Return -1 if the element is not found
+  }
 }
 
 /**
