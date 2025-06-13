@@ -41,19 +41,20 @@ const int error_max = 3;
  * @brief Available outputs for Calphad problems
  */
 struct calphad_outputs {
-  enum value { mu, dmu, g, gm, h, hm, x, xp, xph, y, dgm, cp, mob, nucleus };
+  enum value { mu, dmu, g, gm, h, hm, x, xp, xph, y, dgm, cp, mob, nucleus, error };
   static value from(const std::string &);
 };
 
 calphad_outputs::value calphad_outputs::from(const std::string &v) {
   static PhaseFieldPrivate::mmap<calphad_outputs::value> m{
-      {"mu", calphad_outputs::mu},   {"dmu", calphad_outputs::dmu},
-      {"x", calphad_outputs::x},     {"xp", calphad_outputs::xp},
-      {"xph", calphad_outputs::xph}, {"y", calphad_outputs::y},
-      {"g", calphad_outputs::g},     {"gm", calphad_outputs::gm},
-      {"h", calphad_outputs::h},     {"hm", calphad_outputs::hm},
-      {"dgm", calphad_outputs::dgm}, {"cp", calphad_outputs::cp},
-      {"mob", calphad_outputs::mob}, {"nucleus", calphad_outputs::nucleus}};
+      {"mu", calphad_outputs::mu},      {"dmu", calphad_outputs::dmu},
+      {"x", calphad_outputs::x},        {"xp", calphad_outputs::xp},
+      {"xph", calphad_outputs::xph},    {"y", calphad_outputs::y},
+      {"g", calphad_outputs::g},        {"gm", calphad_outputs::gm},
+      {"h", calphad_outputs::h},        {"hm", calphad_outputs::hm},
+      {"dgm", calphad_outputs::dgm},    {"cp", calphad_outputs::cp},
+      {"mob", calphad_outputs::mob},    {"nucleus", calphad_outputs::nucleus},
+      {"error", calphad_outputs::error}};
   return m.find("calphad_outputs", v);
 }
 
