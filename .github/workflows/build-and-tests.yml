@@ -36,12 +36,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y mpich wget unzip
         
-    - name: Cache Spack build stage
-      uses: actions/cache@v4
-      with:
-        path: ~/.spack/stage
-        key: ${{ runner.os }}-spack-stage
-        
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
