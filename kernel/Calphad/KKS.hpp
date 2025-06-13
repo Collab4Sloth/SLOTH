@@ -334,10 +334,6 @@ void KKS<T>::execute_linearization(
       (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
     st_phase_12 = {{phase, "entered", 0.}};
   }
-  // if ((this->KKS_nucleation_started_) ||
-  //     (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
-  //   st_phase_12 = {{phase, "entered", 0.}};
-  // }
 
   // In practice, two entered phase seems to be more stable than considering dormant phase
   // {phase, "entered"}, {this->KKS_secondary_phase_, "dormant"}};
@@ -347,8 +343,6 @@ void KKS<T>::execute_linearization(
 
   calculate_interface(indices_ph_1, pure_bar_tp_gf_ph_1, 0., -1,
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
-
-  // Check "Nucleation" with driving force
 
   // Cancel  before checking nucleation state
   for (int i = 0; i < nb_nodes; ++i) {
@@ -573,13 +567,8 @@ void KKS<T>::execute_linearization(
       AA->SetBlock(0, 1, Al.get());
 
       // identity
-      // mfem::Vector HphiNode(nb_elem - 1);
       HphiNode = Hphi(node);
-      // mfem::Vector one_minus_HphiNode(nb_elem - 1);
       one_minus_HphiNode = 1. - Hphi(node);
-
-      // mfem::SparseMatrix *A10 = new mfem::SparseMatrix(HphiNode);
-      // mfem::SparseMatrix *A11 = new mfem::SparseMatrix(one_minus_HphiNode);
 
       auto A10 = std::make_unique<mfem::SparseMatrix>(HphiNode);
       auto A11 = std::make_unique<mfem::SparseMatrix>(one_minus_HphiNode);
@@ -588,13 +577,6 @@ void KKS<T>::execute_linearization(
       AA->SetBlock(1, 1, A11.get());
 
       AA->Finalize();
-
-      // auto solver = std::make_shared<mfem::GMRESSolver>();
-      // solver->SetOperator(*AA);
-      // solver->SetAbsTol(this->kks_abs_tol_solver_);
-      // solver->SetRelTol(this->kks_rel_tol_solver_);
-      // solver->SetMaxIter(this->kks_max_iter_solver_);
-      // solver->SetPrintLevel(this->kks_print_level_solver_);
 
       //
       // Solve system
