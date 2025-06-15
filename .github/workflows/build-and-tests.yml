@@ -27,7 +27,7 @@ jobs:
       uses: spack/setup-spack@v2
       with:
         ref: develop      # Spack version (examples: develop, releases/v0.21)
-        buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
+        buildcache: false  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
 
@@ -36,15 +36,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y mpich wget unzip
         
-    - name: Cache Spack build stage
-      uses: actions/cache@v4
-      with:
-        path: ~/.spack/stage
-        key: ${{ runner.os }}-spack-stage
-        
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
+          spack clean --downloads
           spack install gcc@14
           spack load gcc
           spack compiler find

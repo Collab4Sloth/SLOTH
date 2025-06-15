@@ -176,28 +176,14 @@ void InterDiffusionCoefficient::get_property(
   std::vector<double> mob(size_gf, 0.0);
   std::vector<double> sum_mob(size_gf, 0.0);
 
-  // Two phase case (temporary)
-  std::vector<double> phi(size_gf, 0.);
+  std::vector<double> phi(size_gf, 1.0);
   if (!this->phi_gf_.empty()) {
     for (int k = 0; k < size_gf; k++) {
-      phi[k] = this->phi_gf_[0](k);
-    }
-    for (auto& [compo, mobi] : this->mob_gf_) {
-      const auto mobi_max = mobi.Max();
-      for (int k = 0; k < mobi.Size(); k++) {
-        if (mobi(k) < 0.) {
-          // No solid detected
-          mobi(k) = mobi_max;
-        } else {
-          std::cout << " Two phase detected " << k << " compo " << compo << " : before " << mobi(k)
-                    << " phi " << phi[k] << " mob max " << mobi_max << std::endl;
-          mobi(k) = mobi(k) * phi[k] + (1. - phi[k]) * mobi_max;
-          std::cout << " Two phase detected : after " << mobi(k) << std::endl;
-        }
-      }
+      phi[k] = std::clamp(this->phi_gf_[0](k), 0.0, 1.0);
     }
   }
 
+  // Solid mobilities
   for (const auto& [compo, mobi] : this->mob_gf_) {
     if (compo == this->first_component_) continue;
 
@@ -232,6 +218,31 @@ void InterDiffusionCoefficient::get_property(
     vmob.emplace_back(mob);
   }
   vmob.insert(vmob.begin(), sum_mob);
+
+  std::vector<double> vliquid;
+  vliquid.reserve(vmob.size());
+
+  if (!vmob.empty()) {
+    // Max du premier sous-vecteur
+    vliquid[0] = *std::max_element(vmob[0].begin(), vmob[0].end());
+
+    // Min des suivants
+    for (size_t k = 1; k < vmob.size(); ++k) {
+      vliquid[k] = *std::min_element(vmob[k].begin(), vmob[k].end());
+    }
+  }
+  int l = 0;
+  double threshold = 5.e-3;
+  for (auto& vm : vmob) {
+    for (int k = 0; k < size_gf; k++) {
+      // vm[k] = vm[k] * phi[k] + (1. - phi[k]) * vliquid[l];
+      vm[k] = vm[k];
+      if (phi[k] < 1. - threshold) {
+        vm[k] = vliquid[l];
+      }
+    }
+    l++;
+  }
 
   int j = 0;
   for (auto& [output_infos, output_value] : output_system) {

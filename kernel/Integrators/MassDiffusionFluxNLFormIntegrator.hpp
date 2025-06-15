@@ -141,9 +141,9 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
 
-    MFEM_VERIFY(vsize > 1,
+    MFEM_VERIFY(vsize > 0,
                 "MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency: at least "
-                "two additionnal information are expected for auxiliary variables associated with "
+                "one additionnal information are expected for auxiliary variables associated with "
                 "this integrator");
     const std::string& symbol = toLowerCase(variable_info.back());
 

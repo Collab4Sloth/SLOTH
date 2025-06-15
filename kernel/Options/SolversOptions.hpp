@@ -105,7 +105,7 @@ const auto print_level = 0;
  *
  */
 namespace UMFPACK_DefaultConstant {
-const auto print_level = 1;
+const auto print_level = 0;
 }  // namespace UMFPACK_DefaultConstant
 
 //////////////////////////////////////////

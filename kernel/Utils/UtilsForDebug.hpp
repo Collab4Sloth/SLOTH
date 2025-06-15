@@ -54,7 +54,7 @@ void UtilsForDebug::memory_checkpoint(const std::string& msg) {
   auto mem = UtilsForDebug::make_memory_checkpoint();
   std::cout << "========= MEMORY CHECKPOINT ====== " << std::endl;
   std::cout << "<<<" << msg << ">>>" << std::endl;
-  std::cout << "Memory footprint " << mem.ru_maxrss * 1e-6 << " GB" << std::endl;
+  std::cout << "Memory footprint " << mem.ru_maxrss / (1024.0 * 1024.0) << " GB" << std::endl;
 }
 
 /*!

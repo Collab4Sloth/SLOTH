@@ -540,8 +540,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
   //  }
   std::cout << " coucou----1" << std::endl;
 
-  dv_dt = v;
-  dv_dt *= (1. / dt);
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
   this->newton_solver_->Mult(source_term, dv_dt);
   std::cout << " coucou----2" << std::endl;

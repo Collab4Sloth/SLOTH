@@ -32,6 +32,7 @@ class Variable {
   BoundaryConditions<T, DIM> bcs_;
   std::string variable_name_;
   mfem::ParFiniteElementSpace* fespace_;
+
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
   std::map<int, mfem::Vector> map_of_unk_;
   int depth_ = 2;
@@ -196,6 +197,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
+
   this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
@@ -362,6 +364,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const int& depth, const double& initial_condition_value)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
+
   this->uh_.SetSpace(fespace_);
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
@@ -442,6 +445,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const std::set<std::string>& attribute_names)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
+
   this->setVariableDepth(depth);
 
   this->uh_.SetSpace(fespace_);
@@ -624,6 +628,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const std::set<std::string>& attribute_names)
     : bcs_(bcs), variable_name_(variable_name) {
   this->fespace_ = spatial->get_finite_element_space();
+
   this->uh_.SetSpace(fespace_);
 
   this->set_attributes(spatial, attribute_names);
