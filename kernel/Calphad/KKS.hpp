@@ -371,8 +371,11 @@ void KKS<T>::execute_linearization(
     // Create circular nucleus around the node where secondary phase is detected
     // No need to check error_equilibrium because of already done when indices_nucleation is created
     for (const auto &inuc : indices_nucleation) {
-      const double nucleus_value = -this->KKS_seed_ / (time_step * this->KKS_mobility_for_seed_);
-      CALPHAD.nucleus_[std::make_tuple(inuc, this->KKS_secondary_phase_)] = nucleus_value;
+      SlothInfo::debug("Nucleation detected at node ", inuc, " T ", pure_bar_tp_gf_ph_1[0](inuc));
+      // const double seed =
+      //     CALPHAD.mole_fraction_of_phase_[std::make_tuple(inuc, this->KKS_secondary_phase_)];
+      const double seed = this->KKS_seed_;
+      const double nucleus_value = -seed / (time_step * this->KKS_mobility_for_seed_);
       for (const auto &j : indices_ph_1) {
         double rr = 0;
 
@@ -381,9 +384,9 @@ void KKS<T>::execute_linearization(
           rr += coord_diff * coord_diff;
         }
         if (std::sqrt(rr) < this->KKS_seed_radius_) {
+          SlothInfo::debug("Nucleation extended around node ", inuc, " with node ", j);
           // double seed =
-          //     CALPHAD.mole_fraction_of_phase_[std::make_tuple(node,
-          //     this->KKS_secondary_phase_)];
+          //     CALPHAD.mole_fraction_of_phase_[std::make_tuple(node, this->KKS_secondary_phase_)];
           // To enhance the chance to initiate the phase change
           CALPHAD.nucleus_[std::make_tuple(j, this->KKS_secondary_phase_)] = nucleus_value;
         }
