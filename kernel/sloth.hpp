@@ -7,7 +7,7 @@
  *
  * Copyright CEA (c) 2024
  *
- */
+*/
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
@@ -75,7 +75,6 @@
 #include "Profiling/Profiling.hpp"
 #include "Profiling/Timer.hpp"
 #include "Property/InterDiffusionCoefficient.hpp"
-#include "Property/NucleationProperty.hpp"
 #include "Property/PropertyBase.hpp"
 #include "Solvers/DSolverBase.hpp"
 #include "Solvers/HPrecondBase.hpp"
