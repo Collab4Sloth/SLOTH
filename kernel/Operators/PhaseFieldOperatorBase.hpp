@@ -493,8 +493,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
     this->get_source_term(source_term, RHS);
   }
 
-  dv_dt = v;
-  dv_dt *= (1. / dt);
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
   this->newton_solver_->Mult(source_term, dv_dt);
   delete this->rhs_solver_;

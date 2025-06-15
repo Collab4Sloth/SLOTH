@@ -57,9 +57,6 @@ class CalphadBase {
   // Site fraction. Nodal values. key: [node, phase, cons, sub]
   std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
 
-  // Mole fraction of phase. Nodal values. key: [node, phase]
-  std::map<std::tuple<int, std::string>, double> mole_fraction_of_phase_;
-
   //  Heat capacity. Nodal values. key: [node]
   std::map<int, double> heat_capacity_;
 
@@ -74,6 +71,9 @@ class CalphadBase {
   std::map<std::tuple<int, std::string>, double> chemical_potentials_;
   std::map<std::tuple<int, std::string>, double> diffusion_chemical_potentials_;
 
+  // Mole fraction of phase. Nodal values. key: [node, phase]
+  std::map<std::tuple<int, std::string>, double> mole_fraction_of_phase_;
+
   // Element mole fraction by phase. Nodal values. key: [node, phase, elem]
   std::map<std::tuple<int, std::string, std::string>, double> elem_mole_fraction_by_phase_;
 
@@ -82,6 +82,7 @@ class CalphadBase {
 
   // Driving force for each phase. Nodal values. key: [node, phase]
   std::map<std::tuple<int, std::string>, double> driving_forces_;
+  std::map<std::tuple<int, std::string>, double> nucleus_;
 
   explicit CalphadBase(const Parameters &params);
   CalphadBase(const Parameters &params, bool is_KKS);
@@ -90,14 +91,15 @@ class CalphadBase {
       const std::vector<std::tuple<std::string, std::string>> &sorted_chemical_system) = 0;
 
   void global_execute(
-      const int dt, const std::vector<T> &tp_gf,
+      const int dt, const double time_step, const std::vector<T> &tp_gf,
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
       const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
       std::optional<const std::tuple<std::string, T, T>> phase_fields = std::nullopt,
       std::optional<const std::vector<T>> tp_gf_old = std::nullopt,
       std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf =
-          std::nullopt);
+          std::nullopt,
+      std::optional<const std::vector<std::tuple<std::string, T>>> coordinates = std::nullopt);
 
   virtual void execute(const int dt, const std::set<int> &list_nodes, const std::vector<T> &tp_gf,
                        const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
@@ -169,13 +171,14 @@ void CalphadBase<T>::get_parameters() {
  */
 template <typename T>
 void CalphadBase<T>::global_execute(
-    const int dt, const std::vector<T> &tp_gf,
+    const int dt, const double time_step, const std::vector<T> &tp_gf,
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
     const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
     std::optional<const std::tuple<std::string, T, T>> phase_field_gf,
     std::optional<const std::vector<T>> tp_gf_old,
-    std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf) {
+    std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf,
+    std::optional<const std::vector<std::tuple<std::string, T>>> coordinates) {
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   // Reinitialize containers
   this->clear_containers();
@@ -194,9 +197,11 @@ void CalphadBase<T>::global_execute(
                 "Error: phase_fields_gf is required for KKS execution.");
     MFEM_VERIFY(tp_gf_old.has_value(), "Error: tp_gf_old is required for KKS execution.");
     MFEM_VERIFY(x_gf.has_value(), "Error: x_gf is required for KKS execution.");
+    MFEM_VERIFY(coordinates.has_value(), "Error: coordinates is required for KKS execution.");
+
     // Execute KKS linearization
-    this->KKS_->execute_linearization(*this, dt, tp_gf, *tp_gf_old, *phase_field_gf, chemicalsystem,
-                                      *x_gf);
+    this->KKS_->execute_linearization(*this, dt, time_step, tp_gf, *tp_gf_old, *phase_field_gf,
+                                      chemicalsystem, *x_gf, *coordinates);
   }
   // Use specific CALPHAD C++ containers to update output_system
   this->update_outputs(dt, nb_nodes, output_system, previous_output_system);
@@ -218,6 +223,7 @@ void CalphadBase<T>::clear_containers() {
   this->energies_of_phases_.clear();
   this->driving_forces_.clear();
   this->heat_capacity_.clear();
+  this->nucleus_.clear();
   this->mobilities_.clear();
   this->error_equilibrium_.clear();
   if (this->is_KKS_) {
@@ -250,10 +256,11 @@ void CalphadBase<T>::update_outputs(
       return default_value;
     }
   };
-  int id_output = 0;
+  int id_output = -1;
   double default_value = 0.;
 
   for (auto &[output_infos, output_value] : output_system) {
+    id_output++;
     const std::string &output_type = output_infos.back();
 
     // Fill output with the relevant values
@@ -402,6 +409,24 @@ void CalphadBase<T>::update_outputs(
           }
           output[i] = get_or_default(this->mobilities_,
                                      std::make_tuple(i, output_phase, output_elem), default_value);
+        }
+        break;
+      }
+      case calphad_outputs::nucleus: {
+        const std::string &output_phase = output_infos[1];
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          default_value = 0.;
+          if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
+            default_value = std::get<1>(previous_output_system[id_output])(i);
+          }
+          output[i] =
+              get_or_default(this->nucleus_, std::make_tuple(i, output_phase), default_value);
+        }
+        break;
+      }
+      case calphad_outputs::error: {
+        for (std::size_t i = 0; i < nb_nodes; ++i) {
+          output[i] = this->error_equilibrium_[i];
         }
         break;
       }
