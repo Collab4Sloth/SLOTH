@@ -71,8 +71,7 @@ class OperatorBase : public mfem::Operator {
   std::vector<mfem::Array<int>> ess_tdof_list_;
   mfem::Array<int> block_trueOffsets_;
 
-  /// Left-Hand-Side + Right-Hand-Side
-  mfem::ParBlockNonlinearForm *LHS;
+  /// Right-Hand-Side
   mfem::ParBlockNonlinearForm *N;
 
   NLSolver *rhs_solver_;
@@ -89,7 +88,6 @@ class OperatorBase : public mfem::Operator {
   mutable mfem::Vector z;  // auxiliary vector
   NLFI *nlfi_ptr_;
 
-  void build_lhs_nonlinear_form(const double dt, const std::vector<mfem::Vector> &u);
   void build_nonlinear_form(const double dt, const std::vector<mfem::Vector> &u);
   void SetNewtonAlgorithm(mfem::Operator *oper);
 
@@ -180,7 +178,6 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
       N(NULL),
-      LHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -218,7 +215,6 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
       N(NULL),
-      LHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -257,7 +253,6 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
       N(NULL),
-      LHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -299,7 +294,6 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
       N(NULL),
-      LHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -392,50 +386,6 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt,
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
 
   N->AddDomainIntegrator(this->nlfi_ptr_);
-  // TODO(cci) check BCs
-  // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
-}
-
-/**
- * @brief Build the LHS
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @param dt
- * @param u
- */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::build_lhs_nonlinear_form(const double dt,
-                                                          const std::vector<mfem::Vector> &u_vect) {
-  ////////////////////////////////////////////
-  // PhaseField non linear form : LHS
-  ////////////////////////////////////////////
-
-  // auto u = u_vect[0];
-
-  if (LHS != nullptr) {
-    delete LHS;
-  }
-  LHS = new mfem::ParBlockNonlinearForm(this->fes_);
-
-  std::vector<mfem::ParGridFunction> u_gf_vect;
-  std::cout << " coucou eeee " << u_vect.size() << std::endl;
-  for (int i = 0; i < u_vect.size(); i++) {
-    mfem::ParGridFunction un_gf(this->fes_[i]);
-    un_gf.SetFromTrueDofs(u_vect[i]);
-    u_gf_vect.emplace_back(un_gf);
-  }
-  const Parameters &all_params = this->params_ - this->default_p_;
-
-  // TimeNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
-  //     new TimeNLFormIntegrator<Variables<T, DIM>>(u_gf_vect, all_params, this->auxvariables_);
-
-  TimeCHNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
-      new TimeCHNLFormIntegrator<Variables<T, DIM>>(u_gf_vect, all_params, this->auxvariables_);
-
-  LHS->AddDomainIntegrator(time_nlfi_ptr);
-
   // TODO(cci) check BCs
   // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
 }

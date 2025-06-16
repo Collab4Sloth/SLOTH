@@ -49,7 +49,7 @@
  * @brief PhaseFieldOperatorBase class
  *
  */
-template <class T, int DIM, class NLFI>
+template <class T, int DIM, class NLFI, class LHS_NLFI>
 class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
                                public mfem::TimeDependentOperator {
  private:
@@ -72,12 +72,17 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   mfem::ProductCoefficient *MassCoeff_;  // mass coefficient
   std::shared_ptr<LSolver> mass_matrix_solver_;
   VSharedMFEMSolver M_solver_;  // Krylov solver for inverting the mass matrix M
+  LHS_NLFI *lhs_nlfi_ptr_;
+
+  /// Left-Hand-Side
+  mfem::ParBlockNonlinearForm *LHS;
 
   // CCI
   //  mfem::SparseMatrix Mmat;
   mfem::HypreParMatrix *Mmat;
   // CCI
   void build_mass_matrix(const std::vector<mfem::Vector> &u_vect);
+  void build_lhs_nonlinear_form(const double dt, const std::vector<mfem::Vector> &u);
   bool constant_mass_matrix_{true};
 
   // Reduced Operator
@@ -126,6 +131,8 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
   void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
              const double &current_time, double current_time_step, const int iter) override;
   NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) override = 0;
+  LHS_NLFI *set_lhs_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u);
+
   void get_parameters() override = 0;
   void ComputeEnergies(const int &it, const double &t, const double &dt,
                        const mfem::Vector &u) override = 0;
@@ -143,39 +150,45 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
  * @param spatial
  * @param ode
  */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI>(spatials),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
+      LHS(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_nlfi_ptr_(nullptr) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
 
 /**
  * @brief Construct a new PhaseFieldOperatorBase object
+ * object
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
- * @param spatial
+ * @tparam LHS_NLFI
+ * @param spatials
  * @param ode
  * @param source_term_name
  */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode,
     AnalyticalFunctions<DIM> source_term_name)
     : OperatorBase<T, DIM, NLFI>(spatials, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
+      LHS(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_nlfi_ptr_(nullptr) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -190,16 +203,18 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
  * @param params
  * @param ode
  */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI>(spatials, params),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
+      LHS(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_nlfi_ptr_(nullptr) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -216,16 +231,18 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
  * @param auxvars
  * @param source_term_name
  */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode, AnalyticalFunctions<DIM> source_term_name)
     : OperatorBase<T, DIM, NLFI>(spatials, params, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
+      LHS(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_nlfi_ptr_(nullptr) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -238,8 +255,9 @@ PhaseFieldOperatorBase<T, DIM, NLFI>::PhaseFieldOperatorBase(
  * @tparam NLFI
  * @param ode_solver
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::value &ode_solver) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_ODE_solver(
+    const TimeScheme::value &ode_solver) {
   // TODO(cci) faire un template?
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
@@ -274,10 +292,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_ODE_solver(const TimeScheme::valu
  * @param initial_time
  * @param vars
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time,
-                                                      Variables<T, DIM> &vars,
-                                                      std::vector<Variables<T, DIM> *> auxvars) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
+    const double &initial_time, Variables<T, DIM> &vars, std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("PhaseFieldOperatorBase::initialize");
 
   this->SetTime(initial_time);
@@ -297,8 +314,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::initialize(const double &initial_time
  * @param current_time
  * @param current_time_step
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
     std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
     const double &current_time, double current_time_step, const int iter) {
   //// Constructing array of offsets
@@ -331,8 +348,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::solve(
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::get_mass_coefficient(const mfem::Vector &u) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem::Vector &u) {
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
@@ -347,8 +364,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::get_mass_coefficient(const mfem::Vect
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::build_mass_matrix(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
     const std::vector<mfem::Vector> &u_vect) {
   // TODO(cci) change methods
   auto u = u_vect[0];
@@ -380,13 +397,77 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::build_mass_matrix(
 }
 
 /**
+ * @brief Build the LHS
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param dt
+ * @param u
+ */
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
+    const double dt, const std::vector<mfem::Vector> &u_vect) {
+  ////////////////////////////////////////////
+  // PhaseField non linear form : LHS
+  ////////////////////////////////////////////
+
+  // auto u = u_vect[0];
+
+  if (LHS != nullptr) {
+    delete LHS;
+  }
+  LHS = new mfem::ParBlockNonlinearForm(this->fes_);
+
+  this->lhs_nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
+
+  // TimeNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
+  //     new TimeNLFormIntegrator<Variables<T, DIM>>(u_gf_vect, all_params, this->auxvariables_);
+
+  // TimeCHNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
+  //     new TimeCHNLFormIntegrator<Variables<T, DIM>>(u_vect, all_params, this->auxvariables_);
+
+  LHS->AddDomainIntegrator(this->lhs_nlfi_ptr_);
+
+  // TODO(cci) check BCs
+  // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
+}
+
+/**
+ * @brief  Set the LHS NonLinearFormIntegrator
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @param dt
+ * @param u_vect
+ */
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+LHS_NLFI *PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
+    const double dt, const std::vector<mfem::Vector> &u) {
+  Catch_Time_Section("PhaseFieldOperatorBase::set_lhs_nlfi_ptr");
+
+  std::vector<mfem::ParGridFunction> vun;
+  for (int i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(un);
+  }
+  const Parameters &all_params = this->params_ - this->default_p_;
+
+  LHS_NLFI *lhs_nlfi_ptr = new LHS_NLFI(vun, all_params, this->auxvariables_);
+
+  return lhs_nlfi_ptr;
+}
+
+/**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
  *solution_coef
  * @param dt time-step
  * @param u unknown vector
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetTransientParameters");
 
@@ -422,8 +503,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetTransientParameters(
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::SetExplicitTransientParameters(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParameters(
     const std::vector<mfem::Vector> &un_vect) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetExplicitTransientParameters");
   ////////////////////////////////////////////
@@ -446,8 +527,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetExplicitTransientParameters(
  * @param u unknown vector
  * @param ess_tdof_list array of dofs
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetConstantParameters");
   // if (this->constant_mass_matrix_) {
@@ -464,8 +545,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::SetConstantParameters(
  * @param u unknown vector
  * @param du_dt unkwon time derivative vector
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vector &du_dt) const {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
+                                                          mfem::Vector &du_dt) const {
   Catch_Time_Section("PhaseFieldOperatorBase::Mult");
 
   const auto sc = this->height_;
@@ -477,7 +559,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
   v_vect.emplace_back(v);
 
   // Todo(cci) : try to do different because of not satisfying
-  const_cast<PhaseFieldOperatorBase<T, DIM, NLFI> *>(this)->SetExplicitTransientParameters(v_vect);
+  const_cast<PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI> *>(this)
+      ->SetExplicitTransientParameters(v_vect);
 
   this->N->Mult(v, this->z);
 
@@ -510,9 +593,10 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::Mult(const mfem::Vector &u, mfem::Vec
  * @param u unknown vector
  * @param du_dt unkwon time derivative vector
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const mfem::Vector &u,
-                                                         mfem::Vector &du_dt) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double dt,
+                                                                   const mfem::Vector &u,
+                                                                   mfem::Vector &du_dt) {
   Catch_Time_Section("PhaseFieldOperatorBase::ImplicitSolve");
 
   const auto sc = this->height_;
@@ -564,8 +648,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::ImplicitSolve(const double dt, const 
  * @tparam NLFI
  * @param SOLVER
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLVER) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(VSolverType SOLVER) {
   this->mass_solver_ = SOLVER;
 }
 
@@ -578,9 +662,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLV
  * @param SOLVER
  * @param s_params
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLVER,
-                                                                const Parameters &s_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(
+    VSolverType SOLVER, const Parameters &s_params) {
   this->mass_solver_ = SOLVER;
   this->mass_solver_params_ = s_params;
 }
@@ -593,8 +677,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_solver(VSolverType SOLV
  * @tparam NLFI
  * @param PRECOND
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(VSolverType PRECOND) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
+    VSolverType PRECOND) {
   this->mass_precond_ = PRECOND;
 }
 
@@ -608,8 +693,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(VSolverT
  * @param PRECOND
  * @param p_params
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
     VSolverType PRECOND, const Parameters &p_params) {
   this->mass_precond_ = PRECOND;
   this->mass_precond_params_ = p_params;
@@ -622,8 +707,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::overload_mass_preconditioner(
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI>::set_default_mass_solver() {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
   auto s_params = Parameters(Parameter("description", "Default CG Solver"));
   auto p_params = Parameters(Parameter("description", "Default HYPRE_SMOOTHER preconditioner"));
 
@@ -636,5 +721,5 @@ void PhaseFieldOperatorBase<T, DIM, NLFI>::set_default_mass_solver() {
  * @brief Destroy the Phase Field Operator:: Phase Field Operator object
  *
  */
-template <class T, int DIM, class NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI>::~PhaseFieldOperatorBase() {}
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::~PhaseFieldOperatorBase() {}
