@@ -152,7 +152,8 @@ int main(int argc, char* argv[]) {
 
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
-      auto src_term = AnalyticalFunctions<DIM>(user_func_source_term);
+      std::vector<AnalyticalFunctions<DIM> > src_term;
+      src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
       OPE oper(spatials, params, src_term);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));

@@ -71,7 +71,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
   mfem::ParBilinearForm *M;              // mass operator
   mfem::ProductCoefficient *MassCoeff_;  // mass coefficient
   std::shared_ptr<LSolver> mass_matrix_solver_;
-  VSharedMFEMSolver M_solver_;  // Krylov solver for inverting the mass matrix M
+  std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix )M
   LHS_NLFI *lhs_nlfi_ptr_;
 
   /// Left-Hand-Side
@@ -323,23 +323,19 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   //// Constructing BlockVector
   mfem::BlockVector block_unk(this->block_trueOffsets_);
   for (size_t i = 0; i < unk_size; i++) {
-    std::cout << " i " << i << " unk_size " << unk_size << " " << this->block_trueOffsets_.Size()
-              << std::endl;
     auto &unk_i = *(vect_unk[i]);
     mfem::Vector &bb = block_unk.GetBlock(i);
     bb = unk_i;
-
-    // block_unk.MakeRef(unk_i, i, i*this->block_trueOffsets_[i + 1]);
   }
-  std::cout << " ode_solver vect unk size ()" << block_unk.Size() << std::endl;
+  //// Call ODE solver
   this->current_time_ = current_time;
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
+
+  //// Updating vect_unk
   for (size_t i = 0; i < unk_size; i++) {
     auto &unk_i = *(vect_unk[i]);
     const mfem::Vector &bb = block_unk.GetBlock(i);
     unk_i = bb;
-
-    // block_unk.MakeRef(unk_i, i, i*this->block_trueOffsets_[i + 1]);
   }
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -365,37 +361,38 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const 
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
     const std::vector<mfem::Vector> &u_vect) {
-  // TODO(cci) change methods
-  auto u = u_vect[0];
-  this->get_mass_coefficient(u);
+  this->M_solver_.clear();
+  for (int i = 0; i < u_vect.size(); i++) {
+    if (M != nullptr) {
+      delete M;
+    }
+    ////////////////
+    // Mass matrix (constant)
+    ////////////////
+    M = new mfem::ParBilinearForm(this->fes_[i]);
 
-  if (M != nullptr) {
-    delete M;
+    auto mass_coefficient = mfem::ConstantCoefficient(1.0);
+    if (!this->isExplicit_) {
+      M->AddDomainIntegrator(new mfem::MassIntegrator(mass_coefficient));
+    } else {
+      M->AddDomainIntegrator(
+          new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
+    }
+    M->Assemble(0);
+    M->Finalize(0);
+
+    Mmat = M->ParallelAssemble();
+    std::unique_ptr<mfem::HypreParMatrix> Me(Mmat->EliminateRowsCols(this->ess_tdof_list_[i]));
+
+    this->mass_matrix_solver_ =
+        std::make_shared<LSolver>(this->mass_solver_, this->mass_solver_params_,
+                                  this->mass_precond_, this->mass_precond_params_, *Mmat);
+    this->M_solver_.emplace_back(this->mass_matrix_solver_->get_solver());
   }
-  ////////////////
-  // Mass matrix (constant)
-  ////////////////
-  M = new mfem::ParBilinearForm(this->fespace_);
-
-  if (!this->isExplicit_) {
-    M->AddDomainIntegrator(new mfem::MassIntegrator(*this->MassCoeff_));
-  } else {
-    M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(*this->MassCoeff_)));
-  }
-  M->Assemble(0);
-  M->Finalize(0);
-
-  Mmat = M->ParallelAssemble();
-  std::unique_ptr<mfem::HypreParMatrix> Me(Mmat->EliminateRowsCols(this->ess_tdof_list_[0]));
-
-  this->mass_matrix_solver_ =
-      std::make_shared<LSolver>(this->mass_solver_, this->mass_solver_params_, this->mass_precond_,
-                                this->mass_precond_params_, *Mmat);
-  this->M_solver_ = this->mass_matrix_solver_->get_solver();
 }
 
 /**
- * @brief Build the LHS
+ * @brief Build the nonlinear form associated with LHS of the PDEs
  *
  * @tparam T
  * @tparam DIM
@@ -406,10 +403,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
-  ////////////////////////////////////////////
-  // PhaseField non linear form : LHS
-  ////////////////////////////////////////////
-
   if (LHS != nullptr) {
     delete LHS;
   }
@@ -417,16 +410,10 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
 
   this->lhs_nlfi_ptr_ = set_lhs_nlfi_ptr(dt, u_vect);
 
-  // TimeNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
-  //     new TimeNLFormIntegrator<Variables<T, DIM>>(u_gf_vect, all_params, this->auxvariables_);
-
-  // TimeCHNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
-  //     new TimeCHNLFormIntegrator<Variables<T, DIM>>(u_vect, all_params, this->auxvariables_);
-
   LHS->AddDomainIntegrator(this->lhs_nlfi_ptr_);
 
   // TODO(cci) check BCs
-  // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
+  // this->RHS->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
 }
 
 /**
@@ -468,24 +455,22 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
   Catch_Time_Section("PhaseFieldOperatorBase::SetTransientParameters");
 
   ////////////////////////////////////////////
-  // Variable mass matrix
+  // Build the LHS of the PDEs
   ////////////////////////////////////////////
-  // if (!this->constant_mass_matrix_) {
-  //   this->build_mass_matrix(u_vect);
-  // }
   this->build_lhs_nonlinear_form(dt, u_vect);
 
   ////////////////////////////////////////////
-  // PhaseField non linear form
+  //  Build the RHS of the PDEs
   ////////////////////////////////////////////
-  this->build_nonlinear_form(dt, u_vect);
+  this->build_rhs_nonlinear_form(dt, u_vect);
+
   ////////////////////////////////////////////
-  // PhaseField reduced operator N
+  // Build Newton Linear system
   ////////////////////////////////////////////
   if (reduced_oper != nullptr) {
     delete reduced_oper;
   }
-  reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->N, this->ess_tdof_list_);
+  reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->RHS, this->ess_tdof_list_);
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
@@ -506,14 +491,12 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParamet
   ////////////////////////////////////////////
   // Variable mass matrix
   ////////////////////////////////////////////
-  // if (!this->constant_mass_matrix_) {
-  //   this->build_mass_matrix(un_vect);
-  // }
-  this->build_lhs_nonlinear_form(0., un_vect);
+  this->build_mass_matrix(un_vect);
+
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
-  this->build_nonlinear_form(0., un_vect);
+  this->build_rhs_nonlinear_form(0., un_vect);
 }
 
 /**
@@ -527,9 +510,6 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   Catch_Time_Section("PhaseFieldOperatorBase::SetConstantParameters");
-  // if (this->constant_mass_matrix_) {
-  //   this->build_mass_matrix(u_vect);
-  // }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -558,12 +538,14 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
   const_cast<PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI> *>(this)
       ->SetExplicitTransientParameters(v_vect);
 
-  this->N->Mult(v, this->z);
+  // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
+  const int fes_size = this->block_trueOffsets_.Size() - 1;
+  mfem::BlockVector bb(this->block_trueOffsets_);
+
+  this->RHS->Mult(v, bb);
 
   // Source term
-  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
-  const int fes_size = offsets.Size() - 1;
-  mfem::BlockVector source_term(offsets);
+  mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
@@ -571,30 +553,35 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
         mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fes_[i]);
         mfem::Vector &src_i = source_term.GetBlock(i);
         this->get_source_term(i, this->src_func_[i], src_i, RHS);
+
         delete RHS;
       }
     }
-    this->z -= source_term;
+    bb -= source_term;
   }
-  this->z.Neg();
-  this->LHS->AddMult(v, this->z);
+  bb.Neg();
 
-  dv_dt = this->z;
-  // TODO(cci) to adapt
-  // mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
-  //  if (!(this->src_func_ == nullptr)) {
-  //    this->get_source_term(source_term, RHS);
-  //    this->z -= source_term;
-  //  }
+  mfem::BlockVector sol(this->block_trueOffsets_);
+  sol = 0.;
 
-  // std::visit(
-  //     [&](auto &&arg) {
-  //       using TT = std::decay_t<decltype(arg)>;
-  //       if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-  //         arg->Mult(this->z, dv_dt);
-  //       }
-  //     },
-  //     this->M_solver_);
+  for (int i = 0; i < fes_size; ++i) {
+    mfem::Vector &soli = sol.GetBlock(i);
+    mfem::Vector &bb_i = bb.GetBlock(i);
+    std::visit(
+        [&](auto &&arg) {
+          using TT = std::decay_t<decltype(arg)>;
+          if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
+            if (bb_i.Size() != arg->NumCols()) {
+              std::string msg = "Size mismatch: bb_i.Size() [" + std::to_string(bb_i.Size()) +
+                                "] != arg->NumCols() [" + std::to_string(arg->NumCols()) + "]";
+              MFEM_ABORT(msg.c_str());
+            }
+            arg->Mult(bb_i, soli);
+          }
+        },
+        this->M_solver_[i]);
+  }
+  dv_dt = sol;
 }
 
 /**
@@ -616,7 +603,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
 
   // this->bcs_[0]->SetBoundaryConditions(v);
 
-  // Todo(cci) change with BlockVector
   std::vector<mfem::Vector> v_vect;
   v_vect.emplace_back(v);
 
@@ -625,12 +611,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
   reduced_oper->SetParameters(dt, &v);
 
   // Source term
-  std::cout << " coucou----0 " << sc << " -- u size " << u.Size() << " dv size " << dv_dt.Size()
-            << std::endl;
-  // mfem::Vector source_term;
-  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
-  const int fes_size = offsets.Size() - 1;
-  mfem::BlockVector source_term(offsets);
+  // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
+  const int fes_size = this->block_trueOffsets_.Size() - 1;
+  mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
@@ -643,20 +626,10 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
     }
   }
 
-  // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton
-  // Mult");
   this->newton_solver_->Mult(source_term, dv_dt);
-  std::cout << " coucou----2" << std::endl;
-  std::cout << " coucou----222" << std::endl;
   delete this->rhs_solver_;
-  std::cout << " coucou----3" << std::endl;
-
-  // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : after Newton
-  // Mult");
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
-
-  std::cout << " coucou----3" << std::endl;
 }
 
 /**
@@ -728,12 +701,12 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditione
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
-  auto s_params = Parameters(Parameter("description", "Default CG Solver"));
-  auto p_params = Parameters(Parameter("description", "Default HYPRE_SMOOTHER preconditioner"));
+  auto s_params = Parameters(Parameter("description", "Default Mass Solver"));
+  auto p_params = Parameters(Parameter("description", "Default Mass preconditioner"));
 
-  this->mass_solver_ = IterativeSolverType::CG;
+  this->mass_solver_ = HypreSolverType::HYPRE_GMRES;
   this->mass_solver_params_ = s_params;
-  this->mass_precond_ = HyprePreconditionerType::HYPRE_SMOOTHER;
+  this->mass_precond_ = HyprePreconditionerType::HYPRE_ILU;
   this->mass_precond_params_ = p_params;
 }
 /**

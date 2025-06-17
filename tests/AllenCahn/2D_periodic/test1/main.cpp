@@ -24,6 +24,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  setVerbosity(Verbosity::Debug);
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -49,7 +50,8 @@ int main(int argc, char* argv[]) {
 
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::F, Mobility::Constant>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
@@ -123,10 +125,11 @@ int main(int argc, char* argv[]) {
 
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
-      auto source_terme = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega);
 
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, params, TimeScheme::from(time_scheme), source_terme);
+      std::vector<AnalyticalFunctions<DIM> > src_term;
+      src_term.emplace_back(AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega));
+      OPE oper(spatials, params, TimeScheme::from(time_scheme), src_term);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
       PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
