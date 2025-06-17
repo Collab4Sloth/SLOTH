@@ -210,17 +210,22 @@ int main(int argc, char* argv[]) {
   using MD = MassDiffusionFluxNLFormIntegrator<VARS>;
 
   //--- Operator definition
+  std::vector<SPA*> spatials{&spatial};
   // Operator for InterDiffusion equation on O
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant> interdiffu_oper_o(
-      &spatial, td_parameters, TimeScheme::EulerImplicit);
+  using LHS_NLFI_O = TimeNLFormIntegrator<VARS>;
+
+  DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_O> interdiffu_oper_o(
+      spatials, td_parameters, TimeScheme::EulerImplicit);
   interdiffu_oper_o.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   interdiffu_oper_o.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-20)));
 
   // Operator for InterDiffusion equation on U
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant> interdiffu_oper_u(
-      &spatial, td_parameters, TimeScheme::EulerImplicit);
+  using LHS_NLFI_U = TimeNLFormIntegrator<VARS>;
+
+  DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_U> interdiffu_oper_u(
+      spatials, td_parameters, TimeScheme::EulerImplicit);
   interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   interdiffu_oper_u.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
@@ -283,7 +288,7 @@ int main(int argc, char* argv[]) {
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
       xu_vars, heat_vars, calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_O>, VARS, PST>
       interdiffu_problem_o("Interdiffusion O", interdiffu_oper_o, xo_vars, interdiffu_pst,
                            convergence, calphad_outputs, MO, heat_vars);
 
@@ -298,7 +303,7 @@ int main(int argc, char* argv[]) {
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, xo_vars,
       xu_vars, heat_vars, calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_U>, VARS, PST>
       interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, xu_vars, interdiffu_pst_u,
                            convergence, calphad_outputs, MU, heat_vars);
 
