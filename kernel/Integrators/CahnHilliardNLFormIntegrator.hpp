@@ -89,10 +89,10 @@ class CahnHilliardNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                    const mfem::Array<const mfem::Vector*>& elfun,
                                    const mfem::Array2D<mfem::DenseMatrix*>& elmats);
 
-  std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>> get_energy(mfem::ParGridFunction* gfu,
-                                                                   const double omega);
-  std::unique_ptr<GradientEnergyCoefficient> get_grad_energy(mfem::ParGridFunction* gfu,
-                                                             const double lambda);
+  std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>> get_energy(
+      std::vector<mfem::ParGridFunction*> gfu, const double omega);
+  std::unique_ptr<GradientEnergyCoefficient> get_grad_energy(
+      std::vector<mfem::ParGridFunction*> gfu, const double lambda);
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -143,9 +143,7 @@ double CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
   // TODO(cci) return vector of double
   MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_[0], parameters);
   double mob_coeff = mobi_coeff.Eval(Tr, ip);
-  // if (this->scale_mobility_by_temperature_) {
-  //   mob_coeff /= this->temp_gf_[0].GetValue(nElement, ip);
-  // }
+
   return mob_coeff;
 }
 
@@ -530,9 +528,9 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGr
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>>
-CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunction* gfu,
-                                                                     const double omega) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu, omega);
+CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(
+    std::vector<mfem::ParGridFunction*> gfu, const double omega) {
+  return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu[0], omega);
 }
 
 /**
@@ -549,8 +547,8 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI>
 std::unique_ptr<GradientEnergyCoefficient>
 CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(
-    mfem::ParGridFunction* gfu, const double lambda) {
-  return std::make_unique<GradientEnergyCoefficient>(gfu, lambda);
+    std::vector<mfem::ParGridFunction*> gfu, const double lambda) {
+  return std::make_unique<GradientEnergyCoefficient>(gfu[0], lambda);
 }
 
 /**
