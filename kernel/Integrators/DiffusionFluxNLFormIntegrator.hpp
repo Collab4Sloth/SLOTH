@@ -152,7 +152,6 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     Tr.SetIntPoint(&ip);
 
     const auto& u = *elfun[blk] * Psi;
-
     // Stabilization contribution : D_stab * (Grad u - Grad un)
     el[blk]->CalcPhysDShape(Tr, this->gradPsi);
     this->gradPsi.MultTranspose(*elfun[blk], this->Flux_);

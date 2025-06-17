@@ -337,7 +337,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   for (size_t i = 0; i < unk_size; i++) {
     auto &unk_i = *(vect_unk[i]);
     const mfem::Vector &bb = block_unk.GetBlock(i);
-    std::cout << " i " << i << " sol " << unk_i(10) << "  apres " << bb(10) << std::endl;
     unk_i = bb;
 
     // block_unk.MakeRef(unk_i, i, i*this->block_trueOffsets_[i + 1]);
