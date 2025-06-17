@@ -108,7 +108,9 @@ class OperatorBase : public mfem::Operator {
                     std::function<double(const mfem::Vector &, double)> solution_func);
   void ComputeIsoVal(const int &it, const double &t, const double &dt, const mfem::Vector &u,
                      const double &iso_value);
-  void get_source_term(mfem::BlockVector &source_term, mfem::ParLinearForm *RHHS) const;
+  void get_source_term(const int id_block,
+                       const std::function<double(const mfem::Vector &, double)> &src_func,
+                       mfem::Vector &source_term, mfem::ParLinearForm *RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
   const std::multimap<IterationKey, SpecializedValue> get_time_iso_specialized() const;
@@ -531,29 +533,20 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIsoVal(const int &it, const do
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(mfem::BlockVector &source_term,
-                                                           mfem::ParLinearForm *RHSS) const {
-  std::vector<mfem::FunctionCoefficient> src;
-  for (const auto &src_func : this->src_func_) {
-    src.emplace_back(src_func);
-  }
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(
+    const int id_block, const std::function<double(const mfem::Vector &, double)> &src_func,
+    mfem::Vector &source_term, mfem::ParLinearForm *RHSS) const {
+  mfem::FunctionCoefficient src(src_func);
 
-  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
-  const int fes_size = offsets.Size() - 1;
+  src.SetTime(this->current_time_);
+  RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
+  RHSS->Assemble();
 
-  for (int i = 0; i < fes_size; ++i) {
-    mfem::Vector &src_i = source_term.GetBlock(i);
+  // BCs
+  source_term.SetSize(this->fes_[id_block]->GetTrueVSize());
+  RHSS->ParallelAssemble(source_term);
 
-    src[i].SetTime(this->current_time_);
-    RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src[i]));
-    RHSS->Assemble();
-
-    // BCs
-    src_i.SetSize(this->fes_[i]->GetTrueVSize());
-    RHSS->ParallelAssemble(src_i);
-
-    src_i.SetSubVector(this->ess_tdof_list_[i], 0.);
-  }
+  source_term.SetSubVector(this->ess_tdof_list_[id_block], 0.);
 }
 
 /**

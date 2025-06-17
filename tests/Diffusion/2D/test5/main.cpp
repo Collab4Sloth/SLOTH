@@ -116,10 +116,12 @@ int main(int argc, char* argv[]) {
   //--- Integrator : alias definition for the sake of clarity
   using InterDiffusionIntegrator = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Operator definition
-  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
-      spatials, td_parameters, TimeScheme::RungeKutta4);
+  using LHS_NLFI_1 = TimeNLFormIntegrator<VARS>;
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_1>
+      interdiffu_oper(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
-  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>
+  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_2>
       interdiffu_oper_u(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
@@ -211,8 +213,9 @@ int main(int argc, char* argv[]) {
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, var_o, var_u,
       heat_vars, mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
-          PST>
+  Problem<
+      DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_1>,
+      VARS, PST>
       interdiffu_problem_o("Interdiffusion O", interdiffu_oper, var_o, interdiffu_pst, convergence,
                            mu_var, MO);
 
@@ -227,8 +230,9 @@ int main(int argc, char* argv[]) {
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, var_o,
       var_u, heat_vars, mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
-          PST>
+  Problem<
+      DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_2>,
+      VARS, PST>
       interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, var_u, interdiffu_pst_u,
                            convergence, mu_var, MU);
 

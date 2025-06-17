@@ -46,7 +46,8 @@ int main(int argc, char* argv[]) {
   using NLFI =
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Implicit, Diffusion::Linear>;
 
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################

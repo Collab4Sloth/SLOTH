@@ -162,7 +162,6 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
   gradPsi.SetSize(nd, dim);
   Psi.SetSize(nd);
   gradU.SetSize(dim);
-  // elvect.SetSize(nd);
 
   elvect[blk]->SetSize(nd);
   *elvect[blk] = 0.;

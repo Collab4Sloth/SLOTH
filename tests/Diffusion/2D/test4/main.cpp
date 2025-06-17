@@ -98,7 +98,8 @@ int main(int argc, char* argv[]) {
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
 
   //--- Operator definition
-  DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant> diffu_oper(
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant, LHS_NLFI> diffu_oper(
       spatials, TimeScheme::RungeKutta4);
   diffu_oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
 
@@ -124,9 +125,10 @@ int main(int argc, char* argv[]) {
   //--- Integrator : alias definition for the sake of clarity
   using InterDiffusionIntegrator = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Operator definition
+  using LHS_NLFI2 = TimeNLFormIntegrator<VARS>;
 
-  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
-      spatials, td_parameters, TimeScheme::RungeKutta4);
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI2>
+      interdiffu_oper(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
   //==========================================
@@ -202,12 +204,14 @@ int main(int argc, char* argv[]) {
       "Oxygen inter-diffusion mobilities", pp_parameters, MO, mob_pst_o, convergence, compo_vars,
       heat_vars, mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
-          PST>
+  Problem<
+      DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI2>,
+      VARS, PST>
       interdiffu_problem("InterDiffusion", interdiffu_oper, compo_vars, interdiffu_pst, convergence,
                          mu_var, MO);
 
-  Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant, LHS_NLFI>,
+          VARS, PST>
       diffu_problem("Fick", diffu_oper, diffu_vars, diffu_pst, convergence);
 
   //-----------------------

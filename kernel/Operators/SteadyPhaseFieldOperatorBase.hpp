@@ -215,14 +215,18 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   const int fes_size = offsets.Size() - 1;
   mfem::BlockVector source_term(offsets);
   source_term = 0.0;
-  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
   if (!this->src_func_.empty()) {
-    this->get_source_term(source_term, RHS);
+    for (int i = 0; i < fes_size; ++i) {
+      if (this->src_func_[i] != nullptr) {
+        mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::Vector &src_i = source_term.GetBlock(i);
+        this->get_source_term(i, this->src_func_[i], src_i, RHS);
+        delete RHS;
+      }
+    }
   }
-
   this->newton_solver_->Mult(source_term, block_unk);
   delete this->rhs_solver_;
-  delete RHS;
 
   for (size_t i = 0; i < unk_size; i++) {
     auto &unk_i = *(vect_unk[i]);

@@ -36,7 +36,7 @@
  * @tparam DIFFU_NAME
  */
 template <class VARS>
-class DiffusionFluxNLFormIntegrator : public mfem::NonlinearFormIntegrator,
+class DiffusionFluxNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                       public SlothNLFormIntegrator<VARS> {
  private:
   double coeff_stab_;
@@ -45,7 +45,7 @@ class DiffusionFluxNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                           const mfem::IntegrationPoint& ip, const int dim);
 
  protected:
-  SlothGridFunction u_old_;
+  std::vector<SlothGridFunction> u_old_;
 
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, Flux_;
@@ -60,18 +60,22 @@ class DiffusionFluxNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                                                    const mfem::IntegrationPoint& ip) = 0;
 
  public:
-  DiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                                std::vector<VARS*> auxvars);
+  DiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                const Parameters& params, std::vector<VARS*> auxvars);
   ~DiffusionFluxNLFormIntegrator();
 
-  virtual void AssembleElementVector(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
-                                     const mfem::Vector& elfun, mfem::Vector& elvect);
+  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                                     mfem::ElementTransformation& Tr,
+                                     const mfem::Array<const mfem::Vector*>& elfun,
+                                     const mfem::Array<mfem::Vector*>& elvect);
 
-  virtual void AssembleElementGrad(const mfem::FiniteElement& el, mfem::ElementTransformation& Tr,
-                                   const mfem::Vector& elfun, mfem::DenseMatrix& elmat);
+  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                                   mfem::ElementTransformation& Tr,
+                                   const mfem::Array<const mfem::Vector*>& elfun,
+                                   const mfem::Array2D<mfem::DenseMatrix*>& elmat);
 
   std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
-      mfem::ParGridFunction* gfu, const double diffu);
+      std::vector<mfem::ParGridFunction*> gfu, const double diffu);
 };
 
 ////////////////////////////////////////////////////////
@@ -100,8 +104,12 @@ void DiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
  */
 template <class VARS>
 DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    std::vector<VARS*> auxvars)
+    : SlothNLFormIntegrator<VARS>(params, auxvars) {
+  for (const auto& u : u_old) {
+    this->u_old_.emplace_back(std::move(SlothGridFunction(u)));
+  }
   this->get_parameters();
 }
 
@@ -115,42 +123,40 @@ DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
  * @param elvect
  */
 template <class VARS>
-void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(const mfem::FiniteElement& el,
-                                                                mfem::ElementTransformation& Tr,
-                                                                const mfem::Vector& elfun,
-                                                                mfem::Vector& elvect) {
-  int nd = el.GetDof();
-  int dim = el.GetDim();
+void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  int blk = 0;
+  int nd = el[blk]->GetDof();
+  int dim = el[blk]->GetDim();
+  gradPsi.SetSize(nd, dim);
+  Psi.SetSize(nd);
   int nElement = Tr.ElementNo;
-
-  this->Psi.SetSize(nd);
-  this->gradPsi.SetSize(nd, dim);
 
   this->Flux_.SetSize(dim);
 
-  elvect.SetSize(nd);
+  elvect[blk]->SetSize(nd);
+  *elvect[blk] = 0.;
+
   mfem::Vector grad_uold;
   grad_uold.SetSize(dim);
 
-  // Initialization
-  elvect = 0.0;
-
   const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
+      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
   // Loop over integration points
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
 
-    el.CalcShape(ip, Psi);
+    el[blk]->CalcShape(ip, Psi);
     Tr.SetIntPoint(&ip);
 
-    const auto& u = elfun * Psi;
+    const auto& u = *elfun[blk] * Psi;
 
     // Stabilization contribution : D_stab * (Grad u - Grad un)
-    el.CalcPhysDShape(Tr, this->gradPsi);
-    this->gradPsi.MultTranspose(elfun, this->Flux_);
-    this->u_old_.GetGradient(Tr, this->gradPsi, grad_uold);
+    el[blk]->CalcPhysDShape(Tr, this->gradPsi);
+    this->gradPsi.MultTranspose(*elfun[blk], this->Flux_);
+    this->u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
     this->Flux_ *= this->coeff_stab_;
@@ -160,7 +166,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(const mfem::Fini
 
     this->Flux_ *= ip.weight * Tr.Weight();
 
-    this->gradPsi.AddMult(this->Flux_, elvect, 1.0);
+    this->gradPsi.AddMult(this->Flux_, *elvect[blk], 1.0);
   }
 }
 
@@ -174,33 +180,34 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(const mfem::Fini
  * @param elmat
  */
 template <class VARS>
-void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(const mfem::FiniteElement& el,
-                                                              mfem::ElementTransformation& Tr,
-                                                              const mfem::Vector& elfun,
-                                                              mfem::DenseMatrix& elmat) {
-  int nd = el.GetDof();
-  int dim = el.GetDim();
+void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
+  int blk = 0;
+  int nd = el[blk]->GetDof();
+  int dim = el[blk]->GetDim();
 
   Psi.SetSize(nd);
   gradPsi.SetSize(nd, dim);
-  elmat.SetSize(nd);
+
+  elmat(blk, blk)->SetSize(nd);
+  *elmat(blk, blk) = 0.0;
   mfem::Vector vec;
   vec.SetSize(nd);
+  vec = 0.0;
 
   const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el.GetGeomType(), 2 * el.GetOrder() + Tr.OrderW());
+      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
-  elmat = 0.0;
-  vec = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el.CalcShape(ip, Psi);
-    const auto& u = elfun * Psi;
+    el[blk]->CalcShape(ip, Psi);
+    const auto& u = *elfun[blk] * Psi;
 
     Tr.SetIntPoint(&ip);
     const double coeff_diffu = this->coeff_stab_ * ip.weight * Tr.Weight();
-    el.CalcPhysDShape(Tr, gradPsi);
-    AddMult_a_AAt(coeff_diffu, gradPsi, elmat);
+    el[blk]->CalcPhysDShape(Tr, gradPsi);
+    AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
   }
 }
 
@@ -236,8 +243,10 @@ void DiffusionFluxNLFormIntegrator<VARS>::add_diffusion_flux(mfem::ElementTransf
  */
 template <class VARS>
 std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-DiffusionFluxNLFormIntegrator<VARS>::get_energy(mfem::ParGridFunction* gfu, const double diffu) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu, diffu);
+DiffusionFluxNLFormIntegrator<VARS>::get_energy(std::vector<mfem::ParGridFunction*> gfu,
+                                                const double diffu) {
+  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu[0],
+                                                                                       diffu);
 }
 
 /**

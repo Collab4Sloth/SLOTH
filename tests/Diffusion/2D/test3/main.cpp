@@ -117,7 +117,9 @@ int main(int argc, char* argv[]) {
         return func;
       });
 
-  auto src_term = AnalyticalFunctions<DIM>(user_func_source_term);
+  std::vector<AnalyticalFunctions<DIM> > src_term;
+  src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
+
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
   std::vector<SPA*> spatials{&spatial};

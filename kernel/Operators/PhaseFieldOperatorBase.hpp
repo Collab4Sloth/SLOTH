@@ -158,6 +158,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
       M(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL),
+      LHS(NULL),
       lhs_nlfi_ptr_(nullptr) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
@@ -565,12 +566,21 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
   const int fes_size = offsets.Size() - 1;
   mfem::BlockVector source_term(offsets);
   source_term = 0.0;
-  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
   if (!this->src_func_.empty()) {
-    this->get_source_term(source_term, RHS);
+    for (int i = 0; i < fes_size; ++i) {
+      if (this->src_func_[i] != nullptr) {
+        mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::Vector &src_i = source_term.GetBlock(i);
+        this->get_source_term(i, this->src_func_[i], src_i, RHS);
+        delete RHS;
+      }
+    }
     this->z -= source_term;
   }
+  this->z.Neg();
+  this->LHS->AddMult(v, this->z);
 
+  dv_dt = this->z;
   // TODO(cci) to adapt
   // mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
   //  if (!(this->src_func_ == nullptr)) {
@@ -578,17 +588,14 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
   //    this->z -= source_term;
   //  }
 
-  this->z.Neg();  // z = -z
-
-  std::visit(
-      [&](auto &&arg) {
-        using TT = std::decay_t<decltype(arg)>;
-        if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-          arg->Mult(this->z, dv_dt);
-        }
-      },
-      this->M_solver_);
-  delete RHS;
+  // std::visit(
+  //     [&](auto &&arg) {
+  //       using TT = std::decay_t<decltype(arg)>;
+  //       if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
+  //         arg->Mult(this->z, dv_dt);
+  //       }
+  //     },
+  //     this->M_solver_);
 }
 
 /**
@@ -626,20 +633,23 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
   const int fes_size = offsets.Size() - 1;
   mfem::BlockVector source_term(offsets);
   source_term = 0.0;
-  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
   if (!this->src_func_.empty()) {
-    std::cout << " coucou-- je devrais pas passer" << std::endl;
-
-    // this->get_source_term(source_term, RHS);
+    for (int i = 0; i < fes_size; ++i) {
+      if (this->src_func_[i] != nullptr) {
+        mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::Vector &src_i = source_term.GetBlock(i);
+        this->get_source_term(i, this->src_func_[i], src_i, RHS);
+        delete RHS;
+      }
+    }
   }
-  std::cout << " coucou----1" << std::endl;
 
-  // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
+  // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton
+  // Mult");
   this->newton_solver_->Mult(source_term, dv_dt);
   std::cout << " coucou----2" << std::endl;
   std::cout << " coucou----222" << std::endl;
   delete this->rhs_solver_;
-  delete RHS;
   std::cout << " coucou----3" << std::endl;
 
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : after Newton
