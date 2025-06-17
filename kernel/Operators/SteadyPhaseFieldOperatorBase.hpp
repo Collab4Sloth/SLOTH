@@ -211,9 +211,9 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   // steady_reduced_oper->SetParameters(dt, &v);
 
   // Source term
-  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
-  const int fes_size = offsets.Size() - 1;
-  mfem::BlockVector source_term(offsets);
+  // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
+  const int fes_size = this->block_trueOffsets_.Size() - 1;
+  mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
@@ -271,11 +271,11 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameter
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
-  this->build_nonlinear_form(dt, u_vect);
+  this->build_rhs_nonlinear_form(dt, u_vect);
   if (steady_reduced_oper != nullptr) {
     delete steady_reduced_oper;
   }
-  steady_reduced_oper = new SteadyPhaseFieldReducedOperator(this->N, this->ess_tdof_list_);
+  steady_reduced_oper = new SteadyPhaseFieldReducedOperator(this->RHS, this->ess_tdof_list_);
 
   ////////////////////////////////////////////
   // Newton Solver
@@ -300,7 +300,7 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &k,
                                                                 mfem::Vector &y) const {
   // Nothing to be done because of manage by steadyreducedoperator
-  // this->N->Mult(k, y);
+  // this->RHS->Mult(k, y);
   // y.SetSubVector(this->ess_tdof_list_[0], 0.0);
 }
 

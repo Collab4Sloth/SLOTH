@@ -1,11 +1,11 @@
 /**
- * @file ReducedOperator.hpp
- * @author ci230846  (clement.introini@cea.fr)
- * @brief
+ * @file SteadyReducedOperator.hpp
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Steady version of the linear system resulting from the NonLinear algorithm
  * @version 0.1
- * @date 2024-07-30
+ * @date 2025-06-17
  *
- * Copyright CEA (c) 2024
+ * @copyright Copyright (c) 2025
  *
  */
 #include <memory>
@@ -18,8 +18,8 @@
  */
 class SteadyPhaseFieldReducedOperator : public mfem::Operator {
  private:
-  // PhaseField Matrix
-  mfem::ParBlockNonlinearForm *N_;
+  // RHS
+  mfem::ParBlockNonlinearForm *RHS_;
   // Jacobian matrix
   mutable mfem::HypreParMatrix *Jacobian;
 
@@ -31,7 +31,7 @@ class SteadyPhaseFieldReducedOperator : public mfem::Operator {
   const std::vector<mfem::Array<int>> &ess_tdof_list;
 
  public:
-  SteadyPhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *N,
+  SteadyPhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *RHS,
                                   const std::vector<mfem::Array<int>> &ess_tdof);
 
   /// Compute y = N(unk + dt*k) + M k
@@ -49,8 +49,13 @@ class SteadyPhaseFieldReducedOperator : public mfem::Operator {
  * @param N
  */
 SteadyPhaseFieldReducedOperator::SteadyPhaseFieldReducedOperator(
-    mfem::ParBlockNonlinearForm *N, const std::vector<mfem::Array<int>> &ess_tdof)
-    : Operator(N->Height()), N_(N), Jacobian(NULL), dt_(0.0), unk_(NULL), ess_tdof_list(ess_tdof) {}
+    mfem::ParBlockNonlinearForm *RHS, const std::vector<mfem::Array<int>> &ess_tdof)
+    : Operator(RHS->Height()),
+      RHS_(RHS),
+      Jacobian(NULL),
+      dt_(0.0),
+      unk_(NULL),
+      ess_tdof_list(ess_tdof) {}
 
 /**
  * @brief  Compute y = N(unk + dt*k) + M k
@@ -59,13 +64,13 @@ SteadyPhaseFieldReducedOperator::SteadyPhaseFieldReducedOperator(
  * @param y
  */
 void SteadyPhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
-  N_->Mult(k, y);
+  this->RHS_->Mult(k, y);
 
   // TODO(cci) simplify BCs
-  const mfem::Array<int> offsets = this->N_->GetBlockOffsets();
+  const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
   const int fes_size = offsets.Size() - 1;
   auto sc_1 = 0;
-  auto sc_2 = this->N_->Height() / fes_size;
+  auto sc_2 = this->RHS_->Height() / fes_size;
   for (int i = 0; i < fes_size; ++i) {
     mfem::Vector y_i(y.GetData() + sc_1, sc_2);
     y_i.SetSubVector(ess_tdof_list[i], 0.0);
@@ -83,23 +88,23 @@ mfem::Operator &SteadyPhaseFieldReducedOperator::GetGradient(const mfem::Vector 
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
-  const mfem::Array<int> offsets = N_->GetBlockOffsets();
+  const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
   const int fes_size = offsets.Size() - 1;
-  // Gets gradients of N_ and LHS_
-  mfem::Operator &N_grad = N_->GetGradient(k);
+  // Gets gradients of RHS_
+  mfem::Operator &RHS_grad = this->RHS_->GetGradient(k);
   // Converts operators into BlockOperator
-  mfem::BlockOperator *N_block_grad = dynamic_cast<mfem::BlockOperator *>(&N_grad);
+  mfem::BlockOperator *RHS_block_grad = dynamic_cast<mfem::BlockOperator *>(&RHS_grad);
   mfem::Array2D<mfem::HypreParMatrix *> tmp_blocks(fes_size, fes_size);
   std::vector<mfem::HypreParMatrix *> blocks_to_delete;
 
   for (int i = 0; i < fes_size; ++i) {
     for (int j = 0; j < fes_size; ++j) {
-      mfem::Operator *N_block = &(N_block_grad->GetBlock(i, j));
+      mfem::Operator *RHS_block = &(RHS_block_grad->GetBlock(i, j));
 
-      mfem::HypreParMatrix *N_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(N_block);
+      mfem::HypreParMatrix *RHS_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(RHS_block);
 
-      if (N_sparse_block) {
-        mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*N_sparse_block);
+      if (RHS_sparse_block) {
+        mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*RHS_sparse_block);
         // TODO(CCI) check_CI
         block->EliminateRowsCols(ess_tdof_list[i]);
         // CCI

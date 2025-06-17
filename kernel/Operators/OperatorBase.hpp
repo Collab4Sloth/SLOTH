@@ -72,7 +72,7 @@ class OperatorBase : public mfem::Operator {
   mfem::Array<int> block_trueOffsets_;
 
   /// Right-Hand-Side
-  mfem::ParBlockNonlinearForm *N;
+  mfem::ParBlockNonlinearForm *RHS;
 
   NLSolver *rhs_solver_;
   std::shared_ptr<mfem::NewtonSolver> newton_solver_;
@@ -88,7 +88,7 @@ class OperatorBase : public mfem::Operator {
   mutable mfem::Vector z;  // auxiliary vector
   NLFI *nlfi_ptr_;
 
-  void build_nonlinear_form(const double dt, const std::vector<mfem::Vector> &u);
+  void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector> &u);
   void SetNewtonAlgorithm(mfem::Operator *oper);
 
   int compute_total_size(const std::vector<SpatialDiscretization<T, DIM> *> &spatials);
@@ -181,7 +181,7 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
-      N(NULL),
+      RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -219,7 +219,7 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     const std::vector<AnalyticalFunctions<DIM>> &source_term_name)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
-      N(NULL),
+      RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -259,7 +259,7 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
-      N(NULL),
+      RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -300,7 +300,7 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     const std::vector<AnalyticalFunctions<DIM>> &source_term_name)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
-      N(NULL),
+      RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -365,7 +365,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(const double &initial_time
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Build the NonLinear Form Integrator
+ * @brief Build the NonLinear Form Integrator associated with the RHS of the PDEs
  *
  * @tparam T
  * @tparam DIM
@@ -374,22 +374,18 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(const double &initial_time
  * @param u
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void OperatorBase<T, DIM, NLFI, LHS_NLFI>::build_nonlinear_form(
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::build_rhs_nonlinear_form(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
-  ////////////////////////////////////////////
-  // PhaseField non linear form
-  ////////////////////////////////////////////
-
-  if (N != nullptr) {
-    delete N;
+  if (this->RHS != nullptr) {
+    delete this->RHS;
   }
-  N = new mfem::ParBlockNonlinearForm(this->fes_);
+  this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
 
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
 
-  N->AddDomainIntegrator(this->nlfi_ptr_);
+  this->RHS->AddDomainIntegrator(this->nlfi_ptr_);
   // TODO(cci) check BCs
-  // N->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
+  // this->RHS->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
 }
 
 /**
@@ -405,7 +401,6 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::SetNewtonAlgorithm(mfem::Operator *op
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
-  // if (this->precond_ != PreconditionerType::NO) {
   this->rhs_solver_ =
       new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_, this->solver_params_,
                    this->precond_, this->precond_params_, *oper);
@@ -526,7 +521,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIsoVal(const int &it, const do
 }
 
 /**
- * @brief get the source term
+ * @brief Get the source term by equation of the PDEs
  *
  * @tparam T
  * @tparam DIM
@@ -542,7 +537,6 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(
   RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
   RHSS->Assemble();
 
-  // BCs
   source_term.SetSize(this->fes_[id_block]->GetTrueVSize());
   RHSS->ParallelAssemble(source_term);
 
@@ -580,7 +574,7 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_time_specialized() const {
 }
 
 /**
- * @brief Set the default options for the non linear algorithm and associated solvers
+ * @brief Set the default options for the nonlinear algorithm and associated solvers
  *
  * @tparam T
  * @tparam DIM
@@ -590,8 +584,9 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void OperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_solver() {
   auto nl_params =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", false));
-  auto s_params = Parameters(Parameter("description", "HypreGMRES Solver"));
-  auto p_params = Parameters(Parameter("description", "HypreILU preconditioner"));
+  auto s_params = Parameters(Parameter("description", "Default Solver for Newton Algorithm"));
+  auto p_params =
+      Parameters(Parameter("description", "Default Preconditioner for Newton Algorithm"));
 
   this->nl_solver_ = NLSolverType::NEWTON;
   this->nl_solver_params_ = nl_params;
@@ -602,7 +597,8 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_solver() {
 }
 
 /**
- * @brief Overload  the non linear algorithm
+ * @brief Overload the nonlinear algorithm
+ * @remark NewtonSolver is the only one implemented
  *
  * @tparam T
  * @tparam DIM
@@ -615,7 +611,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_nl_solver(NLSolverType NLSOL
 }
 
 /**
- * @brief Overload  the non linear algorithm with Parameters
+ * @brief Overload Parameters associated with nonlinear algorithm
  *
  * @tparam T
  * @tparam DIM
@@ -627,12 +623,12 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_nl_solver(NLSolverType NLSOLVER,
                                                               const Parameters &nl_params) {
   this->nl_solver_ = NLSOLVER;
-
   this->nl_solver_params_ = nl_params;
 }
 
 /**
- * @brief  Overload the default linear solver
+ * @brief  Overload the default linear solver used for the LHS
+ * @remark only used for explicit time-scheme
  *
  * @tparam T
  * @tparam DIM
@@ -646,7 +642,8 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_solver(VSolverType SOLVER) {
 }
 
 /**
- * @brief   Overload the default linear solver with parameters
+ * @brief  Overload the parameter for the linear solver used for the LHS
+ * @remark only used for explicit time-scheme
  *
  * @tparam T
  * @tparam DIM
@@ -662,7 +659,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_solver(VSolverType SOLVER,
 }
 
 /**
- * @brief Overload the preconditioner
+ * @brief Overload the preconditioner used by the solver in the NL algorithm.
  *
  * @tparam T
  * @tparam DIM
@@ -675,7 +672,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_preconditioner(VSolverType P
 }
 
 /**
- * @brief Overload the preconditioner with parameters
+ * @brief  Overload the parameters of the preconditioner used by the solver in the NL algorithm.
  *
  * @tparam T
  * @tparam DIM
@@ -687,7 +684,6 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_preconditioner(VSolverType PRECOND,
                                                                    const Parameters &p_params) {
   this->precond_ = PRECOND;
-
   this->precond_params_ = p_params;
 }
 
