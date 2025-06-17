@@ -46,7 +46,8 @@ int main(int argc, char* argv[]) {
   /////////////////////////
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
 
   // ###########################################
@@ -214,7 +215,8 @@ int main(int argc, char* argv[]) {
 
       // Problem 1:
       const auto crit_cvg_1 = 1.e-12;
-      auto src_term = AnalyticalFunctions<DIM>(user_func_source_term);
+      std::vector<AnalyticalFunctions<DIM> > src_term;
+      src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
 
       std::vector<SPA*> spatials{&spatial};
       OPE oper(spatials, params, TimeScheme::EulerImplicit, src_term);

@@ -44,10 +44,11 @@ int main(int argc, char* argv[]) {
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
 
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
@@ -106,8 +107,8 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
-  auto v1 = VAR(&spatial, bcs, "phi1", 2, initial_condition);
-  auto v2 = VAR(&spatial, bcs, "phi2", 2, initial_condition);
+  auto v1 = VAR(&spatial, bcs, "phi1", 2, initial_condition, analytical_solution);
+  auto v2 = VAR(&spatial, bcs, "phi2", 2, initial_condition, analytical_solution);
   auto vars = VARS(v1, v2);
 
   // ###########################################

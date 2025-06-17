@@ -190,21 +190,20 @@ void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
   int rank = mfem::Mpi::WorldRank();
-  // TODO(cci) to adapt
-  //  if (rank == 0) {
-  //    if (!this->pst_.get_enable_save_specialized_at_iter()) {
-  //      this->pst_.save_specialized(this->oper_.get_time_specialized());
-  //    }
-  //    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
-  //      std::string str = "iso_computation.csv";
-  //      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
-  //    }
+  if (rank == 0) {
+    if (!this->pst_.get_enable_save_specialized_at_iter()) {
+      this->pst_.save_specialized(this->oper_.get_time_specialized());
+    }
+    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
+      std::string str = "iso_computation.csv";
+      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
+    }
 
-  //   SlothInfo::verbose(" ");
-  //   SlothInfo::verbose(" ============================== ");
-  //   SlothInfo::verbose(" Results are saved in the folder : ",
-  //                      this->pst_.get_post_processing_directory());
-  // }
+    SlothInfo::verbose(" ");
+    SlothInfo::verbose(" ============================== ");
+    SlothInfo::verbose(" Results are saved in the folder : ",
+                       this->pst_.get_post_processing_directory());
+  }
 }
 
 /**
@@ -222,21 +221,29 @@ template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time,
                                              const double& current_time_step) {
   ////
-  auto vv = this->variables_.getIVariable(0);
-  auto unk = vv.get_unknown();
-  auto solution = vv.get_analytical_solution();
+  const auto nvars = this->variables_.get_variables_number();
+  std::vector<mfem::Vector> u_vect;
   // Errors
-  if (solution != nullptr) {
-    auto solution_func = solution.get();
-    this->oper_.ComputeError(iter, current_time, current_time_step, unk, *solution_func);
-  }
-  // Isovalues
-  const double iso_value = this->pst_.get_iso_val_to_compute();
-  if (iso_value != mfem::infinity()) {
-    this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk, iso_value);
+  for (auto iv = 0; iv < nvars; iv++) {
+    auto vv = this->variables_.getIVariable(iv);
+    auto solution = vv.get_analytical_solution();
+    auto unk = vv.get_unknown();
+
+    if (solution != nullptr) {
+      auto unk_name = vv.getVariableName();
+      auto solution_func = solution.get();
+      this->oper_.ComputeError(iter, current_time, current_time_step, unk_name, unk,
+                               *solution_func);
+    }
+    u_vect.emplace_back(std::move(unk));
   }
   // Energies
-  this->oper_.ComputeEnergies(iter, current_time, current_time_step, unk);
+  this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
+  // // Isovalues
+  // const double iso_value = this->pst_.get_iso_val_to_compute();
+  // if (iso_value != mfem::infinity()) {
+  //   this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk, iso_value);
+  // }
   ////
 
   // Save for visualization

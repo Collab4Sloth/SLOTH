@@ -50,7 +50,7 @@
  *
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
+class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
                                public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver *ode_solver_;
@@ -93,18 +93,17 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
                          TimeScheme::value ode);
 
   PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                         TimeScheme::value ode, AnalyticalFunctions<DIM> source_term_name);
+                         TimeScheme::value ode,
+                         std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                          const Parameters &params, TimeScheme::value ode);
 
   PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                          const Parameters &params, TimeScheme::value ode,
-                         AnalyticalFunctions<DIM> source_term_name);
+                         std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult(const mfem::Vector &u, mfem::Vector &du_dt) const override;
-  /** Solve the Backward-Euler equation: k = f(u + dt*k, t), for the unknown k.
-      This is the only requirement for high-order SDIRK implicit integration.*/
   void ImplicitSolve(const double dt, const mfem::Vector &u, mfem::Vector &k) override;
 
   virtual ~PhaseFieldOperatorBase();
@@ -135,7 +134,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
 
   void get_parameters() override = 0;
   void ComputeEnergies(const int &it, const double &t, const double &dt,
-                       const mfem::Vector &u) override = 0;
+                       const std::vector<mfem::Vector> &u) override = 0;
 };
 
 ////////////////////////////////////////////////////////
@@ -153,11 +152,10 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI>,
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode)
-    : OperatorBase<T, DIM, NLFI>(spatials),
+    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
-      LHS(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL),
       lhs_nlfi_ptr_(nullptr) {
@@ -180,8 +178,8 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode,
-    AnalyticalFunctions<DIM> source_term_name)
-    : OperatorBase<T, DIM, NLFI>(spatials, source_term_name),
+    std::vector<AnalyticalFunctions<DIM>> source_term_name)
+    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
@@ -207,7 +205,7 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode)
-    : OperatorBase<T, DIM, NLFI>(spatials, params),
+    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
@@ -234,8 +232,8 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
-    TimeScheme::value ode, AnalyticalFunctions<DIM> source_term_name)
-    : OperatorBase<T, DIM, NLFI>(spatials, params, source_term_name),
+    TimeScheme::value ode, std::vector<AnalyticalFunctions<DIM>> source_term_name)
+    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
@@ -299,7 +297,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
 
   this->SetTime(initial_time);
 
-  OperatorBase<T, DIM, NLFI>::initialize(initial_time, vars, auxvars);
+  OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(initial_time, vars, auxvars);
 
   this->ode_solver_->Init(*this);
 }
@@ -412,14 +410,12 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
   // PhaseField non linear form : LHS
   ////////////////////////////////////////////
 
-  // auto u = u_vect[0];
-
   if (LHS != nullptr) {
     delete LHS;
   }
   LHS = new mfem::ParBlockNonlinearForm(this->fes_);
 
-  this->lhs_nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
+  this->lhs_nlfi_ptr_ = set_lhs_nlfi_ptr(dt, u_vect);
 
   // TimeNLFormIntegrator<Variables<T, DIM>> *time_nlfi_ptr =
   //     new TimeNLFormIntegrator<Variables<T, DIM>>(u_gf_vect, all_params, this->auxvariables_);
@@ -565,7 +561,16 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
   this->N->Mult(v, this->z);
 
   // Source term
-  mfem::Vector source_term;
+  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
+  const int fes_size = offsets.Size() - 1;
+  mfem::BlockVector source_term(offsets);
+  source_term = 0.0;
+  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
+  if (!this->src_func_.empty()) {
+    this->get_source_term(source_term, RHS);
+    this->z -= source_term;
+  }
+
   // TODO(cci) to adapt
   // mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
   //  if (!(this->src_func_ == nullptr)) {
@@ -583,7 +588,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
         }
       },
       this->M_solver_);
-  // delete RHS;
+  delete RHS;
 }
 
 /**
@@ -616,12 +621,17 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
   // Source term
   std::cout << " coucou----0 " << sc << " -- u size " << u.Size() << " dv size " << dv_dt.Size()
             << std::endl;
-  mfem::Vector source_term;
-  // TODO(cci) to adpat
-  // mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
-  //  if (!(this->src_func_ == nullptr)) {
-  //    this->get_source_term(source_term, RHS);
-  //  }
+  // mfem::Vector source_term;
+  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
+  const int fes_size = offsets.Size() - 1;
+  mfem::BlockVector source_term(offsets);
+  source_term = 0.0;
+  mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fespace_);
+  if (!this->src_func_.empty()) {
+    std::cout << " coucou-- je devrais pas passer" << std::endl;
+
+    // this->get_source_term(source_term, RHS);
+  }
   std::cout << " coucou----1" << std::endl;
 
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : before Newton Mult");
@@ -629,7 +639,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
   std::cout << " coucou----2" << std::endl;
   std::cout << " coucou----222" << std::endl;
   delete this->rhs_solver_;
-  // delete RHS;
+  delete RHS;
   std::cout << " coucou----3" << std::endl;
 
   // UtilsForDebug::memory_checkpoint("PhaseFieldOperatorBase::ImplicitSolve : after Newton

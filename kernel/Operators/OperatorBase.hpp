@@ -44,7 +44,7 @@
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
+template <class T, int DIM, class NLFI, class LHS_NLFI>
 class OperatorBase : public mfem::Operator {
  private:
   T *fecollection_;
@@ -80,7 +80,7 @@ class OperatorBase : public mfem::Operator {
   /// Boundary conditions
   std::vector<BoundaryConditions<T, DIM> *> bcs_;
 
-  std::function<double(const mfem::Vector &, double)> src_func_;
+  std::vector<std::function<double(const mfem::Vector &, double)>> src_func_;
 
   double current_dt_;
   double current_time_;
@@ -97,17 +97,18 @@ class OperatorBase : public mfem::Operator {
   explicit OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials);
 
   OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-               AnalyticalFunctions<DIM> source_term_name);
+               const std::vector<AnalyticalFunctions<DIM>> &source_term_name);
   OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params);
 
   OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
-               AnalyticalFunctions<DIM> source_term_name);
+               const std::vector<AnalyticalFunctions<DIM>> &source_term_name);
 
-  void ComputeError(const int &it, const double &t, const double &dt, const mfem::Vector &u,
+  void ComputeError(const int &it, const double &t, const double &dt, const std::string &name,
+                    const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
   void ComputeIsoVal(const int &it, const double &t, const double &dt, const mfem::Vector &u,
                      const double &iso_value);
-  void get_source_term(mfem::Vector &source_term, mfem::ParLinearForm *RHHS) const;
+  void get_source_term(mfem::BlockVector &source_term, mfem::ParLinearForm *RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
   const std::multimap<IterationKey, SpecializedValue> get_time_iso_specialized() const;
@@ -140,7 +141,7 @@ class OperatorBase : public mfem::Operator {
   virtual NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) = 0;
   virtual void get_parameters() = 0;
   virtual void ComputeEnergies(const int &it, const double &dt, const double &t,
-                               const mfem::Vector &u) = 0;
+                               const std::vector<mfem::Vector> &u) = 0;
 };
 
 ////////////////////////////////////////////////////////
@@ -155,8 +156,8 @@ class OperatorBase : public mfem::Operator {
  * @param spatials
  * @return int
  */
-template <class T, int DIM, class NLFI>
-int OperatorBase<T, DIM, NLFI>::compute_total_size(
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+int OperatorBase<T, DIM, NLFI, LHS_NLFI>::compute_total_size(
     const std::vector<SpatialDiscretization<T, DIM> *> &spatials) {
   int total_size = 0;
   for (const auto *s : spatials) {
@@ -173,8 +174,9 @@ int OperatorBase<T, DIM, NLFI>::compute_total_size(
  * @tparam NLFI
  * @param spatial
  */
-template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials)
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
+    std::vector<SpatialDiscretization<T, DIM> *> spatials)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
       N(NULL),
@@ -209,9 +211,10 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
  * @param spatial
  * @param source_term_name
  */
-template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                                         AnalyticalFunctions<DIM> source_term_name)
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
+    std::vector<SpatialDiscretization<T, DIM> *> spatials,
+    const std::vector<AnalyticalFunctions<DIM>> &source_term_name)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(default_params_),
       N(NULL),
@@ -234,7 +237,9 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
   }
   this->block_trueOffsets_.PartialSum();
   this->fespace_ = this->fes_[0];
-  this->src_func_ = source_term_name.getFunction();
+  for (const auto &src : source_term_name) {
+    this->src_func_.emplace_back(std::move(src.getFunction()));
+  }
   this->set_default_solver();
 }
 
@@ -247,9 +252,9 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
  * @param spatial
  * @param params
  */
-template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                                         const Parameters &params)
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
+    std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
       N(NULL),
@@ -287,10 +292,10 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
  * @param auxvars
  * @param source_term_name
  */
-template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                                         const Parameters &params,
-                                         AnalyticalFunctions<DIM> source_term_name)
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
+    std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
+    const std::vector<AnalyticalFunctions<DIM>> &source_term_name)
     : mfem::Operator(this->compute_total_size(spatials)),
       params_(params),
       N(NULL),
@@ -313,7 +318,10 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
   }
   this->block_trueOffsets_.PartialSum();
   this->fespace_ = this->fes_[0];
-  this->src_func_ = source_term_name.getFunction();
+  for (const auto &src : source_term_name) {
+    auto s = src.getFunction();
+    this->src_func_.emplace_back(s);
+  }
   this->set_default_solver();
 }
 
@@ -326,9 +334,10 @@ OperatorBase<T, DIM, NLFI>::OperatorBase(std::vector<SpatialDiscretization<T, DI
  * @param initial_time
  * @param vars
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variables<T, DIM> &vars,
-                                            std::vector<Variables<T, DIM> *> auxvars) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(const double &initial_time,
+                                                      Variables<T, DIM> &vars,
+                                                      std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("OperatorBase::initialize");
 
   this->auxvariables_ = auxvars;
@@ -362,27 +371,18 @@ void OperatorBase<T, DIM, NLFI>::initialize(const double &initial_time, Variable
  * @param dt
  * @param u
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt,
-                                                      const std::vector<mfem::Vector> &u_vect) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::build_nonlinear_form(
+    const double dt, const std::vector<mfem::Vector> &u_vect) {
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
-
-  // TODO(cci) change methods
-
-  // auto u = u_vect[0];
 
   if (N != nullptr) {
     delete N;
   }
   N = new mfem::ParBlockNonlinearForm(this->fes_);
-  // mfem::ParGridFunction un_gf(this->fespace_);
-  // un_gf.SetFromTrueDofs(u);
-  // mfem::ParGridFunction un(this->fespace_);
-  // un.SetFromTrueDofs(u);
 
-  // TODO(cci) : pass a vector of GF.
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
 
   N->AddDomainIntegrator(this->nlfi_ptr_);
@@ -398,8 +398,8 @@ void OperatorBase<T, DIM, NLFI>::build_nonlinear_form(const double dt,
  * @tparam NLFI
  * @param oper
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::SetNewtonAlgorithm(mfem::Operator *oper) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::SetNewtonAlgorithm(mfem::Operator *oper) {
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
@@ -421,10 +421,10 @@ void OperatorBase<T, DIM, NLFI>::SetNewtonAlgorithm(mfem::Operator *oper) {
  * @param u unknown vector
  * @return const double
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::ComputeError(
-    const int &it, const double &t, const double &dt, const mfem::Vector &u,
-    std::function<double(const mfem::Vector &, double)> solution_func) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
+    const int &it, const double &t, const double &dt, const std::string &name,
+    const mfem::Vector &u, std::function<double(const mfem::Vector &, double)> solution_func) {
   Catch_Time_Section("OperatorBase::ComputeError");
 
   mfem::ParGridFunction gf(this->fespace_);
@@ -441,11 +441,12 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
   const auto normalized_error = errorL2 / norm_solution;
 
   this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                  SpecializedValue("L2-error[-]", errorL2));
+                                  SpecializedValue(name + "_L2-error[-]", errorL2));
+  this->time_specialized_.emplace(
+      IterationKey(it, dt, t),
+      SpecializedValue(name + "_L2-error normalized[-]", normalized_error));
   this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                  SpecializedValue("L2-error normalized[-]", normalized_error));
-  this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                  SpecializedValue("Linf-error [-]", errorLinf));
+                                  SpecializedValue(name + "_Linf-error [-]", errorLinf));
 }
 
 /**
@@ -456,9 +457,10 @@ void OperatorBase<T, DIM, NLFI>::ComputeError(
  * @param u unknown vector
  * @param iso_value value of the solution
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, const double &dt,
-                                               const mfem::Vector &u, const double &iso_value) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIsoVal(const int &it, const double &t,
+                                                         const double &dt, const mfem::Vector &u,
+                                                         const double &iso_value) {
   Catch_Time_Section("OperatorBase::ComputeIsoVal");
   std::vector<std::string> vstr = {"x", "y", "z"};
 
@@ -528,20 +530,30 @@ void OperatorBase<T, DIM, NLFI>::ComputeIsoVal(const int &it, const double &t, c
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_term,
-                                                 mfem::ParLinearForm *RHSS) const {
-  mfem::FunctionCoefficient src(this->src_func_);
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(mfem::BlockVector &source_term,
+                                                           mfem::ParLinearForm *RHSS) const {
+  std::vector<mfem::FunctionCoefficient> src;
+  for (const auto &src_func : this->src_func_) {
+    src.emplace_back(src_func);
+  }
 
-  src.SetTime(this->current_time_);
-  RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
-  RHSS->Assemble();
+  const mfem::Array<int> offsets = this->N->GetBlockOffsets();
+  const int fes_size = offsets.Size() - 1;
 
-  // BCs
-  source_term.SetSize(this->fespace_->GetTrueVSize());
-  RHSS->ParallelAssemble(source_term);
+  for (int i = 0; i < fes_size; ++i) {
+    mfem::Vector &src_i = source_term.GetBlock(i);
 
-  source_term.SetSubVector(this->ess_tdof_list_[0], 0.);
+    src[i].SetTime(this->current_time_);
+    RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src[i]));
+    RHSS->Assemble();
+
+    // BCs
+    src_i.SetSize(this->fes_[i]->GetTrueVSize());
+    RHSS->ParallelAssemble(src_i);
+
+    src_i.SetSubVector(this->ess_tdof_list_[i], 0.);
+  }
 }
 
 /**
@@ -553,9 +565,9 @@ void OperatorBase<T, DIM, NLFI>::get_source_term(mfem::Vector &source_term,
  * @tparam NLFI
  * @return const std::map<std::tuple<int, double, double>, double>
  */
-template <class T, int DIM, class NLFI>
+template <class T, int DIM, class NLFI, class LHS_NLFI>
 const std::multimap<IterationKey, SpecializedValue>
-OperatorBase<T, DIM, NLFI>::get_time_iso_specialized() const {
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_time_iso_specialized() const {
   return this->time_iso_specialized_;
 }
 
@@ -568,9 +580,9 @@ OperatorBase<T, DIM, NLFI>::get_time_iso_specialized() const {
  * @tparam NLFI
  * @return const std::map<std::tuple<int, double, double>, double>
  */
-template <class T, int DIM, class NLFI>
+template <class T, int DIM, class NLFI, class LHS_NLFI>
 const std::multimap<IterationKey, SpecializedValue>
-OperatorBase<T, DIM, NLFI>::get_time_specialized() const {
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_time_specialized() const {
   return this->time_specialized_;
 }
 
@@ -581,8 +593,8 @@ OperatorBase<T, DIM, NLFI>::get_time_specialized() const {
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::set_default_solver() {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_solver() {
   auto nl_params =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", false));
   auto s_params = Parameters(Parameter("description", "HypreGMRES Solver"));
@@ -604,8 +616,8 @@ void OperatorBase<T, DIM, NLFI>::set_default_solver() {
  * @tparam NLFI
  * @param NLSOLVER
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_nl_solver(NLSolverType NLSOLVER) {
   this->nl_solver_ = NLSOLVER;
 }
 
@@ -618,9 +630,9 @@ void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER) {
  * @param NLSOLVER
  * @param nl_params
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER,
-                                                    const Parameters &nl_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_nl_solver(NLSolverType NLSOLVER,
+                                                              const Parameters &nl_params) {
   this->nl_solver_ = NLSOLVER;
 
   this->nl_solver_params_ = nl_params;
@@ -635,8 +647,8 @@ void OperatorBase<T, DIM, NLFI>::overload_nl_solver(NLSolverType NLSOLVER,
  * @param SOLVER
  * @param s_params
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_solver(VSolverType SOLVER) {
   this->solver_ = SOLVER;
 }
 
@@ -649,8 +661,9 @@ void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER) {
  * @param SOLVER
  * @param s_params
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER, const Parameters &s_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_solver(VSolverType SOLVER,
+                                                           const Parameters &s_params) {
   this->solver_ = SOLVER;
   this->solver_params_ = s_params;
 }
@@ -663,8 +676,8 @@ void OperatorBase<T, DIM, NLFI>::overload_solver(VSolverType SOLVER, const Param
  * @tparam NLFI
  * @param PRECOND
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_preconditioner(VSolverType PRECOND) {
   this->precond_ = PRECOND;
 }
 
@@ -677,9 +690,9 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND) {
  * @param PRECOND
  * @param p_params
  */
-template <class T, int DIM, class NLFI>
-void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
-                                                         const Parameters &p_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_preconditioner(VSolverType PRECOND,
+                                                                   const Parameters &p_params) {
   this->precond_ = PRECOND;
 
   this->precond_params_ = p_params;
@@ -692,8 +705,8 @@ void OperatorBase<T, DIM, NLFI>::overload_preconditioner(VSolverType PRECOND,
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-OperatorBase<T, DIM, NLFI>::~OperatorBase() {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+OperatorBase<T, DIM, NLFI, LHS_NLFI>::~OperatorBase() {
   if (this->nlfi_ptr_ != nullptr) {
     delete this->nlfi_ptr_;
   }

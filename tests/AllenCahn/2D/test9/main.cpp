@@ -46,7 +46,8 @@ int main(int argc, char* argv[]) {
   /////////////////////////
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################

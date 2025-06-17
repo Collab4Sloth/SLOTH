@@ -34,7 +34,7 @@ template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 class DiffusionNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                   public SlothNLFormIntegrator<VARS> {
  private:
-  mfem::ParGridFunction u_old_;
+  std::vector<mfem::ParGridFunction> u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   std::vector<mfem::Vector> aux_old_gf_;
   std::vector<std::vector<std::string>> aux_infos_;
@@ -49,8 +49,8 @@ class DiffusionNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                          const double u, const Parameters& parameters);
 
  public:
-  DiffusionNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                            std::vector<VARS*> auxvars);
+  DiffusionNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                            const Parameters& params, std::vector<VARS*> auxvars);
   ~DiffusionNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
@@ -64,7 +64,7 @@ class DiffusionNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                    const mfem::Array2D<mfem::DenseMatrix*>& elmat);
 
   std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
-      mfem::ParGridFunction* gfu, const double diffu);
+      std::vector<mfem::ParGridFunction*> gfu, const double diffu);
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -92,7 +92,7 @@ double DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::diffusion(
     DiffusionCoefficient<0, DIFFU_NAME> diff_coeff(u, parameters);
     return diff_coeff.Eval(Tr, ip);
   } else {
-    DiffusionCoefficient<0, DIFFU_NAME> diff_coeff(&this->u_old_, parameters);
+    DiffusionCoefficient<0, DIFFU_NAME> diff_coeff(&this->u_old_[0], parameters);
     return diff_coeff.Eval(Tr, ip);
   }
 }
@@ -135,7 +135,8 @@ double DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::diffusion_prime(
  */
 template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->aux_gf_ = this->get_aux_gf();
   this->aux_old_gf_ = this->get_aux_old_gf();
@@ -239,9 +240,10 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
 
 template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_energy(mfem::ParGridFunction* gfu,
-                                                                const double diffu) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu, diffu);
+DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_energy(
+    std::vector<mfem::ParGridFunction*> gfu, const double diffu) {
+  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu[0],
+                                                                                       diffu);
 }
 
 /**

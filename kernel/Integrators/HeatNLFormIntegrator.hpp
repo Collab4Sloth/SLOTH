@@ -34,7 +34,7 @@ template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 class HeatNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                              public SlothNLFormIntegrator<VARS> {
  private:
-  mfem::ParGridFunction u_old_;
+  std::vector<mfem::ParGridFunction> u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
   std::vector<mfem::Vector> aux_old_gf_;
   std::vector<std::vector<std::string>> aux_infos_;
@@ -60,7 +60,7 @@ class HeatNLFormIntegrator : public mfem::NonlinearFormIntegrator,
                                    const mfem::Vector& elfun, mfem::DenseMatrix& elmat);
 
   std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
-      mfem::ParGridFunction* gfu, const double diffu);
+      std::vector<mfem::ParGridFunction*> gfu, const double diffu);
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ double HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::conductivity(mfem::Element
     ConductivityCoefficient<0, COND_NAME> coeff(u, parameters);
     return coeff.Eval(Tr, ip);
   } else {
-    ConductivityCoefficient<0, COND_NAME> coeff(&this->u_old_, parameters);
+    ConductivityCoefficient<0, COND_NAME> coeff(&this->u_old_[0], parameters);
     return coeff.Eval(Tr, ip);
   }
 }
@@ -226,9 +226,10 @@ void HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::AssembleElementGrad(
 
 template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::get_energy(mfem::ParGridFunction* gfu,
+HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::get_energy(std::vector<mfem::ParGridFunction*> gfu,
                                                           const double diffu) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu, diffu);
+  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu[0],
+                                                                                       diffu);
 }
 
 /**

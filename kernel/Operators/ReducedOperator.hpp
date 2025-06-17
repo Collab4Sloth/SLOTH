@@ -9,6 +9,7 @@
  *
  */
 #include <memory>
+#include <vector>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
@@ -88,8 +89,17 @@ void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) con
   N_->Mult(z, y);
   // M_->TrueAddMult(k, y);
   LHS_->AddMult(k, y);
-  // TODO(cci) adapt
-  // y.SetSubVector(ess_tdof_list, 0.0);
+
+  // TODO(cci) simplify BCs
+  const mfem::Array<int> offsets = this->N_->GetBlockOffsets();
+  const int fes_size = offsets.Size() - 1;
+  auto sc_1 = 0;
+  auto sc_2 = this->N_->Height() / fes_size;
+  for (int i = 0; i < fes_size; ++i) {
+    mfem::Vector y_i(y.GetData() + sc_1, sc_2);
+    y_i.SetSubVector(ess_tdof_list[i], 0.0);
+    sc_1 += sc_2;
+  }
 }
 
 /**
@@ -132,15 +142,20 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
 
         //
         // TODO for ch
-        if (i == 1) {
-          mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
-          block->Add(dt_, *N_sparse_block);
-          tmp_blocks(i, j) = block;
-          blocks_to_delete.push_back(block);
-        } else {
-          mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*N_sparse_block);
-          tmp_blocks(i, j) = block;
-        }
+        // if (i == 1) {
+        mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
+        block->Add(dt_, *N_sparse_block);
+
+        // TODO(CCI) check_CI
+        block->EliminateRowsCols(ess_tdof_list[i]);
+        // CCI
+
+        tmp_blocks(i, j) = block;
+        blocks_to_delete.push_back(block);
+        // } else {
+        //   mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*N_sparse_block);
+        //   tmp_blocks(i, j) = block;
+        // }
 
       } else {
         MFEM_ABORT("Failed to cast operator blocks to mfem::HypreParMatrix");
