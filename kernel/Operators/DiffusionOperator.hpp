@@ -297,7 +297,7 @@ void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::get_mass_coefficient(const
   if (this->mass_gf_ != nullptr) {
     delete this->mass_gf_;
   }
-  this->mass_gf_ = new mfem::ParGridFunction(this->fespace_);
+  this->mass_gf_ = new mfem::ParGridFunction(this->fes_[0]);
   this->mass_gf_->SetFromTrueDofs(u);
   auto density_coefficient = new DensityCoefficient<0, DENS>(this->mass_gf_, this->density_params_);
   auto one = new mfem::ConstantCoefficient(1.0);

@@ -64,10 +64,10 @@ class OperatorBase : public mfem::Operator {
   const Parameters default_params_ = Parameters(default_p_);
   const Parameters &params_;
   /// Time integral results
-  std::multimap<IterationKey, SpecializedValue> time_specialized_, time_iso_specialized_;
+  std::multimap<IterationKey, SpecializedValue> time_specialized_;
+  std::map<std::string, std::multimap<IterationKey, SpecializedValue>> time_iso_specialized_;
   /// Finite Element Space and BCs
   mfem::Array<mfem::ParFiniteElementSpace *> fes_;
-  mfem::ParFiniteElementSpace *fespace_;
   std::vector<mfem::Array<int>> ess_tdof_list_;
   mfem::Array<int> block_trueOffsets_;
 
@@ -103,17 +103,18 @@ class OperatorBase : public mfem::Operator {
   OperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
                const std::vector<AnalyticalFunctions<DIM>> &source_term_name);
 
-  void ComputeError(const int &it, const double &t, const double &dt, const std::string &name,
-                    const mfem::Vector &u,
+  void ComputeError(const int &it, const double &t, const double &dt, const int id_var,
+                    const std::string &name, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
-  void ComputeIsoVal(const int &it, const double &t, const double &dt, const mfem::Vector &u,
-                     const double &iso_value);
+  void ComputeIsoVal(const int &it, const double &t, const double &dt, const int var_id,
+                     const std::string &var_name, const mfem::Vector &u, const double &iso_value);
   void get_source_term(const int id_block,
                        const std::function<double(const mfem::Vector &, double)> &src_func,
                        mfem::Vector &source_term, mfem::ParLinearForm *RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
-  const std::multimap<IterationKey, SpecializedValue> get_time_iso_specialized() const;
+  const std::map<std::string, std::multimap<IterationKey, SpecializedValue>>
+  get_time_iso_specialized() const;
 
   virtual ~OperatorBase();
 
@@ -200,7 +201,6 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     i++;
   }
   this->block_trueOffsets_.PartialSum();
-  this->fespace_ = this->fes_[0];
   this->set_default_solver();
 }
 
@@ -238,7 +238,6 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     i++;
   }
   this->block_trueOffsets_.PartialSum();
-  this->fespace_ = this->fes_[0];
   for (const auto &src : source_term_name) {
     this->src_func_.emplace_back(std::move(src.getFunction()));
   }
@@ -278,7 +277,6 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     i++;
   }
   this->block_trueOffsets_.PartialSum();
-  this->fespace_ = this->fes_[0];
   this->set_default_solver();
 }
 
@@ -319,7 +317,6 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::OperatorBase(
     i++;
   }
   this->block_trueOffsets_.PartialSum();
-  this->fespace_ = this->fes_[0];
   for (const auto &src : source_term_name) {
     auto s = src.getFunction();
     this->src_func_.emplace_back(s);
@@ -420,12 +417,12 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::SetNewtonAlgorithm(mfem::Operator *op
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
-    const int &it, const double &t, const double &dt, const std::string &name,
+    const int &it, const double &t, const double &dt, const int id_var, const std::string &name,
     const mfem::Vector &u, std::function<double(const mfem::Vector &, double)> solution_func) {
   Catch_Time_Section("OperatorBase::ComputeError");
 
-  mfem::ParGridFunction gf(this->fespace_);
-  mfem::ParGridFunction zero(this->fespace_);
+  mfem::ParGridFunction gf(this->fes_[id_var]);
+  mfem::ParGridFunction zero(this->fes_[id_var]);
   zero = 0.0;
 
   gf.SetFromTrueDofs(u);
@@ -456,23 +453,26 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIsoVal(const int &it, const double &t,
-                                                         const double &dt, const mfem::Vector &u,
+                                                         const double &dt, const int var_id,
+                                                         const std::string &var_name,
+                                                         const mfem::Vector &u,
                                                          const double &iso_value) {
   Catch_Time_Section("OperatorBase::ComputeIsoVal");
   std::vector<std::string> vstr = {"x", "y", "z"};
+  std::multimap<IterationKey, SpecializedValue> variable_time_iso_specialized;
 
-  mfem::ParGridFunction gf(this->fespace_);
+  mfem::ParGridFunction gf(this->fes_[var_id]);
   gf.SetFromTrueDofs(u);
   std::vector<mfem::Vector> iso_points;
 
-  for (int i = 0; i < this->fespace_->GetNE(); i++) {
-    const mfem::FiniteElement *el = this->fespace_->GetFE(i);
+  for (int i = 0; i < this->fes_[var_id]->GetNE(); i++) {
+    const mfem::FiniteElement *el = this->fes_[var_id]->GetFE(i);
     size_t dim = el->GetDim();
     mfem::Array<int> dofs;
-    this->fespace_->GetElementDofs(i, dofs);
+    this->fes_[var_id]->GetElementDofs(i, dofs);
 
     mfem::DenseMatrix dof_coords;
-    mfem::ElementTransformation *Tr = this->fespace_->GetElementTransformation(i);
+    mfem::ElementTransformation *Tr = this->fes_[var_id]->GetElementTransformation(i);
     Tr->Transform(el->GetNodes(), dof_coords);
     std::vector<double> dof_val;
     dof_val.reserve(dofs.Size());
@@ -512,12 +512,13 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIsoVal(const int &it, const do
       }
       for (size_t i = 0; i < iso_points.size(); i++) {
         for (size_t d = 0; d < DIM; d++) {
-          this->time_iso_specialized_.emplace(IterationKey(it, dt, t),
-                                              SpecializedValue(vstr[d], iso_points[i](d)));
+          variable_time_iso_specialized.emplace(IterationKey(it, dt, t),
+                                                SpecializedValue(vstr[d], iso_points[i](d)));
         }
       }
     }
   }
+  this->time_iso_specialized_[var_name] = variable_time_iso_specialized;
 }
 
 /**
@@ -553,7 +554,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(
  * @return const std::map<std::tuple<int, double, double>, double>
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-const std::multimap<IterationKey, SpecializedValue>
+const std::map<std::string, std::multimap<IterationKey, SpecializedValue>>
 OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_time_iso_specialized() const {
   return this->time_iso_specialized_;
 }

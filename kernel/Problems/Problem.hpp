@@ -11,6 +11,7 @@
 
 #pragma once
 #include <list>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -194,9 +195,12 @@ void Problem<OPE, VAR, PST>::finalize() {
     if (!this->pst_.get_enable_save_specialized_at_iter()) {
       this->pst_.save_specialized(this->oper_.get_time_specialized());
     }
-    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
-      std::string str = "iso_computation.csv";
-      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
+    if (!this->pst_.get_iso_val_to_compute().empty()) {
+      for (const auto& [var_name, variable_time_iso_specialized] :
+           this->oper_.get_time_iso_specialized()) {
+        std::string str = var_name + "_iso_computation.csv";
+        this->pst_.save_iso_specialized(variable_time_iso_specialized, str);
+      }
     }
 
     SlothInfo::verbose(" ");
@@ -223,28 +227,29 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   ////
   const auto nvars = this->variables_.get_variables_number();
   std::vector<mfem::Vector> u_vect;
+  const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
   // Errors
   for (auto iv = 0; iv < nvars; iv++) {
     auto vv = this->variables_.getIVariable(iv);
     auto solution = vv.get_analytical_solution();
     auto unk = vv.get_unknown();
-
+    auto unk_name = vv.getVariableName();
+    // Isovalues
+    if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
+      const double iso_value = map_iso_value.at(unk_name);
+      this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
+                                iso_value);
+    }
+    // Errors
     if (solution != nullptr) {
-      auto unk_name = vv.getVariableName();
       auto solution_func = solution.get();
-      this->oper_.ComputeError(iter, current_time, current_time_step, unk_name, unk,
+      this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
                                *solution_func);
     }
     u_vect.emplace_back(std::move(unk));
   }
   // Energies
   this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
-  // // Isovalues
-  // const double iso_value = this->pst_.get_iso_val_to_compute();
-  // if (iso_value != mfem::infinity()) {
-  //   this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk, iso_value);
-  // }
-  ////
 
   // Save for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);

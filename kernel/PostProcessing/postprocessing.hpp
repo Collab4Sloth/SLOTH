@@ -35,7 +35,7 @@ class PostProcessing : public DC {
   int level_of_detail_;
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
-  double iso_val_to_compute;
+  std::map<std::string, double> iso_val_to_compute_;
 
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
@@ -60,7 +60,7 @@ class PostProcessing : public DC {
   int get_frequency();
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
-  double get_iso_val_to_compute();
+  std::map<std::string, double> get_iso_val_to_compute();
 
   ~PostProcessing();
 };
@@ -111,8 +111,10 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       "enable_save_specialized_at_iter", false);
   this->force_clean_output_dir_ =
       this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
-  this->iso_val_to_compute = this->params_.template get_param_value_or_default<double>(
-      "iso_val_to_compute", mfem::infinity());
+  if (this->params_.has_parameter("iso_val_to_compute")) {
+    this->iso_val_to_compute_ =
+        this->params_.template get_param_value<MapStringDouble>("iso_val_to_compute");
+  }
 }
 
 /**
@@ -150,11 +152,14 @@ int PostProcessing<T, DC, DIM>::get_frequency() {
 /**
  * @brief Get the isovalues to compute
  *
- * @return double
+ * @tparam T
+ * @tparam DC
+ * @tparam DIM
+ * @return std::map<std::string, double>
  */
 template <class T, class DC, int DIM>
-double PostProcessing<T, DC, DIM>::get_iso_val_to_compute() {
-  return this->iso_val_to_compute;
+std::map<std::string, double> PostProcessing<T, DC, DIM>::get_iso_val_to_compute() {
+  return this->iso_val_to_compute_;
 }
 
 /**

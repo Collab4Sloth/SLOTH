@@ -108,7 +108,8 @@ int main(int argc, char* argv[]) {
       });
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
-  auto vars = VARS(VAR(&spatial, bcs, "phi1", 2, initial_condition));
+  const std::string& var_name = "phi1";
+  auto vars = VARS(VAR(&spatial, bcs, var_name, 2, initial_condition));
   // ###########################################
   //      Post-processing                     //
   // ###########################################
@@ -121,11 +122,13 @@ int main(int argc, char* argv[]) {
   //     operators     //
   // ####################
   std::string calculation_path = "Problem1";
-  double iso = 0.5;
-  auto p_pst1 = Parameters(
-      Parameter("main_folder_path", main_folder_path),
-      Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-      Parameter("level_of_detail", level_of_detail), Parameter("iso_val_to_compute", iso));
+  const double iso_value = 0.5;
+  std::map<std::string, double> map_iso_values = {{var_name, iso_value}};
+  auto p_pst1 =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("level_of_detail", level_of_detail),
+                 Parameter("iso_val_to_compute", map_iso_values));
 
   // Problem 1:
   const auto crit_cvg_1 = 1.e-12;
