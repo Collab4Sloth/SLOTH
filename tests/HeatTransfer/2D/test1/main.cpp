@@ -44,9 +44,11 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   // Heat
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
   using NLFI2 =
       HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 = HeatOperator<FECollection, DIM, NLFI2, Density::Constant, HeatCapacity::Constant>;
+  using OPE2 =
+      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################
@@ -117,9 +119,10 @@ int main(int argc, char* argv[]) {
   PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
   // Heat:
-  auto source_term = AnalyticalFunctions<DIM>(src_func);
+  std::vector<AnalyticalFunctions<DIM> > src_term;
+  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
   std::vector<SPA*> spatials{&spatial};
-  OPE2 oper2(spatials, TimeScheme::EulerImplicit, source_term);
+  OPE2 oper2(spatials, TimeScheme::EulerImplicit, src_term);
   oper2.overload_density(Parameters(Parameter("rho", rho)));
   oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));

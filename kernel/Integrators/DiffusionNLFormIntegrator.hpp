@@ -168,7 +168,7 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
 
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-  // elvect = 0.0;
+
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
@@ -199,15 +199,14 @@ template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
 void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
-  // int nd = el.GetDof();
-  // int dim = el.GetDim();
+
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
 
   Psi.SetSize(nd);
   gradPsi.SetSize(nd, dim);
-  // elmat.SetSize(nd);
+
   mfem::Vector vec;
   vec.SetSize(nd);
 
@@ -217,7 +216,7 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
-  // elmat = 0.0;
+
   vec = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
