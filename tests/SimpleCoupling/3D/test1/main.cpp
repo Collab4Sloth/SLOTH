@@ -48,13 +48,16 @@ int main(int argc, char* argv[]) {
   using NLFI = AllenCahnTemperatureMeltingNLFormIntegrator<
       VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
       Mobility::Constant, ThermodynamicsPotentials::H>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
 
   // Heat
+  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
   using NLFI2 =
       HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 = HeatOperator<FECollection, DIM, NLFI2, Density::Constant, HeatCapacity::Constant>;
+  using OPE2 =
+      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI_2, Density::Constant, HeatCapacity::Constant>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################
@@ -207,8 +210,9 @@ int main(int argc, char* argv[]) {
   PB allencahn_pb("AllenCahn", oper, ac_vars, pst, convergence, heat_vars);
 
   // Heat:
-  auto source_term = AnalyticalFunctions<DIM>(src_func);
-  OPE2 oper2(spatials, TimeScheme::EulerImplicit, source_term);
+  std::vector<AnalyticalFunctions<DIM> > src_term;
+  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
+  OPE2 oper2(spatials, TimeScheme::EulerImplicit, src_term);
   oper2.overload_density(Parameters(Parameter("rho", rho)));
   oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));
