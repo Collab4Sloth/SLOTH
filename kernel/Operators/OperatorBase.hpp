@@ -106,6 +106,9 @@ class OperatorBase : public mfem::Operator {
   void ComputeError(const int &it, const double &t, const double &dt, const int id_var,
                     const std::string &name, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
+  void ComputeIntegral(const int &it, const double &t, const double &dt, const int id_var,
+                       const std::string &name, const mfem::Vector &u,
+                       const double integral_threshold);
   void ComputeIsoVal(const int &it, const double &t, const double &dt, const int var_id,
                      const std::string &var_name, const mfem::Vector &u, const double &iso_value);
   void get_source_term(const int id_block,
@@ -412,8 +415,17 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::SetNewtonAlgorithm(mfem::Operator *op
 /**
  * @brief Compute L2 error
  *
- * @param u unknown vector
- * @return const double
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @tparam LHS_NLFI
+ * @param it
+ * @param t
+ * @param dt
+ * @param id_var
+ * @param name
+ * @param u
+ * @param solution_func
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
@@ -441,6 +453,55 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
       SpecializedValue(name + "_L2-error normalized[-]", normalized_error));
   this->time_specialized_.emplace(IterationKey(it, dt, t),
                                   SpecializedValue(name + "_Linf-error [-]", errorLinf));
+}
+
+/**
+ * @brief Compute integrals of a variable over the domain
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @tparam LHS_NLFI
+ * @param it
+ * @param t
+ * @param dt
+ * @param id_var
+ * @param name
+ * @param u
+ * @param integral_threshold
+ */
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIntegral(const int &it, const double &t,
+                                                           const double &dt, const int id_var,
+                                                           const std::string &name,
+                                                           const mfem::Vector &u,
+                                                           const double integral_threshold) {
+  Catch_Time_Section("OperatorBase::ComputeIntegral");
+
+  mfem::ParGridFunction gf(this->fes_[id_var]);
+  mfem::ParGridFunction one(this->fes_[id_var]);
+  one = 1.0;
+  mfem::Vector u_cut;
+  u_cut = u;
+  for (int i = 0; i < u.Size(); i++) {
+    if (u(i) > integral_threshold) {
+      u_cut(i) = 0;
+    }
+    u_cut(i) = std::clamp(u(i), 0.0, 1.0);
+  }
+  gf.SetFromTrueDofs(u_cut);
+
+  mfem::ConstantCoefficient cc(0.);
+
+  const auto integral = gf.ComputeLpError(1.0, cc);
+  const auto domain_volume = one.ComputeLpError(1.0, cc);
+
+  const auto average = integral / domain_volume;
+
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue(name + "_integral[-]", integral));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue(name + "_average[-]", average));
 }
 
 /**

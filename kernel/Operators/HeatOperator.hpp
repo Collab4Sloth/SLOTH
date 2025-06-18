@@ -296,7 +296,7 @@ void HeatOperator<T, DIM, NLFI, LHS_NLFI, RHO, CP>::get_mass_coefficient(const m
   if (this->mass_gf_ != nullptr) {
     delete this->mass_gf_;
   }
-  this->mass_gf_ = new mfem::ParGridFunction(this->fespace_);
+  this->mass_gf_ = new mfem::ParGridFunction(this->fes_[0]);
   this->mass_gf_->SetFromTrueDofs(u);
   auto density_coefficient = new DensityCoefficient<0, RHO>(this->mass_gf_, this->density_params_);
   auto cp_coefficient =

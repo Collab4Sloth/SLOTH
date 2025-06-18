@@ -133,8 +133,10 @@ int main(int argc, char* argv[]) {
 
   auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
   auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
-  auto v1 = VAR(&spatial, bcs, "phi", 2, phi_initial_condition);
-  auto v2 = VAR(&spatial, bcs, "mu", 2, mu_initial_condition);
+  const std::string& var_name_1 = "phi";
+  const std::string& var_name_2 = "mu";
+  auto v1 = VAR(&spatial, bcs, var_name_1, 2, phi_initial_condition);
+  auto v2 = VAR(&spatial, bcs, var_name_2, 2, mu_initial_condition);
   auto vars = VARS(v1, v2);
 
   // ###########################################
@@ -147,10 +149,19 @@ int main(int argc, char* argv[]) {
   const int level_of_detail = 1;
   const int frequency = 50;
   std::string calculation_path = "CahnHilliard";
+  const double threshold = 10.;
+  std::map<std::string, double> map_threshold_integral = {{var_name_1, threshold}};
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
+                 Parameter("level_of_detail", level_of_detail)
+                
+                
+                
+                
+                
+                
+                );
   // ####################
   //     operators     //
   // ####################
@@ -182,7 +193,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 50.;
+  const double t_final = 5.e-3;
   const double dt = 1.e-3;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));

@@ -36,6 +36,7 @@ class PostProcessing : public DC {
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
   std::map<std::string, double> iso_val_to_compute_;
+  std::map<std::string, double> integral_to_compute_;
 
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
@@ -61,6 +62,7 @@ class PostProcessing : public DC {
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
   std::map<std::string, double> get_iso_val_to_compute();
+  std::map<std::string, double> get_integral_to_compute();
 
   ~PostProcessing();
 };
@@ -115,6 +117,10 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
     this->iso_val_to_compute_ =
         this->params_.template get_param_value<MapStringDouble>("iso_val_to_compute");
   }
+  if (this->params_.has_parameter("integral_to_compute")) {
+    this->integral_to_compute_ =
+        this->params_.template get_param_value<MapStringDouble>("integral_to_compute");
+  }
 }
 
 /**
@@ -160,6 +166,19 @@ int PostProcessing<T, DC, DIM>::get_frequency() {
 template <class T, class DC, int DIM>
 std::map<std::string, double> PostProcessing<T, DC, DIM>::get_iso_val_to_compute() {
   return this->iso_val_to_compute_;
+}
+
+/**
+ * @brief Get the integrals to compute over the domain
+ *
+ * @tparam T
+ * @tparam DC
+ * @tparam DIM
+ * @return std::map<std::string, double>
+ */
+template <class T, class DC, int DIM>
+std::map<std::string, double> PostProcessing<T, DC, DIM>::get_integral_to_compute() {
+  return this->integral_to_compute_;
 }
 
 /**

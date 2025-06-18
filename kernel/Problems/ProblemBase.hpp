@@ -251,10 +251,8 @@ std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execu
     auto& unk_info = vect_unk_info.emplace_back(var.get_additional_variable_info());
     unk_info.insert(unk_info.begin(), var.getVariableName());
   }
-  std::cout << " dtsp---0" << std::endl;
 
   this->do_time_step(next_time, current_time, current_time_step, iter, vect_unk, vect_unk_info);
-  std::cout << " dtsp---1" << std::endl;
 
   bool is_converged = true;
   auto criterion = 0.;
