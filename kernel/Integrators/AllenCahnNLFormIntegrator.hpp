@@ -422,7 +422,6 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
 std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>>
 AllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(
     std::vector<mfem::ParGridFunction*> gfu, const double omega) {
-  std::cout << "ddddddddddddddddddddd" << std::endl;
   return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu[0], omega);
 }
 

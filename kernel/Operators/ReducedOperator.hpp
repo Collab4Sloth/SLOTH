@@ -87,7 +87,6 @@ void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk
 void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
   add(*unk_, dt_, k, z);
   this->RHS_->Mult(z, y);
-  // M_->TrueAddMult(k, y);
   LHS_->AddMult(k, y);
 
   // TODO(cci) simplify BCs
@@ -133,22 +132,12 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
       mfem::HypreParMatrix *RHS_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(RHS_block);
 
       if (LHS_sparse_block && RHS_sparse_block) {
-        // mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
-        // std::cout << " coucou2" << std::endl;
-        // block->Add(dt_, *RHS_sparse_block);
-        // std::cout << " coucou3" << std::endl;
-        // // Jacobian->SetBlock(i, j, block);
-        // tmp_blocks(i, j) = block;
-
-        //
-        // TODO for ch
         // if (i == 1) {
         mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
         block->Add(dt_, *RHS_sparse_block);
 
-        // TODO(CCI) check_CI
+        // TODO(CCI) check if needed
         block->EliminateRowsCols(ess_tdof_list[i]);
-        // CCI
 
         tmp_blocks(i, j) = block;
         blocks_to_delete.push_back(block);
@@ -168,11 +157,6 @@ mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) co
     delete ptr;
   }
   blocks_to_delete.clear();
-  // std::unique_ptr<mfem::SparseMatrix> localJ(Add(1.0, M_->SpMat(), 0.0, M_->SpMat()));
-  // localJ->Add(dt_, RHS_->GetLocalGradient(z));
-  // Jacobian = M_->ParallelAssemble(localJ.get());
-  // TODO(cci) adapt
-  // std::unique_ptr<mfem::HypreParMatrix> Je(Jacobian->EliminateRowsCols(ess_tdof_list));
 
   return *Jacobian;
 }

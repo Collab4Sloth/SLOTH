@@ -105,7 +105,7 @@ mfem::Operator &SteadyPhaseFieldReducedOperator::GetGradient(const mfem::Vector 
 
       if (RHS_sparse_block) {
         mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*RHS_sparse_block);
-        // TODO(CCI) check_CI
+        // TODO(CCI) check if needed
         block->EliminateRowsCols(ess_tdof_list[i]);
         // CCI
         tmp_blocks(i, j) = block;

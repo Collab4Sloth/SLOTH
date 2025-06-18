@@ -409,20 +409,6 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::build_rhs_nonlinear_form(
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
 
   this->RHS->AddDomainIntegrator(this->nlfi_ptr_);
-
-  // // Apply BCs
-  // // TODO(cci) to optimize
-  // mfem::Array<mfem::Vector *> nullarray(this->fes_.Size());
-  // nullarray = NULL;
-  // mfem::Array<mfem::Array<int> *> array_ess_tdof(this->fes_.Size());
-  // for (int i = 0; i < this->fes_.Size(); i++) {
-  //   if (this->ess_tdof_list_[i].Size() == 0) {
-  //     array_ess_tdof[i] = nullptr;
-  //   } else {
-  //     array_ess_tdof[i] = &this->ess_tdof_list_[i];
-  //   }
-  // }
-  // this->RHS->SetEssentialBC(array_ess_tdof, nullarray);
 }
 
 /**

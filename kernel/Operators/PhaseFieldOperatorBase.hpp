@@ -416,23 +416,6 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
   this->lhs_nlfi_ptr_ = set_lhs_nlfi_ptr(dt, u_vect);
 
   LHS->AddDomainIntegrator(this->lhs_nlfi_ptr_);
-
-  // Apply BCs
-  // TODO(cci) to optimize
-  // mfem::Array<mfem::Vector *> nullarray(this->fes_.Size());
-  // nullarray = NULL;
-  // mfem::Array<mfem::Array<int> *> array_ess_tdof(this->fes_.Size());
-  // for (int i = 0; i < this->fes_.Size(); i++) {
-  //   if (this->ess_tdof_list_[i].Size() == 0) {
-  //     array_ess_tdof[i] = nullptr;
-  //   } else {
-  //     array_ess_tdof[i] = &this->ess_tdof_list_[i];
-  //   }
-  // }
-
-  // std::cout << "RRRR " << std::endl;
-  // this->LHS->SetEssentialBC(array_ess_tdof, nullarray);
-  // std::cout << "eeee " << std::endl;
 }
 
 /**
@@ -634,6 +617,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
   }
 
   this->SetTransientParameters(dt, v_vect);
+  // Apply BCs
   sc_1 = 0;
   sc_2 = sc / fes_size;
   for (int i = 0; i < fes_size; ++i) {

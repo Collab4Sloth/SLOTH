@@ -208,7 +208,12 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   }
 
   this->SetTransientParameters(dt, u_vect);
-  // steady_reduced_oper->SetParameters(dt, &v);
+
+  /// Apply BCs: check if need to be uncomment
+  // for (size_t i = 0; i < unk_size; i++) {
+  //   auto &unk_i = *(vect_unk[i]);
+  //   this->bcs_[i]->SetBoundaryConditions(unk_i);
+  // }
 
   // Source term
   // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
@@ -231,10 +236,7 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   for (size_t i = 0; i < unk_size; i++) {
     auto &unk_i = *(vect_unk[i]);
     const mfem::Vector &bb = block_unk.GetBlock(i);
-    std::cout << " i " << i << " sol " << unk_i(10) << "  apres " << bb(10) << std::endl;
     unk_i = bb;
-
-    // block_unk.MakeRef(unk_i, i, i*this->block_trueOffsets_[i + 1]);
   }
   next_time = current_time + static_cast<double>(iter) * dt;
 }
@@ -268,10 +270,15 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   Catch_Time_Section("SteadyPhaseFieldOperatorBase::SetTransientParameters");
+
   ////////////////////////////////////////////
-  // PhaseField non linear form
+  //  Build the RHS of the PDEs
   ////////////////////////////////////////////
   this->build_rhs_nonlinear_form(dt, u_vect);
+
+  ////////////////////////////////////////////
+  // Build Newton Linear system
+  ////////////////////////////////////////////
   if (steady_reduced_oper != nullptr) {
     delete steady_reduced_oper;
   }
@@ -300,59 +307,7 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &k,
                                                                 mfem::Vector &y) const {
   // Nothing to be done because of manage by steadyreducedoperator
-  // this->RHS->Mult(k, y);
-  // y.SetSubVector(this->ess_tdof_list_[0], 0.0);
 }
-
-// /**
-//  * @brief Compute Jacobian
-//  *
-//  * @tparam T
-//  * @tparam DIM
-//  * @tparam NLFI
-//  * @param k
-//  * @return mfem::Operator&
-//  */
-// template <class T, int DIM, class NLFI, class LHS_NLFI>
-// mfem::Operator &SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::GetGradient(
-//     const mfem::Vector &k) const {
-//   if (Jacobian != nullptr) {
-//     delete Jacobian;
-//   }
-//   std::cout << " SteadyPhaseFieldOperatorBase getgradient " << std::endl;
-//   mfem::Operator &N_grad = this->GetGradient(k);
-//   // Converts operators into BlockOperator
-//   mfem::BlockOperator *N_block_grad = dynamic_cast<mfem::BlockOperator *>(&N_grad);
-
-//   const auto fes_size = k.Size() / this->height_;
-//   std::cout << " fes_size " << fes_size << std::endl;
-//   mfem::Array2D<mfem::HypreParMatrix *> tmp_blocks(fes_size, fes_size);
-//   std::vector<mfem::HypreParMatrix *> blocks_to_delete;
-
-//   for (int i = 0; i < fes_size; ++i) {
-//     for (int j = 0; j < fes_size; ++j) {
-//       mfem::Operator *N_block = &(N_block_grad->GetBlock(i, j));
-
-//       mfem::HypreParMatrix *N_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(N_block);
-
-//       if (N_sparse_block) {
-//         mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*N_sparse_block);
-//         tmp_blocks(i, j) = block;
-//       } else {
-//         MFEM_ABORT("Failed to cast operator blocks to mfem::HypreParMatrix");
-//       }
-//     }
-//   }
-
-//   mfem::HypreParMatrix *JJ(mfem::HypreParMatrixFromBlocks(tmp_blocks));
-//   Jacobian = JJ;
-//   for (auto ptr : blocks_to_delete) {
-//     delete ptr;
-//   }
-//   blocks_to_delete.clear();
-
-//   return *Jacobian;
-// }
 
 /**
  * @brief Destroy the Steady Phase Field Operator Base< T,  DIM,  NLFI>:: Steady Phase Field

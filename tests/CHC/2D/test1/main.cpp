@@ -64,8 +64,8 @@ int main(int argc, char* argv[]) {
       "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
   const int order_fe = 1;             // finite element order
   const int refinement_level = 0;     // number of levels of uniform refinement
-  const int nx = 512;
-  const int ny = 512;
+  const int nx = 256;
+  const int ny = 256;
   const double lx = 2. * M_PI;
   const double ly = 2. * M_PI;
   const std::tuple<int, int, double, double>& tuple_of_dimensions =
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //  Interface thickness
-  const double epsilon(0.05);
+  const double epsilon(0.1);
   // Interfacial energy
   const double sigma(1.);
   // Two-phase mobility
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                 Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
+                 Parameter("rel_tol", 1.e-14), Parameter("abs_tol", 1.e-14)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   oper.overload_solver(solver);
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   const double t_initial = 0.0;
   const double t_final = 5.e-3;
-  const double dt = 1.e-3;
+  const double dt = 5.e-4;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
