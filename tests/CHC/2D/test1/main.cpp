@@ -64,8 +64,8 @@ int main(int argc, char* argv[]) {
       "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
   const int order_fe = 1;             // finite element order
   const int refinement_level = 0;     // number of levels of uniform refinement
-  const int nx = 256;
-  const int ny = 256;
+  const int nx = 512;
+  const int ny = 512;
   const double lx = 2. * M_PI;
   const double ly = 2. * M_PI;
   const std::tuple<int, int, double, double>& tuple_of_dimensions =
@@ -77,7 +77,10 @@ int main(int argc, char* argv[]) {
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
                      Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
-  auto bcs = BCS(&spatial, boundaries);
+  auto bcs_phi = BCS(&spatial, boundaries);
+  auto boundaries_mu = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
+                        Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+  auto bcs_mu = BCS(&spatial, boundaries_mu);
 
   // ###########################################
   // ###########################################
@@ -88,7 +91,7 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //  Interface thickness
-  const double epsilon(0.1);
+  const double epsilon(0.05);
   // Interfacial energy
   const double sigma(1.);
   // Two-phase mobility
@@ -135,8 +138,8 @@ int main(int argc, char* argv[]) {
   auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
   const std::string& var_name_1 = "phi";
   const std::string& var_name_2 = "mu";
-  auto v1 = VAR(&spatial, bcs, var_name_1, 2, phi_initial_condition);
-  auto v2 = VAR(&spatial, bcs, var_name_2, 2, mu_initial_condition);
+  auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, phi_initial_condition);
+  auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, mu_initial_condition);
   auto vars = VARS(v1, v2);
 
   // ###########################################
@@ -147,21 +150,15 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 50;
+  const int frequency = 1;
   std::string calculation_path = "CahnHilliard";
   const double threshold = 10.;
   std::map<std::string, double> map_threshold_integral = {{var_name_1, threshold}};
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail)
-                
-                
-                
-                
-                
-                
-                );
+                 Parameter("level_of_detail", level_of_detail),
+                 Parameter("integral_to_compute", map_threshold_integral));
   // ####################
   //     operators     //
   // ####################

@@ -153,7 +153,8 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials),
-      mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
+      mfem::TimeDependentOperator(this->compute_total_height(spatials),
+                                  this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
@@ -181,7 +182,8 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode,
     std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, source_term_name),
-      mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
+      mfem::TimeDependentOperator(this->compute_total_height(spatials),
+                                  this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       LHS(NULL),
@@ -207,7 +209,8 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params),
-      mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
+      mfem::TimeDependentOperator(this->compute_total_height(spatials),
+                                  this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       LHS(NULL),
@@ -235,7 +238,8 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode, std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params, source_term_name),
-      mfem::TimeDependentOperator(this->compute_total_size(spatials), 0.0),
+      mfem::TimeDependentOperator(this->compute_total_height(spatials),
+                                  this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       LHS(NULL),
@@ -406,14 +410,29 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
   if (LHS != nullptr) {
     delete LHS;
   }
+
   LHS = new mfem::ParBlockNonlinearForm(this->fes_);
 
   this->lhs_nlfi_ptr_ = set_lhs_nlfi_ptr(dt, u_vect);
 
   LHS->AddDomainIntegrator(this->lhs_nlfi_ptr_);
 
-  // TODO(cci) check BCs
-  // this->RHS->SetEssentialTrueDofs(this->ess_tdof_list_[0]);
+  // Apply BCs
+  // TODO(cci) to optimize
+  // mfem::Array<mfem::Vector *> nullarray(this->fes_.Size());
+  // nullarray = NULL;
+  // mfem::Array<mfem::Array<int> *> array_ess_tdof(this->fes_.Size());
+  // for (int i = 0; i < this->fes_.Size(); i++) {
+  //   if (this->ess_tdof_list_[i].Size() == 0) {
+  //     array_ess_tdof[i] = nullptr;
+  //   } else {
+  //     array_ess_tdof[i] = &this->ess_tdof_list_[i];
+  //   }
+  // }
+
+  // std::cout << "RRRR " << std::endl;
+  // this->LHS->SetEssentialBC(array_ess_tdof, nullarray);
+  // std::cout << "eeee " << std::endl;
 }
 
 /**
@@ -433,7 +452,9 @@ LHS_NLFI *PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
   std::vector<mfem::ParGridFunction> vun;
   for (int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
+
     un.SetFromTrueDofs(u[i]);
+
     vun.emplace_back(un);
   }
   const Parameters &all_params = this->params_ - this->default_p_;
@@ -600,19 +621,29 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
-
-  // this->bcs_[0]->SetBoundaryConditions(v);
+  const int fes_size = this->block_trueOffsets_.Size() - 1;
 
   std::vector<mfem::Vector> v_vect;
-  v_vect.emplace_back(v);
+
+  auto sc_1 = 0;
+  auto sc_2 = sc / fes_size;
+  for (int i = 0; i < fes_size; ++i) {
+    mfem::Vector v_i(u.GetData() + sc_1, sc_2);
+    sc_1 += sc_2;
+    v_vect.emplace_back(v_i);
+  }
 
   this->SetTransientParameters(dt, v_vect);
-
+  sc_1 = 0;
+  sc_2 = sc / fes_size;
+  for (int i = 0; i < fes_size; ++i) {
+    mfem::Vector v_i(u.GetData() + sc_1, sc_2);
+    this->bcs_[i]->SetBoundaryConditions(v_i);
+    sc_1 += sc_2;
+  }
   reduced_oper->SetParameters(dt, &v);
 
   // Source term
-  // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
-  const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
   if (!this->src_func_.empty()) {
