@@ -11,6 +11,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <random>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -59,23 +60,18 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  const std::string mesh_type =
-      "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
-  const int order_fe = 1;             // finite element order
-  const int refinement_level = 0;     // number of levels of uniform refinement
-  const int nx = 100;
-  const int ny = 100;
-  const double lx = 200;
-  const double ly = 200;
-  const std::tuple<int, int, double, double>& tuple_of_dimensions =
-      std::make_tuple(nx, ny, lx, ly);  // Number of elements and maximum length in each direction
+  const int order_fe = 1;          // finite element order
+  const int refinement_level = 0;  // number of levels of uniform refinement
 
-  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
+  SPA spatial("GMSH", order_fe, refinement_level, "slothLogo.msh", false);
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.),
+                     Boundary("upper", 4, "Neumann", 0.), Boundary("left", 5, "Neumann", 0.),
+                     Boundary("upper", 6, "Neumann", 0.), Boundary("upper", 7, "Neumann", 0.),
+                     Boundary("left", 8, "Neumann", 0.),  Boundary("left", 9, "Neumann", 0.)};
   auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################
@@ -103,15 +99,12 @@ int main(int argc, char* argv[]) {
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
         double co = 0.5;
         double epsilon = 0.01;
-        double xx = x[0];
-        double yy = x[1];
-
-        double sol =
-            co + epsilon * (std::cos(0.105 * xx) * std::cos(0.11 * yy) +
-                            (std::cos(0.13 * xx) * std::cos(0.087 * yy)) *
-                                (std::cos(0.13 * xx) * std::cos(0.087 * yy)) +
-                            (std::cos(0.025 * xx - 0.15 * yy) * std::cos(0.07 * xx - 0.02 * yy)));
-
+        std::random_device rd;
+        double a = -0.001;
+        double b = 0.001;           // Will be used to obtain a seed for the random number engine
+        std::mt19937_64 gen(rd());  // Standard mersenne_twister_engine seeded with rd()
+        std::uniform_real_distribution<> dis(a, b);
+        double sol = co + dis(gen);
         return sol;
       });
 
