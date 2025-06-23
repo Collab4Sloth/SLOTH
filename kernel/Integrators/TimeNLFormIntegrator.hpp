@@ -212,6 +212,20 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
+
+  // Off-diagonal
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+      if (off_blk != blk) {
+        int nd = el[blk]->GetDof();
+        int dim = el[blk]->GetDim();
+
+        // elmat.SetSize(nd);
+        elmats(blk, off_blk)->SetSize(nd);
+        *elmats(blk, off_blk) = 0.0;
+      }
+    }
+  }
 }
 
 /**

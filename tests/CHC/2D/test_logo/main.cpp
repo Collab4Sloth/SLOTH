@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Debug);
+  setVerbosity(Verbosity::Quiet);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   const int order_fe = 1;          // finite element order
-  const int refinement_level = 0;  // number of levels of uniform refinement
+  const int refinement_level = 1;  // number of levels of uniform refinement
 
   SPA spatial("GMSH", order_fe, refinement_level, "slothLogo.msh", false);
   // ##############################
@@ -99,12 +99,15 @@ int main(int argc, char* argv[]) {
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
         double co = 0.5;
         double epsilon = 0.01;
-        std::random_device rd;
-        double a = -0.001;
-        double b = 0.001;           // Will be used to obtain a seed for the random number engine
-        std::mt19937_64 gen(rd());  // Standard mersenne_twister_engine seeded with rd()
-        std::uniform_real_distribution<> dis(a, b);
-        double sol = co + dis(gen);
+        double xx = x[0];
+        double yy = x[1];
+
+        double sol =
+            co + epsilon * (std::cos(0.105 * xx) * std::cos(0.11 * yy) +
+                            (std::cos(0.13 * xx) * std::cos(0.087 * yy)) *
+                                (std::cos(0.13 * xx) * std::cos(0.087 * yy)) +
+                            (std::cos(0.025 * xx - 0.15 * yy) * std::cos(0.07 * xx - 0.02 * yy)));
+
         return sol;
       });
 
@@ -139,8 +142,8 @@ int main(int argc, char* argv[]) {
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
-                                     Parameter("print_level", 1), Parameter("rel_tol", 1.e-12),
-                                     Parameter("abs_tol", 1.e-12), Parameter("iter_max", 1000)));
+                                     Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),
+                                     Parameter("abs_tol", 1.e-13), Parameter("iter_max", 1000)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   oper.overload_solver(solver);
@@ -160,7 +163,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   const double t_initial = 0.0;
   const double t_final = 1.e4;
-  const double dt = 1.e-1;
+  const double dt = 1.;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);

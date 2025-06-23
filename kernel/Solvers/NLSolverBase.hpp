@@ -60,11 +60,18 @@ std::shared_ptr<mfem::NewtonSolver> NLSolverBase::create_solver(NLSolverType NLS
           params.get_param_value_or_default<double>("abs_tol", NewtonDefaultConstant::abs_tol);
 
       auto ss = std::make_shared<mfem::NewtonSolver>(MPI_COMM_WORLD);
+      // mfem::KINSolver* kinsolver = new mfem::KINSolver(MPI_COMM_WORLD, 1);
+      // kinsolver->SetJFNK(true);
+      // kinsolver->SetLSMaxter(100);
+      // ss = kinsolver;
+
       ss->SetPrintLevel(print_level);
       ss->iterative_mode = iterative_mode;
       ss->SetMaxIter(n_iter_max);
       ss->SetRelTol(n_rel_tol);
       ss->SetAbsTol(n_abs_tol);
+      // kinsolver->SetMaxSetupCalls(4);
+
       return ss;
     }
     default:

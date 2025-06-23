@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Debug);
+  setVerbosity(Verbosity::Quiet);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 10;
+  const int frequency = 100;
   std::string calculation_path = "CahnHilliard";
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
-                                     Parameter("print_level", 1), Parameter("rel_tol", 1.e-12),
+                                     Parameter("print_level", -1), Parameter("rel_tol", 1.e-12),
                                      Parameter("abs_tol", 1.e-12), Parameter("iter_max", 1000)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
@@ -166,8 +166,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 1.e4;
-  const double dt = 1.e-1;
+  const double t_final = 5.e4;
+  const double dt = 1.;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);

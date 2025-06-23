@@ -108,13 +108,11 @@ int main(int argc, char* argv[]) {
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
         const double xx = x[0];
         const double yy = x[1];
-        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);
-        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI);
         double sol = 0.;
-        if (r1 < 1 || r2 < 1) {
-          sol = 1.;
+        if (std::abs(xx - M_PI) <= 1 && std::abs(yy - M_PI) <= 1) {
+          sol = 1.0;
         } else {
-          sol = -1.;
+          sol = -1.0;
         }
         return sol;
       });
@@ -150,7 +148,7 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 10;
+  const int frequency = 1;
   std::string calculation_path = "CahnHilliard";
   const double threshold = 10.;
   std::map<std::string, double> map_threshold_integral = {{var_name_1, threshold}};
@@ -170,8 +168,8 @@ int main(int argc, char* argv[]) {
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
-                 Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+                 Parameter("rel_tol", 1.e-8), Parameter("abs_tol", 1.e-14)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   oper.overload_solver(solver);
@@ -190,8 +188,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 100.;
-  const double dt = 5.e-2;
+  const double t_final = 10.;
+  const double dt = 1.e-1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
