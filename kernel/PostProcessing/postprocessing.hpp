@@ -36,7 +36,7 @@ class PostProcessing : public DC {
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
   std::map<std::string, double> iso_val_to_compute_;
-  std::map<std::string, double> integral_to_compute_;
+  std::map<std::string, std::tuple<double, double>> integral_to_compute_;
 
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
@@ -62,7 +62,7 @@ class PostProcessing : public DC {
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
   std::map<std::string, double> get_iso_val_to_compute();
-  std::map<std::string, double> get_integral_to_compute();
+  std::map<std::string, std::tuple<double, double>> get_integral_to_compute();
 
   ~PostProcessing();
 };
@@ -119,7 +119,13 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
   }
   if (this->params_.has_parameter("integral_to_compute")) {
     this->integral_to_compute_ =
-        this->params_.template get_param_value<MapStringDouble>("integral_to_compute");
+        this->params_.template get_param_value<MapString2Double>("integral_to_compute");
+    for (const auto& [variable, bounds] : this->integral_to_compute_) {
+      const auto& [lower_bound, upper_bound] = bounds;
+      std::string error_msg =
+          "Error with variable " + variable + ": Lower bound must lower than Upper bound";
+      MFEM_VERIFY(upper_bound >= lower_bound, error_msg.c_str());
+    }
   }
 }
 
@@ -177,7 +183,8 @@ std::map<std::string, double> PostProcessing<T, DC, DIM>::get_iso_val_to_compute
  * @return std::map<std::string, double>
  */
 template <class T, class DC, int DIM>
-std::map<std::string, double> PostProcessing<T, DC, DIM>::get_integral_to_compute() {
+std::map<std::string, std::tuple<double, double>>
+PostProcessing<T, DC, DIM>::get_integral_to_compute() {
   return this->integral_to_compute_;
 }
 

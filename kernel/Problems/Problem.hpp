@@ -228,7 +228,8 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   const auto nvars = this->variables_.get_variables_number();
   std::vector<mfem::Vector> u_vect;
   const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
-  const std::map<std::string, double> map_integral = this->pst_.get_integral_to_compute();
+  const std::map<std::string, std::tuple<double, double>> map_integral =
+      this->pst_.get_integral_to_compute();
   // Errors
   for (auto iv = 0; iv < nvars; iv++) {
     auto vv = this->variables_.getIVariable(iv);
@@ -249,9 +250,9 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
     }
     // Integral
     if (!map_integral.empty() && map_integral.contains(unk_name)) {
-      const double integral_threshold = map_integral.at(unk_name);
+      const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
       this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
-                                  integral_threshold);
+                                  lower_bound, upper_bound);
     }
     u_vect.emplace_back(std::move(unk));
   }

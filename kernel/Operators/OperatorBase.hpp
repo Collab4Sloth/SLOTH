@@ -108,8 +108,8 @@ class OperatorBase : public mfem::Operator {
                     const std::string &name, const mfem::Vector &u,
                     std::function<double(const mfem::Vector &, double)> solution_func);
   void ComputeIntegral(const int &it, const double &t, const double &dt, const int id_var,
-                       const std::string &name, const mfem::Vector &u,
-                       const double integral_threshold);
+                       const std::string &name, const mfem::Vector &u, const double lower_bound,
+                       const double upper_bound);
   void ComputeIsoVal(const int &it, const double &t, const double &dt, const int var_id,
                      const std::string &var_name, const mfem::Vector &u, const double &iso_value);
   void get_source_term(const int id_block,
@@ -491,33 +491,62 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
  * @param integral_threshold
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIntegral(const int &it, const double &t,
-                                                           const double &dt, const int id_var,
-                                                           const std::string &name,
-                                                           const mfem::Vector &u,
-                                                           const double integral_threshold) {
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIntegral(
+    const int &it, const double &t, const double &dt, const int id_var, const std::string &name,
+    const mfem::Vector &u, const double lower_bound, const double upper_bound) {
   Catch_Time_Section("OperatorBase::ComputeIntegral");
 
   mfem::ParGridFunction gf(this->fes_[id_var]);
-  mfem::ParGridFunction one(this->fes_[id_var]);
-  one = 1.0;
-  mfem::Vector u_cut;
-  u_cut = u;
-  for (int i = 0; i < u.Size(); i++) {
-    if (u(i) > integral_threshold) {
-      u_cut(i) = 0;
+  mfem::Vector u_cut(u.Size());
+  std::transform(u.begin(), u.end(), u_cut.begin(), [&](auto value) {
+    if (value > upper_bound || value < lower_bound) {
+      return 0.0;
     }
-    u_cut(i) = std::clamp(u(i), 0.0, 1.0);
-  }
+    return value;
+  });
   gf.SetFromTrueDofs(u_cut);
 
-  mfem::ConstantCoefficient cc(0.);
+  double integral = 0.0;
+  double domain_volume = 0.0;
+  mfem::Vector vals;
+  const mfem::FiniteElement *fe;
+  mfem::ElementTransformation *Tr;
 
-  const auto integral = gf.ComputeLpError(1.0, cc);
-  const auto domain_volume = one.ComputeLpError(1.0, cc);
+  for (int i = 0; i < this->fes_[id_var]->GetNE(); i++) {
+    fe = this->fes_[id_var]->GetFE(i);
+    const mfem::IntegrationRule *ir;
 
-  const auto average = integral / domain_volume;
+    int intorder = 2 * fe->GetOrder() + 3;  // <----------
+    ir = &(mfem::IntRules.Get(fe->GetGeomType(), intorder));
 
+    mfem::real_t int_elem = 0.0;
+    mfem::real_t domain_volume_elem = 0.0;
+
+    gf.GetValues(i, *ir, vals);
+    Tr = this->fes_[id_var]->GetElementTransformation(i);
+    for (int j = 0; j < ir->GetNPoints(); j++) {
+      const mfem::IntegrationPoint &ip = ir->IntPoint(j);
+      Tr->SetIntPoint(&ip);
+
+      int_elem += vals(j) * ip.weight * Tr->Weight();
+      domain_volume_elem += ip.weight * Tr->Weight();
+    }
+
+    integral += int_elem;
+    domain_volume += domain_volume_elem;
+  }
+
+  mfem::real_t global_integral = 0.0;
+  mfem::real_t global_domain_volume = 0.0;
+  MPI_Allreduce(&integral, &global_integral, 1, mfem::MPITypeMap<mfem::real_t>::mpi_type, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(&domain_volume, &global_domain_volume, 1, mfem::MPITypeMap<mfem::real_t>::mpi_type,
+                MPI_SUM, MPI_COMM_WORLD);
+
+  integral = global_integral;
+  domain_volume = global_domain_volume;
+
+  const double average = integral / domain_volume;
   this->time_specialized_.emplace(IterationKey(it, dt, t),
                                   SpecializedValue(name + "_integral[-]", integral));
   this->time_specialized_.emplace(IterationKey(it, dt, t),
