@@ -1,17 +1,16 @@
 /**
  * @file main.cpp
- * @author ci230846 (clement.introini@cea.fr)
- * @brief CahnHillard problem solved in a square
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief 2D square->bubble solved by Cahn-Hilliard equations
  * @version 0.1
- * @date 2024-05-23
+ * @date 2025-07-04
  *
- * @copyright Copyright (c) 2024
+ * Copyright CEA (c) 2025
  *
  */
 #include <iostream>
 #include <map>
 #include <memory>
-#include <random>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -26,7 +25,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Quiet);
+  setVerbosity(Verbosity::Verbose);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -47,7 +46,8 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::WW, Mobility::Constant>;
+                                            ThermodynamicsPotentials::F, Mobility::Constant>;
+
   using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
   using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
@@ -60,19 +60,27 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  const int order_fe = 1;          // finite element order
-  const int refinement_level = 1;  // number of levels of uniform refinement
+  const std::string mesh_type =
+      "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
+  const int order_fe = 1;             // finite element order
+  const int refinement_level = 0;     // number of levels of uniform refinement
+  const int nx = 128;
+  const int ny = 128;
+  const double lx = 2. * M_PI;
+  const double ly = 2. * M_PI;
+  const std::tuple<int, int, double, double>& tuple_of_dimensions =
+      std::make_tuple(nx, ny, lx, ly);  // Number of elements and maximum length in each direction
 
-  SPA spatial("GMSH", order_fe, refinement_level, "slothLogo.msh", false);
+  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.),
-                     Boundary("upper", 4, "Neumann", 0.), Boundary("left", 5, "Neumann", 0.),
-                     Boundary("upper", 6, "Neumann", 0.), Boundary("upper", 7, "Neumann", 0.),
-                     Boundary("left", 8, "Neumann", 0.),  Boundary("left", 9, "Neumann", 0.)};
-  auto bcs = BCS(&spatial, boundaries);
+                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+  auto bcs_phi = BCS(&spatial, boundaries);
+  auto boundaries_mu = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
+                        Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+  auto bcs_mu = BCS(&spatial, boundaries_mu);
 
   // ###########################################
   // ###########################################
@@ -83,38 +91,53 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //  Interface thickness
+  const double epsilon(0.02);
   // Interfacial energy
   const double sigma(1.);
   // Two-phase mobility
-  const double mob(5.);
-  const double lambda = 2.;
-  const double omega = 5.;
-  auto params =
-      Parameters(Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
+  const double mob(1.);
+  const double lambda = (epsilon * epsilon);
+  const double omega = 1.;
+  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
+                           Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
 
   auto user_func_solution =
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
-        double co = 0.5;
-        double epsilon = 0.01;
-        double xx = x[0];
-        double yy = x[1];
+        const double xx = x[0];
+        const double yy = x[1];
+        double sol = 0.;
+        if (std::abs(xx - M_PI) <= 1 && std::abs(yy - M_PI) <= 1) {
+          sol = 1.0;
+        } else {
+          sol = -1.0;
+        }
+        return sol;
+      });
 
-        double sol =
-            co + epsilon * (std::cos(0.105 * xx) * std::cos(0.11 * yy) +
-                            (std::cos(0.13 * xx) * std::cos(0.087 * yy)) *
-                                (std::cos(0.13 * xx) * std::cos(0.087 * yy)) +
-                            (std::cos(0.025 * xx - 0.15 * yy) * std::cos(0.07 * xx - 0.02 * yy)));
-
+  auto mu_user_func_solution =
+      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+        const double xx = x[0];
+        const double yy = x[1];
+        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);
+        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI);
+        double sol = 0.;
+        if (r1 < 1 || r2 < 1) {
+          sol = 0;
+        } else {
+          sol = 0;
+        }
         return sol;
       });
 
   auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
-  auto mu_initial_condition = 0.0;
-  auto v1 = VAR(&spatial, bcs, "phi", 2, phi_initial_condition);
-  auto v2 = VAR(&spatial, bcs, "mu", 2, mu_initial_condition);
+  auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
+  const std::string& var_name_1 = "phi";
+  const std::string& var_name_2 = "mu";
+  auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, phi_initial_condition);
+  auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, mu_initial_condition);
   auto vars = VARS(v1, v2);
 
   // ###########################################
@@ -125,12 +148,18 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 10;
+  const int frequency = 1;
   std::string calculation_path = "CahnHilliard";
+  const double threshold = 10.;
+  std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
+      {var_name_1, {-1.1, 1.1}}};
+  bool enable_save_specialized_at_iter = true;
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
+                 Parameter("level_of_detail", level_of_detail),
+                 Parameter("integral_to_compute", map_threshold_integral),
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
   // ####################
   //     operators     //
   // ####################
@@ -140,10 +169,10 @@ int main(int argc, char* argv[]) {
   std::vector<SPA*> spatials{&spatial, &spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  oper.overload_nl_solver(NLSolverType::NEWTON,
-                          Parameters(Parameter("description", "Newton solver "),
-                                     Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),
-                                     Parameter("abs_tol", 1.e-13), Parameter("iter_max", 1000)));
+  oper.overload_nl_solver(
+      NLSolverType::NEWTON,
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+                 Parameter("rel_tol", 1.e-8), Parameter("abs_tol", 1.e-14)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   oper.overload_solver(solver);
@@ -162,8 +191,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 1.e4;
-  const double dt = 1.;
+  const double t_final = 1.;
+  const double dt = 1.e-1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);

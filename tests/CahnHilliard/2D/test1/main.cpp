@@ -1,11 +1,11 @@
 /**
  * @file main.cpp
- * @author ci230846 (clement.introini@cea.fr)
- * @brief Allen-Cahn problem solved in a square
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief 2D coalescence bubbles solved by Cahn-Hilliard equations
  * @version 0.1
- * @date 2024-05-23
+ * @date 2025-07-04
  *
- * @copyright Copyright (c) 2024
+ * Copyright CEA (c) 2025
  *
  */
 #include <iostream>
@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Quiet);
+  setVerbosity(Verbosity::Verbose);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 3;
+  const int DIM = 2;
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
@@ -61,29 +61,25 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   const std::string mesh_type =
-      "InlineSquareWithHexaedres";  // type of mesh // "InlineSquareWithTriangles"
-  const int order_fe = 1;           // finite element order
-  const int refinement_level = 0;   // number of levels of uniform refinement
-  const int nx = 256;
-  const int ny = 256;
-  const int nz = 256;
+      "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
+  const int order_fe = 1;             // finite element order
+  const int refinement_level = 0;     // number of levels of uniform refinement
+  const int nx = 128;
+  const int ny = 128;
   const double lx = 2. * M_PI;
   const double ly = 2. * M_PI;
-  const double lz = 2. * M_PI;
-  const std::tuple<int, int, int, double, double, double>& tuple_of_dimensions = std::make_tuple(
-      nx, ny, nz, lx, ly, lz);  // Number of elements and maximum length in each direction
+  const std::tuple<int, int, double, double>& tuple_of_dimensions =
+      std::make_tuple(nx, ny, lx, ly);  // Number of elements and maximum length in each direction
 
   SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("top", 2, "Neumann", 0.),   Boundary("bottom", 3, "Neumann", 0.),
-                     Boundary("rear", 4, "Neumann", 0.),  Boundary("front", 5, "Neumann", 0.)};
+                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
   auto bcs_phi = BCS(&spatial, boundaries);
   auto boundaries_mu = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                        Boundary("top", 2, "Neumann", 0.),   Boundary("bottom", 3, "Neumann", 0.),
-                        Boundary("rear", 4, "Neumann", 0.),  Boundary("front", 5, "Neumann", 0.)};
+                        Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
   auto bcs_mu = BCS(&spatial, boundaries_mu);
 
   // ###########################################
@@ -112,11 +108,8 @@ int main(int argc, char* argv[]) {
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
         const double xx = x[0];
         const double yy = x[1];
-        const double zz = x[2];
-        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
+        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);
+        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI);
         double sol = 0.;
         if (r1 < 1 || r2 < 1) {
           sol = 1.;
@@ -130,11 +123,8 @@ int main(int argc, char* argv[]) {
       std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
         const double xx = x[0];
         const double yy = x[1];
-        const double zz = x[2];
-        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
+        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);
+        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI);
         double sol = 0.;
         if (r1 < 1 || r2 < 1) {
           sol = 0;
@@ -160,15 +150,18 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 100;
+  const int frequency = 10;
   std::string calculation_path = "CahnHilliard";
   const double threshold = 10.;
-  std::map<std::string, double> map_threshold_integral = {{var_name_1, threshold}};
+  std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
+      {var_name_1, {-1.1, 1.1}}};
+  bool enable_save_specialized_at_iter = true;
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail),
-                 Parameter("integral_to_compute", map_threshold_integral));
+                 Parameter("integral_to_compute", map_threshold_integral),
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
   // ####################
   //     operators     //
   // ####################
@@ -180,7 +173,7 @@ int main(int argc, char* argv[]) {
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
@@ -200,8 +193,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 50.;
-  const double dt = 5.e-3;
+  const double t_final = 0.5;
+  const double dt = 5.e-2;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
