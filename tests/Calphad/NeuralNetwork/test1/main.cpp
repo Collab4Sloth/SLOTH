@@ -277,7 +277,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppo_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
-                 Parameter("last_component", "PU"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "C1_MO2"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
