@@ -3,7 +3,7 @@
 set(CURRENT_EXE "SplitMeshAllenCahn2Dtest2")
 add_executable(${CURRENT_EXE} main.cpp)
 target_link_libraries(${CURRENT_EXE} Sloth)
-add_test(NAME "SplitMeshAllenCahn2Dtest2" COMMAND mpirun --oversubscribe -np 2 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE})
+add_test(NAME "SplitMeshAllenCahn2Dtest2" COMMAND mpirun -np 2 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE})
 
 file(GLOB CAMEMBERT2D
   "${CMAKE_SOURCE_DIR}/kernel/Mesh-examples/camembert2D.00*"
