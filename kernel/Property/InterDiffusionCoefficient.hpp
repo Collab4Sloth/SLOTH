@@ -32,6 +32,7 @@ class InterDiffusionCoefficient : public PropertyBase {
   std::set<std::string> list_components_;
   std::map<std::string, int> mob_index_;
   std::map<std::string, int> x_index_;
+  bool single_phase_ = true;
   void check_nan(mfem::Vector vv, std::string name);
 
  protected:
@@ -46,8 +47,9 @@ class InterDiffusionCoefficient : public PropertyBase {
   std::map<std::string, mfem::Vector> secondary_mob_gf_;
 
   void check_variables_consistency(
-      const std::vector<std::vector<std::string>>& unks_info,
-      const std::vector<std::vector<std::string>>& vect_aux_infos) override;
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
+          output_system,
+      std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) override;
   void get_property(
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
           output_system,
@@ -72,7 +74,8 @@ InterDiffusionCoefficient::InterDiffusionCoefficient(const Parameters& params)
   this->primary_phase_ =
       toUpperCase(this->params_.template get_param_value<std::string>("primary_phase"));
   this->secondary_phase_ =
-      toUpperCase(this->params_.template get_param_value<std::string>("secondary_phase"));
+      toUpperCase(this->params_.template get_param_value_or_default<std::string>("secondary_phase",
+                                                                                 "UNDEFINED"));
 }
 
 /**
@@ -80,36 +83,68 @@ InterDiffusionCoefficient::InterDiffusionCoefficient(const Parameters& params)
  *
  */
 void InterDiffusionCoefficient::check_variables_consistency(
-    const std::vector<std::vector<std::string>>& unks_info,
-    const std::vector<std::vector<std::string>>& vect_aux_infos) {
-  // // Check variables
-  // for (size_t i = 0; i < unks_info.size(); ++i) {
-  //   const auto &variable_info = unks_info[i];
-  //   MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-  //   const std::string &symbol = toLowerCase(variable_info.back());
-  // }
-  // Check auxiliary variables
-  // for (size_t i = 0; i < vect_aux_infos.size(); ++i) {
-  //   const auto& variable_info = vect_aux_infos[i];
-  //   MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
+        output_system,
+    std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) {
+  // Check variables
+  bool has_inter_mob = false;
+  for (const auto& [aux_infos, gf] : output_system) {
+    MFEM_VERIFY(!aux_infos.empty(),
+                "InterDiffusionCoefficient::check_variables_consistency: error while "
+                "getting auxiliary variables. Additional informations must be given for each "
+                "variables.");
+    const int vsize =
+        aux_infos.size() - 1;  // -1 because the first info is the name of the variable
+    const std::string_view symbol(toLowerCase(aux_infos.back()));
 
-  //   size_t vsize = variable_info.size();
-  //   const std::string& symbol = toLowerCase(variable_info[vsize - 2]);
-  //   if (symbol == "x") {
-  //     MFEM_VERIFY(variable_info.size() == 3,
-  //                 "InterDiffusionCoefficient::check_variables_consistency: error while "
-  //                 "getting molar fractions.Expected [element, 'x']");
-  //     const std::string elem_info = variable_info[variable_info.size() - 3];
-  //     this->x_index_.emplace(toUpperCase(elem_info), i);
-  //   } else if (symbol == "mob") {
-  //     MFEM_VERIFY(variable_info.size() >= 2,
-  //                 "InterDiffusionCoefficient::check_variables_consistency: error while "
-  //                 "getting mobilities.Expected at least [element, 'mob']");
-  //     const std::string elem_info = variable_info[variable_info.size() - 3];
-  //     this->list_components_.insert(toUpperCase(elem_info));
-  //     this->mob_index_.emplace(toUpperCase(elem_info), i);
-  //   }
-  // }
+    if (symbol == "inter_mob") {
+      MFEM_VERIFY(vsize == 2,
+                  "InterDiffusionCoefficient::check_variables_consistency: error while "
+                  "getting molar fractions.Expected [element, 'inter_mob']");
+      has_inter_mob = true;
+    }
+  }
+  MFEM_VERIFY(has_inter_mob,
+              "InterDiffusionCoefficient::check_variables_consistency: error while "
+              "getting inter_mob variables");
+
+  bool has_mob = false;
+  bool has_x = false;
+
+  // Check auxiliary variables
+  for (const auto& [aux_infos, aux_gf] : input_system) {
+    MFEM_VERIFY(!aux_infos.empty(),
+                "InterDiffusionCoefficient::check_variables_consistency: error while "
+                "getting auxiliary variables. Additional informations must be given for each "
+                "auxiliary variables.");
+    const int vsize = aux_infos.size();
+    const std::string_view symbol(toLowerCase(aux_infos.back()));
+
+    if (symbol == "x") {
+      has_x = true;
+      MFEM_VERIFY(vsize == 2,
+                  "InterDiffusionCoefficient::check_variables_consistency: error while "
+                  "getting molar fractions.Expected [element, 'x']");
+    } else if (symbol == "mob") {
+      has_mob = true;
+      MFEM_VERIFY(vsize == 3,
+                  "InterDiffusionCoefficient::check_variables_consistency: error while "
+                  "getting mobilities.Expected at least [phase, element, 'mob']");
+    } else if (symbol == "phi") {
+      MFEM_VERIFY(vsize == 2,
+                  "InterDiffusionCoefficient::check_variables_consistency: error while "
+                  "getting phase indicator.Expected at least [phase, 'phi']");
+
+      this->single_phase_ = false;
+    }
+  }
+  MFEM_VERIFY(has_mob,
+              "InterDiffusionCoefficient::check_variables_consistency: error while "
+              "getting mob auxiliary variables");
+
+  MFEM_VERIFY(has_x,
+              "InterDiffusionCoefficient::check_variables_consistency: error while "
+              "getting x auxiliary variables");
 }
 
 /**
@@ -185,22 +220,27 @@ void InterDiffusionCoefficient::get_property(
 
   //
   std::vector<double> phi(size_gf, 1.0);
-  if (!this->phi_gf_.empty()) {
+  if (!this->single_phase_) {
     for (int k = 0; k < size_gf; k++) {
       phi[k] = std::clamp(this->phi_gf_[0](k), 0.0, 1.0);
     }
   }
-
   std::vector<double> xo(this->x_gf_.at(this->first_component_).Size(), 0.);
   for (int k = 0; k < this->x_gf_.at(this->first_component_).Size(); k++) {
     xo[k] = this->x_gf_.at(this->first_component_)(k);
   }
 
   std::vector<double> mobo(this->primary_mob_gf_.at(this->first_component_).Size(), 0.);
-  for (int k = 0; k < this->primary_mob_gf_.at(this->first_component_).Size(); k++) {
-    mobo[k] = phi[k] * this->primary_mob_gf_.at(this->first_component_)(k);
+  if (this->single_phase_) {
+    for (int k = 0; k < this->primary_mob_gf_.at(this->first_component_).Size(); k++) {
+      mobo[k] = this->primary_mob_gf_.at(this->first_component_)(k);
+    }
+  } else {
+    for (int k = 0; k < this->primary_mob_gf_.at(this->first_component_).Size(); k++) {
+      mobo[k] = phi[k] * this->primary_mob_gf_.at(this->first_component_)(k);
 
-    mobo[k] += (1. - phi[k]) * this->secondary_mob_gf_.at(this->first_component_)(k);
+      mobo[k] += (1. - phi[k]) * this->secondary_mob_gf_.at(this->first_component_)(k);
+    }
   }
 
   std::vector<double> mob(size_gf, 0.0);
@@ -229,8 +269,14 @@ void InterDiffusionCoefficient::get_property(
     }
 
     mult_vectors(mobo, xj, mob);
-    for (int k = 0; k < mobi.Size(); k++) {
-      mobj[k] = (mobi(k) * phi[k] + (1. - phi[k]) * this->secondary_mob_gf_.at(compo)(k)) * xo[k];
+    if (this->single_phase_) {
+      for (int k = 0; k < mobi.Size(); k++) {
+        mobj[k] = mobi(k) * xo[k];
+      }
+    } else {
+      for (int k = 0; k < mobi.Size(); k++) {
+        mobj[k] = (mobi(k) * phi[k] + (1. - phi[k]) * this->secondary_mob_gf_.at(compo)(k)) * xo[k];
+      }
     }
     sum_vectors(mob, mobj, mob);
     mult_vectors(mob, xj, mob);

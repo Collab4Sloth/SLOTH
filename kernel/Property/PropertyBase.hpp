@@ -30,8 +30,9 @@ class PropertyBase {
   const Parameters &params_;
   bool is_checked_{false};
   virtual void check_variables_consistency(
-      const std::vector<std::vector<std::string>> &unks_info,
-      const std::vector<std::vector<std::string>> &vect_aux_infos) = 0;
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+          &output_system,
+      std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) = 0;
   virtual void get_property(
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
           &output_system,
@@ -65,10 +66,10 @@ void PropertyBase::compute(
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
         &output_system,
     std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) {
-  // if (!this->is_checked_) {
-  //   this->check_variables_consistency(unks_info, vect_aux_infos);
-  //   this->is_checked_ = true;
-  // }
+  if (!this->is_checked_) {
+    this->check_variables_consistency(output_system, input_system);
+    this->is_checked_ = true;
+  }
 
   this->get_property(output_system, input_system);
 }

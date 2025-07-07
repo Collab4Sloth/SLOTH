@@ -93,11 +93,11 @@ int main(int argc, char* argv[]) {
                                   Parameter("EnableDiffusionChemicalPotentials", true));
   //   Parameter("MO", diffusionCoeff), Parameter("MU", diffusionCoeff),
   auto mobO = VAR(&spatial, bcs, "Mo", 2, diffusionCoeff);
-  mobO.set_additional_information("O", "mob");
+  mobO.set_additional_information("SOLID", "O", "mob");
   auto mobU = VAR(&spatial, bcs, "Mu", 2, diffusionCoeff);
-  mobU.set_additional_information("U", "mob");
+  mobU.set_additional_information("SOLID", "U", "mob");
   auto mobPU = VAR(&spatial, bcs, "Mpu", 2, diffusionCoeff);
-  mobPU.set_additional_information("PU", "mob");
+  mobPU.set_additional_information("SOLID", "PU", "mob");
   auto mobilities = VARS(mobO, mobU, mobPU);
 
   auto mo1 = VAR(&spatial, bcs, "Mo1", 2, 0.);
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppo_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
-                 Parameter("last_component", "PU"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, var_o, var_u,
@@ -220,7 +220,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppu_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "U"),
-                 Parameter("last_component", "PU"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, var_o,
