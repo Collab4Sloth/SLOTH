@@ -1,7 +1,7 @@
 /**
  * @file BlockAllenCahnNLFormIntegrator.hpp
  * @author ci230846  (clement.introini@cea.fr)
- * @brief VF of the CahnHilliard equations
+ * @brief VF of the AllenCahn equations (splitting version)
  * @version 0.1
  * @date 2025-06-05
  *
@@ -89,10 +89,10 @@ class BlockAllenCahnNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator
                                    const mfem::Array<const mfem::Vector*>& elfun,
                                    const mfem::Array2D<mfem::DenseMatrix*>& elmats);
 
-  std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>> get_energy(mfem::ParGridFunction* gfu,
-                                                                   const double omega);
-  std::unique_ptr<GradientEnergyCoefficient> get_grad_energy(mfem::ParGridFunction* gfu,
-                                                             const double lambda);
+  std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>> get_energy(
+      std::vector<mfem::ParGridFunction*> gfu, const double omega);
+  std::unique_ptr<GradientEnergyCoefficient> get_grad_energy(
+      std::vector<mfem::ParGridFunction*> gfu, const double lambda);
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -142,10 +142,8 @@ double BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
   const int nElement = Tr.ElementNo;
   // TODO(cci) return vector of double
   MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_[0], parameters);
-  double mob_coeff = 1.e-3 * mobi_coeff.Eval(Tr, ip);
-  // if (this->scale_mobility_by_temperature_) {
-  //   mob_coeff /= this->temp_gf_[0].GetValue(nElement, ip);
-  // }
+  double mob_coeff = mobi_coeff.Eval(Tr, ip);
+
   return mob_coeff;
 }
 
@@ -312,7 +310,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   //
-  // Block 0 R(phi)=mu - w' + div lambda grad phi
+  // Block 0 R(phi)=eta psi + w'psi + lambda grad phi grad psi
   //
   {
     int blk = 0;
@@ -334,7 +332,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& mu = *elfun[off_blk] * Psi;
+      const auto& eta = *elfun[off_blk] * Psi;
 
       const auto& phi = *elfun[blk] * Psi;
 
@@ -343,18 +341,16 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
       gradPsi.MultTranspose(*elfun[blk], gradU);
       const double lambda = this->lambda(Tr, ip, phi, this->params_);
 
-      gradU *= -xx * lambda;
+      gradU *= xx * lambda;
       gradPsi.AddMult(gradU, *elvect[blk]);
 
-      // Given u, compute (w'(u), psi), psi is shape function
-
-      const double ww = xx * (mu - this->energy_derivatives(1, Tr, ip)(phi));
+      const double ww = xx * (eta + this->energy_derivatives(1, Tr, ip)(phi));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
   //
-  // Block 1 R(mu) = mu
+  // Block 1 R(eta) = -M * eta
   //
   {
     int blk = 1;
@@ -376,9 +372,12 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& mu = *elfun[blk] * Psi;
+      const auto& eta = *elfun[blk] * Psi;
+      const auto& phi = *elfun[off_blk] * Psi;
 
-      const double ww = mu * ip.weight * Tr.Weight();
+      const double coef_mob = this->mobility(Tr, ip, phi, this->params_) * ip.weight * Tr.Weight();
+
+      const double ww = -coef_mob * eta;
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -405,7 +404,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
   // loop over diagonal entries
   int num_blocks = el.Size();
 
-  // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
+  // Block 0  0 dR(phi)dphi = d(eta psi + w'psi + lambda grad phi grad psi)/dphi
 
   {
     int blk = 0;
@@ -428,7 +427,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
       Tr.SetIntPoint(&ip);
       const auto& phi = *elfun[blk] * Psi;
 
-      const double xx = -ip.weight * Tr.Weight();
+      const double xx = ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
       const double lambda = this->lambda(Tr, ip, phi, this->params_);
@@ -440,7 +439,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
     }
   }
 
-  // Block 0 1 dR(phi)dmu=d(mu - w' + div lambda grad phi)/dmu
+  // Block 0 1 dR(phi)deta=d(eta psi + w'psi + lambda grad phi grad psi)/deta
   {
     int blk = 0;
     int off_blk = 1;
@@ -465,7 +464,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
       AddMult_a_VVt(ww, Psi, *elmats(blk, off_blk));
     }
   }
-  // Block 1 0  dR(mu)dphi=d(div M grad mu)/dphi
+  // Block 1 0  dR(eta)dphi=d(M eta )/dphi
   {
     int blk = 1;
     int off_blk = 0;
@@ -481,7 +480,7 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
     *elmats(blk, off_blk) = 0.0;
   }
 
-  // Block 1 1  dR(mu)dmu=dR(mu)dphi=d(div M grad mu)/dmu
+  // Block 1 1  dR(eta)deta=dR(eta)dphi=d(M eta)/deta
   {
     int blk = 1;
     int off_blk = 0;
@@ -504,10 +503,9 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
       Tr.SetIntPoint(&ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
-      const double coef_mob = this->mobility(Tr, ip, phi, this->params_) * ip.weight * Tr.Weight();
-      el[blk]->CalcPhysDShape(Tr, gradPsi);
+      const double coef_mob = -this->mobility(Tr, ip, phi, this->params_) * ip.weight * Tr.Weight();
 
-      AddMult_a_AAt(coef_mob, gradPsi, *elmats(blk, blk));
+      AddMult_a_VVt(coef_mob, Psi, *elmats(blk, blk));
     }
   }
 }
@@ -527,9 +525,9 @@ void BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElement
 template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
           Mobility MOBI>
 std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>>
-BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(mfem::ParGridFunction* gfu,
-                                                                       const double omega) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu, omega);
+BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(
+    std::vector<mfem::ParGridFunction*> gfu, const double omega) {
+  return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu[0], omega);
 }
 
 /**
@@ -546,8 +544,8 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI>
 std::unique_ptr<GradientEnergyCoefficient>
 BlockAllenCahnNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(
-    mfem::ParGridFunction* gfu, const double lambda) {
-  return std::make_unique<GradientEnergyCoefficient>(gfu, lambda);
+    std::vector<mfem::ParGridFunction*> gfu, const double lambda) {
+  return std::make_unique<GradientEnergyCoefficient>(gfu[0], lambda);
 }
 
 /**
