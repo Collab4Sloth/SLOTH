@@ -36,6 +36,10 @@ class KKS {
   const double kks_rel_tol_solver_ = 1.e-16;
   const int kks_max_iter_solver_ = 100;
   const int kks_print_level_solver_ = 0;
+  std::string KKS_nucleation_strategy_;
+  double given_melting_temperature_{std::numeric_limits<double>::max()};
+  std::set<int> check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
+                                 const T &tp_gf_ph_1);
 
  protected:
   std::string element_removed_from_ic_;
@@ -128,6 +132,15 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
   this->KKS_temperature_threshold_ = CALPHAD.params_.template get_param_value_or_default<double>(
       "KKS_temperature_threshold", 2800);
 
+  // Nucleation strategy
+  this->KKS_nucleation_strategy_ = CALPHAD.params_.template get_param_value_or_default<std::string>(
+      "KKS_nucleation_strategy", "liquid_fraction");
+  if (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_) ==
+      KKS_nucleation_strategy::given_melting_temperature) {
+    this->given_melting_temperature_ =
+        CALPHAD.params_.template get_param_value<double>("KKS_given_melting_temperature");
+  }
+
   this->KKS_freeze_nucleation_ =
       CALPHAD.params_.template get_param_value_or_default<bool>("KKS_freeze_nucleation", true);
 
@@ -136,6 +149,53 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
 
   this->KKS_mobility_for_seed_ =
       CALPHAD.params_.template get_param_value_or_default<double>("KKS_mobility", 1.);
+}
+
+/**
+ * @brief Check the nucleation state
+ *
+ * @tparam T
+ * @param indices_ph_1
+ * @param tp_gf_ph_1
+ * @return std::set<int>
+ */
+template <typename T>
+std::set<int> KKS<T>::check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
+                                       const T &tp_gf_ph_1) {
+  std::set<int> indices_nucleation;
+
+  switch (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_)) {
+    //
+    case KKS_nucleation_strategy::liquid_fraction: {
+      for (const auto &node : indices_ph_1) {
+        // Check only if equilibrium is found
+        if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
+        // Check if secondary phase is found
+        if (CALPHAD.elem_mole_fraction_by_phase_.contains(std::make_tuple(
+                node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
+          indices_nucleation.insert(node);
+        }
+      }
+      break;
+    }
+    //
+    case KKS_nucleation_strategy::given_melting_temperature: {
+      break;
+      for (const auto &node : indices_ph_1) {
+        // Check if temperature at node is greater than a given limit
+        if (tp_gf_ph_1(node) > this->given_melting_temperature_) {
+          indices_nucleation.insert(node);
+        }
+      }
+    }
+    default: {
+      throw std::runtime_error(
+          "KKS<T>::check_nucleation_at_node: error in the choice of method used to compute "
+          "the nucleation. Available choices are : liquid_fraction (Default), "
+          "given_melting_temperature");
+    }
+  }
+  return indices_nucleation;
 }
 
 /**
@@ -344,7 +404,7 @@ void KKS<T>::execute_linearization(
   calculate_interface(indices_ph_1, pure_bar_tp_gf_ph_1, 0., -1,
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
 
-  // Cancel  before checking nucleation state
+  // Cancel before checking nucleation state
   for (int i = 0; i < nb_nodes; ++i) {
     // Must be zero except for nodes detected as  nucleus  in solid
     CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
@@ -355,17 +415,14 @@ void KKS<T>::execute_linearization(
   if (!this->KKS_nucleation_started_) {
     std::set<int> indices_nucleation;
     bool local_nucleation = false;
-    for (const auto &node : indices_ph_1) {
-      // Check only if equilibrium is found
-      if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
-      // Check if secondary phase  is found
-      if (CALPHAD.elem_mole_fraction_by_phase_.contains(
-              std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
-        // If nucleation is not frozen once detected, local_nucleation must be false
-        local_nucleation = true;
-        local_nucleation &= this->KKS_freeze_nucleation_;
-        indices_nucleation.insert(node);
-      }
+    std::set<int> indices_nucleation =
+        this->check_nucleation(CALPHAD, indices_ph_1, pure_bar_tp_gf_ph_1[0]);
+
+    // Nucleation detected ?
+    if (indices_nucleation.size() > 0) {
+      local_nucleation = true;
+      // If nucleation is not frozen once detected, local_nucleation must be false
+      local_nucleation &= this->KKS_freeze_nucleation_;
     }
 
     // Create circular nucleus around the node where secondary phase is detected
