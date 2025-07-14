@@ -403,7 +403,7 @@ void CalphadBase<T>::update_outputs(
         const std::string &output_phase = output_infos[1];
         const std::string &output_elem = output_infos[2];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
-          default_value = -std::numeric_limits<double>::max();
+          default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
           }
