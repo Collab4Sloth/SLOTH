@@ -18,6 +18,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <limits>
 
 #include "Calphad/CalphadUtils.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
@@ -134,7 +135,7 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
 
   // Nucleation strategy
   this->KKS_nucleation_strategy_ = CALPHAD.params_.template get_param_value_or_default<std::string>(
-      "KKS_nucleation_strategy", "liquid_fraction");
+      "KKS_nucleation_strategy", "LiquidFraction");
   if (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_) ==
       KKS_nucleation_strategy::given_melting_temperature) {
     this->given_melting_temperature_ =
@@ -413,7 +414,6 @@ void KKS<T>::execute_linearization(
   }
 
   if (!this->KKS_nucleation_started_) {
-    std::set<int> indices_nucleation;
     bool local_nucleation = false;
     std::set<int> indices_nucleation =
         this->check_nucleation(CALPHAD, indices_ph_1, pure_bar_tp_gf_ph_1[0]);
