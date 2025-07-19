@@ -11,6 +11,7 @@
  */
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -18,7 +19,6 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include <limits>
 
 #include "Calphad/CalphadUtils.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
@@ -181,13 +181,13 @@ std::set<int> KKS<T>::check_nucleation(CalphadBase<T> &CALPHAD, const std::set<i
     }
     //
     case KKS_nucleation_strategy::given_melting_temperature: {
-      break;
       for (const auto &node : indices_ph_1) {
         // Check if temperature at node is greater than a given limit
         if (tp_gf_ph_1(node) > this->given_melting_temperature_) {
           indices_nucleation.insert(node);
         }
       }
+      break;
     }
     default: {
       throw std::runtime_error(
@@ -392,7 +392,9 @@ void KKS<T>::execute_linearization(
       {phase, "entered", 0.}, {this->KKS_secondary_phase_, "entered", 0.}};
 
   if ((this->KKS_nucleation_started_ && this->KKS_freeze_nucleation_) ||
-      (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
+      (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_) ||
+      (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_) !=
+       KKS_nucleation_strategy::liquid_fraction)) {
     st_phase_12 = {{phase, "entered", 0.}};
   }
 
@@ -620,6 +622,10 @@ void KKS<T>::execute_linearization(
 
       mfem::Vector &b1 = bb.GetBlock(1);
       b1 = deltaX;
+      mfem::Vector &d0 = deltaX_phase.GetBlock(0);
+      mfem::Vector &d1 = deltaX_phase.GetBlock(1);
+      d0 = 0.;
+      d1 = 0.;
 
       // mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
       AA->SetBlock(0, 0, As.get());
@@ -642,6 +648,13 @@ void KKS<T>::execute_linearization(
       // Solve system
       //
       // mfem::BlockVector deltaX_phase(offsets);
+      // Check result of linear system
+      if (Verbosity::Debug <= verbosityLevel) {
+        SlothInfo::print("BEfore solving, KKS linear system at node (A X = B):", node);
+        AA->Print();
+        deltaX_phase.Print();
+        bb.Print();
+      }
 
       solver->Mult(bb, deltaX_phase);
       // Check result of linear system
@@ -766,6 +779,9 @@ void KKS<T>::execute_linearization(
       }
 
       SlothInfo::debug("Gibbs energy: primary phase ", gs, " ; secondary phase ", gl);
+      SlothInfo::debug("DGM: primary phase ", CALPHAD.driving_forces_[std::make_tuple(node, phase)],
+                       " ; secondary phase ",
+                       CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)]);
     }
   }
 }
