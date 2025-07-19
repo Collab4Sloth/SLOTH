@@ -11,6 +11,7 @@
  */
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -18,7 +19,6 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include <limits>
 
 #include "Calphad/CalphadUtils.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
@@ -620,6 +620,10 @@ void KKS<T>::execute_linearization(
 
       mfem::Vector &b1 = bb.GetBlock(1);
       b1 = deltaX;
+      mfem::Vector &d0 = deltaX_phase.GetBlock(0);
+      mfem::Vector &d1 = deltaX_phase.GetBlock(1);
+      d0 = 0.;
+      d1 = 0.;
 
       // mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
       AA->SetBlock(0, 0, As.get());
