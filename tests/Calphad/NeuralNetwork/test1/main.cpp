@@ -23,7 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  setVerbosity(Verbosity::Quiet);
+  setVerbosity(Verbosity::Debug);
 
   //---------------------------------------
   // Initialize MPI and HYPRE
@@ -162,23 +162,31 @@ int main(int argc, char* argv[]) {
   auto calphad_outputs = VARS(muo, muu, mupu, mobO, mobU, mobPU);
 
   // NeuralNetworks
-  auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", "model.pt");
 
+  auto given_phase = Parameter("GivenPhase", "C1_MO2");
+
+  vTupleStringString CommonNeuralNetwork;
+  CommonNeuralNetwork.emplace_back(std::make_tuple("model.pt", "C1_MO2"));
+
+  auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", CommonNeuralNetwork);
   vTupleStringString MobilitiesNeuralNetwork;
   MobilitiesNeuralNetwork.emplace_back(std::make_tuple("model.pt", "C1_MO2"));
 
   vTupleStringInt MobilitiesNeuralNetworkIndex;
   MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("C1_MO2", 3));
 
-  auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", MobilitiesNeuralNetwork);
+  auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", CommonNeuralNetwork);
   auto index_neural_network_model_mob =
       Parameter("MobilitiesNeuralNetworkIndex", MobilitiesNeuralNetworkIndex);
   auto input_composition_factor = Parameter("InputCompositionFactor", Nmol);
   std::vector<std::string> composition_order{"O", "U", "PU"};
   auto input_composition_order = Parameter("InputCompositionOrder", composition_order);
+
+  auto own_mobility_model = Parameter("OwnMobilityModel", false);
+
   auto calphad_parameters =
       Parameters(neural_network_model_mu, neural_network_model_mob, index_neural_network_model_mob,
-                 input_composition_factor, input_composition_order);
+                 input_composition_factor, input_composition_order, given_phase);
 
   auto M11 = VAR(&spatial, calphad_bcs, "M11", level_of_storage, 0.);
   M11.set_additional_information("O", "inter_mob");

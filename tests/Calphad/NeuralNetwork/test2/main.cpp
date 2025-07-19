@@ -23,7 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  setVerbosity(Verbosity::Quiet);
+  setVerbosity(Verbosity::Debug);
 
   //---------------------------------------
   // Initialize MPI and HYPRE
@@ -162,16 +162,22 @@ int main(int argc, char* argv[]) {
   auto calphad_outputs = VARS(muo, muu, mupu, mobO, mobU, mobPU);
 
   // NeuralNetworks
-  auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", "model.pt");
-  auto index_neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetworkIndex", 2);
 
-  vTupleStringString MobilitiesNeuralNetwork;
-  MobilitiesNeuralNetwork.emplace_back(std::make_tuple("model.pt", "C1_MO2"));
+  auto given_phase = Parameter("GivenPhase", "C1_MO2");
+
+  vTupleStringString CommonNeuralNetwork;
+  CommonNeuralNetwork.emplace_back(std::make_tuple("model.pt", "C1_MO2"));
+
+  auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", CommonNeuralNetwork);
+  vTupleStringInt ChemicalPotentialNeuralNetworkIndex;
+  ChemicalPotentialNeuralNetworkIndex.emplace_back(std::make_tuple("C1_MO2", 5));
+  auto index_neural_network_model_mu =
+      Parameter("ChemicalPotentialsNeuralNetworkIndex", ChemicalPotentialNeuralNetworkIndex);
 
   vTupleStringInt MobilitiesNeuralNetworkIndex;
-  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("C1_MO2", 5));
+  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("C1_MO2", 2));
 
-  auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", MobilitiesNeuralNetwork);
+  auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", CommonNeuralNetwork);
   auto index_neural_network_model_mob =
       Parameter("MobilitiesNeuralNetworkIndex", MobilitiesNeuralNetworkIndex);
 
@@ -181,12 +187,14 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> composition_order{"O", "PU", "U"};
   auto input_composition_order = Parameter("InputCompositionOrder", composition_order);
 
+  auto element_removed_from_nn_inputs = Parameter("element_removed_from_nn_inputs", "PU");
+
   auto own_mobility_model = Parameter("OwnMobilityModel", false);
 
   auto calphad_parameters =
       Parameters(neural_network_model_mu, index_neural_network_model_mu, neural_network_model_mob,
                  index_neural_network_model_mob, own_mobility_model, input_composition_factor,
-                 input_composition_order);
+                 input_composition_order, given_phase, element_removed_from_nn_inputs);
 
   auto M11 = VAR(&spatial, calphad_bcs, "M11", level_of_storage, 0.);
   M11.set_additional_information("O", "inter_mob");
@@ -285,7 +293,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppo_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
-                 Parameter("last_component", "PU"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "C1_MO2"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
@@ -300,7 +308,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppu_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "U"),
-                 Parameter("last_component", "PU"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "C1_MO2"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, xo_vars,
