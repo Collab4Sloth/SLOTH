@@ -65,6 +65,9 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
   std::vector<std::string> input_energies_order_;
   double input_composition_factor_;
 
+  bool model_built_with_pressure_{false};
+  bool own_mobilities_model_{false};
+
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
@@ -453,6 +456,7 @@ void CalphadInformedNeuralNetwork<T>::compute(
 
     const double temperature = tp_gf_at_node[0];
     const double pressure = tp_gf_at_node[1];
+
     tensor[ia][0] = temperature;
 
     // id_elem starts to 1 if pressure is not an input of the model. Otherwise it starts to 2.
@@ -498,8 +502,8 @@ void CalphadInformedNeuralNetwork<T>::compute(
 
   std::vector<torch::jit::IValue> inputs;
   inputs.push_back(tensor);
-
   // Get CALPHAD contributions from Neural Networks
+
   // Chemical potentials
   auto output_mu_tmp = this->chemical_potentials_nn_[given_phase]->forward(inputs);
   at::Tensor output_mu = output_mu_tmp.toTensor().detach();
