@@ -33,7 +33,6 @@ class InterDiffusionCoefficient : public PropertyBase {
   std::map<std::string, int> mob_index_;
   std::map<std::string, int> x_index_;
   bool single_phase_ = true;
-  void check_nan(mfem::Vector vv, std::string name);
 
  protected:
   std::string first_component_;
@@ -292,6 +291,9 @@ void InterDiffusionCoefficient::get_property(
     mfem::Vector vv(vmob[j].size());
     for (int k = 0; k < vmob[j].size(); k++) {
       vv(k) = vmob[j][k];
+      std::string msg = "Error for j " + std::to_string(j) + "  at node " + std::to_string(k) +
+                        " with mob " + std::to_string(vv(k)) + " phi " + std::to_string(phi[k]);
+      MFEM_VERIFY(vv(k) < 1., msg.c_str());
     }
     output_value.get() = vv;
     j++;
