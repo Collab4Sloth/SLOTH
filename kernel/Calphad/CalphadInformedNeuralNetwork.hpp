@@ -65,9 +65,6 @@ class CalphadInformedNeuralNetwork : public CalphadBase<T> {
   std::vector<std::string> input_energies_order_;
   double input_composition_factor_;
 
-  bool model_built_with_pressure_{false};
-  bool own_mobilities_model_{false};
-
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
