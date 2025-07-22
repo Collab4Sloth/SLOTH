@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using OPE = SteadyAllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE = SteadyPhaseFieldOperator<FECollection, DIM, NLFI>;
 
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################

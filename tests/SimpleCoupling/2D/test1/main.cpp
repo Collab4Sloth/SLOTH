@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
   using NLFI = AllenCahnTemperatureMeltingNLFormIntegrator<
       VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
       Mobility::Constant, ThermodynamicsPotentials::H>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
 
   // Heat

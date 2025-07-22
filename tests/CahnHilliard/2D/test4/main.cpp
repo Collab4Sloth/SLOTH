@@ -1,9 +1,9 @@
 /**
  * @file main.cpp
- * @author ci230846  (clement.introini@cea.fr)
- * @brief 2D coalescence bubbles solved by Cahn-Hilliard equations
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief CahnHilliard problem solved in a square
  * @version 0.1
- * @date 2025-07-04
+ * @date 2025-07-11
  *
  * Copyright CEA (c) 2025
  *
@@ -18,7 +18,6 @@
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
-
 ///---------------
 /// Main program
 ///---------------
@@ -26,7 +25,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Verbose);
+  setVerbosity(Verbosity::Debug);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -47,12 +46,10 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::F, Mobility::Constant>;
-
+                                            ThermodynamicsPotentials::W, Mobility::Constant>;
   using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -61,23 +58,19 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  const std::string mesh_type =
-      "InlineSquareWithQuadrangles";  //
-                                      // "InlineSquareWithQuadrangles";  // type of mesh //
-                                      // "InlineSquareWithTriangles"
-  const int refinement_level = 0;     // number of levels of uniform refinement
 
   std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles", "InlineSquareWithTriangles"};
   std::vector<int> vect_order{2, 1};
-  std::vector<int> vect_NN{160, 80, 40, 20};
+  std::vector<int> vect_NN{120};
   for (const auto elem_type : vect_elem) {
-    for (const auto order_fe : vect_order) {
+    for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {
+        const int order_fe = order;      // finite element order
+        const int refinement_level = 0;  // number of levels of uniform refinement
         const int nx = NN;
         const int ny = NN;
         const double lx = 1.;
         const double ly = 1.;
-
         const std::tuple<int, int, double, double>& tuple_of_dimensions = std::make_tuple(
             nx, ny, lx, ly);  // Number of elements and maximum length in each direction
 
@@ -85,13 +78,13 @@ int main(int argc, char* argv[]) {
         // ##############################
         //     Boundary conditions     //
         // ##############################
-        auto boundaries = {
-            Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Dirichlet", 0.),
-            Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
-        auto bcs_phi = BCS(&spatial, boundaries);
+        auto boundaries_phi = {
+            Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
+            Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
         auto boundaries_mu = {
-            Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Dirichlet", 0.),
-            Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
+            Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
+            Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+        auto bcs_phi = BCS(&spatial, boundaries_phi);
         auto bcs_mu = BCS(&spatial, boundaries_mu);
 
         // ###########################################
@@ -103,64 +96,52 @@ int main(int argc, char* argv[]) {
         //     parameters    //
         // ####################
         //  Interface thickness
-        const double epsilon(1.0);
+        const double epsilon(0.1);
         // Interfacial energy
         const double sigma(1.);
         // Two-phase mobility
         const double mob(1.);
-        const double lambda = 1.;
-        const double omega = 1.;
+        const double lambda = 1.5 * sigma * epsilon;
+        const double omega = 12. * sigma / epsilon;
         auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                                 Parameter("lambda", lambda), Parameter("omega", omega));
+                                 Parameter("lambda", lambda), Parameter("omega", omega),
+                                 Parameter("power", 2.0));
         // ####################
         //     variables     //
         // ####################
+        const double center_x = 0.;
+        const double center_y = 0.;
+        const double a_x = 1.;
+        const double a_y = 0.;
+        const double thickness = 5.e-3;
+        const double radius = 5.e-1;
 
-        // phi analytical solution (mms)
-        auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& x, double time) {
-              const double xx = x[0];
-              const auto func = (time + 1) * std::sin(M_PI * xx);
+        auto initial_condition =
+            AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
+                                     a_x, a_y, thickness, radius);
+        auto analytical_solution =
+            AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
+                                     a_x, a_y, epsilon, radius);
+
+        auto solution_mu = std::function<double(const mfem::Vector&, double)>(
+            [&](const mfem::Vector& v, double time) {
+              const double x = v[0];
+
+              const auto r = a_x * (x - center_x);
+              const auto phi = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);
+              const auto dphidx = 0.5 *
+                                  (1.0 - std::pow(std::tanh(2.0 * (r - radius) / thickness), 2)) *
+                                  (2.0 * a_x / thickness);
+
+              const auto func =
+                  2. * omega * phi * (1. - phi) * (1. - 2. * phi) - lambda * dphidx * dphidx;
               return func;
             });
-
-        // mu analytical solution (mms)
-        auto mu_user_func_solution = std::function<double(const mfem::Vector&, double)>(
-            [&](const mfem::Vector& x, double time) {
-              const double xx = x[0];
-              const auto c = (time + 1) * std::sin(M_PI * xx);
-              const double delta_c = -M_PI * M_PI * c;
-
-              const auto sol = c * c * c - c - delta_c;
-              return sol;
-            });
-
-        // 1st equation source term
-        auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-            [&](const mfem::Vector& x, double time) {
-              const double xx = x[0];
-              const double yy = x[1];
-              const auto c = (time + 1) * std::sin(M_PI * xx);
-              const double delta_c = -M_PI * M_PI * c;
-              const double dc_dx = (time + 1) * M_PI * std::cos(M_PI * xx);
-              const double delta_mu = delta_c * (3. * c * c - 1.) + 6. * c * (dc_dx * dc_dx) -
-                                      M_PI * M_PI * M_PI * M_PI * c;
-              const double dc_dt = std::sin(M_PI * xx);
-              const auto func = dc_dt - delta_mu;
-              return func;
-            });
-        auto user_func_source_term2 = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& v, double time) { return 0.; });
-
-        auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
-        auto phi_analytical_condition = AnalyticalFunctions<DIM>(user_func_solution);
-        auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
-        auto mu_analytical_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
+        auto initial_solution_mu = AnalyticalFunctions<DIM>(solution_mu);
         const std::string& var_name_1 = "phi";
         const std::string& var_name_2 = "mu";
-        auto v1 =
-            VAR(&spatial, bcs_phi, var_name_1, 2, phi_initial_condition, phi_analytical_condition);
-        auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, mu_initial_condition);
+        auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, initial_condition, analytical_solution);
+        auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, 0.);
         auto vars = VARS(v1, v2);
 
         // ###########################################
@@ -168,16 +149,16 @@ int main(int argc, char* argv[]) {
         //      Post-processing                     //
         // ###########################################
         // ###########################################
-        const std::string& main_folder_path =
-            "Saves_order_" + std::to_string(order_fe) + "_Nx" + std::to_string(NN);
 
+        const std::string& main_folder_path =
+            "Saves_order_" + std::to_string(order) + "_Nx" + std::to_string(NN);
         const int level_of_detail = 1;
-        const int frequency = 1;
+        const int frequency = 100;
         std::string calculation_path = elem_type + "CahnHilliard";
         const double threshold = 10.;
+        bool enable_save_specialized_at_iter = true;
         std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
             {var_name_1, {-10.1, 10.1}}};
-        bool enable_save_specialized_at_iter = true;
         auto p_pst = Parameters(
             Parameter("main_folder_path", main_folder_path),
             Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
@@ -190,22 +171,18 @@ int main(int argc, char* argv[]) {
 
         // Problem 1:
         const auto crit_cvg_1 = 1.e-12;
-
         std::vector<SPA*> spatials{&spatial, &spatial};
-        std::vector<AnalyticalFunctions<DIM>> src_term;
-        src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term2));
-        src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
-        // OPE oper(spatials, params, src_term);
-        OPE oper(spatials, params, TimeScheme::EulerImplicit, src_term);
+        OPE oper(spatials, params, TimeScheme::EulerImplicit);
         oper.overload_mobility(Parameters(Parameter("mob", mob)));
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                       Parameter("rel_tol", 1.e-8), Parameter("abs_tol", 1.e-12)));
+                       Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12),
+                       Parameter("iter_max", 1000)));
         const auto& solver = HypreSolverType::HYPRE_GMRES;
         const auto& precond = HyprePreconditionerType::HYPRE_ILU;
-        oper.overload_solver(solver, Parameters(Parameter("tol", 1.e-12), Parameter("kDim", 100)));
-        oper.overload_preconditioner(precond, Parameters(Parameter("type", 1)));
+        oper.overload_solver(solver);
+        oper.overload_preconditioner(precond);
 
         PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
         auto pst = PST(&spatial, p_pst);
@@ -220,8 +197,8 @@ int main(int argc, char* argv[]) {
         // ###########################################
         // ###########################################
         const double t_initial = 0.0;
-        const double t_final = 1.;
-        const double dt = 1.;
+        const double t_final = 0.1;
+        const double dt = 1.e-3;
         auto time_params = Parameters(Parameter("initial_time", t_initial),
                                       Parameter("final_time", t_final), Parameter("time_step", dt));
         auto time = TimeDiscretization(time_params, cc);
@@ -235,6 +212,7 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+
   //---------------------------------------
   // Finalize MPI
   //---------------------------------------

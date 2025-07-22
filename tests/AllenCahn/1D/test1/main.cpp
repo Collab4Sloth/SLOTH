@@ -54,9 +54,9 @@ int main(int argc, char* argv[]) {
   using LHS_NLFI = TimeNLFormIntegrator<VARS>;
   using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
   using LHS_NLFI_3 = TimeNLFormIntegrator<VARS>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
-  using OPE2 = AllenCahnOperator<FECollection, DIM, NLFI2, LHS_NLFI_2>;
-  using OPE3 = AllenCahnOperator<FECollection, DIM, NLFI3, LHS_NLFI_3>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE2 = PhaseFieldOperator<FECollection, DIM, NLFI2, LHS_NLFI_2>;
+  using OPE3 = PhaseFieldOperator<FECollection, DIM, NLFI3, LHS_NLFI_3>;
 
   using PB = Problem<OPE, VARS, PST>;
   using PB2 = Problem<OPE2, VARS, PST>;

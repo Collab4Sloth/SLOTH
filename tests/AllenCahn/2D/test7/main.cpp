@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
 
   using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using LHS_NLFI2 = TimeNLFormIntegrator<VARS>;
   using OPE2 = DiffusionOperator<FECollection, DIM, NLFI2, Density::Constant, LHS_NLFI2>;
   using PB = Problem<OPE, VARS, PST>;

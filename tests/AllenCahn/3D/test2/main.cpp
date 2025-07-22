@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
       VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
       Mobility::Constant, ThermodynamicsPotentials::H>;
   using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
 
   // ###########################################
