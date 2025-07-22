@@ -1,5 +1,5 @@
 /**
- * @file SteadyPhaseFieldOperatorBase.hpp
+ * @file SteadyOperatorBase.hpp
  * @author ci230846 (clement.introini@cea.fr)
  * @brief Steady PhaseField Operator base
  * @version 0.1
@@ -40,31 +40,31 @@
 #pragma once
 
 /**
- * @brief SteadyPhaseFieldOperatorBase class
+ * @brief SteadyOperatorBase class
  *
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI> {
+class SteadyOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI> {
  private:
   SteadyPhaseFieldReducedOperator *steady_reduced_oper;
 
  public:
-  explicit SteadyPhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials);
+  explicit SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials);
 
-  SteadyPhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                               std::vector<AnalyticalFunctions<DIM>> source_term_name);
+  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
-  SteadyPhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                               const Parameters &params);
+  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params);
 
-  SteadyPhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                               const Parameters &params,
-                               std::vector<AnalyticalFunctions<DIM>> source_term_name);
+  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params,
+                     std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult(const mfem::Vector &k, mfem::Vector &y) const override;
   // mfem::Operator &GetGradient(const mfem::Vector &k) const override;
 
-  virtual ~SteadyPhaseFieldOperatorBase();
+  virtual ~SteadyOperatorBase();
 
   // Virtual methods
   void set_default_properties() override = 0;
@@ -87,7 +87,7 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new SteadyPhaseFieldOperatorBase object
+ * @brief Construct a new SteadyOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -95,7 +95,7 @@ class SteadyPhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>
  * @param spatial
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBase(
+SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
@@ -104,7 +104,7 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
 }
 
 /**
- * @brief Construct a new SteadyPhaseFieldOperatorBase object
+ * @brief Construct a new SteadyOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -113,7 +113,7 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
  * @param source_term_name
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBase(
+SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials,
     std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, source_term_name), steady_reduced_oper(NULL) {
@@ -123,7 +123,7 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
 }
 
 /**
- * @brief Construct a new SteadyPhaseFieldOperatorBase object
+ * @brief Construct a new SteadyOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -132,7 +132,7 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
  * @param params
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBase(
+SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
@@ -141,7 +141,7 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
 }
 
 /**
- * @brief Construct a new SteadyPhaseFieldOperatorBase object
+ * @brief Construct a new SteadyOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -151,7 +151,7 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
  * @param source_term_name
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBase(
+SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params, source_term_name),
@@ -171,9 +171,9 @@ SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyPhaseFieldOperatorBa
  * @param vars
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
+void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
     const double &initial_time, Variables<T, DIM> &vars, std::vector<Variables<T, DIM> *> auxvars) {
-  Catch_Time_Section("SteadyPhaseFieldOperatorBase::initialize");
+  Catch_Time_Section("SteadyOperatorBase::initialize");
 
   OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(initial_time, vars, auxvars);
 }
@@ -189,7 +189,7 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
  * @param dt
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
+void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
     std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
     const double &current_time, double dt, const int iter) {
   this->current_time_ = current_time;
@@ -255,7 +255,7 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
  * @param u
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
+void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   // Catch_Time_Section("OperatorBase::SetConstantParameters");
   // Nothing to be done
@@ -267,9 +267,9 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters
  * @param u unknown vector
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
+void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
-  Catch_Time_Section("SteadyPhaseFieldOperatorBase::SetTransientParameters");
+  Catch_Time_Section("SteadyOperatorBase::SetTransientParameters");
 
   ////////////////////////////////////////////
   //  Build the RHS of the PDEs
@@ -304,8 +304,8 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameter
  * @param y
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &k,
-                                                                mfem::Vector &y) const {
+void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &k,
+                                                      mfem::Vector &y) const {
   // Nothing to be done because of manage by steadyreducedoperator
 }
 
@@ -318,4 +318,4 @@ void SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vect
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-SteadyPhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::~SteadyPhaseFieldOperatorBase() {}
+SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::~SteadyOperatorBase() {}

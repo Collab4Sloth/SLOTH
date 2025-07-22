@@ -1,16 +1,12 @@
-/*
- * Copyright © CEA 2022
+/**
+ * @file TransientOperatorBase.hpp
+ * @author ci230846
+ * @brief
+ * @version 0.1
+ * @date 2025-07-09
  *
- * \brief PhaseField time-dependent operator built on the basis of ex16.cpp from MFEM repository
+ * @copyright Copyright © CEA 2025
  *
- *   After spatial discretization, the phasefield model can be written as:
- *      dphi/dt = M^{-1}(-Kphi)
- *   where phi denotes the phase-field variable and K the phase-field operator (that does not
- *   depends on time)
- *
- * \file PhaseFieldOperatorBase.hpp
- * \author ci230846
- * \date 12/01/2022
  */
 
 #include <algorithm>
@@ -46,12 +42,12 @@
 #pragma once
 
 /**
- * @brief PhaseFieldOperatorBase class
+ * @brief TransientOperatorBase class
  *
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
-                               public mfem::TimeDependentOperator {
+class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
+                              public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver *ode_solver_;
   bool isExplicit_{false};
@@ -89,24 +85,24 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
   PhaseFieldReducedOperator *reduced_oper;
 
  public:
-  PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                         TimeScheme::value ode);
+  TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                        TimeScheme::value ode);
 
-  PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                         TimeScheme::value ode,
-                         std::vector<AnalyticalFunctions<DIM>> source_term_name);
+  TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                        TimeScheme::value ode,
+                        std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
-  PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                         const Parameters &params, TimeScheme::value ode);
+  TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                        const Parameters &params, TimeScheme::value ode);
 
-  PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                         const Parameters &params, TimeScheme::value ode,
-                         std::vector<AnalyticalFunctions<DIM>> source_term_name);
+  TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                        const Parameters &params, TimeScheme::value ode,
+                        std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult(const mfem::Vector &u, mfem::Vector &du_dt) const override;
   void ImplicitSolve(const double dt, const mfem::Vector &u, mfem::Vector &k) override;
 
-  virtual ~PhaseFieldOperatorBase();
+  virtual ~TransientOperatorBase();
 
   // User-defined Solvers
   void overload_mass_solver(VSolverType SOLVER);
@@ -141,7 +137,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new PhaseFieldOperatorBase object
+ * @brief Construct a new TransientOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -150,7 +146,7 @@ class PhaseFieldOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
  * @param ode
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
+TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
@@ -166,7 +162,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
 }
 
 /**
- * @brief Construct a new PhaseFieldOperatorBase object
+ * @brief Construct a new TransientOperatorBase object
  * object
  *
  * @tparam T
@@ -178,7 +174,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
  * @param source_term_name
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
+TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, TimeScheme::value ode,
     std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, source_term_name),
@@ -195,7 +191,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
 }
 
 /**
- * @brief Construct a new PhaseFieldOperatorBase object
+ * @brief Construct a new TransientOperatorBase object
  *
  * @tparam T
  * @tparam DIM
@@ -205,7 +201,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
  * @param ode
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
+TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params),
@@ -222,7 +218,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
 }
 
 /**
- * @brief Construct a new PhaseFieldOperatorBase object
+ * @brief Construct a new TransientOperatorBase object
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
@@ -234,7 +230,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
  * @param source_term_name
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
+TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
     std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     TimeScheme::value ode, std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params, source_term_name),
@@ -259,7 +255,7 @@ PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::PhaseFieldOperatorBase(
  * @param ode_solver
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_ODE_solver(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_ODE_solver(
     const TimeScheme::value &ode_solver) {
   // TODO(cci) faire un template?
   switch (ode_solver) {
@@ -296,9 +292,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_ODE_solver(
  * @param vars
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
     const double &initial_time, Variables<T, DIM> &vars, std::vector<Variables<T, DIM> *> auxvars) {
-  Catch_Time_Section("PhaseFieldOperatorBase::initialize");
+  Catch_Time_Section("TransientOperatorBase::initialize");
 
   this->SetTime(initial_time);
 
@@ -318,7 +314,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
  * @param current_time_step
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
     std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
     const double &current_time, double current_time_step, const int iter) {
   //// Constructing array of offsets
@@ -347,7 +343,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
 //////////////////////////////////////////////////////////////////////////////
 
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem::Vector &u) {
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem::Vector &u) {
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
@@ -363,7 +359,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const 
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
     const std::vector<mfem::Vector> &u_vect) {
   this->M_solver_.clear();
   for (int i = 0; i < u_vect.size(); i++) {
@@ -405,7 +401,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
  * @param u
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
   if (LHS != nullptr) {
     delete LHS;
@@ -428,9 +424,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
  * @param u_vect
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-LHS_NLFI *PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
+LHS_NLFI *TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
     const double dt, const std::vector<mfem::Vector> &u) {
-  Catch_Time_Section("PhaseFieldOperatorBase::set_lhs_nlfi_ptr");
+  Catch_Time_Section("TransientOperatorBase::set_lhs_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
   for (int i = 0; i < u.size(); i++) {
@@ -454,9 +450,9 @@ LHS_NLFI *PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
  * @param u unknown vector
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
-  Catch_Time_Section("PhaseFieldOperatorBase::SetTransientParameters");
+  Catch_Time_Section("TransientOperatorBase::SetTransientParameters");
 
   ////////////////////////////////////////////
   // Build the LHS of the PDEs
@@ -489,9 +485,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParameters(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParameters(
     const std::vector<mfem::Vector> &un_vect) {
-  Catch_Time_Section("PhaseFieldOperatorBase::SetExplicitTransientParameters");
+  Catch_Time_Section("TransientOperatorBase::SetExplicitTransientParameters");
   ////////////////////////////////////////////
   // Variable mass matrix
   ////////////////////////////////////////////
@@ -511,9 +507,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParamet
  * @param ess_tdof_list array of dofs
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
     const double dt, const std::vector<mfem::Vector> &u_vect) {
-  Catch_Time_Section("PhaseFieldOperatorBase::SetConstantParameters");
+  Catch_Time_Section("TransientOperatorBase::SetConstantParameters");
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -526,9 +522,9 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
  * @param du_dt unkwon time derivative vector
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
-                                                          mfem::Vector &du_dt) const {
-  Catch_Time_Section("PhaseFieldOperatorBase::Mult");
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
+                                                         mfem::Vector &du_dt) const {
+  Catch_Time_Section("TransientOperatorBase::Mult");
 
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
@@ -539,8 +535,8 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
   v_vect.emplace_back(v);
 
   // Todo(cci) : try to do different because of not satisfying
-  const_cast<PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI> *>(this)
-      ->SetExplicitTransientParameters(v_vect);
+  const_cast<TransientOperatorBase<T, DIM, NLFI, LHS_NLFI> *>(this)->SetExplicitTransientParameters(
+      v_vect);
 
   // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
   const int fes_size = this->block_trueOffsets_.Size() - 1;
@@ -596,10 +592,10 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &u,
  * @param du_dt unkwon time derivative vector
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double dt,
-                                                                   const mfem::Vector &u,
-                                                                   mfem::Vector &du_dt) {
-  Catch_Time_Section("PhaseFieldOperatorBase::ImplicitSolve");
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double dt,
+                                                                  const mfem::Vector &u,
+                                                                  mfem::Vector &du_dt) {
+  Catch_Time_Section("TransientOperatorBase::ImplicitSolve");
 
   const auto sc = this->height_;
   mfem::Vector v(u.GetData(), sc);
@@ -641,6 +637,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
     }
   }
 
+  source_term.Print();
   this->newton_solver_->Mult(source_term, dv_dt);
   delete this->rhs_solver_;
 
@@ -656,7 +653,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double 
  * @param SOLVER
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(VSolverType SOLVER) {
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(VSolverType SOLVER) {
   this->mass_solver_ = SOLVER;
 }
 
@@ -670,7 +667,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(VSolve
  * @param s_params
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(
     VSolverType SOLVER, const Parameters &s_params) {
   this->mass_solver_ = SOLVER;
   this->mass_solver_params_ = s_params;
@@ -685,7 +682,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(
  * @param PRECOND
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
     VSolverType PRECOND) {
   this->mass_precond_ = PRECOND;
 }
@@ -701,7 +698,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditione
  * @param p_params
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
     VSolverType PRECOND, const Parameters &p_params) {
   this->mass_precond_ = PRECOND;
   this->mass_precond_params_ = p_params;
@@ -715,7 +712,7 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditione
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
+void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
   auto s_params = Parameters(Parameter("description", "Default Mass Solver"));
   auto p_params = Parameters(Parameter("description", "Default Mass preconditioner"));
 
@@ -729,4 +726,4 @@ void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
  *
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::~PhaseFieldOperatorBase() {}
+TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::~TransientOperatorBase() {}

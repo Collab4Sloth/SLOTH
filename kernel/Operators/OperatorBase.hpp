@@ -461,9 +461,16 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeError(
   mfem::FunctionCoefficient solution_coef(solution_func);
   solution_coef.SetTime(t);
 
-  const auto errorL2 = gf.ComputeLpError(2., solution_coef);
-  const auto errorLinf = gf.ComputeLpError(mfem::infinity(), solution_coef);
-  const auto norm_solution = zero.ComputeLpError(2, solution_coef);
+  // IR
+  const mfem::FiniteElement *fe = this->fes_[id_var]->GetFE(0);
+  const mfem::IntegrationRule *ir[mfem::Geometry::NumGeom];
+  for (int i = 0; i < mfem::Geometry::NumGeom; ++i) {
+    ir[i] = &(mfem::IntRules.Get(i, 2 * fe->GetOrder() + 6));
+  }
+
+  const auto errorL2 = gf.ComputeLpError(2., solution_coef, NULL, ir);
+  const auto errorLinf = gf.ComputeLpError(mfem::infinity(), solution_coef, NULL, ir);
+  const auto norm_solution = zero.ComputeLpError(2, solution_coef, NULL, ir);
   const auto normalized_error = errorL2 / norm_solution;
 
   this->time_specialized_.emplace(IterationKey(it, dt, t),
@@ -643,8 +650,8 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(
     const int id_block, const std::function<double(const mfem::Vector &, double)> &src_func,
     mfem::Vector &source_term, mfem::ParLinearForm *RHSS) const {
   mfem::FunctionCoefficient src(src_func);
+  src.SetTime(this->current_time_ + 1);
 
-  src.SetTime(this->current_time_);
   RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
   RHSS->Assemble();
 
@@ -652,6 +659,12 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(
   RHSS->ParallelAssemble(source_term);
 
   source_term.SetSubVector(this->ess_tdof_list_[id_block], 0.);
+  source_term.Print();
+  mfem::Vector xx(source_term.Size());
+  std::cout << " id " << id_block << " this->current_time_" << this->current_time_ << " src "
+            << src_func(xx, 0.) << std::endl;
+
+  std::cout << " _____" << std::endl;
 }
 
 /**

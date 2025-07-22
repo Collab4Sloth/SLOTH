@@ -1,5 +1,5 @@
 /**
- * @file AllenCahnOperator.hpp
+ * @file PhaseFieldOperator.hpp
  * @author ci230846 (clement.introini@cea.fr)
  * @brief AllenCahn operator (Base, Steady and TimeDependent)
  * @version 0.1
@@ -20,10 +20,10 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
-#include "Operators/PhaseFieldOperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
-#include "Operators/SteadyPhaseFieldOperatorBase.hpp"
+#include "Operators/SteadyOperatorBase.hpp"
 #include "Operators/SteadyReducedOperator.hpp"
+#include "Operators/TransientOperatorBase.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -46,21 +46,21 @@
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI,
           template <class, int, class, class> class OPEBASE>
-class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
+class PhaseFieldOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
  protected:
   Parameters mobility_params_;
   double omega_, lambda_;
 
  public:
   template <typename... Args>
-  explicit AllenCahnOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                                 Args &&...args)
+  explicit PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                                  Args &&...args)
       : OPEBASE<T, DIM, NLFI, LHS_NLFI>(spatials, std::forward<Args>(args)...) {
     this->get_parameters();
   }
   template <typename... Args>
-  AllenCahnOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                        const Parameters &params, Args &&...args)
+  PhaseFieldOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                         const Parameters &params, Args &&...args)
       : OPEBASE<T, DIM, NLFI, LHS_NLFI>(spatials, params, std::forward<Args>(args)...) {
     this->get_parameters();
   }
@@ -71,7 +71,7 @@ class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
   void ComputeEnergies(const int &it, const double &t, const double &dt,
                        const std::vector<mfem::Vector> &u) override;
 
-  ~AllenCahnOperatorBase();
+  ~PhaseFieldOperatorBase();
 };
 
 ////////////////////////////////////////////////////////
@@ -80,7 +80,7 @@ class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Destroy the AllenCahnOperatorBase< T, DIM, NLFI>:: Phase Field Operator object
+ * @brief Destroy the PhaseFieldOperatorBase< T, DIM, NLFI>:: Phase Field Operator object
  *
  * @tparam T
  * @tparam DIM
@@ -89,7 +89,7 @@ class AllenCahnOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI,
           template <class, int, class, class> class OPEBASE>
-AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::~AllenCahnOperatorBase() {}
+PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::~PhaseFieldOperatorBase() {}
 
 /**
  * @brief Set the NonLinearFormIntegrator dedicated to AllenCahn
@@ -104,9 +104,9 @@ AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::~AllenCahnOperatorBase()
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI,
           template <class, int, class, class> class OPEBASE>
-NLFI *AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
+NLFI *PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
     const double dt, const std::vector<mfem::Vector> &u) {
-  Catch_Time_Section("AllenCahnOperatorBase::set_nlfi_ptr");
+  Catch_Time_Section("PhaseFieldOperatorBase::set_nlfi_ptr");
   std::vector<mfem::ParGridFunction> vun;
   for (int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
@@ -132,7 +132,7 @@ NLFI *AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI,
           template <class, int, class, class> class OPEBASE>
-void AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::get_parameters() {
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::get_parameters() {
   this->omega_ = this->params_.template get_param_value<double>("omega");
   this->lambda_ = this->params_.template get_param_value<double>("lambda");
 }
@@ -151,9 +151,9 @@ void AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::get_parameters() {
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI,
           template <class, int, class, class> class OPEBASE>
-void AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
+void PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
     const int &it, const double &t, const double &dt, const std::vector<mfem::Vector> &u) {
-  Catch_Time_Section("AllenCahnOperatorBase::ComputeEnergies");
+  Catch_Time_Section("PhaseFieldOperatorBase::ComputeEnergies");
 
   std::vector<mfem::ParGridFunction> vun;
   vun.reserve(u.size());
@@ -196,35 +196,35 @@ void AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
 //////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Class SteadyAllenCahnOperator
+ * @brief Class SteadyPhaseFieldOperator
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI = mfem::BlockNonlinearFormIntegrator>
-class SteadyAllenCahnOperator final
-    : public AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase> {
+class SteadyPhaseFieldOperator final
+    : public PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase> {
  protected:
   void set_default_properties() override;
 
  public:
   template <typename... Args>
-  SteadyAllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
-      : AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase>(
+  SteadyPhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
             spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  SteadyAllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
-                          const Parameters &params, Args &&...args)
-      : AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase>(
+  SteadyPhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                           const Parameters &params, Args &&...args)
+      : PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
             spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   void overload_mobility(const Parameters &p_params);
 
-  ~SteadyAllenCahnOperator() {}
+  ~SteadyPhaseFieldOperator() {}
 };
 
 /**
@@ -235,7 +235,7 @@ class SteadyAllenCahnOperator final
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyAllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
+void SteadyPhaseFieldOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
   this->mobility_params_ = Parameters(Parameter("mob", 1.0));
 }
 /**
@@ -247,7 +247,7 @@ void SteadyAllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
  * @param p_params
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyAllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::overload_mobility(
+void SteadyPhaseFieldOperator<T, DIM, NLFI, LHS_NLFI>::overload_mobility(
     const Parameters &p_params) {
   this->mobility_params_ = p_params;
 }
@@ -257,29 +257,29 @@ void SteadyAllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::overload_mobility(
 //////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Class AllenCahnOperator
+ * @brief Class PhaseFieldOperator
  *
  * @tparam T
  * @tparam DIM
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-class AllenCahnOperator final
-    : public AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase> {
+class PhaseFieldOperator final
+    : public PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase> {
  protected:
   void set_default_properties() override;
 
  public:
   template <typename... Args>
-  AllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
-      : AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase>(
+  PhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
             spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  AllenCahnOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
-                    Args &&...args)
-      : AllenCahnOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase>(
+  PhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params, Args &&...args)
+      : PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
             spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
@@ -287,7 +287,7 @@ class AllenCahnOperator final
   void overload_mobility(const Parameters &p_params);
   void get_mass_coefficient(const mfem::Vector &u) override;
 
-  ~AllenCahnOperator() {}
+  ~PhaseFieldOperator() {}
 };
 /**
  * @brief Overload the MassMatrix coefficient definition
@@ -299,8 +299,8 @@ class AllenCahnOperator final
  * @param u
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void AllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem::Vector &u) {
-  PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(u);
+void PhaseFieldOperator<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem::Vector &u) {
+  TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(u);
 }
 
 /**
@@ -311,7 +311,7 @@ void AllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem:
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void AllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
+void PhaseFieldOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
   this->mobility_params_ = Parameters(Parameter("mob", 1.0));
 }
 /**
@@ -323,6 +323,6 @@ void AllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
  * @param p_params
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void AllenCahnOperator<T, DIM, NLFI, LHS_NLFI>::overload_mobility(const Parameters &p_params) {
+void PhaseFieldOperator<T, DIM, NLFI, LHS_NLFI>::overload_mobility(const Parameters &p_params) {
   this->mobility_params_ = p_params;
 }

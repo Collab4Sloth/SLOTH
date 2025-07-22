@@ -136,7 +136,8 @@ double HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::conductivity_prime(
  */
 template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::HeatNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    std::vector<VARS*> auxvars)
     : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
   this->aux_gf_ = this->get_aux_gf();
   this->aux_old_gf_ = this->get_aux_old_gf();
@@ -200,7 +201,6 @@ template <class VARS, CoefficientDiscretization SCHEME, Conductivity COND_NAME>
 void HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
-
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
@@ -216,7 +216,6 @@ void HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::AssembleElementGrad(
 
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-
 
   vec = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
@@ -234,7 +233,7 @@ void HeatNLFormIntegrator<VARS, SCHEME, COND_NAME>::AssembleElementGrad(
     gradPsi.MultTranspose(*elfun[blk], gradU);
     gradPsi.AddMult(gradU, vec);
     const auto coef_diffu_derivative = this->conductivity_prime(Tr, ip, u, this->params_);
-    AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec,*elmat(blk, blk));
+    AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
   }
 }
 

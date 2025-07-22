@@ -21,9 +21,9 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
-#include "Operators/PhaseFieldOperatorBase.hpp"
+#include "Operators/TransientOperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
-#include "Operators/SteadyPhaseFieldOperatorBase.hpp"
+#include "Operators/SteadyOperatorBase.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -189,21 +189,21 @@ void HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI = mfem::BlockNonlinearFormIntegrator>
 class SteadyHeatOperator final
-    : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase> {
+    : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase> {
  protected:
   void set_default_properties() override;
 
  public:
   template <typename... Args>
   SteadyHeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase>(
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
             spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
   SteadyHeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                      const Parameters &params, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase>(
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
             spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
@@ -250,7 +250,7 @@ void SteadyHeatOperator<T, DIM, NLFI, LHS_NLFI>::overload_conductivity(const Par
  * @tparam NLFI
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
-class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase> {
+class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase> {
  protected:
   Parameters density_params_;
   Parameters heat_capacity_params_;
@@ -260,14 +260,14 @@ class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, Phase
  public:
   template <typename... Args>
   HeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase>(
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
             spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
   HeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
                Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase>(
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
             spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }

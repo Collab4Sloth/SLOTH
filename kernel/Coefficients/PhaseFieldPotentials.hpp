@@ -124,7 +124,7 @@ struct potential_function<0, ThermodynamicsPotentialDiscretization::Implicit> {
   template <typename... Args>
   std::function<double(const double&)> getF(Args... args) {
     return std::function<double(const double&)>([](double x) {
-      const auto pot = 0.25 * (x * x - 1.0) * (x * x - 1.0);
+      const auto pot = (x * x * x * x / 4.) - (x * x / 2.);
       return pot;
     });
   }

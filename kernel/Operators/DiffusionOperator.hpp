@@ -22,9 +22,9 @@
 #include "Coefficients/DensityCoefficient.hpp"
 #include "Coefficients/DiffusionCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
-#include "Operators/PhaseFieldOperatorBase.hpp"
+#include "Operators/TransientOperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
-#include "Operators/SteadyPhaseFieldOperatorBase.hpp"
+#include "Operators/SteadyOperatorBase.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -191,7 +191,7 @@ void DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI = mfem::BlockNonlinearFormIntegrator>
 class SteadyDiffusionOperator final
-    : public DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase> {
+    : public DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase> {
  protected:
   void set_default_properties() override;
 
@@ -199,13 +199,13 @@ class SteadyDiffusionOperator final
   template <typename... Args>
   SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                           const Parameters &params, Args &&...args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase>(
+      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
             spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
   SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyPhaseFieldOperatorBase>(
+      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
             spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
@@ -253,7 +253,7 @@ void SteadyDiffusionOperator<T, DIM, NLFI, LHS_NLFI>::overload_diffusion(
  */
 template <class T, int DIM, class NLFI, Density DENS, class LHS_NLFI>
 class DiffusionOperator final
-    : public DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase> {
+    : public DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase> {
  protected:
   Parameters density_params_;
   void set_default_properties() override;
@@ -263,13 +263,13 @@ class DiffusionOperator final
   template <typename... Args>
   DiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
                     Args &&...args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase>(
+      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
             spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
   DiffusionOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, PhaseFieldOperatorBase>(
+      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
             spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
