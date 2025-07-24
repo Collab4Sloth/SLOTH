@@ -11,6 +11,7 @@
  */
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -28,34 +29,83 @@
 
 #pragma once
 
+/**
+ * @brief Linearized KKS problem for two-phase multi-component system
+ *
+ * @tparam T
+ */
 template <typename T>
 class KKS {
  private:
+  // Tolerance to detect the presence of a phase at the previous time-step
   const double xmin_tol_ = 1.e-12;
+  // Parameters for GMRES solver used to solve system resulting from the linearization
   const double kks_abs_tol_solver_ = 1.e-16;
   const double kks_rel_tol_solver_ = 1.e-16;
   const int kks_max_iter_solver_ = 100;
   const int kks_print_level_solver_ = 0;
+  // Nucleation strategy for nucleation (LiquidFraction by default)
+  std::string KKS_nucleation_strategy_;
+  // Melting temperature used if the nucleation strategy is set to GivenMeltingTemperature
+  double given_melting_temperature_{std::numeric_limits<double>::max()};
+
+  std::set<int> check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
+                                 const T &tp_gf_ph_1);
 
  protected:
-  std::string element_removed_from_ic_;
+  // Common methods for CALPHAD studies
   std::shared_ptr<CalphadUtils<T>> CU_;
+
+  // Symbol of the chemical element removed from the system when initializing equilibrium
+  // calculations (performed with molar fractions).
+  std::string element_removed_from_ic_;
+
+  // Name of the phase expected to form during phase transition
   std::string KKS_secondary_phase_;
+
+  // The mobility of the AC equation
   double KKS_mobility_for_seed_;
+
+  // The value of the spherical seed of secondary phase for starting nucleation
   double KKS_seed_;
+
+  // The radius of the spherical seed of secondary phase for starting nucleation
   double KKS_seed_radius_;
+
+  // The increment of temperature used to calculated derivatives by finite difference scheme
   double KKS_temperature_increment_;
+
+  // The increment of composition used to calculated derivatives by finite difference scheme.
+  // The same increment is used for all components.
   double KKS_composition_increment_;
+
+  // The value of of the threshold to identify the interface
   double KKS_threshold_;
+
+  // Only used with nucleation strategy defined by LiquidFraction (and GEM)
+  // Used to detect the range of temperature where one or two phase are considered.
+  // Usefull with GEM to avoid convergence difficulties
   double KKS_temperature_threshold_;
+
+  // Numerical scheme for temperature. Explicit and Implicit (default) are available.
+  // Implicit scheme simplifies the linearization but requires to solve heat transfer equation
+  // first.
   bool KKS_temperature_scheme_;
+
+  // Flag to identify is the nucleation started
   bool KKS_nucleation_started_{false};
+
+  // Flag to freeze the nucleation. By default, when nucleation starts, it is freezed in order to
+  // avoid to check again the presence other nucleii.
   bool KKS_freeze_nucleation_{true};
 
+  // Interpolation function. It must be consistent with the choice made in AC equation.
   PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
                      ThermodynamicsPotentials::H>
       interpolation_func_;
 
+  // Method used to build the blocks of the linear system resulting from linearization of KKS
+  // problem
   std::unique_ptr<mfem::SparseMatrix> get_A4linearKKS(
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       const std::string &phase, const int node);
@@ -68,6 +118,8 @@ class KKS {
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       const std::string &phase, const int node);
 
+  // Specific containers used to fill blocks of the linear system resulting from linearization of
+  // KKS problem
   std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_by_phase_;
   std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_left_T_;
   std::map<std::tuple<int, int, std::string, std::string>, double> chemical_potentials_left_x_;
@@ -128,6 +180,15 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
   this->KKS_temperature_threshold_ = CALPHAD.params_.template get_param_value_or_default<double>(
       "KKS_temperature_threshold", 2800);
 
+  // Nucleation strategy
+  this->KKS_nucleation_strategy_ = CALPHAD.params_.template get_param_value_or_default<std::string>(
+      "KKS_nucleation_strategy", "LiquidFraction");
+  if (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_) ==
+      KKS_nucleation_strategy::given_melting_temperature) {
+    this->given_melting_temperature_ =
+        CALPHAD.params_.template get_param_value<double>("KKS_given_melting_temperature");
+  }
+
   this->KKS_freeze_nucleation_ =
       CALPHAD.params_.template get_param_value_or_default<bool>("KKS_freeze_nucleation", true);
 
@@ -136,6 +197,54 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
 
   this->KKS_mobility_for_seed_ =
       CALPHAD.params_.template get_param_value_or_default<double>("KKS_mobility", 1.);
+}
+
+/**
+ * @brief Check the nucleation state depending on the nucleation strategy (see
+ * KKS_nucleation_strategy_)
+ *
+ * @tparam T
+ * @param indices_ph_1 List of nodes
+ * @param tp_gf_ph_1 The temperature at nodes defined by indices_ph_1
+ * @return std::set<int>
+ */
+template <typename T>
+std::set<int> KKS<T>::check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
+                                       const T &tp_gf_ph_1) {
+  std::set<int> indices_nucleation;
+
+  switch (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_)) {
+    //
+    case KKS_nucleation_strategy::liquid_fraction: {
+      for (const auto &node : indices_ph_1) {
+        // Check only if equilibrium is found
+        if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
+        // Check if secondary phase is found
+        if (CALPHAD.elem_mole_fraction_by_phase_.contains(std::make_tuple(
+                node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
+          indices_nucleation.insert(node);
+        }
+      }
+      break;
+    }
+    //
+    case KKS_nucleation_strategy::given_melting_temperature: {
+      for (const auto &node : indices_ph_1) {
+        // Check if temperature at node is greater than a given limit
+        if (tp_gf_ph_1(node) > this->given_melting_temperature_) {
+          indices_nucleation.insert(node);
+        }
+      }
+      break;
+    }
+    default: {
+      throw std::runtime_error(
+          "KKS<T>::check_nucleation_at_node: error in the choice of method used to compute "
+          "the nucleation. Available choices are : liquid_fraction (Default), "
+          "given_melting_temperature");
+    }
+  }
+  return indices_nucleation;
 }
 
 /**
@@ -157,6 +266,7 @@ void KKS<T>::execute_linearization(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
     const std::vector<std::tuple<std::string, T>> &coordinates) {
+  // Number of chemical elements
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
@@ -331,7 +441,9 @@ void KKS<T>::execute_linearization(
       {phase, "entered", 0.}, {this->KKS_secondary_phase_, "entered", 0.}};
 
   if ((this->KKS_nucleation_started_ && this->KKS_freeze_nucleation_) ||
-      (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_)) {
+      (pure_bar_tp_gf_ph_1[0][0] < this->KKS_temperature_threshold_) ||
+      (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_) !=
+       KKS_nucleation_strategy::liquid_fraction)) {
     st_phase_12 = {{phase, "entered", 0.}};
   }
 
@@ -344,7 +456,7 @@ void KKS<T>::execute_linearization(
   calculate_interface(indices_ph_1, pure_bar_tp_gf_ph_1, 0., -1,
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
 
-  // Cancel  before checking nucleation state
+  // Cancel before checking nucleation state
   for (int i = 0; i < nb_nodes; ++i) {
     // Must be zero except for nodes detected as  nucleus  in solid
     CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
@@ -353,19 +465,15 @@ void KKS<T>::execute_linearization(
   }
 
   if (!this->KKS_nucleation_started_) {
-    std::set<int> indices_nucleation;
     bool local_nucleation = false;
-    for (const auto &node : indices_ph_1) {
-      // Check only if equilibrium is found
-      if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
-      // Check if secondary phase  is found
-      if (CALPHAD.elem_mole_fraction_by_phase_.contains(
-              std::make_tuple(node, this->KKS_secondary_phase_, this->element_removed_from_ic_))) {
-        // If nucleation is not frozen once detected, local_nucleation must be false
-        local_nucleation = true;
-        local_nucleation &= this->KKS_freeze_nucleation_;
-        indices_nucleation.insert(node);
-      }
+    std::set<int> indices_nucleation =
+        this->check_nucleation(CALPHAD, indices_ph_1, pure_bar_tp_gf_ph_1[0]);
+
+    // Nucleation detected ?
+    if (indices_nucleation.size() > 0) {
+      local_nucleation = true;
+      // If nucleation is not frozen once detected, local_nucleation must be false
+      local_nucleation &= this->KKS_freeze_nucleation_;
     }
 
     // Create circular nucleus around the node where secondary phase is detected
@@ -563,6 +671,10 @@ void KKS<T>::execute_linearization(
 
       mfem::Vector &b1 = bb.GetBlock(1);
       b1 = deltaX;
+      mfem::Vector &d0 = deltaX_phase.GetBlock(0);
+      mfem::Vector &d1 = deltaX_phase.GetBlock(1);
+      d0 = 0.;
+      d1 = 0.;
 
       // mfem::BlockMatrix *AA = new mfem::BlockMatrix(offsets, offsets);
       AA->SetBlock(0, 0, As.get());
@@ -585,6 +697,13 @@ void KKS<T>::execute_linearization(
       // Solve system
       //
       // mfem::BlockVector deltaX_phase(offsets);
+      // Check result of linear system
+      if (Verbosity::Debug <= verbosityLevel) {
+        SlothInfo::print("BEfore solving, KKS linear system at node (A X = B):", node);
+        AA->Print();
+        deltaX_phase.Print();
+        bb.Print();
+      }
 
       solver->Mult(bb, deltaX_phase);
       // Check result of linear system
@@ -709,6 +828,9 @@ void KKS<T>::execute_linearization(
       }
 
       SlothInfo::debug("Gibbs energy: primary phase ", gs, " ; secondary phase ", gl);
+      SlothInfo::debug("DGM: primary phase ", CALPHAD.driving_forces_[std::make_tuple(node, phase)],
+                       " ; secondary phase ",
+                       CALPHAD.driving_forces_[std::make_tuple(node, this->KKS_secondary_phase_)]);
     }
   }
 }

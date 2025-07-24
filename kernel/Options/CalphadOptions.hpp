@@ -90,3 +90,14 @@ pressure_sort_method::value pressure_sort_method::from(const std::string &v) {
       {"No", pressure_sort_method::no}};
   return m.find("temperature_sort_method", v);
 }
+
+struct KKS_nucleation_strategy {
+  enum value { liquid_fraction, given_melting_temperature };
+  static value from(const std::string &);
+};
+KKS_nucleation_strategy::value KKS_nucleation_strategy::from(const std::string &v) {
+  static PhaseFieldPrivate::mmap<KKS_nucleation_strategy::value> m{
+      {"LiquidFraction", KKS_nucleation_strategy::liquid_fraction},
+      {"GivenMeltingTemperature", KKS_nucleation_strategy::given_melting_temperature}};
+  return m.find("KKS_nucleation_strategy", v);
+}
