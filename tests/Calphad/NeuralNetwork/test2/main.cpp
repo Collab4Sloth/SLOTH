@@ -146,24 +146,32 @@ int main(int argc, char* argv[]) {
   CommonNeuralNetwork.emplace_back(std::make_tuple("model.pt", "SOLID"));
 
   auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", CommonNeuralNetwork);
-  vTupleStringString MobilitiesNeuralNetwork;
-  MobilitiesNeuralNetwork.emplace_back(std::make_tuple("model.pt", "SOLID"));
+  vTupleStringInt ChemicalPotentialNeuralNetworkIndex;
+  ChemicalPotentialNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 5));
+  auto index_neural_network_model_mu =
+      Parameter("ChemicalPotentialsNeuralNetworkIndex", ChemicalPotentialNeuralNetworkIndex);
 
   vTupleStringInt MobilitiesNeuralNetworkIndex;
-  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 3));
+  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 2));
 
   auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", CommonNeuralNetwork);
   auto index_neural_network_model_mob =
       Parameter("MobilitiesNeuralNetworkIndex", MobilitiesNeuralNetworkIndex);
-  auto input_composition_factor = Parameter("InputCompositionFactor", Nmol);
-  std::vector<std::string> composition_order{"O", "U", "PU"};
+
+  // If the inputs of the model are  moles, not molar fractions (comment in this case)
+  auto input_composition_factor = Parameter("InputCompositionFactor", 1.);
+
+  std::vector<std::string> composition_order{"O", "PU", "U"};
   auto input_composition_order = Parameter("InputCompositionOrder", composition_order);
+
+  auto element_removed_from_nn_inputs = Parameter("element_removed_from_nn_inputs", "PU");
 
   auto own_mobility_model = Parameter("OwnMobilityModel", false);
 
   auto calphad_parameters =
-      Parameters(neural_network_model_mu, neural_network_model_mob, index_neural_network_model_mob,
-                 input_composition_factor, input_composition_order, given_phase);
+      Parameters(neural_network_model_mu, index_neural_network_model_mu, neural_network_model_mob,
+                 index_neural_network_model_mob, own_mobility_model, input_composition_factor,
+                 input_composition_order, given_phase, element_removed_from_nn_inputs);
 
   auto M11 = VAR(&spatial, calphad_bcs, "M11", level_of_storage, 0.);
   M11.set_additional_information("O", "inter_mob");

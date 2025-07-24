@@ -44,6 +44,10 @@ class KKS {
   const double kks_rel_tol_solver_ = 1.e-16;
   const int kks_max_iter_solver_ = 100;
   const int kks_print_level_solver_ = 0;
+
+  // Flag to detect if specialized values must be saved
+  bool KKS_enable_save_specialized_{false};
+
   // Nucleation strategy for nucleation (LiquidFraction by default)
   std::string KKS_nucleation_strategy_;
   // Melting temperature used if the nucleation strategy is set to GivenMeltingTemperature
@@ -161,6 +165,9 @@ KKS<T>::KKS() {
 template <typename T>
 void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
   this->element_removed_from_ic_ = CALPHAD.element_removed_from_ic_;
+
+  this->KKS_enable_save_specialized_ = CALPHAD.params_.template get_param_value_or_default<bool>(
+      "KKS_enable_save_specialized", false);
 
   this->KKS_secondary_phase_ =
       CALPHAD.params_.template get_param_value<std::string>("KKS_secondary_phase");
@@ -302,6 +309,16 @@ void KKS<T>::execute_linearization(
     FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(i));
     Hphi(i) = H(phi);
     Hphi_old(i) = H(phi_gf_old(i));
+  }
+
+  // Save the number of two-phase nodes where KKS problem must be solved
+  if (this->KKS_enable_save_specialized_) {
+    int local_size = indices_inter.size();
+    int global_size;
+    MPI_Allreduce(&local_size, &global_size, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    CALPHAD.time_specialized_.emplace(IterationKey(dt, time_step, dt * time_step),
+                                      SpecializedValue("KKS nodes[-]", indices_inter.size()));
   }
 
   // Lambda for equilibrium calculations performed in the pure phase or in the interface with a
