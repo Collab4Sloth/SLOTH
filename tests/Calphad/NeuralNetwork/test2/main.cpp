@@ -37,7 +37,6 @@ int main(int argc, char* argv[]) {
   // Common aliases
   //---------------------------------------
   const int DIM = 2;
-  //   const int DIM = 3;
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
@@ -52,11 +51,10 @@ int main(int argc, char* argv[]) {
   const int fe_order = 1;
 
   SPA spatial("GMSH", fe_order, refinement_level, "camembert2D.msh", false);
-  //   SPA spatial("GMSH", fe_order, refinement_level, "camembert3D.msh", false);
+
   // ##############################
   //     Boundary conditions     //
   // ##############################
-
   auto interdiffu_bcs =
       BCS(&spatial, Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Neumann", 0.),
           Boundary("upper", 1, "Neumann", 0.));
@@ -69,27 +67,6 @@ int main(int argc, char* argv[]) {
   auto pressure_bcs =
       BCS(&spatial, Boundary("lower", 0, "Dirichlet", 5.e6),
           Boundary("external", 2, "Dirichlet", 5.e6), Boundary("upper", 1, "Dirichlet", 5.e6));
-
-  //   auto interdiffu_bcs = BCS(
-  //       &spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
-  //       Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
-  //       Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4, "Neumann",
-  //       0.));
-  //   auto thermal_bcs =
-  //       BCS(&spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
-  //           Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann",
-  //           0.), Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4,
-  //           "Dirichlet", 835.));
-  //   auto calphad_bcs = BCS(
-  //       &spatial, Boundary("InterPelletPlane", 0, "Neumann", 0.),
-  //       Boundary("MidPelletPlane", 1, "Neumann", 0.), Boundary("FrontSurface", 3, "Neumann", 0.),
-  //       Boundary("BehindSurface", 2, "Neumann", 0.), Boundary("ExternalSurface", 4, "Neumann",
-  //       0.));
-  //   auto pressure_bcs = BCS(&spatial, Boundary("InterPelletPlane", 0, "Dirichlet", 5.e6),
-  //                           Boundary("MidPelletPlane", 1, "Dirichlet", 5.e6),
-  //                           Boundary("FrontSurface", 3, "Dirichlet", 5.e6),
-  //                           Boundary("BehindSurface", 2, "Dirichlet", 5.e6),
-  //                           Boundary("ExternalSurface", 4, "Dirichlet", 5.e6));
 
   //---------------------------------------
   // Multiphysics coupling scheme
@@ -151,31 +128,31 @@ int main(int argc, char* argv[]) {
 
   // Mobilities
   auto mobO = VAR(&spatial, calphad_bcs, "Mo", level_of_storage, 0.);
-  mobO.set_additional_information("C1_MO2", "O", "mob");
+  mobO.set_additional_information("SOLID", "O", "mob");
 
   auto mobU = VAR(&spatial, calphad_bcs, "Mu", level_of_storage, 0.);
-  mobU.set_additional_information("C1_MO2", "U", "mob");
+  mobU.set_additional_information("SOLID", "U", "mob");
 
   auto mobPU = VAR(&spatial, calphad_bcs, "Mpu", level_of_storage, 0.);
-  mobPU.set_additional_information("C1_MO2", "PU", "mob");
+  mobPU.set_additional_information("SOLID", "PU", "mob");
 
   auto calphad_outputs = VARS(muo, muu, mupu, mobO, mobU, mobPU);
 
   // NeuralNetworks
 
-  auto given_phase = Parameter("GivenPhase", "C1_MO2");
+  auto given_phase = Parameter("GivenPhase", "SOLID");
 
   vTupleStringString CommonNeuralNetwork;
-  CommonNeuralNetwork.emplace_back(std::make_tuple("model.pt", "C1_MO2"));
+  CommonNeuralNetwork.emplace_back(std::make_tuple("model.pt", "SOLID"));
 
   auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", CommonNeuralNetwork);
   vTupleStringInt ChemicalPotentialNeuralNetworkIndex;
-  ChemicalPotentialNeuralNetworkIndex.emplace_back(std::make_tuple("C1_MO2", 5));
+  ChemicalPotentialNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 5));
   auto index_neural_network_model_mu =
       Parameter("ChemicalPotentialsNeuralNetworkIndex", ChemicalPotentialNeuralNetworkIndex);
 
   vTupleStringInt MobilitiesNeuralNetworkIndex;
-  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("C1_MO2", 2));
+  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 2));
 
   auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", CommonNeuralNetwork);
   auto index_neural_network_model_mob =
@@ -293,7 +270,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppo_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
-                 Parameter("last_component", "PU"), Parameter("primary_phase", "C1_MO2"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
@@ -308,7 +285,7 @@ int main(int argc, char* argv[]) {
   //======================
   auto ppu_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "U"),
-                 Parameter("last_component", "PU"), Parameter("primary_phase", "C1_MO2"));
+                 Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, xo_vars,
