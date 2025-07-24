@@ -29,38 +29,84 @@
 
 #pragma once
 
+/**
+ * @brief Linearized KKS problem for two-phase multi-component system
+ *
+ * @tparam T
+ */
 template <typename T>
 class KKS {
  private:
+  // Tolerance to detect the presence of a phase at the previous time-step
   const double xmin_tol_ = 1.e-12;
+  // Parameters for GMRES solver used to solve system resulting from the linearization
   const double kks_abs_tol_solver_ = 1.e-16;
   const double kks_rel_tol_solver_ = 1.e-16;
   const int kks_max_iter_solver_ = 100;
   const int kks_print_level_solver_ = 0;
+
+  // Nucleation strategy for nucleation (LiquidFraction by default)
   std::string KKS_nucleation_strategy_;
+  // Melting temperature used if the nucleation strategy is set to GivenMeltingTemperature
   double given_melting_temperature_{std::numeric_limits<double>::max()};
+
   std::set<int> check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
                                  const T &tp_gf_ph_1);
 
  protected:
-  std::string element_removed_from_ic_;
+  // Common methods for CALPHAD studies
   std::shared_ptr<CalphadUtils<T>> CU_;
+
+  // Symbol of the chemical element removed from the system when initializing equilibrium
+  // calculations (performed with molar fractions).
+  std::string element_removed_from_ic_;
+
+  // Name of the phase expected to form during phase transition
   std::string KKS_secondary_phase_;
+
+  // The mobility of the AC equation
   double KKS_mobility_for_seed_;
+
+  // The value of the spherical seed of secondary phase for starting nucleation
   double KKS_seed_;
+
+  // The radius of the spherical seed of secondary phase for starting nucleation
   double KKS_seed_radius_;
+
+  // The increment of temperature used to calculated derivatives by finite difference scheme
   double KKS_temperature_increment_;
+
+  // The increment of composition used to calculated derivatives by finite difference scheme.
+  // The same increment is used for all components.
   double KKS_composition_increment_;
+
+  // The value of of the threshold to identify the interface
   double KKS_threshold_;
+
+  // Only used with nucleation strategy defined by LiquidFraction (and GEM)
+  // Used to detect the range of temperature where one or two phase are considered.
+  // Usefull with GEM to avoid convergence difficulties
   double KKS_temperature_threshold_;
+
+  // Numerical scheme for temperature. Explicit and Implicit (default) are available.
+  // Implicit scheme simplifies the linearization but requires to solve heat transfer equation
+  // first.
   bool KKS_temperature_scheme_;
+
+  // Flag to identify is the nucleation started
   bool KKS_nucleation_started_{false};
+
+  // Flag to freeze the nucleation. By default, when nucleation starts, it is freezed in order to
+  // avoid to check again the presence other nucleii.
   bool KKS_freeze_nucleation_{true};
 
+  // Interpolation function. It must be consistent with the choice made in AC equation.
   PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
                      ThermodynamicsPotentials::H>
       interpolation_func_;
 
+  // Method used to build the blocks of the linear system resulting from linearization of KKS
+  // problem
   std::unique_ptr<mfem::SparseMatrix> get_A4linearKKS(
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       const std::string &phase, const int node);
@@ -73,6 +119,8 @@ class KKS {
       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
       const std::string &phase, const int node);
 
+  // Specific containers used to fill blocks of the linear system resulting from linearization of
+  // KKS problem
   std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_by_phase_;
   std::map<std::tuple<int, std::string, std::string>, double> chemical_potentials_left_T_;
   std::map<std::tuple<int, int, std::string, std::string>, double> chemical_potentials_left_x_;
@@ -153,11 +201,12 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
 }
 
 /**
- * @brief Check the nucleation state
+ * @brief Check the nucleation state depending on the nucleation strategy (see
+ * KKS_nucleation_strategy_)
  *
  * @tparam T
- * @param indices_ph_1
- * @param tp_gf_ph_1
+ * @param indices_ph_1 List of nodes
+ * @param tp_gf_ph_1 The temperature at nodes defined by indices_ph_1
  * @return std::set<int>
  */
 template <typename T>
@@ -218,6 +267,7 @@ void KKS<T>::execute_linearization(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
     const std::vector<std::tuple<std::string, T>> &coordinates) {
+  // Number of chemical elements
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
