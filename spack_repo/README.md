@@ -3,6 +3,8 @@
 ## how to use it ?
 
 ```
+spack env create Sloth
+spack env activate Sloth
 spack repo add spack_repo
 spack install sloth
 ```
