@@ -92,6 +92,10 @@ class CalphadBase {
   std::map<std::tuple<int, std::string>, double> driving_forces_;
   std::map<std::tuple<int, std::string>, double> nucleus_;
 
+  /// Time integral results
+  std::multimap<IterationKey, SpecializedValue> time_specialized_;
+  const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
+
   explicit CalphadBase(const Parameters &params);
   CalphadBase(const Parameters &params, bool is_KKS);
 
@@ -465,6 +469,16 @@ void CalphadBase<T>::update_outputs(
   }
 }
 
+/**
+ * @brief Return values calculated at a given iteration
+ *
+ * @tparam T
+ * @return const std::multimap<IterationKey, SpecializedValue>
+ */
+template <typename T>
+const std::multimap<IterationKey, SpecializedValue> CalphadBase<T>::get_time_specialized() const {
+  return this->time_specialized_;
+}
 /**
  * @brief Destroy the Calphad Base< T>:: Calphad Base object
  *
