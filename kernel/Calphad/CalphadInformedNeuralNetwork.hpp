@@ -32,38 +32,55 @@
 
 #pragma once
 
-// TODO(cci) : metamodele per phase also for potential
+/**
+ * @brief Calphad calculation performed by neural network
+ * Dedicated to simulations with multicomponent inter-diffusion
+ * @tparam T
+ */
 template <typename T>
 class CalphadInformedNeuralNetwork : public CalphadBase<T> {
  private:
+  // Name of a phase for calphad calculations in only one phase
   std::string given_phase_;
+  // List of neural network by phase and associated containers : chemical potentials
   std::unordered_map<std::string, std::unique_ptr<torch::jit::script::Module>>
       chemical_potentials_nn_;
-  std::unordered_map<std::string, std::unique_ptr<torch::jit::script::Module>> mobilities_nn_;
-
-  std::unordered_map<std::string, std::unique_ptr<torch::jit::script::Module>> energies_nn_;
-
   std::unordered_map<std::string, std::string> chemical_potentials_neural_network_;
-  std::unordered_map<std::string, std::string> mobilities_neural_network_;
-  std::unordered_map<std::string, std::string> energies_neural_network_;
-
   std::unordered_map<std::string, int> index_chemical_potentials_neural_network_;
+  // List of neural network by phase and associated containers  : mobilities
+  std::unordered_map<std::string, std::unique_ptr<torch::jit::script::Module>> mobilities_nn_;
+  std::unordered_map<std::string, std::string> mobilities_neural_network_;
   std::unordered_map<std::string, int> index_mobilities_neural_network_;
+
+  // List of neural network by phase and associated containers  : energies (G, GM, H, HM)
+  std::unordered_map<std::string, std::unique_ptr<torch::jit::script::Module>> energies_nn_;
+  std::unordered_map<std::string, std::string> energies_neural_network_;
   std::unordered_map<std::string, int> index_energies_neural_network_;
 
+  // List of flag to identify the calphad contributions calculated by neural network
   bool has_nn_potentials_{false};
   bool has_nn_mobilities_{false};
   bool has_nn_energies_{false};
-  bool model_built_with_pressure_{false};
+  // List of flag to know if mobilities and/or energies are calculated by the neural network of the
+  // chemical potentials or their own meta-model
   bool own_mobilities_model_{false};
   bool own_energies_model_{false};
 
+  // Flag to identify if the pressure is an input of neural networks (rule is the same for all
+  // meta-models)
+  bool model_built_with_pressure_{false};
+
+  // Objects used to manage the composition and energies in all meta-models
+  // Name of the element removed from inputs in all meta-models
   bool element_removed_from_inputs_{false};
   std::string element_removed_from_nn_inputs_;
-  std::map<std::string, unsigned int> idx_elem_;
+  // Order of the chemical elements in the inputs and outputs for all meta-models
   std::vector<std::string> input_composition_order_;
-  std::vector<std::string> input_energies_order_;
+  std::map<std::string, unsigned int> idx_elem_;
+  // Factor used in case of inputs in moles (instead of molar fractions)
   double input_composition_factor_;
+  // Order of the energies in output of the meta-model
+  std::vector<std::string> input_energies_order_;
 
   std::unique_ptr<CalphadUtils<T>> CU_;
   void compute(const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
@@ -261,7 +278,7 @@ void CalphadInformedNeuralNetwork<T>::get_parameters() {
 /**
  * @brief Construct a new CalphadInformedNeuralNetwork::CalphadInformedNeuralNetwork object
  *
- * @param params
+ * @param params The parameter of the Calphad problem
  */
 template <typename T>
 constexpr CalphadInformedNeuralNetwork<T>::CalphadInformedNeuralNetwork(const Parameters& params)
@@ -276,8 +293,8 @@ constexpr CalphadInformedNeuralNetwork<T>::CalphadInformedNeuralNetwork(const Pa
 /**
  * @brief Construct a new CalphadInformedNeuralNetwork::CalphadInformedNeuralNetwork object
  *
- * @param params
- * @param is_KKS
+ * @param params The parameter of the Calphad problem
+ * @param is_KKS A boolean flag indicating whether to initialize KKS.
  */
 template <typename T>
 constexpr CalphadInformedNeuralNetwork<T>::CalphadInformedNeuralNetwork(const Parameters& params,
@@ -381,13 +398,14 @@ void CalphadInformedNeuralNetwork<T>::initialize(
 }
 
 /**
- * @brief Main method to calculate equilibrium states
+ * @brief Perform equilibrium calculations in a specific phase
  *
  * @tparam T
- * @param dt
- * @param aux_gf
- * @param chemical_system
- * @param output_system
+ * @param dt The current iteration  of the simulation
+ * @param list_nodes The list of nodes where calculations are performed
+ * @param tp_gf The thermodynamic condition for equilibrium calculations
+ * @param chemical_system  The targeted chemical system
+ * @param status_phase A vector of phases with their status
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::execute(
@@ -396,9 +414,8 @@ void CalphadInformedNeuralNetwork<T>::execute(
     std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::execute");
 
-  // Thermodynamic Calculations
+  // Thermodynamic calculations are done by phase
   std::string phase;
-  // Get phase
   if (status_phase.has_value()) {
     const auto& phase_vector = *status_phase;
     MFEM_VERIFY(phase_vector.size() == 1,
@@ -430,20 +447,30 @@ void CalphadInformedNeuralNetwork<T>::compute(
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
     const std::string& given_phase) {
   Catch_Time_Section("CalphadInformedNeuralNetwork<T>::compute");
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Build tensor of inputs (all nodes)
+  /////////////////////////////////////////////////////////////////////////////
   const size_t nb_nodes = list_nodes.size();
   std::vector<double> tp_gf_at_node(tp_gf.size());
-
+  // By default, the number of inputs is the number of chemical element + temperature
   int nb_input = chemical_system.size() + 1;
+  // The number of inputs is reduced if the reference element is removed from inputs
+  // (consistent when working with molar fractions)
   if (this->element_removed_from_inputs_) {
     nb_input--;
   }
+  // The number of inputs is enhanced if the pressure is an input of all meta-models
   if (this->model_built_with_pressure_) {
     nb_input++;
   }
+
   auto options = torch::TensorOptions().dtype(torch::kDouble);
   auto tensor =
       torch::zeros({static_cast<int64_t>(nb_nodes), static_cast<int64_t>(nb_input)}, options);
 
+  // ia is the index of tensor. ia is not equal to i because the list of nodes is not necessary from
+  // 0 to nb_nodes
   int ia = -1;
   for (const auto& i : list_nodes) {
     ia++;
@@ -462,7 +489,7 @@ void CalphadInformedNeuralNetwork<T>::compute(
       tensor[ia][1] = pressure;
       id_elem = 2;
     }
-    // chemical_system.size()-1
+    // sum is used to calculate the molar fraction of the element removed from the inputs
     double sum_x = 0.0;
     for (std::size_t iel = 0; iel < chemical_system.size(); ++iel) {
       const std::string& elem = std::get<0>(chemical_system[iel]);
@@ -487,23 +514,22 @@ void CalphadInformedNeuralNetwork<T>::compute(
       this->elem_mole_fraction_by_phase_[std::make_tuple(
           i, given_phase, this->element_removed_from_nn_inputs_)] = 1.0 - sum_x;
     }
-
-    // tensor[ia][1] = tp_gf_at_node[2] * input_composition_factor_;
-    // tensor[ia][2] = tp_gf_at_node[4] * input_composition_factor_;
-
-    // this->elem_mole_fraction_by_phase_[std::make_tuple(i, given_phase, "O")] = tp_gf_at_node[2];
-    // this->elem_mole_fraction_by_phase_[std::make_tuple(i, given_phase, "U")] = tp_gf_at_node[4];
-    // this->elem_mole_fraction_by_phase_[std::make_tuple(i, given_phase, "PU")] =
-    //     1. - tp_gf_at_node[2] - tp_gf_at_node[4];
   }
 
   std::vector<torch::jit::IValue> inputs;
   inputs.push_back(tensor);
-  // Get CALPHAD contributions from Neural Networks
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Get outputs (all nodes)
+  /////////////////////////////////////////////////////////////////////////////
+  // All tensors are detached in order to avoid the overhead of gradient calculation and then to
+  // save memory/CPU time
+  // Tensors are also expected stored in a contiguous block memory
 
   // Chemical potentials
   auto output_mu_tmp = this->chemical_potentials_nn_[given_phase]->forward(inputs);
   at::Tensor output_mu = output_mu_tmp.toTensor().detach();
+
   // Mobilities
   at::Tensor output_mob_tensor;
   if (this->has_nn_mobilities_ && this->mobilities_nn_.contains(given_phase)) {
@@ -549,13 +575,15 @@ void CalphadInformedNeuralNetwork<T>::compute(
     output_nrj_size = output_nrj_tensor.sizes()[1];
     output_data_nrj = output_nrj_tensor.data_ptr<double>();
   }
+
+  // Fill Calphad containers in order to update outputs of the Calphad problem
   ia = -1;
   for (const auto& i : list_nodes) {
     ia++;
     for (std::size_t iel = 0; iel < chemical_system.size(); ++iel) {
       const std::string& elem = std::get<0>(chemical_system[iel]);
 
-      // Chemical potential
+      // Chemical potentials
       const int& mu_index = this->index_chemical_potentials_neural_network_.at(given_phase);
       this->chemical_potentials_[std::make_tuple(i, elem)] =
           output_data_mu[ia * output_mu_size + mu_index + this->idx_elem_[elem]];
@@ -580,7 +608,7 @@ void CalphadInformedNeuralNetwork<T>::compute(
         }
       }
     }
-
+    // Diffusion chemcial potentials
     for (std::size_t iel = 0; iel < chemical_system.size(); ++iel) {
       const std::string& elem = std::get<0>(chemical_system[iel]);
       if (elem == this->element_removed_from_nn_inputs_) continue;
@@ -596,10 +624,10 @@ void CalphadInformedNeuralNetwork<T>::compute(
 }
 
 /**
- * @brief Check the consistency of outputs required for the current Calphad problem
+ * @brief Check the consistency of the outputs of the Calphad problem.
  *
  * @tparam T
- * @param output_system
+ * @param output_system The outputs of the Calphad problem (primary variables).
  */
 template <typename T>
 void CalphadInformedNeuralNetwork<T>::check_variables_consistency(
@@ -619,6 +647,7 @@ void CalphadInformedNeuralNetwork<T>::check_variables_consistency(
     }
   }
 }
+
 /**
  * @brief Finalization actions (free memory)
  *

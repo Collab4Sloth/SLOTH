@@ -44,7 +44,6 @@ class KKS {
   const double kks_rel_tol_solver_ = 1.e-16;
   const int kks_max_iter_solver_ = 100;
   const int kks_print_level_solver_ = 0;
-
   // Nucleation strategy for nucleation (LiquidFraction by default)
   std::string KKS_nucleation_strategy_;
   // Melting temperature used if the nucleation strategy is set to GivenMeltingTemperature
