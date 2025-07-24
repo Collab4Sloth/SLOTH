@@ -27,23 +27,39 @@
 
 #pragma once
 
+/**
+ * @brief Compute inter-diffusion coefficients
+ *
+ * J_i = Sum_j [ M_ij * grad mu_i ] - Sum_j [ M_ij * grad mu_j ]
+ *
+ * with M_ij = x_i * x_j * (M_i x_j + M_j x_i)
+ *
+ */
 class InterDiffusionCoefficient : public PropertyBase {
  private:
+  // List of the chemical elements
   std::set<std::string> list_components_;
-  std::map<std::string, int> mob_index_;
-  std::map<std::string, int> x_index_;
+
+  // Flag used to know if the formula must be extended in two-phase
   bool single_phase_ = true;
-  void check_nan(mfem::Vector vv, std::string name);
 
  protected:
+  // Chemical element corresponding to the first element
   std::string first_component_;
+  // Chemical element corresponding to the last element (the reference for diffusion chemical
+  // potential)
   std::string last_component_;
+  // The name of the primary phase
   std::string primary_phase_;
+  // The name of the secondary phase (the phase formed during phase change)
   std::string secondary_phase_;
+  // The phase-field variable
   std::vector<mfem::Vector> phi_gf_;
+  // The molar fraction of the elements
   std::map<std::string, mfem::Vector> x_gf_;
+  // The mobilities of the elements for the primary phase
   std::map<std::string, mfem::Vector> primary_mob_gf_;
-
+  // The mobilities of the elements for the secondary phase
   std::map<std::string, mfem::Vector> secondary_mob_gf_;
 
   void check_variables_consistency(
@@ -79,8 +95,10 @@ InterDiffusionCoefficient::InterDiffusionCoefficient(const Parameters& params)
 }
 
 /**
- * @briefCheck consistency of variables (primary and auxiliary)
+ * @brief Check the consistency of the inputs and outputs of the property problem.
  *
+ * @param output_system The outputs property problem (primary variables).
+ * @param input_system  The inputs of the property problem (auxiliary variables).
  */
 void InterDiffusionCoefficient::check_variables_consistency(
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
@@ -148,24 +166,19 @@ void InterDiffusionCoefficient::check_variables_consistency(
 }
 
 /**
- * @brief Compute the variables (properties) as functions of auxialiary variables
+ * @brief Get the values of the property
  *
- * @param vect_unk
- * @param unks_info
- * @param vect_aux_gf
- * @param vect_aux_infos
+ * The values of the property are stored in the outputs (primary variables of the property
+ * problem). They are calculated from the inputs (auxiliary variables of the property problem).
+ *
+ * @param output_system The outputs property problem (primary variables).
+ * @param input_system  The inputs of the property problem (auxiliary variables).
  */
 void InterDiffusionCoefficient::get_property(
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
         output_system,
     std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) {
-  //
-  // M12+M13 grad mu1 - M12 grad mu2 -M13 grad mu3
-  // -M12 grad mu1 + M12 + M23 grad mu2 -M23 grad mu3
-  // -M13 grad mu1 - M23 grad mu2 +M13+M23 grad mu3
-  //
   primary_mob_gf_.clear();
-
   secondary_mob_gf_.clear();
 
   x_gf_.clear();

@@ -45,22 +45,24 @@ class CalphadBase {
   // Common methods for CALPHAD studies
   std::shared_ptr<CalphadUtils<T>> CU_;
 
-  // Mobility for each element in a given phase. Nodal values. key: [node, phase, elem]
-  std::map<std::tuple<int, std::string, std::string>, double> mobilities_;
-
-  // Site fraction of a given constituant, in a given sublattice for each phase. Nodal values
-  // Site fraction. Nodal values. key: [node, phase, cons, sub]
-  std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
-
   //  Heat capacity. Nodal values. key: [node]
   std::map<int, double> heat_capacity_;
 
-  // Mobility for each element in a given phase. Nodal values. key: [node, phase, elem]
+  // Mobility for each element in a given phase.
+  // Nodal values. key: [node, phase, elem]
   std::map<std::tuple<int, std::string, std::string>, double> mobilities_;
 
-  // Site fraction of a given constituant, in a given sublattice for each phase. Nodal values
-  // Site fraction. Nodal values. key: [node, phase, cons, sub]
+  // Site fraction of a given constituant, in a given sublattice for each phase.
+  // Nodal values. key: [node, phase, cons, sub]
   std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
+
+  void clear_containers();
+
+  void update_outputs(
+      const int dt, const size_t nb_nodes,
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
+      const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+          &previous_output_system);
 
  public:
   // Parameters for CALPHAD problems
