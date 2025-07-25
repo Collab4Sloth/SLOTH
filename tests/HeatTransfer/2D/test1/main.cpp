@@ -115,8 +115,6 @@ int main(int argc, char* argv[]) {
   // ####################
   //     Problems      //
   // ####################
-  const auto crit_cvg_1 = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
   // Heat:
   std::vector<AnalyticalFunctions<DIM> > src_term;
@@ -130,9 +128,7 @@ int main(int argc, char* argv[]) {
   oper2.overload_nl_solver(NLSolverType::NEWTON,
                            Parameters(Parameter("description", "Newton solver "),
                                       Parameter("print_level", 1), Parameter("abs_tol", 1.e-6)));
-  PB2 Heat_pb("Heat", oper2, heat_vars, pst2, convergence);
-
-  // MPI_Problem<VAR, PST> mpi(vars3, pst3, convergence);
+  PB2 Heat_pb("Heat", oper2, heat_vars, pst2);
 
   // Coupling 1
   auto cc = Coupling("Heat transfer", Heat_pb);

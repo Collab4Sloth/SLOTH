@@ -189,7 +189,6 @@ int main(int argc, char* argv[]) {
         // ####################
 
         // Problem 1:
-        const auto crit_cvg_1 = 1.e-12;
 
         std::vector<SPA*> spatials{&spatial, &spatial};
         std::vector<AnalyticalFunctions<DIM>> src_term;
@@ -207,9 +206,8 @@ int main(int argc, char* argv[]) {
         oper.overload_solver(solver, Parameters(Parameter("tol", 1.e-12), Parameter("kDim", 100)));
         oper.overload_preconditioner(precond, Parameters(Parameter("type", 1)));
 
-        PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
         auto pst = PST(&spatial, p_pst);
-        PB problem1(oper, vars, pst, convergence);
+        PB problem1(oper, vars, pst);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);

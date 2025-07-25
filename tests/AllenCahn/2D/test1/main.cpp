@@ -130,13 +130,11 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
   std::vector<SPA*> spatials{&spatial, &spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
       [](const mfem::Vector& x, double time) { return 0.; });
@@ -150,7 +148,7 @@ int main(int argc, char* argv[]) {
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
   auto pst1 = PST(&spatial, p_pst1);
-  PB1 problem2(vars1, pst1, convergence);
+  PB1 problem2(vars1, pst1);
   // Coupling 1
   auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
 

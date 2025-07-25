@@ -176,15 +176,12 @@ int main(int argc, char* argv[]) {
   // ####################
   //     Probelms      //
   // ####################
-  const auto crit_cvg_1 = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-
   // AllenCahn:
   std::vector<SPA*> spatials{&spatial};
   OPE oper(spatials, ac_params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, convergence, heat_vars);
+  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, heat_vars);
 
   // Heat:
   std::vector<AnalyticalFunctions<DIM> > src_term;

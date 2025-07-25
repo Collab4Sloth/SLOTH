@@ -25,7 +25,7 @@
 template <class VAR, class PST>
 class MPI_Problem : public ProblemBase<VAR, PST> {
  public:
-  MPI_Problem(VAR& variables, PST& pst, const PhysicalConvergence& convergence);
+  MPI_Problem(VAR& variables, PST& pst);
 
   /////////////////////////////////////////////////////
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
@@ -47,8 +47,8 @@ class MPI_Problem : public ProblemBase<VAR, PST> {
  * @param convergence
  */
 template <class VAR, class PST>
-MPI_Problem<VAR, PST>::MPI_Problem(VAR& variables, PST& pst, const PhysicalConvergence& convergence)
-    : ProblemBase<VAR, PST>("MPI problem", variables, pst, convergence) {}
+MPI_Problem<VAR, PST>::MPI_Problem(VAR& variables, PST& pst)
+    : ProblemBase<VAR, PST>("MPI problem", variables, pst) {}
 
 /**
  * @brief Do a time-step by calling Step method of the ODE

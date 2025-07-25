@@ -151,15 +151,13 @@ int main(int argc, char* argv[]) {
       // ####################
 
       // Problem 1:
-      const auto crit_cvg_1 = 1.e-12;
       std::vector<AnalyticalFunctions<DIM> > src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
       OPE oper(spatials, params, src_term);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
-      PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
       auto pst = PST(&spatial, p_pst);
-      PB problem1("PSteady AllenCahn", oper, vars, pst, convergence);
+      PB problem1("PSteady AllenCahn", oper, vars, pst);
 
       // Coupling 1
       auto cc = Coupling("Default Coupling", problem1);

@@ -137,14 +137,12 @@ int main(int argc, char* argv[]) {
       // ####################
 
       // Problem 1:
-      const auto crit_cvg_1 = 1.e-12;
       std::vector<AnalyticalFunctions<DIM>> src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
       OPE oper(spatials, params, src_term);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
-      PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-      PB problem1("Steady AllenCahn", oper, vars, pst, convergence);
+      PB problem1("Steady AllenCahn", oper, vars, pst);
 
       auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, 0.));
 
@@ -154,7 +152,7 @@ int main(int argc, char* argv[]) {
                                Parameter("frequency", frequency),
                                Parameter("level_of_detail", level_of_detail));
       auto pst2 = PST(&spatial, p_pst2);
-      PB1 problem2(vars1, pst2, convergence);
+      PB1 problem2(vars1, pst2);
       // Coupling 1
       auto cc = Coupling("Steady AllenCahn-MPI Coupling", problem2, problem1);
 

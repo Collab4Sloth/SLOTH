@@ -35,10 +35,17 @@ class Property_problem : public ProblemBase<VAR, PST> {
  public:
   template <class... Args>
   Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                   const PhysicalConvergence& convergence, Args&&... auxvariable);
+                   PhysicalConvergence& convergence, Args&&... auxvariable);
   template <class... Args>
   Property_problem(const Parameters& params, VAR& variables, PST& pst,
-                   const PhysicalConvergence& convergence, Args&&... auxvariable);
+                   PhysicalConvergence& convergence, Args&&... auxvariable);
+
+  template <class... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
+                   Args&&... auxvariable);
+
+  template <class... Args>
+  Property_problem(const Parameters& params, VAR& variables, PST& pst, Args&&... auxvariable);
 
   void initialize(const double& initial_time) override;
 
@@ -68,10 +75,29 @@ class Property_problem : public ProblemBase<VAR, PST> {
 template <class PROPERTY, class VAR, class PST>
 template <class... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
-                                                       PST& pst,
-                                                       const PhysicalConvergence& convergence,
+                                                       PST& pst, PhysicalConvergence& convergence,
                                                        Args&&... auxvariables)
     : ProblemBase<VAR, PST>("PropertyProblem", variables, pst, convergence, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class PROPERTY, class VAR, class PST>
+template <class... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, pst, auxvariables...) {
   this->PP_ = new PROPERTY(params);
 }
 
@@ -93,10 +119,18 @@ template <class PROPERTY, class VAR, class PST>
 template <class... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
                                                        const Parameters& params, VAR& variables,
-                                                       PST& pst,
-                                                       const PhysicalConvergence& convergence,
+                                                       PST& pst, PhysicalConvergence& convergence,
                                                        Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+template <class PROPERTY, class VAR, class PST>
+template <class... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...) {
   this->PP_ = new PROPERTY(params);
 }
 

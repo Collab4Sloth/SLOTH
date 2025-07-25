@@ -124,17 +124,14 @@ int main(int argc, char* argv[]) {
       // ####################
 
       // Problem 1:
-      const auto crit_cvg_1 = 1.e-12;
-
       std::vector<SPA*> spatials{&spatial};
       std::vector<AnalyticalFunctions<DIM> > src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega));
       OPE oper(spatials, params, TimeScheme::from(time_scheme), src_term);
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-      PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
       auto pst = PST(&spatial, p_pst);
-      PB problem1("AllenCahn", oper, vars, pst, convergence);
+      PB problem1("AllenCahn", oper, vars, pst);
 
       auto user_func = std::function<double(const mfem::Vector&, double)>(
           [](const mfem::Vector& x, double time) { return 0.; });
@@ -147,7 +144,7 @@ int main(int argc, char* argv[]) {
                                Parameter("frequency", frequency),
                                Parameter("level_of_detail", level_of_detail));
       auto pst2 = PST(&spatial, p_pst2);
-      PB1 problem2(vars1, pst2, convergence);
+      PB1 problem2(vars1, pst2);
       // Coupling 1
       auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
 

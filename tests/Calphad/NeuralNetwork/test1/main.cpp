@@ -265,17 +265,12 @@ int main(int argc, char* argv[]) {
                                          Parameter("frequency", frequency));
   auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
-  //--- Physical Convergence
-  const double crit_cvg = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg);
-
   //-----------------------
   // Problems
   //-----------------------
   // Calphad
   Calphad_Problem<CalphadInformedNeuralNetwork<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, calphad_outputs, cc_pst, convergence, heat_vars, p_vars, xo_vars, xu_vars,
-      xpu_vars);
+      calphad_parameters, calphad_outputs, cc_pst, heat_vars, p_vars, xo_vars, xu_vars, xpu_vars);
 
   //======================
   // Oxygen
@@ -285,12 +280,12 @@ int main(int argc, char* argv[]) {
                  Parameter("last_component", "PU"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
-      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
-      xu_vars, heat_vars, calphad_outputs);
+      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, xo_vars, xu_vars,
+      heat_vars, calphad_outputs);
 
   Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_O>, VARS, PST>
       interdiffu_problem_o("Interdiffusion O", interdiffu_oper_o, xo_vars, interdiffu_pst,
-                           convergence, calphad_outputs, MO, heat_vars);
+                           calphad_outputs, MO, heat_vars);
 
   //======================
   // Uranium
@@ -300,12 +295,12 @@ int main(int argc, char* argv[]) {
                  Parameter("last_component", "PU"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
-      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, xo_vars,
-      xu_vars, heat_vars, calphad_outputs);
+      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, xo_vars, xu_vars,
+      heat_vars, calphad_outputs);
 
   Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_U>, VARS, PST>
       interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, xu_vars, interdiffu_pst_u,
-                           convergence, calphad_outputs, MU, heat_vars);
+                           calphad_outputs, MU, heat_vars);
 
   //-----------------------
   // Coupling

@@ -33,20 +33,35 @@ class Problem : public ProblemBase<VAR, PST> {
 
  public:
   template <class... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
+  Problem(const OPE& oper, VAR& variables, PST& pst, PhysicalConvergence& convergence,
           std::list<int> pop_elem, Args&&... auxvariable);
 
   template <class... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
+  Problem(const OPE& oper, VAR& variables, PST& pst, std::list<int> pop_elem,
           Args&&... auxvariable);
 
   template <class... Args>
-  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          const PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
+  Problem(const OPE& oper, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+          Args&&... auxvariable);
+
+  template <class... Args>
+  Problem(const OPE& oper, VAR& variables, PST& pst, Args&&... auxvariable);
 
   template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          const PhysicalConvergence& convergence, Args&&... auxvariable);
+          PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
+
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          std::list<int> pop_elem, Args&&... auxvariables);
+
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          PhysicalConvergence& convergence, Args&&... auxvariable);
+
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
   void initialize(const double& initial_time) override;
@@ -86,10 +101,30 @@ class Problem : public ProblemBase<VAR, PST> {
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                PhysicalConvergence& convergence, std::list<int> pop_elem,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, convergence, pop_elem,
                             auxvariables...),
+      oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param pop_elem
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, std::list<int> pop_elem,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, pop_elem, auxvariables...),
       oper_(oper) {}
 
 /**
@@ -108,9 +143,27 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, Args&&... auxvariables)
+                                PhysicalConvergence& convergence, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, convergence,
                             auxvariables...),
+      oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, auxvariables...),
       oper_(oper) {}
 
 /**
@@ -131,10 +184,30 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                PhysicalConvergence& convergence, std::list<int> pop_elem,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
       oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param pop_elem
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                std::list<int> pop_elem, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, pop_elem, auxvariables...), oper_(oper) {}
 
 /**
  * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
@@ -153,8 +226,27 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, Args&&... auxvariables)
+                                PhysicalConvergence& convergence, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...), oper_(oper) {}
 
 /**
  * @brief Initialize the calculation : operator + ODE
@@ -243,12 +335,14 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
       this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
                                 iso_value);
     }
+
     // Errors
     if (solution != nullptr) {
       auto solution_func = solution.get();
       this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
                                *solution_func);
     }
+
     // Integral
     if (!map_integral.empty() && map_integral.contains(unk_name)) {
       const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);

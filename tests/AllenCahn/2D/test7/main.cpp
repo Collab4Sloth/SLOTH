@@ -147,21 +147,19 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
   std::vector<SPA*> spatials{&spatial};
   OPE oper(spatials, params, TimeScheme::EulerExplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
   // Problem 2:
 
   OPE2 oper2(spatials, TimeScheme::EulerExplicit);
   oper2.overload_diffusion(Parameters(Parameter("D", mob)));
   auto pst2 = PST(&spatial, p_pst2);
-  PB2 problem2(oper2, vars2, pst2, convergence);
+  PB2 problem2(oper2, vars2, pst2);
 
   // Coupling 1
   auto cc = Coupling("AllenCahn + Diffusion", problem1, problem2);

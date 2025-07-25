@@ -133,7 +133,6 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
   std::vector<SPA*> spatials{&spatial, &spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
@@ -142,9 +141,8 @@ int main(int argc, char* argv[]) {
                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-12)));
   oper.overload_solver(HypreSolverType::HYPRE_GMRES);
   oper.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU);
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
   // Coupling 1
   auto cc = Coupling("AllenCahn-Splitting Coupling", problem1);

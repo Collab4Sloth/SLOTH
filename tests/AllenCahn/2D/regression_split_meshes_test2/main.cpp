@@ -127,14 +127,11 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
   std::vector<SPA*> spatials{&spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-
-  PB problem1("AllenCahn", oper, vars, pst, convergence);
+  PB problem1("AllenCahn", oper, vars, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

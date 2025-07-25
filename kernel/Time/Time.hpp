@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -36,14 +37,16 @@ class TimeDiscretization {
   double current_time_step_;
   bool last_step_{false};
 
-  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> vect_tup_pb_convergence_;
+  std::vector<std::tuple<
+      std::string,
+      std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>>>
+      convergence_;
   void get_parameters();
 
   void check_data_before_execute();
 
   void initialize();
-  std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>> execute(
-      const int& iter);
+  void execute(const int& iter);
   void post_execute(const int& iter);
   void update();
   void post_processing(const int& iter);
@@ -168,31 +171,35 @@ void TimeDiscretization<Args...>::finalize() {
  * @return std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>>
  */
 template <class... Args>
-std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>>
-TimeDiscretization<Args...>::execute(const int& iter) {
+void TimeDiscretization<Args...>::execute(const int& iter) {
   Catch_Time_Section("TimeDiscretization::execute");
 
-  std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>> results;
   auto current_time = this->current_time_;
   auto next_time = this->current_time_;
   const auto& current_time_step = this->current_time_step_;
 
+  this->convergence_.clear();
+
   std::apply(
-      [iter, &next_time, current_time, current_time_step, &results](auto&... coupling) {
+      [this, iter, &next_time, current_time, current_time_step](auto&... coupling) {
         double cc_next_time = current_time;
-        ((cc_next_time = current_time,
-          results.emplace_back(
-              coupling.execute(iter, cc_next_time, current_time, current_time_step)),
-          next_time = cc_next_time),
-         ...);
+        (
+            [&] {
+              cc_next_time = current_time;
+              coupling.execute(iter, cc_next_time, current_time, current_time_step);
+              auto coupling_conv = coupling.get_convergence();
+              if (!coupling_conv.empty()) {
+                this->convergence_.emplace_back(coupling.get_name(), std::move(coupling_conv));
+              }
+              next_time = cc_next_time;
+            }(),
+            ...);
       },
       couplings_);
 
   // TODO(cci): ici c'est le dernier current_time. A améliorer dans le cadre d'une gestion du pas de
   // temps
   this->current_time_ = next_time;
-
-  return results;
 }
 
 /**
@@ -288,11 +295,16 @@ void TimeDiscretization<Args...>::solve() {
     //------------
     // Solve
     //------------
-    const auto& results = this->execute(iter);
+    this->execute(iter);
+
     //------------
     // Check convergence
     //------------
-    // TODO(cci): à implémenter pour ne faire l'update qu'à ce moment là
+    // bool has_converged = std::ranges::all_of(results, [](const auto& res_coupling) {
+    //   return std::ranges::all_of(res_coupling, [](const auto& tpl) {
+    //     return std::get<0>(tpl);  // check pb_has_cvg
+    //   });
+    // });
 
     //------------
     //  Post Execute
@@ -308,6 +320,8 @@ void TimeDiscretization<Args...>::solve() {
     // Save current
     //-------------------
     this->post_processing(iter);
+
+    // if (has_converged) break;
   }
 
   //-------------------

@@ -24,20 +24,25 @@ class Coupling {
   std::string name_{"Unnamed Coupling"};
   std::tuple<Args...> problems_;
 
+  std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
+      pb_convergence_;
+
  public:
   explicit Coupling(const std::string& name, Args... problems);
   std::string get_name();
 
   void get_tree();
   void initialize(const int& iter, const double& initial_time);
-  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> execute(
-      const int& iter, double& next_time, const double& current_time,
-      const double& current_time_step);
+  void execute(const int& iter, double& next_time, const double& current_time,
+               const double& current_time_step);
   void post_execute(const int& iter, const double& current_time, const double& current_time_step);
   void update();
   void post_processing(const int& iter, const double& current_time,
                        const double& current_time_step);
   void finalize();
+
+  std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
+  get_convergence();
   ~Coupling();
 };
 
@@ -96,14 +101,13 @@ void Coupling<Args...>::initialize(const int& iter, const double& initial_time) 
  *
  * @tparam Args
  * @param iter
+ * @param next_time
  * @param current_time
  * @param current_time_step
- * @return std::vector<std::tuple<bool, double, mfem::Vector>>
  */
 template <class... Args>
-std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> Coupling<Args...>::execute(
-    const int& iter, double& next_time, const double& current_time,
-    const double& current_time_step) {
+void Coupling<Args...>::execute(const int& iter, double& next_time, const double& current_time,
+                                const double& current_time_step) {
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
     SlothInfo::verbose(" ============================== ");
@@ -111,19 +115,25 @@ std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> Coupling<Args..
     SlothInfo::verbose(" ============================== ");
   }
 
-  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> results;
+  this->pb_convergence_.clear();
   std::apply(
-      [iter, &next_time, current_time, current_time_step, &results](auto&... problem) {
+      [this, iter, &next_time, current_time, current_time_step](auto&... problem) {
         double pp_next_time = current_time;
-        ((pp_next_time = current_time,
-          results.emplace_back(
-              problem.execute(iter, pp_next_time, current_time, current_time_step)),
-          next_time = pp_next_time, problem.update()),
-         ...);
+        (
+            [&] {
+              pp_next_time = current_time;
+              problem.execute(iter, pp_next_time, current_time, current_time_step);
+              auto pb_conv = problem.get_convergence();
+              if (!pb_conv.empty()) {
+                this->pb_convergence_.emplace_back(
+                    std::make_tuple(problem.get_name(), std::move(pb_conv)));
+              }
+              next_time = pp_next_time;
+              problem.update();
+            }(),
+            ...);
       },
       problems_);
-
-  return results;
 }
 
 /**
@@ -179,6 +189,18 @@ void Coupling<Args...>::post_processing(const int& iter, const double& current_t
 template <class... Args>
 void Coupling<Args...>::finalize() {
   std::apply([](auto&... problem) { (problem.finalize(), ...); }, problems_);
+}
+
+/**
+ * @brief
+ *
+ * @tparam Args
+ * @return std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
+ */
+template <class... Args>
+std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
+Coupling<Args...>::get_convergence() {
+  return this->pb_convergence_;
 }
 
 /**

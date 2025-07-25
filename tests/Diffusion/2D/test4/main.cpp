@@ -187,32 +187,27 @@ int main(int argc, char* argv[]) {
                                          Parameter("frequency", frequency));
   auto diffu_pst = PST(&spatial, diffu_pst_parameters);
 
-  //--- Physical Convergence
-  const double crit_cvg = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg);
-
   //-----------------------
   // Problems
   //-----------------------
   Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, mu_var, cc_pst, convergence, heat_vars, p_vars, compo_vars);
+      calphad_parameters, mu_var, cc_pst, heat_vars, p_vars, compo_vars);
 
   auto pp_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
                  Parameter("last_component", "U"));
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
-      "Oxygen inter-diffusion mobilities", pp_parameters, MO, mob_pst_o, convergence, compo_vars,
-      heat_vars, mobilities);
+      "Oxygen inter-diffusion mobilities", pp_parameters, MO, mob_pst_o, compo_vars, heat_vars,
+      mobilities);
 
   Problem<
       DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI2>,
       VARS, PST>
-      interdiffu_problem("InterDiffusion", interdiffu_oper, compo_vars, interdiffu_pst, convergence,
-                         mu_var, MO);
+      interdiffu_problem("InterDiffusion", interdiffu_oper, compo_vars, interdiffu_pst, mu_var, MO);
 
   Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant, LHS_NLFI>,
           VARS, PST>
-      diffu_problem("Fick", diffu_oper, diffu_vars, diffu_pst, convergence);
+      diffu_problem("Fick", diffu_oper, diffu_vars, diffu_pst);
 
   //-----------------------
   // Coupling

@@ -30,38 +30,46 @@
 template <class VAR, class PST>
 class ProblemBase {
  private:
-  std::tuple<bool, double> check_convergence(const mfem::Vector& unk, const mfem::Vector& prev_unk);
+  void check_convergence(const std::vector<std::unique_ptr<mfem::Vector>>& unks);
 
  protected:
-  std::string description_{"Unnamed problem"};
+  std::string name_{"Unnamed problem"};
   VAR& variables_;
   std::vector<VAR*> auxvariables_;
   PST& pst_;
   const std::list<int> pop_elem_;
   std::vector<mfem::Vector> unknown_;
-  PhysicalConvergence convergence_;
+  std::shared_ptr<PhysicalConvergence> convergence_;
+  std::vector<std::tuple<std::string, bool, double>> var_convergence_;
 
  public:
   template <class... Args>
-  ProblemBase(const std::string& name, VAR& variables, PST& pst,
-              const PhysicalConvergence& convergence, std::list<int> pop_elem,
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+              std::list<int> pop_elem, Args&&... auxvariables);
+
+  template <class... Args>
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, std::list<int> pop_elem,
               Args&&... auxvariables);
 
   template <class... Args>
-  ProblemBase(const std::string& name, VAR& variables, PST& pst,
-              const PhysicalConvergence& convergence, Args&&... auxvariables);
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+              Args&&... auxvariables);
+
+  template <class... Args>
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, Args&&... auxvariables);
 
   std::string get_name();
   VAR get_problem_variables();
+
+  std::vector<std::tuple<std::string, bool, double>> get_convergence();
 
   /////////////////////////////////////////////////////
 
   virtual void initialize(const double& initial_time);
 
   /////////////////////////////////////////////////////
-  std::tuple<bool, double, std::vector<mfem::Vector>> execute(const int& iter, double& next_time,
-                                                              const double& current_time,
-                                                              const double& current_time_step);
+  void execute(const int& iter, double& next_time, const double& current_time,
+               const double& current_time_step);
 
   virtual void do_time_step(double& next_time, const double& current_time, double current_time_step,
                             const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
@@ -102,13 +110,46 @@ class ProblemBase {
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                   PhysicalConvergence& convergence, std::list<int> pop_elem,
                                    Args&&... auxvariables)
-    : description_(name),
-      variables_(variables),
-      pst_(pst),
-      pop_elem_(pop_elem),
-      convergence_(convergence) {
+    : name_(name), variables_(variables), pst_(pst), pop_elem_(pop_elem) {
+  this->convergence_ = std::make_shared<PhysicalConvergence>(convergence);
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.resize(0);
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+
+    if (pop_elem.size() > 0) {
+      for (const auto& pp : pop_elem_) {
+        if (pp < this->auxvariables_.size()) {
+          this->auxvariables_.erase(std::next(this->auxvariables_.begin(), pp),
+                                    std::next(this->auxvariables_.begin(), pp + 1));
+        } else {
+          std::string msg = "ProblemBase: Error with index use to pop element ";
+          mfem::mfem_error(msg.c_str());
+        }
+      }
+    }
+  }
+}
+
+/**
+ * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ *
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param variables
+ * @param pst
+ * @param pop_elem
+ * @param auxvariables
+ */
+template <class VAR, class PST>
+template <class... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
+                                   std::list<int> pop_elem, Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(pst), pop_elem_(pop_elem), convergence_(nullptr) {
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -143,8 +184,32 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   const PhysicalConvergence& convergence, Args&&... auxvariables)
-    : description_(name), variables_(variables), pst_(pst), convergence_(convergence) {
+                                   PhysicalConvergence& convergence, Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(pst) {
+  this->convergence_ = std::make_shared<PhysicalConvergence>(convergence);
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.resize(0);
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
+}
+
+/**
+ * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ *
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class VAR, class PST>
+template <class... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
+                                   Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(pst), convergence_(nullptr) {
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -161,7 +226,7 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
  */
 template <class VAR, class PST>
 std::string ProblemBase<VAR, PST>::get_name() {
-  return this->description_;
+  return this->name_;
 }
 
 /**
@@ -228,13 +293,12 @@ void ProblemBase<VAR, PST>::initialize(const double& initial_time) {}
  * @return std::tuple<bool, double, mfem::Vector>
  */
 template <class VAR, class PST>
-std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execute(
-    const int& iter, double& next_time, const double& current_time,
-    const double& current_time_step) {
+void ProblemBase<VAR, PST>::execute(const int& iter, double& next_time, const double& current_time,
+                                    const double& current_time_step) {
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
     SlothInfo::verbose("   ============================== ");
-    SlothInfo::verbose("   ==== Problem : ", this->description_);
+    SlothInfo::verbose("   ==== Problem : ", this->name_);
     SlothInfo::verbose("   ============================== ");
   }
 
@@ -254,21 +318,9 @@ std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execu
 
   this->do_time_step(next_time, current_time, current_time_step, iter, vect_unk, vect_unk_info);
 
-  bool is_converged = true;
-  auto criterion = 0.;
-  std::vector<mfem::Vector> vunk;
-  if (iter > 1) {
-    int j = 0;
-    for (auto& var : this->variables_.getVariables()) {
-      const auto& prev_unk = var.get_last();
-      mfem::Vector& unk = *(vect_unk[j]);
-      vunk.emplace_back(unk);
-      const auto& [is_converged_iter, criterion_iter] = this->check_convergence(unk, prev_unk);
-      is_converged = is_converged_iter;
-      criterion = criterion_iter;
-    }
+  if (this->convergence_ != nullptr && iter > 1) {
+    this->check_convergence(vect_unk);
   }
-  return std::make_tuple(is_converged, criterion, vunk);
 }
 
 /**
@@ -314,18 +366,27 @@ void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& curren
                                          const std::vector<std::vector<std::string>>& unks_info) {}
 
 /**
- * @brief Check convergence at the current iteration
+ * @brief Check convergence of variables at the current time-step
  *
  * @tparam VAR
  * @tparam PST
- * @param unk
- * @param prev_unk
- * @return std::tuple<bool, double>
+ * @param unks
  */
 template <class VAR, class PST>
-std::tuple<bool, double> ProblemBase<VAR, PST>::check_convergence(const mfem::Vector& unk,
-                                                                  const mfem::Vector& prev_unk) {
-  return this->convergence_.getPhysicalConvergence(unk, prev_unk);
+void ProblemBase<VAR, PST>::check_convergence(
+    const std::vector<std::unique_ptr<mfem::Vector>>& unks) {
+  this->var_convergence_.clear();
+
+  int j = -1;
+  for (auto& var : this->variables_.getVariables()) {
+    j++;
+    const auto& prev_unk = var.get_last();
+    mfem::Vector& unk = *(unks[j]);
+    const auto& [has_converged, criterion] =
+        this->convergence_->getPhysicalConvergence(unk, prev_unk);
+    this->var_convergence_.emplace_back(
+        std::make_tuple(var.getVariableName(), has_converged, criterion));
+  }
 }
 
 /**
@@ -340,6 +401,20 @@ template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
   auto vars = this->get_problem_variables();
   this->pst_.save_variables(vars, iter, current_time);
+}
+
+/**
+ * @brief Return for each variable, a tuple (string,string, boolean, double) where the boolean is
+ * the flag indicating if the criterion is reached or not, and the double is the criterion reached.
+ * The first string is the name of the problem, and the second the name of the variable.
+ *
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::string, bool, double>>
+ */
+template <class VAR, class PST>
+std::vector<std::tuple<std::string, bool, double>> ProblemBase<VAR, PST>::get_convergence() {
+  return this->var_convergence_;
 }
 
 /**

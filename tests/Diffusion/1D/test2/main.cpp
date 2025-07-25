@@ -129,10 +129,9 @@ int main(int argc, char* argv[]) {
     OPE oper(spatials, TimeScheme::EulerImplicit);
     oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
 
-    PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
     auto pst = PST(&spatial, p_pst);
 
-    PB problem1("Problem 1", oper, vars, pst, convergence);
+    PB problem1("Problem 1", oper, vars, pst);
 
     // Coupling 1
     auto cc = Coupling("coupling 1 ", problem1);

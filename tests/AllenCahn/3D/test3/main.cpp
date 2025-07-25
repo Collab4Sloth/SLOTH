@@ -124,7 +124,6 @@ int main(int argc, char* argv[]) {
   // ####################
   //     operator     //
   // ####################
-  const auto crit_cvg_1 = 1.e-12;
   std::vector<SPA*> spatials{&spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
 
@@ -132,11 +131,10 @@ int main(int argc, char* argv[]) {
 
   setVerbosity(Verbosity::Debug);
 
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   // ####################
   //     Problem       //
   // ####################
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
   // ####################
   //     Coupling      //

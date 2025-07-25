@@ -159,8 +159,6 @@ int main(int argc, char* argv[]) {
   // ####################
   //     Problems      //
   // ####################
-  const auto crit_cvg_1 = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
   //---------------
   // Heat transfer
@@ -175,13 +173,12 @@ int main(int argc, char* argv[]) {
   Heat_op.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));
-  PB2 Heat_pb("Heat", Heat_op, heat_vars, Heat_pst, convergence);
+  PB2 Heat_pb("Heat", Heat_op, heat_vars, Heat_pst);
 
   //---------------
   // Calphad
   //---------------
-  PB Calphad_pb(calphad_parameters, outputs, Calphad_pst, convergence, heat_vars, p_vars,
-                compo_vars);
+  PB Calphad_pb(calphad_parameters, outputs, Calphad_pst, heat_vars, p_vars, compo_vars);
 
   // ####################
   //     Coupling      //
