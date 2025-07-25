@@ -2,6 +2,7 @@
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
  * @brief CahnHilliard problem solved in a square
+ * Convergence toward steady solution
  * @version 0.1
  * @date 2025-07-11
  *
@@ -59,9 +60,11 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
 
-  std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles", "InlineSquareWithTriangles"};
-  std::vector<int> vect_order{2, 1};
-  std::vector<int> vect_NN{120};
+  // std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles", "InlineSquareWithTriangles"};
+  std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles"};
+  // std::vector<int> vect_order{1, 2, 3};
+  std::vector<int> vect_order{1, 2};
+  std::vector<int> vect_NN{30, 60, 90, 120};
   for (const auto elem_type : vect_elem) {
     for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {
@@ -82,8 +85,8 @@ int main(int argc, char* argv[]) {
             Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
             Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
         auto boundaries_mu = {
-            Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-            Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.)};
+            Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Dirichlet", 0.),
+            Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Dirichlet", 0.)};
         auto bcs_phi = BCS(&spatial, boundaries_phi);
         auto bcs_mu = BCS(&spatial, boundaries_mu);
 
@@ -153,9 +156,8 @@ int main(int argc, char* argv[]) {
         const std::string& main_folder_path =
             "Saves_order_" + std::to_string(order) + "_Nx" + std::to_string(NN);
         const int level_of_detail = 1;
-        const int frequency = 100;
-        std::string calculation_path = elem_type + "CahnHilliard";
-        const double threshold = 10.;
+        const int frequency = 1;
+        std::string calculation_path = "Problem1";
         bool enable_save_specialized_at_iter = true;
         std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
             {var_name_1, {-10.1, 10.1}}};
@@ -170,7 +172,6 @@ int main(int argc, char* argv[]) {
         // ####################
 
         // Problem 1:
-        const auto crit_cvg_1 = 1.e-12;
         std::vector<SPA*> spatials{&spatial, &spatial};
         OPE oper(spatials, params, TimeScheme::EulerImplicit);
         oper.overload_mobility(Parameters(Parameter("mob", mob)));
@@ -184,9 +185,12 @@ int main(int argc, char* argv[]) {
         oper.overload_solver(solver);
         oper.overload_preconditioner(precond);
 
-        PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
+        auto phi_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-12);
+        auto mu_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-7);
+        auto CVG = Convergence(phi_cvg, mu_cvg);
         auto pst = PST(&spatial, p_pst);
-        PB problem1(oper, vars, pst, convergence);
+
+        PB problem1(oper, vars, pst, CVG);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);
@@ -197,7 +201,7 @@ int main(int argc, char* argv[]) {
         // ###########################################
         // ###########################################
         const double t_initial = 0.0;
-        const double t_final = 0.1;
+        const double t_final = 1.;
         const double dt = 1.e-3;
         auto time_params = Parameters(Parameter("initial_time", t_initial),
                                       Parameter("final_time", t_final), Parameter("time_step", dt));

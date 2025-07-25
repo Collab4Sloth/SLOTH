@@ -16,6 +16,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Problems/ProblemBase.hpp"
@@ -35,10 +36,10 @@ class Property_problem : public ProblemBase<VAR, PST> {
  public:
   template <class... Args>
   Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                   PhysicalConvergence& convergence, Args&&... auxvariable);
+                   Convergence& convergence, Args&&... auxvariable);
   template <class... Args>
-  Property_problem(const Parameters& params, VAR& variables, PST& pst,
-                   PhysicalConvergence& convergence, Args&&... auxvariable);
+  Property_problem(const Parameters& params, VAR& variables, PST& pst, Convergence& convergence,
+                   Args&&... auxvariable);
 
   template <class... Args>
   Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
@@ -75,7 +76,7 @@ class Property_problem : public ProblemBase<VAR, PST> {
 template <class PROPERTY, class VAR, class PST>
 template <class... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
-                                                       PST& pst, PhysicalConvergence& convergence,
+                                                       PST& pst, Convergence& convergence,
                                                        Args&&... auxvariables)
     : ProblemBase<VAR, PST>("PropertyProblem", variables, pst, convergence, auxvariables...) {
   this->PP_ = new PROPERTY(params);
@@ -119,7 +120,7 @@ template <class PROPERTY, class VAR, class PST>
 template <class... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
                                                        const Parameters& params, VAR& variables,
-                                                       PST& pst, PhysicalConvergence& convergence,
+                                                       PST& pst, Convergence& convergence,
                                                        Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...) {
   this->PP_ = new PROPERTY(params);

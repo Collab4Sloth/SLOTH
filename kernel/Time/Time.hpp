@@ -41,6 +41,7 @@ class TimeDiscretization {
       std::string,
       std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>>>
       convergence_;
+  bool checkTimeStepConvergence(const auto& convergence);
   void get_parameters();
 
   void check_data_before_execute();
@@ -298,15 +299,6 @@ void TimeDiscretization<Args...>::solve() {
     this->execute(iter);
 
     //------------
-    // Check convergence
-    //------------
-    // bool has_converged = std::ranges::all_of(results, [](const auto& res_coupling) {
-    //   return std::ranges::all_of(res_coupling, [](const auto& tpl) {
-    //     return std::get<0>(tpl);  // check pb_has_cvg
-    //   });
-    // });
-
-    //------------
     //  Post Execute
     //------------
     this->post_execute(iter);
@@ -321,7 +313,10 @@ void TimeDiscretization<Args...>::solve() {
     //-------------------
     this->post_processing(iter);
 
-    // if (has_converged) break;
+    //------------
+    // Check convergence
+    //------------
+    if (checkTimeStepConvergence(this->convergence_)) break;
   }
 
   //-------------------
@@ -360,6 +355,32 @@ void TimeDiscretization<Args...>::get_tree() {
         couplings_);
   }
 }
+
+/**
+ * @brief Check if all problems of all couplings have converged for each variable
+ *
+ * @tparam Args
+ * @param convergence
+ * @return true
+ * @return false
+ */
+template <class... Args>
+bool TimeDiscretization<Args...>::checkTimeStepConvergence(const auto& convergence) {
+  if (convergence.empty()) return false;
+  for (const auto& [coup_name, coup_vect] : convergence) {
+    if (coup_vect.empty()) return false;
+
+    for (const auto& [pb_name, pb_vect] : coup_vect) {
+      if (pb_vect.empty()) return false;
+
+      for (const auto& [var_name, has_cvg, criterion] : pb_vect) {
+        if (!has_cvg) return false;
+      }
+    }
+  }
+  return true;
+}
+
 /**
  * @brief Destroy the Time Discretization:: Time Discretization object
  *

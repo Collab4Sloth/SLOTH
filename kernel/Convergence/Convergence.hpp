@@ -31,14 +31,13 @@ class Convergence {
   std::vector<PhysicalConvergence> getPhysicalConvergence() const;
 
   ~Convergence();
-}
+};
 
 /**
  * @brief Construct a new Convergence:: Convergence object
  *
  */
-Convergence::Convergence() {
-}
+Convergence::Convergence() {}
 /**
  * @brief Construct a new Convergence:: Convergence object
  *

@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
@@ -33,7 +34,7 @@ class Problem : public ProblemBase<VAR, PST> {
 
  public:
   template <class... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+  Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
           std::list<int> pop_elem, Args&&... auxvariable);
 
   template <class... Args>
@@ -41,7 +42,7 @@ class Problem : public ProblemBase<VAR, PST> {
           Args&&... auxvariable);
 
   template <class... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+  Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
           Args&&... auxvariable);
 
   template <class... Args>
@@ -49,7 +50,7 @@ class Problem : public ProblemBase<VAR, PST> {
 
   template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
+          Convergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
 
   template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
@@ -57,7 +58,7 @@ class Problem : public ProblemBase<VAR, PST> {
 
   template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          PhysicalConvergence& convergence, Args&&... auxvariable);
+          Convergence& convergence, Args&&... auxvariable);
 
   template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
@@ -100,9 +101,8 @@ class Problem : public ProblemBase<VAR, PST> {
  */
 template <class OPE, class VAR, class PST>
 template <class... Args>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                PhysicalConvergence& convergence, std::list<int> pop_elem,
-                                Args&&... auxvariables)
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
+                                std::list<int> pop_elem, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, convergence, pop_elem,
                             auxvariables...),
       oper_(oper) {}
@@ -142,8 +142,8 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, std::
  */
 template <class OPE, class VAR, class PST>
 template <class... Args>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                PhysicalConvergence& convergence, Args&&... auxvariables)
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
+                                Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, convergence,
                             auxvariables...),
       oper_(oper) {}
@@ -184,7 +184,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Args&
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                Convergence& convergence, std::list<int> pop_elem,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
       oper_(oper) {}
@@ -226,7 +226,7 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                PhysicalConvergence& convergence, Args&&... auxvariables)
+                                Convergence& convergence, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), oper_(oper) {}
 
 /**

@@ -16,6 +16,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Problems/ProblemBase.hpp"
@@ -57,20 +58,20 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
 
  public:
   template <class... Args>
-  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst,
-                  PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariable);
+  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, Convergence& convergence,
+                  std::list<int> pop_elem, Args&&... auxvariable);
 
   template <class... Args>
   Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                  PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariable);
+                  Convergence& convergence, std::list<int> pop_elem, Args&&... auxvariable);
 
   template <class... Args>
-  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst,
-                  PhysicalConvergence& convergence, Args&&... auxvariable);
+  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, Convergence& convergence,
+                  Args&&... auxvariable);
 
   template <class... Args>
   Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                  PhysicalConvergence& convergence, Args&&... auxvariable);
+                  Convergence& convergence, Args&&... auxvariable);
 
   template <class... Args>
   Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, std::list<int> pop_elem,
@@ -125,7 +126,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
 template <class CALPHAD, class VAR, class PST>
 template <class... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
-                                                    PST& pst, PhysicalConvergence& convergence,
+                                                    PST& pst, Convergence& convergence,
                                                     std::list<int> pop_elem, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, pop_elem,
                             auxvariables...),
@@ -182,7 +183,7 @@ template <class CALPHAD, class VAR, class PST>
 template <class... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const Parameters& params, VAR& variables,
-                                                    PST& pst, PhysicalConvergence& convergence,
+                                                    PST& pst, Convergence& convergence,
                                                     std::list<int> pop_elem, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
       params_(params) {
@@ -247,7 +248,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
 template <class CALPHAD, class VAR, class PST>
 template <class... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
-                                                    PST& pst, PhysicalConvergence& convergence,
+                                                    PST& pst, Convergence& convergence,
                                                     Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, auxvariables...),
       params_(params) {
@@ -310,7 +311,7 @@ template <class CALPHAD, class VAR, class PST>
 template <class... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const Parameters& params, VAR& variables,
-                                                    PST& pst, PhysicalConvergence& convergence,
+                                                    PST& pst, Convergence& convergence,
                                                     Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation

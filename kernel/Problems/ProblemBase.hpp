@@ -39,12 +39,12 @@ class ProblemBase {
   PST& pst_;
   const std::list<int> pop_elem_;
   std::vector<mfem::Vector> unknown_;
-  std::shared_ptr<PhysicalConvergence> convergence_;
+  std::shared_ptr<Convergence> convergence_;
   std::vector<std::tuple<std::string, bool, double>> var_convergence_;
 
  public:
   template <class... Args>
-  ProblemBase(const std::string& name, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, Convergence& convergence,
               std::list<int> pop_elem, Args&&... auxvariables);
 
   template <class... Args>
@@ -52,7 +52,7 @@ class ProblemBase {
               Args&&... auxvariables);
 
   template <class... Args>
-  ProblemBase(const std::string& name, VAR& variables, PST& pst, PhysicalConvergence& convergence,
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, Convergence& convergence,
               Args&&... auxvariables);
 
   template <class... Args>
@@ -110,10 +110,10 @@ class ProblemBase {
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                   Convergence& convergence, std::list<int> pop_elem,
                                    Args&&... auxvariables)
     : name_(name), variables_(variables), pst_(pst), pop_elem_(pop_elem) {
-  this->convergence_ = std::make_shared<PhysicalConvergence>(convergence);
+  this->convergence_ = std::make_shared<Convergence>(convergence);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -184,9 +184,9 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   PhysicalConvergence& convergence, Args&&... auxvariables)
+                                   Convergence& convergence, Args&&... auxvariables)
     : name_(name), variables_(variables), pst_(pst) {
-  this->convergence_ = std::make_shared<PhysicalConvergence>(convergence);
+  this->convergence_ = std::make_shared<Convergence>(convergence);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -377,15 +377,29 @@ void ProblemBase<VAR, PST>::check_convergence(
     const std::vector<std::unique_ptr<mfem::Vector>>& unks) {
   this->var_convergence_.clear();
 
+  std::vector<PhysicalConvergence> vect_convergence = this->convergence_->getPhysicalConvergence();
+
   int j = -1;
   for (auto& var : this->variables_.getVariables()) {
     j++;
     const auto& prev_unk = var.get_last();
     mfem::Vector& unk = *(unks[j]);
-    const auto& [has_converged, criterion] =
-        this->convergence_->getPhysicalConvergence(unk, prev_unk);
+    const auto& [local_converged, local_criterion] =
+        vect_convergence[j].getPhysicalConvergence(unk, prev_unk);
+
+    int local_conv_int = static_cast<int>(local_converged);
+    int global_conv_int = 0;
+    double global_criterion = 0.0;
+
+    MPI_Allreduce(&local_conv_int, &global_conv_int, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_criterion, &global_criterion, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    // int rank = mfem::Mpi::WorldRank();
+    // if (rank == 0) {
+    bool has_converged = static_cast<bool>(global_conv_int);
     this->var_convergence_.emplace_back(
-        std::make_tuple(var.getVariableName(), has_converged, criterion));
+        std::make_tuple(var.getVariableName(), has_converged, global_criterion));
+    // }
   }
 }
 

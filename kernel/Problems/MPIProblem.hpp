@@ -15,7 +15,6 @@
 #include <tuple>
 #include <vector>
 
-#include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
 #include "Problems/ProblemBase.hpp"
