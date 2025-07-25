@@ -154,9 +154,9 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
       mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL),
       LHS(NULL),
-      lhs_nlfi_ptr_(nullptr) {
+      lhs_nlfi_ptr_(nullptr),
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -182,10 +182,10 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
                                   this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
-      LHS(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL),
-      lhs_nlfi_ptr_(nullptr) {
+      LHS(NULL),
+      lhs_nlfi_ptr_(nullptr),
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -209,10 +209,10 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
                                   this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
-      LHS(NULL),
       MassCoeff_(NULL),
-      reduced_oper(NULL),
-      lhs_nlfi_ptr_(nullptr) {
+      LHS(NULL),
+      lhs_nlfi_ptr_(nullptr),
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -329,6 +329,7 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   }
   //// Call ODE solver
   this->current_time_ = current_time;
+  this->current_dt_ = current_time_step;
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
 
   //// Updating vect_unk
@@ -637,7 +638,7 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
     }
   }
 
-  source_term.Print();
+  // source_term.Print();
   this->newton_solver_->Mult(source_term, dv_dt);
   delete this->rhs_solver_;
 

@@ -193,6 +193,7 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
     std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
     const double &current_time, double dt, const int iter) {
   this->current_time_ = current_time;
+  this->current_dt_ = dt;
 
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
