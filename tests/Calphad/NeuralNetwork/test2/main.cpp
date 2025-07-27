@@ -146,24 +146,32 @@ int main(int argc, char* argv[]) {
   CommonNeuralNetwork.emplace_back(std::make_tuple("model.pt", "SOLID"));
 
   auto neural_network_model_mu = Parameter("ChemicalPotentialsNeuralNetwork", CommonNeuralNetwork);
-  vTupleStringString MobilitiesNeuralNetwork;
-  MobilitiesNeuralNetwork.emplace_back(std::make_tuple("model.pt", "SOLID"));
+  vTupleStringInt ChemicalPotentialNeuralNetworkIndex;
+  ChemicalPotentialNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 5));
+  auto index_neural_network_model_mu =
+      Parameter("ChemicalPotentialsNeuralNetworkIndex", ChemicalPotentialNeuralNetworkIndex);
 
   vTupleStringInt MobilitiesNeuralNetworkIndex;
-  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 3));
+  MobilitiesNeuralNetworkIndex.emplace_back(std::make_tuple("SOLID", 2));
 
   auto neural_network_model_mob = Parameter("MobilitiesNeuralNetwork", CommonNeuralNetwork);
   auto index_neural_network_model_mob =
       Parameter("MobilitiesNeuralNetworkIndex", MobilitiesNeuralNetworkIndex);
-  auto input_composition_factor = Parameter("InputCompositionFactor", Nmol);
-  std::vector<std::string> composition_order{"O", "U", "PU"};
+
+  // If the inputs of the model are  moles, not molar fractions (comment in this case)
+  auto input_composition_factor = Parameter("InputCompositionFactor", 1.);
+
+  std::vector<std::string> composition_order{"O", "PU", "U"};
   auto input_composition_order = Parameter("InputCompositionOrder", composition_order);
+
+  auto element_removed_from_nn_inputs = Parameter("element_removed_from_nn_inputs", "PU");
 
   auto own_mobility_model = Parameter("OwnMobilityModel", false);
 
   auto calphad_parameters =
-      Parameters(neural_network_model_mu, neural_network_model_mob, index_neural_network_model_mob,
-                 input_composition_factor, input_composition_order, given_phase);
+      Parameters(neural_network_model_mu, index_neural_network_model_mu, neural_network_model_mob,
+                 index_neural_network_model_mob, own_mobility_model, input_composition_factor,
+                 input_composition_order, given_phase, element_removed_from_nn_inputs);
 
   auto M11 = VAR(&spatial, calphad_bcs, "M11", level_of_storage, 0.);
   M11.set_additional_information("O", "inter_mob");
@@ -195,22 +203,17 @@ int main(int argc, char* argv[]) {
   using MD = MassDiffusionFluxNLFormIntegrator<VARS>;
 
   //--- Operator definition
-  std::vector<SPA*> spatials{&spatial};
   // Operator for InterDiffusion equation on O
-  using LHS_NLFI_O = TimeNLFormIntegrator<VARS>;
-
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_O> interdiffu_oper_o(
-      spatials, td_parameters, TimeScheme::EulerImplicit);
+  DiffusionOperator<FECollection, DIM, MD, Density::Constant> interdiffu_oper_o(
+      &spatial, td_parameters, TimeScheme::EulerImplicit);
   interdiffu_oper_o.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   interdiffu_oper_o.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-20)));
 
   // Operator for InterDiffusion equation on U
-  using LHS_NLFI_U = TimeNLFormIntegrator<VARS>;
-
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_U> interdiffu_oper_u(
-      spatials, td_parameters, TimeScheme::EulerImplicit);
+  DiffusionOperator<FECollection, DIM, MD, Density::Constant> interdiffu_oper_u(
+      &spatial, td_parameters, TimeScheme::EulerImplicit);
   interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   interdiffu_oper_u.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
@@ -250,12 +253,17 @@ int main(int argc, char* argv[]) {
                                          Parameter("frequency", frequency));
   auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
+  //--- Physical Convergence
+  const double crit_cvg = 1.e-12;
+  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg);
+
   //-----------------------
   // Problems
   //-----------------------
   // Calphad
   Calphad_Problem<CalphadInformedNeuralNetwork<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, calphad_outputs, cc_pst, heat_vars, p_vars, xo_vars, xu_vars, xpu_vars);
+      calphad_parameters, calphad_outputs, cc_pst, convergence, heat_vars, p_vars, xo_vars, xu_vars,
+      xpu_vars);
 
   //======================
   // Oxygen
@@ -265,12 +273,12 @@ int main(int argc, char* argv[]) {
                  Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
-      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, xo_vars, xu_vars,
-      heat_vars, calphad_outputs);
+      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
+      xu_vars, heat_vars, calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_O>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant>, VARS, PST>
       interdiffu_problem_o("Interdiffusion O", interdiffu_oper_o, xo_vars, interdiffu_pst,
-                           calphad_outputs, MO, heat_vars);
+                           convergence, calphad_outputs, MO, heat_vars);
 
   //======================
   // Uranium
@@ -280,12 +288,12 @@ int main(int argc, char* argv[]) {
                  Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
-      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, xo_vars, xu_vars,
-      heat_vars, calphad_outputs);
+      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, xo_vars,
+      xu_vars, heat_vars, calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_U>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant>, VARS, PST>
       interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, xu_vars, interdiffu_pst_u,
-                           calphad_outputs, MU, heat_vars);
+                           convergence, calphad_outputs, MU, heat_vars);
 
   //-----------------------
   // Coupling

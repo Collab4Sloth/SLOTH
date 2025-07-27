@@ -295,11 +295,6 @@ void Problem<OPE, VAR, PST>::finalize() {
         this->pst_.save_iso_specialized(variable_time_iso_specialized, str);
       }
     }
-
-    SlothInfo::verbose(" ");
-    SlothInfo::verbose(" ============================== ");
-    SlothInfo::verbose(" Results are saved in the folder : ",
-                       this->pst_.get_post_processing_directory());
   }
 }
 
@@ -356,8 +351,14 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
 
   // Save for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
-  if (this->pst_.get_enable_save_specialized_at_iter()) {
-    this->pst_.save_specialized(this->oper_.get_time_specialized());
+  // if (this->pst_.get_enable_save_specialized_at_iter()) {
+  //   this->pst_.save_specialized(this->oper_.get_time_specialized());
+  // }
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    if (this->pst_.get_enable_save_specialized_at_iter()) {
+      this->pst_.save_specialized(this->oper_.get_time_specialized());
+    }
   }
 }
 

@@ -28,7 +28,7 @@ const std::string temperature_sort_method = "Descending";
 const std::string pressure_sort_method = "No";
 
 /// @brief Element removed when moles fractions initialization is considered
-const std::string element_removed_from_ic = "Undefined ";
+const std::string element_removed_from_ic = "Undefined";
 
 /// @brief Flag to indicate if the heat capacity must be calculated
 const bool compute_heat_capacity = true;
@@ -89,4 +89,15 @@ pressure_sort_method::value pressure_sort_method::from(const std::string &v) {
       {"Descending", pressure_sort_method::descending},
       {"No", pressure_sort_method::no}};
   return m.find("temperature_sort_method", v);
+}
+
+struct KKS_nucleation_strategy {
+  enum value { liquid_fraction, given_melting_temperature };
+  static value from(const std::string &);
+};
+KKS_nucleation_strategy::value KKS_nucleation_strategy::from(const std::string &v) {
+  static PhaseFieldPrivate::mmap<KKS_nucleation_strategy::value> m{
+      {"LiquidFraction", KKS_nucleation_strategy::liquid_fraction},
+      {"GivenMeltingTemperature", KKS_nucleation_strategy::given_melting_temperature}};
+  return m.find("KKS_nucleation_strategy", v);
 }

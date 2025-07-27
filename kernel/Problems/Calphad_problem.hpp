@@ -98,6 +98,10 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
                     const std::vector<std::vector<std::string>>& unks_info) override;
 
   /////////////////////////////////////////////////////
+
+  void post_processing(const int& iter, const double& current_time,
+                       const double& current_time_step) override;
+  /////////////////////////////////////////////////////
   void finalize() override;
   /////////////////////////////////////////////////////
 
@@ -569,6 +573,45 @@ void Calphad_Problem<CALPHAD, VAR, PST>::get_parameters() {
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
   this->CC_->finalize();
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    if (!this->pst_.get_enable_save_specialized_at_iter()) {
+      auto time_spe_mmap = this->CC_->get_time_specialized();
+      if (!time_spe_mmap.empty()) {
+        std::string str = "calphad.csv";
+        this->pst_.save_specialized(time_spe_mmap, str);
+      }
+    }
+  }
+}
+
+/**
+ * @brief
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @param iter
+ * @param current_time
+ * @param current_time_step
+ */
+template <class CALPHAD, class VAR, class PST>
+void Calphad_Problem<CALPHAD, VAR, PST>::post_processing(const int& iter,
+                                                         const double& current_time,
+                                                         const double& current_time_step) {
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    if (this->pst_.get_enable_save_specialized_at_iter()) {
+      auto time_spe_mmap = this->CC_->get_time_specialized();
+      if (!time_spe_mmap.empty()) {
+        std::string str = "calphad.csv";
+        this->pst_.save_specialized(time_spe_mmap, str);
+      }
+    }
+  }
+
+  // Save for visualization
+  ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
 }
 
 /**

@@ -39,9 +39,22 @@ class CalphadBase {
   bool is_KKS_;
 
  protected:
+  // Smart pointer used for KKS studies
   std::shared_ptr<KKS<T>> KKS_;
 
+  // Common methods for CALPHAD studies
   std::shared_ptr<CalphadUtils<T>> CU_;
+
+  //  Heat capacity. Nodal values. key: [node]
+  std::map<int, double> heat_capacity_;
+
+  // Mobility for each element in a given phase.
+  // Nodal values. key: [node, phase, elem]
+  std::map<std::tuple<int, std::string, std::string>, double> mobilities_;
+
+  // Site fraction of a given constituant, in a given sublattice for each phase.
+  // Nodal values. key: [node, phase, cons, sub]
+  std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
 
   void clear_containers();
 
@@ -50,18 +63,13 @@ class CalphadBase {
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
       const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
           &previous_output_system);
-  // Mobility for each element in a given phase. Nodal values. key: [node, phase, elem]
-  std::map<std::tuple<int, std::string, std::string>, double> mobilities_;
-
-  // Site fraction of a given constituant, in a given sublattice for each phase. Nodal values
-  // Site fraction. Nodal values. key: [node, phase, cons, sub]
-  std::map<std::tuple<int, std::string, std::string, int>, double> site_fraction_;
-
-  //  Heat capacity. Nodal values. key: [node]
-  std::map<int, double> heat_capacity_;
 
  public:
+  // Parameters for CALPHAD problems
   const Parameters &params_;
+
+  // Symbol of the chemical element removed from the system when initializing equilibrium
+  // calculations (performed with molar fractions).
   std::string element_removed_from_ic_;
 
   // Containers used to store the results of the equilibrium calculations
@@ -84,8 +92,14 @@ class CalphadBase {
   std::map<std::tuple<int, std::string>, double> driving_forces_;
   std::map<std::tuple<int, std::string>, double> nucleus_;
 
+  /// Time integral results
+  std::multimap<IterationKey, SpecializedValue> time_specialized_;
+  const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
+
   explicit CalphadBase(const Parameters &params);
   CalphadBase(const Parameters &params, bool is_KKS);
+
+  virtual void get_parameters();
 
   virtual void initialize(
       const std::vector<std::tuple<std::string, std::string>> &sorted_chemical_system) = 0;
@@ -108,19 +122,11 @@ class CalphadBase {
 
   virtual void finalize() = 0;
 
-  ////////////////////////////////
-
-  ////////////////////////////////
-
-  virtual void get_parameters();
-
-  ////////////////////////////////
-
   virtual ~CalphadBase();
 };
 
 /**
- * @brief Construct a new CalphadBase object.
+ * @brief Construct a new CalphadBase object
  *
  * @tparam T The type parameter.
  * @param params The parameters to initialize the CalphadBase object.
@@ -164,10 +170,17 @@ void CalphadBase<T>::get_parameters() {
  * @brief High-level method for managing equilibrium calculations
  *
  * @tparam T
- * @param dt The time-step of the simulation
+ * @param dt The current iteration  of the simulation
+ * @param time_step The current time-step of the simulation
  * @param tp_gf The thermodynamic condition for equilibrium calculations
  * @param chemicalsystem The targeted chemical system
- * @param output_system The output variables
+ * @param output_system The output variables at the current time-step
+ * @param previous_output_system The output variables at the previous time-step
+ * @param phase_field_gf The phase-field variable at the current and previous time-step
+ * @param tp_gf_old The thermodynamic condition for equilibrium calculations at the previous
+ * time-step
+ * @param x_gf  The molar fractions of the elements at the current and previous time-step
+ * @param coordinates  The coordinates of each node of the mesh (see nucleation)
  */
 template <typename T>
 void CalphadBase<T>::global_execute(
@@ -235,8 +248,14 @@ void CalphadBase<T>::clear_containers() {
  * @brief Update the outputs on the basis of results stored in containers
  *
  * @tparam T
- * @param nb_nodes
- * @param output_system
+ * @param dt The current iteration  of the simulation
+ * @param nb_nodes The number of nodes (local mesh)
+ * @param output_system The output variables at the current time-step
+ * @param previous_output_system The output variables at the previous time-step
+ *
+ * @remark A default value is used when the output is not calculated (but required). The value at
+ * the previous time-step can be used in case of convergence error (for GEM).
+ *
  */
 template <typename T>
 void CalphadBase<T>::update_outputs(
@@ -265,6 +284,7 @@ void CalphadBase<T>::update_outputs(
 
     // Fill output with the relevant values
     switch (calphad_outputs::from(output_type)) {
+      // Chemical potential of the elements
       case calphad_outputs::mu: {
         const std::string &output_elem = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -277,6 +297,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Diffusion chemical potentials (reference is the element removed from initial condition)
       case calphad_outputs::dmu: {
         const std::string &output_elem = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -289,6 +310,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Molar fraction of the phases
       case calphad_outputs::xph: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -301,6 +323,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Molar fraction of the element by phase
       case calphad_outputs::xp: {
         const std::string &output_elem = output_infos[1];
         const std::string &output_phase = output_infos[2];
@@ -314,6 +337,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Site fractions
       case calphad_outputs::y: {
         const std::string &output_cons = output_infos[1];
         const int &output_sub = std::stoi(output_infos[2]);
@@ -329,6 +353,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Gibbs energy
       case calphad_outputs::g: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -341,6 +366,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Molar Gibbs energy
       case calphad_outputs::gm: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -353,6 +379,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Enthalpy
       case calphad_outputs::h: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -365,6 +392,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Molar enthalpy
       case calphad_outputs::hm: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -377,6 +405,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Driving force
       case calphad_outputs::dgm: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -389,6 +418,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Heat capacity (per mole?)
       case calphad_outputs::cp: {
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -399,11 +429,12 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Mobility by element (if a model exists)
       case calphad_outputs::mob: {
         const std::string &output_phase = output_infos[1];
         const std::string &output_elem = output_infos[2];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
-          default_value = -std::numeric_limits<double>::max();
+          default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
           }
@@ -412,6 +443,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Seed for starting nucleation in KKS studies
       case calphad_outputs::nucleus: {
         const std::string &output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
@@ -424,6 +456,7 @@ void CalphadBase<T>::update_outputs(
         }
         break;
       }
+      // Convergence error (used with GEM)
       case calphad_outputs::error: {
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           output[i] = this->error_equilibrium_[i];
@@ -436,6 +469,16 @@ void CalphadBase<T>::update_outputs(
   }
 }
 
+/**
+ * @brief Return values calculated at a given iteration
+ *
+ * @tparam T
+ * @return const std::multimap<IterationKey, SpecializedValue>
+ */
+template <typename T>
+const std::multimap<IterationKey, SpecializedValue> CalphadBase<T>::get_time_specialized() const {
+  return this->time_specialized_;
+}
 /**
  * @brief Destroy the Calphad Base< T>:: Calphad Base object
  *
