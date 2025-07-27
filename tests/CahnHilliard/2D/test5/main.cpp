@@ -1,23 +1,26 @@
 /**
+ * Copyright CEA (c) 2025
  * @file main.cpp
  * @author ci230846  (clement.introini@cea.fr)
- * @brief MMS conevrgence tests
+ * @brief MMS convergence tests :
  * Liangzhe Zhang, Michael R. Tonks, Derek Gaston, John W. Peterson, David Andrs, Paul C. Millett,
  * Bulent S. Biner, A quantitative comparison between C0 and C1 elements for solving the
  * Cahn–Hilliard equation, Journal of Computational Physics, Volume 236, 2013, Pages 74-80, ISSN
  * 0021-9991, https://doi.org/10.1016/j.jcp.2012.12.001.
+ *
  * @version 0.1
  * @date 2025-07-04
  *
- * Copyright CEA (c) 2025
  *
  */
+
 #include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
