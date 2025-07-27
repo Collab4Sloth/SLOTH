@@ -136,11 +136,6 @@ int main(int argc, char* argv[]) {
   std::vector<SPA*> spatials{&spatial, &spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  oper.overload_nl_solver(NLSolverType::NEWTON,
-                          Parameters(Parameter("description", "Newton solver "),
-                                     Parameter("print_level", 1), Parameter("abs_tol", 1.e-12)));
-  oper.overload_solver(HypreSolverType::HYPRE_GMRES);
-  oper.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU);
   auto pst = PST(&spatial, p_pst);
   PB problem1(oper, vars, pst);
 

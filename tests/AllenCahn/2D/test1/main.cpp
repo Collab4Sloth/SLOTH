@@ -50,7 +50,6 @@ int main(int argc, char* argv[]) {
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -107,9 +106,8 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
-  auto v1 = VAR(&spatial, bcs, "phi1", 2, initial_condition, analytical_solution);
-  auto v2 = VAR(&spatial, bcs, "phi2", 2, initial_condition, analytical_solution);
-  auto vars = VARS(v1, v2);
+  auto v1 = VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution);
+  auto vars = VARS(v1);
 
   // ###########################################
   // ###########################################
@@ -130,27 +128,14 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  std::vector<SPA*> spatials{&spatial, &spatial};
+  std::vector<SPA*> spatials{&spatial};
   OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
   auto pst = PST(&spatial, p_pst);
   PB problem1(oper, vars, pst);
 
-  auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [](const mfem::Vector& x, double time) { return 0.; });
-
-  auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-  auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
-
-  calculation_path = "ProblemMPI_";
-  auto p_pst1 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  auto pst1 = PST(&spatial, p_pst1);
-  PB1 problem2(vars1, pst1);
   // Coupling 1
-  auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
+  auto cc = Coupling("AllenCahn-MPI Coupling", problem1);
 
   // ###########################################
   // ###########################################
