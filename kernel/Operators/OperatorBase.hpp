@@ -664,12 +664,6 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_source_term(
   RHSS->ParallelAssemble(source_term);
 
   source_term.SetSubVector(this->ess_tdof_list_[id_block], 0.);
-  // source_term.Print();
-  mfem::Vector xx(source_term.Size());
-  std::cout << " id " << id_block << " this->current_time_" << this->current_time_ << " src "
-            << src_func(xx, 0.) << std::endl;
-
-  std::cout << " _____" << std::endl;
 }
 
 /**

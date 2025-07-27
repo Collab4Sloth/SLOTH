@@ -31,7 +31,7 @@ by prescribing the following source term
 
 $$ S({\bf{r}},t) = u({\bf{r}},t)^3 - u({\bf{r}},t)$$
 
-$$u({\bf{r}},t)= e^{-2. t} sin(x+y)$$ls
+$$u({\bf{r}},t)= e^{-2. t} sin(x+y)$$
 
 ### __Boundary conditions__
 
