@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   const int order_fe = 1;          // finite element order
-  const int refinement_level = 1;  // number of levels of uniform refinement
+  const int refinement_level = 0;  // number of levels of uniform refinement
 
   SPA spatial("GMSH", order_fe, refinement_level, "slothLogo.msh", false);
   // ##############################
