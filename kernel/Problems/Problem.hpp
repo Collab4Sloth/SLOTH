@@ -31,6 +31,7 @@ class Problem : public ProblemBase<VAR, PST> {
  private:
   OPE oper_;
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
+  void save_specialized(bool must_be_saved);
 
  public:
   template <class... Args>
@@ -276,28 +277,48 @@ void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current
                                           const double& current_time_step) {}
 
 /**
- * @brief Show calculation information
+ * @brief Finalization stage
  *
  * @tparam OPE
  * @tparam VAR
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
+  // Save specialized values only at the end of calculation if required
+  bool must_be_saved = !this->pst_.get_enable_save_specialized_at_iter();
+  this->save_specialized(must_be_saved);
+}
+
+/**
+ * @brief Save specialized values
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ */
+template <class OPE, class VAR, class PST>
+void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
-    if (!this->pst_.get_enable_save_specialized_at_iter()) {
-      this->pst_.save_specialized(this->oper_.get_time_specialized());
-    }
-    if (!this->pst_.get_iso_val_to_compute().empty()) {
-      for (const auto& [var_name, variable_time_iso_specialized] :
-           this->oper_.get_time_iso_specialized()) {
-        std::string str = var_name + "_iso_computation.csv";
-        this->pst_.save_iso_specialized(variable_time_iso_specialized, str);
+    if (must_be_saved) {
+      if (!this->oper_.get_time_specialized().empty()) {
+        this->pst_.save_specialized(this->oper_.get_time_specialized());
+      }
+
+      if (!this->oper_.get_time_iso_specialized().empty()) {
+        for (const auto& [var_name, variable_time_iso_specialized] :
+             this->oper_.get_time_iso_specialized()) {
+          std::string str = var_name + "_iso_computation.csv";
+          this->pst_.save_specialized(variable_time_iso_specialized, str);
+        }
       }
     }
   }
+  if (must_be_saved) {
+    this->oper_.clear_time_specialized();
+    this->oper_.clear_iso_time_specialized();
+  }
 }
-
 /**
  * @brief  Call the post_execute method of the given problem and saves variables according with
  * PST
@@ -312,30 +333,34 @@ void Problem<OPE, VAR, PST>::finalize() {
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time,
                                              const double& current_time_step) {
-  ////
   const auto nvars = this->variables_.get_variables_number();
   std::vector<mfem::Vector> u_vect;
+
+  // Isovalue to compute by variable
   const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
+
+  // Integral value to compute by variable
   const std::map<std::string, std::tuple<double, double>> map_integral =
       this->pst_.get_integral_to_compute();
-  // Errors
+
   for (auto iv = 0; iv < nvars; iv++) {
     auto vv = this->variables_.getIVariable(iv);
     auto solution = vv.get_analytical_solution();
     auto unk = vv.get_unknown();
     auto unk_name = vv.getVariableName();
-    // Isovalues
-    if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
-      const double iso_value = map_iso_value.at(unk_name);
-      this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
-                                iso_value);
-    }
 
     // Errors
     if (solution != nullptr) {
       auto solution_func = solution.get();
       this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
                                *solution_func);
+    }
+
+    // Isovalues
+    if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
+      const double iso_value = map_iso_value.at(unk_name);
+      this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
+                                iso_value);
     }
 
     // Integral
@@ -349,17 +374,12 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   // Energies
   this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
 
-  // Save for visualization
+  // Save variables for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
-  // if (this->pst_.get_enable_save_specialized_at_iter()) {
-  //   this->pst_.save_specialized(this->oper_.get_time_specialized());
-  // }
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    if (this->pst_.get_enable_save_specialized_at_iter()) {
-      this->pst_.save_specialized(this->oper_.get_time_specialized());
-    }
-  }
+
+  // Save specialized values at each time-step if required
+  bool must_be_saved = this->pst_.get_enable_save_specialized_at_iter();
+  this->save_specialized(must_be_saved);
 }
 
 /**

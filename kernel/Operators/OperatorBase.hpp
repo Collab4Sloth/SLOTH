@@ -120,6 +120,9 @@ class OperatorBase : public mfem::Operator {
   const std::map<std::string, std::multimap<IterationKey, SpecializedValue>>
   get_time_iso_specialized() const;
 
+  void clear_time_specialized();
+  void clear_iso_time_specialized();
+
   virtual ~OperatorBase();
 
   std::string get_description() { return this->description_; }
@@ -583,6 +586,10 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::ComputeIsoVal(const int &it, const do
   std::vector<std::string> vstr = {"x", "y", "z"};
   std::multimap<IterationKey, SpecializedValue> variable_time_iso_specialized;
 
+  if (!this->time_iso_specialized_[var_name].empty()) {
+    variable_time_iso_specialized.merge(this->time_iso_specialized_[var_name]);
+  }
+
   mfem::ParGridFunction gf(this->fes_[var_id]);
   gf.SetFromTrueDofs(u);
   std::vector<mfem::Vector> iso_points;
@@ -682,6 +689,16 @@ OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_time_iso_specialized() const {
 }
 
 /**
+ * @brief Clear time_iso_specialized_ container
+ *
+ * @tparam T
+ */
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::clear_iso_time_specialized() {
+  this->time_iso_specialized_.clear();
+}
+
+/**
  * @brief Get a of a multimap of integral values calculated at a given iteration (see
  * computeEnergies and computeError)
  *
@@ -694,6 +711,16 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 const std::multimap<IterationKey, SpecializedValue>
 OperatorBase<T, DIM, NLFI, LHS_NLFI>::get_time_specialized() const {
   return this->time_specialized_;
+}
+
+/**
+ * @brief Clear time_specialized_ container
+ *
+ * @tparam T
+ */
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::clear_time_specialized() {
+  this->time_specialized_.clear();
 }
 
 /**
