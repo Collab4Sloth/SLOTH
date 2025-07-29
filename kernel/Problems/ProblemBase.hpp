@@ -95,17 +95,20 @@ class ProblemBase {
 };
 
 /**
- * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param variables
- * @param pst
- * @param convergence
- * @param pop_elem
- * @param auxvariables
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param convergence Reference to the Convergence  object.
+ * @param pop_elem List of elements to remove from Variables.
+ * @param auxvariables Variadic pack of auxiliary variables.
  */
 template <class VAR, class PST>
 template <class... Args>
@@ -134,16 +137,19 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 }
 
 /**
- * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param variables
- * @param pst
- * @param pop_elem
- * @param auxvariables
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param pop_elem List of elements to remove from Variables.
+ * @param auxvariables Variadic pack of auxiliary variables.
  */
 template <class VAR, class PST>
 template <class... Args>
@@ -170,16 +176,19 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 }
 
 /**
- * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param variables
- * @param pst
- * @param convergence
- * @param auxvariables
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param convergence Reference to the Convergence  object.
+ * @param auxvariables Variadic pack of auxiliary variables.
  */
 template <class VAR, class PST>
 template <class... Args>
@@ -195,15 +204,18 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 }
 
 /**
- * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param variables
- * @param pst
- * @param auxvariables
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param auxvariables Variadic pack of auxiliary variables.
  */
 template <class VAR, class PST>
 template <class... Args>
@@ -218,11 +230,12 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 }
 
 /**
- * @brief Return the name of the problem
  *
- * @tparam VAR
- * @tparam PST
- * @return const std::string
+ * @brief Returns the name of the problem
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @return std::string The name of the problem.
  */
 template <class VAR, class PST>
 std::string ProblemBase<VAR, PST>::get_name() {
@@ -232,9 +245,9 @@ std::string ProblemBase<VAR, PST>::get_name() {
 /**
  * @brief  Return the variables associated with the problem
  *
- * @tparam VAR
- * @tparam PST
- * @return VAR
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @return VAR The list of Variables of the problem.
  */
 template <class VAR, class PST>
 VAR ProblemBase<VAR, PST>::get_problem_variables() {
@@ -242,13 +255,13 @@ VAR ProblemBase<VAR, PST>::get_problem_variables() {
 }
 
 /**
- * @brief Action done after execute method
+ * @brief Performs actions after the execute step.
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::post_execute(const int& iter, const double& current_time,
@@ -257,8 +270,8 @@ void ProblemBase<VAR, PST>::post_execute(const int& iter, const double& current_
 /**
  * @brief Update the variables associated with the problem
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::update() {
@@ -275,22 +288,22 @@ void ProblemBase<VAR, PST>::update() {
 /**
  * @brief Initialize the problem
  *
- * @tparam VAR
- * @tparam PST
- * @param initial_time
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param initial_time The initial time of the simulation.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::initialize(const double& initial_time) {}
 
 /**
- * @brief Run a time-step : calculation + check of convergence
+ * @brief Execute step
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
- * @return std::tuple<bool, double, mfem::Vector>
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param next_time Next simulation time (Current time+ current time step).
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::execute(const int& iter, double& next_time, const double& current_time,
@@ -326,8 +339,8 @@ void ProblemBase<VAR, PST>::execute(const int& iter, double& next_time, const do
 /**
  * @brief Finalize the problem
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::finalize() {
@@ -337,11 +350,11 @@ void ProblemBase<VAR, PST>::finalize() {
 /**
  * @brief Save variables of the problem (see save method for other actions)
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& current_time,
@@ -353,11 +366,14 @@ void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& curre
 /**
  * @brief Main actions done during a time-step
  *
- * @tparam VAR
- * @tparam PST
- * @param unk
- * @param current_time
- * @param current_time_step
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param next_time Next simulation time (Current time+ current time step).
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
+ * @param iter Current iteration number.
+ * @param unks Unknown at the current time-step.
+ * @param unks_info Additionnal informations associated with the unkwon of the Problem.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& current_time,
@@ -368,9 +384,9 @@ void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& curren
 /**
  * @brief Check convergence of variables at the current time-step
  *
- * @tparam VAR
- * @tparam PST
- * @param unks
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param unks Unknown at the current time-step.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::check_convergence(
@@ -406,10 +422,10 @@ void ProblemBase<VAR, PST>::check_convergence(
 /**
  * @brief Save variables
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
@@ -422,8 +438,8 @@ void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
  * the flag indicating if the criterion is reached or not, and the double is the criterion reached.
  * The first string is the name of the problem, and the second the name of the variable.
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  * @return std::vector<std::tuple<std::string, bool, double>>
  */
 template <class VAR, class PST>
@@ -434,8 +450,8 @@ std::vector<std::tuple<std::string, bool, double>> ProblemBase<VAR, PST>::get_co
 /**
  * @brief Destroy the ProblemBase<VAR, PST>::ProblemBase object
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  */
 template <class VAR, class PST>
 ProblemBase<VAR, PST>::~ProblemBase() {}
