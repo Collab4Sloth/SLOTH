@@ -22,9 +22,9 @@
 
 #pragma once
 
-using param_type =
-    std::variant<int, double, std::string, bool, MapStringDouble, vTuple2StringDouble,
-                 Map2String2Double, MapString2Double, vString, vTupleStringInt, vTupleStringString>;
+using param_type = std::variant<int, double, std::string, bool, MapStringDouble,
+                                vTuple2StringDouble, Map2String2Double, MapString2Double, vString,
+                                vInt, vDouble, vTupleStringInt, vTupleStringString>;
 class Parameter {
  private:
   std::string name_;
@@ -71,6 +71,14 @@ void Parameter::print() const {
         } else if constexpr (std::is_same_v<T, bool>) {
           SlothInfo::print(param_name, " = ", arg);
         } else if constexpr (std::is_same_v<T, vString>) {
+          for (const auto& v : arg) {
+            SlothInfo::print(param_name, " = ", v);
+          }
+        } else if constexpr (std::is_same_v<T, vInt>) {
+          for (const auto& v : arg) {
+            SlothInfo::print(param_name, " = ", v);
+          }
+        } else if constexpr (std::is_same_v<T, vDouble>) {
           for (const auto& v : arg) {
             SlothInfo::print(param_name, " = ", v);
           }
@@ -122,7 +130,8 @@ auto Parameter::get_value() const -> param_type {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double> ||
                       std::is_same_v<T, std::string> || std::is_same_v<T, bool> ||
-                      std::is_same_v<T, vString> || std::is_same_v<T, vTupleStringString> ||
+                      std::is_same_v<T, vString> || std::is_same_v<T, vInt> ||
+                      std::is_same_v<T, vDouble> || std::is_same_v<T, vTupleStringString> ||
                       std::is_same_v<T, vTupleStringInt> || std::is_same_v<T, MapStringDouble> ||
                       std::is_same_v<T, vTuple2StringDouble> ||
                       std::is_same_v<T, MapString2Double> || std::is_same_v<T, Map2String2Double>) {
