@@ -1,7 +1,7 @@
 /*
  * Copyright © CEA 2023
  *
- * \brief Post-processing used by phase-field models
+ * \brief Post-processing features
  *
  * \file PostProcessing.hpp
  * \author ci230846
@@ -26,6 +26,13 @@
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+/**
+ * @brief Class used to manage post-processing of SLOTH simulations
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ */
 template <class T, class DC, int DIM>
 class PostProcessing : public DC {
  private:
@@ -42,6 +49,7 @@ class PostProcessing : public DC {
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   std::string post_processing_directory_;
   void get_parameters();
+
   bool need_to_be_saved(const int& iteration);
 
   void clean_output_directory();
@@ -71,12 +79,14 @@ class PostProcessing : public DC {
 ///////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new Post Processing:: Post Processing object
+ * @brief Construct a new Post Processing<T,DC,DIM>:: Post Processing object
  *
- * @param main_folder_path
- * @param calculation_path
- * @param mesh
- * @param level_of_detail
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param space Collection of SpatialDiscretization objects associated with the Variables of the
+ * Problem
+ * @param params Paramters used by the PostProcessing object
  */
 template <class T, class DC, int DIM>
 PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
@@ -97,9 +107,9 @@ PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
 /**
  * @brief Get parameters for PostProcessing object
  *
- * @tparam T
- * @tparam DC
- * @tparam DIM
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
  */
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::get_parameters() {
@@ -130,8 +140,11 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
 }
 
 /**
- * @brief save variables objet at given iter/time
+ * @brief Save Variables at a given iteration/time
  *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
  * @param vars
  * @param iter
  * @param time
@@ -154,7 +167,10 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
  * @brief Get the frequency of post-processing in terms of number of iterations (1 means each
  * iteration)
  *
- * @return int
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @return int The frequency of post-processing
  */
 template <class T, class DC, int DIM>
 int PostProcessing<T, DC, DIM>::get_frequency() {
@@ -164,9 +180,9 @@ int PostProcessing<T, DC, DIM>::get_frequency() {
 /**
  * @brief Get the isovalues to compute
  *
- * @tparam T
- * @tparam DC
- * @tparam DIM
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
  * @return std::map<std::string, double>
  */
 template <class T, class DC, int DIM>
@@ -177,9 +193,9 @@ std::map<std::string, double> PostProcessing<T, DC, DIM>::get_iso_val_to_compute
 /**
  * @brief Get the integrals to compute over the domain
  *
- * @tparam T
- * @tparam DC
- * @tparam DIM
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
  * @return std::map<std::string, double>
  */
 template <class T, class DC, int DIM>
@@ -189,8 +205,11 @@ PostProcessing<T, DC, DIM>::get_integral_to_compute() {
 }
 
 /**
- * @brief Get the post-processing directory
+ * @brief Return the post-processing directory
  *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
  * @return std::string
  */
 template <class T, class DC, int DIM>
@@ -199,9 +218,13 @@ std::string PostProcessing<T, DC, DIM>::get_post_processing_directory() {
 }
 
 /**
- * @brief Get the post-processing directory
+ * @brief Indicate if specialized values must be saved at each iteration or not
  *
- * @return std::string
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @return true
+ * @return false
  */
 template <class T, class DC, int DIM>
 bool PostProcessing<T, DC, DIM>::get_enable_save_specialized_at_iter() {
@@ -209,9 +232,12 @@ bool PostProcessing<T, DC, DIM>::get_enable_save_specialized_at_iter() {
 }
 
 /**
- * @brief check if results have to be saved at iteration
+ * @brief Check if results have to be saved at iteration
  *
- * @param iteration
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param iteration The current iteration.
  * @return true
  * @return false
  */
@@ -224,11 +250,11 @@ bool PostProcessing<T, DC, DIM>::need_to_be_saved(const int& iteration) {
 /**
  * @brief Export specialized results in CSV files
  *
- * @tparam T
- * @tparam DC
- * @tparam DIM
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param mmap_results
  * @param filename
- * @param tup
  */
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::save_specialized(
@@ -288,9 +314,9 @@ void PostProcessing<T, DC, DIM>::save_specialized(
 /**
  * @brief Clean output_directory before calculation
  *
- * @tparam T
- * @tparam DC
- * @tparam DIM
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
  */
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::clean_output_directory() {
