@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   auto refinement_level = 0;
   double L = 1e-3;
-  int NN = 75;
+  size_t NN = 75;
   SPA spatial("InlineLineWithSegments", 1, refinement_level, std::make_tuple(NN, L));
   // ##############################
   //     Boundary conditions     //
@@ -118,7 +118,6 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
   const auto& frequency = 1;
-  bool enable_save_specialized_at_iter = true;
   double iso_val = 0.5;
   // ####################
   //     operators     //
@@ -130,8 +129,8 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail),
-                 Parameter("iso_val_to_compute", map_iso_values),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+                 Parameter("enable_save_specialized_at_iter", true),
+                 Parameter("iso_val_to_compute", map_iso_values));
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
