@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
@@ -38,7 +39,11 @@ class PostProcessing : public DC {
  private:
   std::string main_folder_path_;
   std::string calculation_path_;
+
   int frequency_;
+  std::vector<int> iterations_list_;
+  std::vector<double> times_list_;
+
   int level_of_detail_;
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
@@ -50,7 +55,7 @@ class PostProcessing : public DC {
   std::string post_processing_directory_;
   void get_parameters();
 
-  bool need_to_be_saved(const int& iteration);
+  bool need_to_be_saved(const int iteration, const double time);
 
   void clean_output_directory();
 
@@ -115,7 +120,6 @@ template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::get_parameters() {
   this->main_folder_path_ = this->params_.template get_param_value<std::string>("main_folder_path");
   this->calculation_path_ = this->params_.template get_param_value<std::string>("calculation_path");
-  this->frequency_ = this->params_.template get_param_value<int>("frequency");
 
   this->level_of_detail_ =
       this->params_.template get_param_value_or_default<int>("level_of_detail", 1);
@@ -137,6 +141,23 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       MFEM_VERIFY(upper_bound >= lower_bound, error_msg.c_str());
     }
   }
+  std::string error_msg =
+      "At least one the following parameter is expected: frequency, iterations_list, times_list";
+  MFEM_VERIFY(this->params_.has_parameter("frequency") ||
+                  this->params_.has_parameter("iterations_list") ||
+                  this->params_.has_parameter("times_list"),
+              error_msg.c_str());
+  if (this->params_.has_parameter("frequency")) {
+    this->frequency_ = this->params_.template get_param_value<int>("frequency");
+  } else {
+    this->frequency_ = 1;
+    if (this->params_.has_parameter("iterations_list")) {
+      this->iterations_list_ = this->params_.template get_param_value<vInt>("iterations_list");
+    }
+    if (this->params_.has_parameter("times_list")) {
+      this->times_list_ = this->params_.template get_param_value<vDouble>("times_list");
+    }
+  }
 }
 
 /**
@@ -152,7 +173,7 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, const int& iter,
                                                 const double& time) {
-  if (this->need_to_be_saved(iter)) {
+  if (this->need_to_be_saved(iter, time)) {
     this->SetCycle(iter);
     this->SetTime(time);
     std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
@@ -242,8 +263,20 @@ bool PostProcessing<T, DC, DIM>::get_enable_save_specialized_at_iter() {
  * @return false
  */
 template <class T, class DC, int DIM>
-bool PostProcessing<T, DC, DIM>::need_to_be_saved(const int& iteration) {
-  bool check = (iteration % this->frequency_ == 0);
+bool PostProcessing<T, DC, DIM>::need_to_be_saved(const int iteration, const double time) {
+  // Tolerance used to detect time to save
+  const double epsilon = 1.e-12;
+
+  bool check_frequency = (iteration % this->frequency_ == 0);
+  bool check_iterations_list =
+      std::ranges::find(this->iterations_list_, iteration) != this->iterations_list_.end();
+  bool check_times_list =
+      std::any_of(this->times_list_.begin(), this->times_list_.end(),
+                  [time, epsilon](double t) { return std::abs(t - time) < epsilon; });
+  bool check = check_frequency;
+  if (!this->iterations_list_.empty() || !this->times_list_.empty()) {
+    check &= (check_iterations_list || check_times_list);
+  }
   return check;
 }
 

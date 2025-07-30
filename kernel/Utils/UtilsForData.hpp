@@ -38,7 +38,8 @@ using FType = std::function<double(const double&)>;
 using vTupleStringInt = std::vector<std::tuple<std::string, int>>;
 using vTupleStringString = std::vector<std::tuple<std::string, std::string>>;
 using vString = std::vector<std::string>;
-
+using vDouble = std::vector<double>;
+using vInt = std::vector<int>;
 using MapStringDouble = std::map<std::string, double>;
 using vTuple2StringDouble = std::vector<std::tuple<std::string, std::string, double>>;
 using MapString2Double = std::map<std::string, std::tuple<double, double>>;
