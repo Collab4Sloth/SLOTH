@@ -72,8 +72,8 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
                                            const mfem::IntegrationPoint& ip) override;
 
  public:
-  MassDiffusionFluxNLFormIntegrator(const mfem::ParGridFunction& u_old, const Parameters& params,
-                                    std::vector<VARS*> auxvars);
+  MassDiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                    const Parameters& params, std::vector<VARS*> auxvars);
   ~MassDiffusionFluxNLFormIntegrator();
 };
 
@@ -113,7 +113,8 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
  */
 template <class VARS>
 MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator(
-    const mfem::ParGridFunction& u_old, const Parameters& params, std::vector<VARS*> auxvars)
+    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    std::vector<VARS*> auxvars)
     : DiffusionFluxNLFormIntegrator<VARS>(u_old, params, auxvars) {
   this->get_parameters();
 

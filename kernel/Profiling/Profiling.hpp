@@ -245,14 +245,13 @@ void Profiling::print() {
         }
       }
       std::uint64_t global_calls;
-      MPI_Reduce(&timer.call_nmbrCalls, &global_calls, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+      MPI_Reduce(&timer.call_nmbrCalls, &global_calls, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
       double global_time;
       MPI_Reduce(&timer.total_time, &global_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
       double Max_time;
       MPI_Reduce(&timer.total_time, &Max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
       double Min_time;
       MPI_Reduce(&timer.total_time, &Min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-
       if (rank == 0) {
         int space = 80;
         outputFile << " | ";

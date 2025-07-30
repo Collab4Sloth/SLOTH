@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -46,7 +47,7 @@ int main(int argc, char* argv[]) {
   /////////////////////////
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using OPE = SteadyAllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE = SteadyPhaseFieldOperator<FECollection, DIM, NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -123,12 +124,11 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
-  PB problem1("Steady AllenCahn", oper, vars, pst, convergence);
+  PB problem1("Steady AllenCahn", oper, vars, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

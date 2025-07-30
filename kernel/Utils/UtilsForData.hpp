@@ -41,6 +41,7 @@ using vString = std::vector<std::string>;
 
 using MapStringDouble = std::map<std::string, double>;
 using vTuple2StringDouble = std::vector<std::tuple<std::string, std::string, double>>;
+using MapString2Double = std::map<std::string, std::tuple<double, double>>;
 using Map2String2Double =
     std::map<std::tuple<std::string, std::string>, std::tuple<double, double>>;
 using SpecializedValue = std::pair<std::string, double>;

@@ -21,9 +21,9 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/MobilityCoefficient.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
-#include "Operators/PhaseFieldOperatorBase.hpp"
+#include "Operators/TransientOperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
-#include "Operators/SteadyPhaseFieldOperatorBase.hpp"
+#include "Operators/SteadyOperatorBase.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -43,28 +43,30 @@
  * @tparam NLFI
  * @tparam OPEBASE
  */
-template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-class HeatOperatorBase : public OPEBASE<T, DIM, NLFI> {
+template <class T, int DIM, class NLFI, class LHS_NLFI,
+          template <class, int, class, class> class OPEBASE>
+class HeatOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
  protected:
   Parameters conductivity_params_;
 
  public:
   template <typename... Args>
-  explicit HeatOperatorBase(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, std::forward<Args>(args)...) {
+  explicit HeatOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : OPEBASE<T, DIM, NLFI, LHS_NLFI>(spatials, std::forward<Args>(args)...) {
     this->get_parameters();
   }
   template <typename... Args>
-  HeatOperatorBase(SpatialDiscretization<T, DIM> *spatial, const Parameters &params, Args &&...args)
-      : OPEBASE<T, DIM, NLFI>(spatial, params, std::forward<Args>(args)...) {
+  HeatOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
+                   Args &&...args)
+      : OPEBASE<T, DIM, NLFI, LHS_NLFI>(spatials, params, std::forward<Args>(args)...) {
     this->get_parameters();
   }
 
   void set_default_properties() override = 0;
-  NLFI *set_nlfi_ptr(const double dt, const mfem::Vector &u) override;
+  NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) override;
   void get_parameters() override;
   void ComputeEnergies(const int &it, const double &t, const double &dt,
-                       const mfem::Vector &u) override;
+                       const std::vector<mfem::Vector> &u) override;
 
   ~HeatOperatorBase();
 };
@@ -77,8 +79,9 @@ class HeatOperatorBase : public OPEBASE<T, DIM, NLFI> {
  * @tparam NLFI
  * @tparam OPEBASE
  */
-template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-HeatOperatorBase<T, DIM, NLFI, OPEBASE>::~HeatOperatorBase() {}
+template <class T, int DIM, class NLFI, class LHS_NLFI,
+          template <class, int, class, class> class OPEBASE>
+HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::~HeatOperatorBase() {}
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -95,16 +98,21 @@ HeatOperatorBase<T, DIM, NLFI, OPEBASE>::~HeatOperatorBase() {}
  * @param u
  * @return NLFI*
  */
-template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-NLFI *HeatOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt,
-                                                            const mfem::Vector &u) {
+template <class T, int DIM, class NLFI, class LHS_NLFI,
+          template <class, int, class, class> class OPEBASE>
+NLFI *HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
+    const double dt, const std::vector<mfem::Vector> &u) {
   Catch_Time_Section("HeatOperatorBase::set_nlfi_ptr");
 
-  mfem::ParGridFunction un(this->fespace_);
-  un.SetFromTrueDofs(u);
+  std::vector<mfem::ParGridFunction> vun;
+  for (int i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(un);
+  }
 
   const Parameters &all_params = this->conductivity_params_ + this->params_ - this->default_p_;
-  NLFI *nlfi_ptr = new NLFI(un, all_params, this->auxvariables_);
+  NLFI *nlfi_ptr = new NLFI(vun, all_params, this->auxvariables_);
   return nlfi_ptr;
 }
 
@@ -117,8 +125,9 @@ NLFI *HeatOperatorBase<T, DIM, NLFI, OPEBASE>::set_nlfi_ptr(const double dt,
  * @tparam OPEBASE
  * @param params
  */
-template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-void HeatOperatorBase<T, DIM, NLFI, OPEBASE>::get_parameters() {
+template <class T, int DIM, class NLFI, class LHS_NLFI,
+          template <class, int, class, class> class OPEBASE>
+void HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::get_parameters() {
   this->description_ = this->params_.template get_param_value_or_default<std::string>(
       "description", "Heat operator");
 }
@@ -135,16 +144,28 @@ void HeatOperatorBase<T, DIM, NLFI, OPEBASE>::get_parameters() {
  * @param t
  * @param u
  */
-template <class T, int DIM, class NLFI, template <class, int, class> class OPEBASE>
-void HeatOperatorBase<T, DIM, NLFI, OPEBASE>::ComputeEnergies(const int &it, const double &t,
-                                                              const double &dt,
-                                                              const mfem::Vector &u) {
+template <class T, int DIM, class NLFI, class LHS_NLFI,
+          template <class, int, class, class> class OPEBASE>
+void HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
+    const int &it, const double &t, const double &dt, const std::vector<mfem::Vector> &u) {
   Catch_Time_Section("HeatOperatorBase::ComputeEnergies");
-  mfem::ParGridFunction un_gf(this->fespace_);
-  un_gf.SetFromTrueDofs(u);
-  mfem::ParGridFunction gf(this->fespace_);
-  auto gphi = this->nlfi_ptr_->get_energy(&un_gf, 1.);
+
+  std::vector<mfem::ParGridFunction> vun;
+  vun.reserve(u.size());
+  for (size_t i = 0; i < u.size(); ++i) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(std::move(un));
+  }
+
+  std::vector<mfem::ParGridFunction *> vun_ptr;
+  for (auto &un : vun) {
+    vun_ptr.push_back(&un);
+  }
+
+  auto gphi = this->nlfi_ptr_->get_energy(vun_ptr, 1.);
   auto energy_coeff = gphi.get();
+  mfem::ParGridFunction gf(this->fes_[0]);
 
   gf.ProjectCoefficient(*energy_coeff);
 
@@ -166,24 +187,24 @@ void HeatOperatorBase<T, DIM, NLFI, OPEBASE>::ComputeEnergies(const int &it, con
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
+template <class T, int DIM, class NLFI, class LHS_NLFI = mfem::BlockNonlinearFormIntegrator>
 class SteadyHeatOperator final
-    : public HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase> {
+    : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase> {
  protected:
   void set_default_properties() override;
 
  public:
   template <typename... Args>
-  SteadyHeatOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(spatial,
-                                                                     std::forward<Args>(args)...) {
+  SteadyHeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
+            spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  SteadyHeatOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params,
-                     Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, SteadyPhaseFieldOperatorBase>(spatial, params,
-                                                                     std::forward<Args>(args)...) {
+  SteadyHeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params, Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
+            spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   void overload_conductivity(const Parameters &p_params);
@@ -198,8 +219,8 @@ class SteadyHeatOperator final
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI>
-void SteadyHeatOperator<T, DIM, NLFI>::set_default_properties() {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void SteadyHeatOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
   this->conductivity_params_ = Parameters(Parameter("lambda", 1.0));
 }
 
@@ -212,8 +233,8 @@ void SteadyHeatOperator<T, DIM, NLFI>::set_default_properties() {
  * @param COND
  * @param p_params
  */
-template <class T, int DIM, class NLFI>
-void SteadyHeatOperator<T, DIM, NLFI>::overload_conductivity(const Parameters &p_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void SteadyHeatOperator<T, DIM, NLFI, LHS_NLFI>::overload_conductivity(const Parameters &p_params) {
   this->conductivity_params_ = p_params;
 }
 
@@ -228,8 +249,8 @@ void SteadyHeatOperator<T, DIM, NLFI>::overload_conductivity(const Parameters &p
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, Density RHO, HeatCapacity CP>
-class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase> {
+template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
+class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase> {
  protected:
   Parameters density_params_;
   Parameters heat_capacity_params_;
@@ -238,15 +259,16 @@ class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, PhaseFieldOpera
 
  public:
   template <typename... Args>
-  HeatOperator(SpatialDiscretization<T, DIM> *spatial, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial,
-                                                               std::forward<Args>(args)...) {
+  HeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
+            spatials, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  HeatOperator(SpatialDiscretization<T, DIM> *spatial, const Parameters &params, Args &&...args)
-      : HeatOperatorBase<T, DIM, NLFI, PhaseFieldOperatorBase>(spatial, params,
-                                                               std::forward<Args>(args)...) {
+  HeatOperator(std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
+               Args &&...args)
+      : HeatOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
+            spatials, params, std::forward<Args>(args)...) {
     this->set_default_properties();
   }
 
@@ -266,15 +288,15 @@ class HeatOperator final : public HeatOperatorBase<T, DIM, NLFI, PhaseFieldOpera
  * @tparam OPEBASE
  * @param u
  */
-template <class T, int DIM, class NLFI, Density RHO, HeatCapacity CP>
-void HeatOperator<T, DIM, NLFI, RHO, CP>::get_mass_coefficient(const mfem::Vector &u) {
+template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
+void HeatOperator<T, DIM, NLFI, LHS_NLFI, RHO, CP>::get_mass_coefficient(const mfem::Vector &u) {
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
   if (this->mass_gf_ != nullptr) {
     delete this->mass_gf_;
   }
-  this->mass_gf_ = new mfem::ParGridFunction(this->fespace_);
+  this->mass_gf_ = new mfem::ParGridFunction(this->fes_[0]);
   this->mass_gf_->SetFromTrueDofs(u);
   auto density_coefficient = new DensityCoefficient<0, RHO>(this->mass_gf_, this->density_params_);
   auto cp_coefficient =
@@ -289,8 +311,8 @@ void HeatOperator<T, DIM, NLFI, RHO, CP>::get_mass_coefficient(const mfem::Vecto
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, Density RHO, HeatCapacity CP>
-void HeatOperator<T, DIM, NLFI, RHO, CP>::set_default_properties() {
+template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
+void HeatOperator<T, DIM, NLFI, LHS_NLFI, RHO, CP>::set_default_properties() {
   this->density_params_ = Parameters(Parameter("rho", 1.0));
 
   this->heat_capacity_params_ = Parameters(Parameter("cp", 1.0));
@@ -303,8 +325,8 @@ void HeatOperator<T, DIM, NLFI, RHO, CP>::set_default_properties() {
  * @tparam NLFI
  * @param p_params
  */
-template <class T, int DIM, class NLFI, Density RHO, HeatCapacity CP>
-void HeatOperator<T, DIM, NLFI, RHO, CP>::overload_density(const Parameters &p_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
+void HeatOperator<T, DIM, NLFI, LHS_NLFI, RHO, CP>::overload_density(const Parameters &p_params) {
   this->density_params_ = p_params;
 }
 
@@ -316,8 +338,9 @@ void HeatOperator<T, DIM, NLFI, RHO, CP>::overload_density(const Parameters &p_p
  * @tparam NLFI
  * @param p_params
  */
-template <class T, int DIM, class NLFI, Density RHO, HeatCapacity CP>
-void HeatOperator<T, DIM, NLFI, RHO, CP>::overload_heat_capacity(const Parameters &p_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
+void HeatOperator<T, DIM, NLFI, LHS_NLFI, RHO, CP>::overload_heat_capacity(
+    const Parameters &p_params) {
   this->heat_capacity_params_ = p_params;
 }
 
@@ -329,7 +352,8 @@ void HeatOperator<T, DIM, NLFI, RHO, CP>::overload_heat_capacity(const Parameter
  * @tparam NLFI
  * @param p_params
  */
-template <class T, int DIM, class NLFI, Density RHO, HeatCapacity CP>
-void HeatOperator<T, DIM, NLFI, RHO, CP>::overload_conductivity(const Parameters &p_params) {
+template <class T, int DIM, class NLFI, class LHS_NLFI, Density RHO, HeatCapacity CP>
+void HeatOperator<T, DIM, NLFI, LHS_NLFI, RHO, CP>::overload_conductivity(
+    const Parameters &p_params) {
   this->conductivity_params_ = p_params;
 }

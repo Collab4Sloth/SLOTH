@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -51,9 +52,12 @@ int main(int argc, char* argv[]) {
   using NLFI3 = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::SemiImplicit,
                                           ThermodynamicsPotentials::W, Mobility::Constant>;
 
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
-  using OPE2 = AllenCahnOperator<FECollection, DIM, NLFI2>;
-  using OPE3 = AllenCahnOperator<FECollection, DIM, NLFI3>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
+  using LHS_NLFI_3 = TimeNLFormIntegrator<VARS>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE2 = PhaseFieldOperator<FECollection, DIM, NLFI2, LHS_NLFI_2>;
+  using OPE3 = PhaseFieldOperator<FECollection, DIM, NLFI3, LHS_NLFI_3>;
 
   using PB = Problem<OPE, VARS, PST>;
   using PB2 = Problem<OPE2, VARS, PST>;
@@ -137,25 +141,22 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst1);
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
   // Problem 2:
-  const auto crit_cvg_2 = 1.e-12;
   calculation_path = "Problem2";
   auto p_pst2 =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE2 oper2(&spatial, params, TimeScheme::EulerExplicit);
+  OPE2 oper2(spatials, params, TimeScheme::EulerExplicit);
   oper2.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence2(ConvergenceType::RELATIVE_MAX, crit_cvg_2);
   auto pst2 = PST(&spatial, p_pst2);
-  PB2 problem2(oper2, vars2, pst2, convergence2);
+  PB2 problem2(oper2, vars2, pst2);
 
   // Problem 3:
   calculation_path = "Problem3";
@@ -163,12 +164,10 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  const auto crit_cvg_3 = 1.e-12;
-  OPE3 oper3(&spatial, params, TimeScheme::RungeKutta4);
+  OPE3 oper3(spatials, params, TimeScheme::RungeKutta4);
   oper3.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence3(ConvergenceType::RELATIVE_MAX, crit_cvg_3);
   auto pst3 = PST(&spatial, p_pst3);
-  PB3 problem3(oper3, vars3, pst3, convergence3);
+  PB3 problem3(oper3, vars3, pst3);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1, problem2, problem3);

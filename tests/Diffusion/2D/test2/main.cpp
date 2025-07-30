@@ -14,6 +14,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -46,7 +47,8 @@ int main(int argc, char* argv[]) {
   using NLFI =
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Implicit, Diffusion::Linear>;
 
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -108,14 +110,13 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, TimeScheme::EulerImplicit);
   oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
 
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
 
-  PB problem1("Problem 1", oper, vars, pst, convergence);
+  PB problem1("Problem 1", oper, vars, pst);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1);

@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -36,14 +37,17 @@ class TimeDiscretization {
   double current_time_step_;
   bool last_step_{false};
 
-  std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>> vect_tup_pb_convergence_;
+  std::vector<std::tuple<
+      std::string,
+      std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>>>
+      convergence_;
+  bool checkTimeStepConvergence(const auto& convergence);
   void get_parameters();
 
   void check_data_before_execute();
 
   void initialize();
-  std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>> execute(
-      const int& iter);
+  void execute(const int& iter);
   void post_execute(const int& iter);
   void update();
   void post_processing(const int& iter);
@@ -168,31 +172,35 @@ void TimeDiscretization<Args...>::finalize() {
  * @return std::vector<std::vector<std::tuple<bool, double, mfem::Vector>>>
  */
 template <class... Args>
-std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>>
-TimeDiscretization<Args...>::execute(const int& iter) {
+void TimeDiscretization<Args...>::execute(const int& iter) {
   Catch_Time_Section("TimeDiscretization::execute");
 
-  std::vector<std::vector<std::tuple<bool, double, std::vector<mfem::Vector>>>> results;
   auto current_time = this->current_time_;
   auto next_time = this->current_time_;
   const auto& current_time_step = this->current_time_step_;
 
+  this->convergence_.clear();
+
   std::apply(
-      [iter, &next_time, current_time, current_time_step, &results](auto&... coupling) {
+      [this, iter, &next_time, current_time, current_time_step](auto&... coupling) {
         double cc_next_time = current_time;
-        ((cc_next_time = current_time,
-          results.emplace_back(
-              coupling.execute(iter, cc_next_time, current_time, current_time_step)),
-          next_time = cc_next_time),
-         ...);
+        (
+            [&] {
+              cc_next_time = current_time;
+              coupling.execute(iter, cc_next_time, current_time, current_time_step);
+              auto coupling_conv = coupling.get_convergence();
+              if (!coupling_conv.empty()) {
+                this->convergence_.emplace_back(coupling.get_name(), std::move(coupling_conv));
+              }
+              next_time = cc_next_time;
+            }(),
+            ...);
       },
       couplings_);
 
   // TODO(cci): ici c'est le dernier current_time. A améliorer dans le cadre d'une gestion du pas de
   // temps
   this->current_time_ = next_time;
-
-  return results;
 }
 
 /**
@@ -288,11 +296,7 @@ void TimeDiscretization<Args...>::solve() {
     //------------
     // Solve
     //------------
-    const auto& results = this->execute(iter);
-    //------------
-    // Check convergence
-    //------------
-    // TODO(cci): à implémenter pour ne faire l'update qu'à ce moment là
+    this->execute(iter);
 
     //------------
     //  Post Execute
@@ -308,6 +312,11 @@ void TimeDiscretization<Args...>::solve() {
     // Save current
     //-------------------
     this->post_processing(iter);
+
+    //------------
+    // Check convergence
+    //------------
+    if (checkTimeStepConvergence(this->convergence_)) break;
   }
 
   //-------------------
@@ -346,6 +355,32 @@ void TimeDiscretization<Args...>::get_tree() {
         couplings_);
   }
 }
+
+/**
+ * @brief Check if all problems of all couplings have converged for each variable
+ *
+ * @tparam Args
+ * @param convergence
+ * @return true
+ * @return false
+ */
+template <class... Args>
+bool TimeDiscretization<Args...>::checkTimeStepConvergence(const auto& convergence) {
+  if (convergence.empty()) return false;
+  for (const auto& [coup_name, coup_vect] : convergence) {
+    if (coup_vect.empty()) return false;
+
+    for (const auto& [pb_name, pb_vect] : coup_vect) {
+      if (pb_vect.empty()) return false;
+
+      for (const auto& [var_name, has_cvg, criterion] : pb_vect) {
+        if (!has_cvg) return false;
+      }
+    }
+  }
+  return true;
+}
+
 /**
  * @brief Destroy the Time Discretization:: Time Discretization object
  *

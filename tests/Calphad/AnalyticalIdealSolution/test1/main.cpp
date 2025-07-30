@@ -14,6 +14,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -46,9 +47,11 @@ int main(int argc, char* argv[]) {
   using PB = Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST>;
 
   // Heat
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
   using NLFI2 =
       HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 = HeatOperator<FECollection, DIM, NLFI2, Density::Constant, HeatCapacity::Constant>;
+  using OPE2 =
+      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################
@@ -157,27 +160,26 @@ int main(int argc, char* argv[]) {
   // ####################
   //     Problems      //
   // ####################
-  const auto crit_cvg_1 = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
 
   //---------------
   // Heat transfer
   //---------------
-  auto source_term = AnalyticalFunctions<DIM>(src_func);
-  OPE2 Heat_op(&spatial, TimeScheme::EulerImplicit, source_term);
+  std::vector<AnalyticalFunctions<DIM> > src_term;
+  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
+  std::vector<SPA*> spatials{&spatial};
+  OPE2 Heat_op(spatials, TimeScheme::EulerImplicit, src_term);
   Heat_op.overload_density(Parameters(Parameter("rho", rho)));
   Heat_op.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   Heat_op.overload_conductivity(Parameters(Parameter("lambda", cond)));
   Heat_op.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));
-  PB2 Heat_pb("Heat", Heat_op, heat_vars, Heat_pst, convergence);
+  PB2 Heat_pb("Heat", Heat_op, heat_vars, Heat_pst);
 
   //---------------
   // Calphad
   //---------------
-  PB Calphad_pb(calphad_parameters, outputs, Calphad_pst, convergence, heat_vars, p_vars,
-                compo_vars);
+  PB Calphad_pb(calphad_parameters, outputs, Calphad_pst, heat_vars, p_vars, compo_vars);
 
   // ####################
   //     Coupling      //

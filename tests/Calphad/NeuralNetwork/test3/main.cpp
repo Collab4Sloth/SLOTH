@@ -13,6 +13,7 @@
 // Headers
 //---------------------------------------
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "boost/math/special_functions/bessel.hpp"
@@ -77,13 +78,15 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   const int level_of_storage = 2;
 
+  std::vector<SPA*> spatials{&spatial};
   //==========================================
   //======      HEAT TRANSFER           ======
   //==========================================
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
   using TH_NLFI =
       HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
   using TH_OPE =
-      HeatOperator<FECollection, DIM, TH_NLFI, Density::Constant, HeatCapacity::Constant>;
+      HeatOperator<FECollection, DIM, TH_NLFI, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
   using TH_PB = Problem<TH_OPE, VARS, PST>;
 
   auto temp = VAR(&spatial, thermal_bcs, "T", level_of_storage, 700.);
@@ -108,8 +111,10 @@ int main(int argc, char* argv[]) {
   const auto& rho(32.e3);  // mol/m3
   const auto& cp(60.);     // J/mol/K
   const auto& cond(2.7);   //  W/m/K
-  auto source_term = AnalyticalFunctions<DIM>(src_func);
-  TH_OPE th_operator(&spatial, TimeScheme::EulerImplicit, source_term);
+
+  std::vector<AnalyticalFunctions<DIM>> source_term;
+  source_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
+  TH_OPE th_operator(spatials, TimeScheme::EulerImplicit, source_term);
   th_operator.overload_density(Parameters(Parameter("rho", rho)));
   th_operator.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   th_operator.overload_conductivity(Parameters(Parameter("lambda", cond)));
@@ -336,7 +341,7 @@ int main(int argc, char* argv[]) {
       AllenCahnCalphadMeltingNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                               ThermodynamicsPotentials::W, Mobility::Constant,
                                               ThermodynamicsPotentials::H>;
-  using AC_OPE = AllenCahnOperator<FECollection, DIM, AC_NLFI>;
+  using AC_OPE = PhaseFieldOperator<FECollection, DIM, AC_NLFI, LHS_NLFI>;
   using AC_PB = Problem<AC_OPE, VARS, PST>;
 
   const auto& lambda = 3. * sigma * epsilon / 2.;
@@ -347,7 +352,8 @@ int main(int argc, char* argv[]) {
   auto ac_params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
                               Parameter("lambda", lambda), Parameter("omega", omega)) +
                    nuc_parameters;
-  AC_OPE ac_oper(&spatial, ac_params, TimeScheme::EulerImplicit);
+
+  AC_OPE ac_oper(spatials, ac_params, TimeScheme::EulerImplicit);
   ac_oper.overload_mobility(Parameters(Parameter("mob", mob)));
   ac_oper.overload_nl_solver(
       NLSolverType::NEWTON,
@@ -366,16 +372,16 @@ int main(int argc, char* argv[]) {
 
   //--- Operator definition
   // Operator for InterDiffusion equation on O
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant> interdiffu_oper_o(
-      &spatial, td_parameters, TimeScheme::EulerImplicit);
+  DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>
+      interdiffu_oper_o(spatials, td_parameters, TimeScheme::EulerImplicit);
   interdiffu_oper_o.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   interdiffu_oper_o.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 5.e-14)));
   // Operator for InterDiffusion equation on U
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant> interdiffu_oper_u(
-      &spatial, td_parameters, TimeScheme::EulerImplicit);
+  DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>
+      interdiffu_oper_u(spatials, td_parameters, TimeScheme::EulerImplicit);
   interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
   interdiffu_oper_u.overload_nl_solver(
       NLSolverType::NEWTON,
@@ -436,29 +442,25 @@ int main(int argc, char* argv[]) {
                  Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
   auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
-  //--- Physical Convergence
-  const double crit_cvg = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg);
-
   //-----------------------
   // Problems
   //-----------------------
   //==========================================
   //======      HEAT TRANSFER           ======
   //==========================================
-  TH_PB th_problem("Heat tranfer", th_operator, heat_vars, heat_pst, convergence);
+  TH_PB th_problem("Heat tranfer", th_operator, heat_vars, heat_pst);
 
   //==========================================
   //======      CALPHAD                 ======
   //==========================================
   Calphad_Problem<CalphadInformedNeuralNetwork<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, calphad_outputs, cc_pst, convergence, heat_vars, p_vars, xo_vars, xu_vars,
-      xpu_vars, var_phi, coord);
+      calphad_parameters, calphad_outputs, cc_pst, heat_vars, p_vars, xo_vars, xu_vars, xpu_vars,
+      var_phi, coord);
 
   //==========================================
   //======      Melting                 ======
   //==========================================
-  AC_PB ac_problem("AllenCahn", ac_oper, var_phi, ac_pst, convergence, calphad_outputs);
+  AC_PB ac_problem("AllenCahn", ac_oper, var_phi, ac_pst, calphad_outputs);
   //======================
   // Oxygen
   //======================
@@ -468,12 +470,13 @@ int main(int argc, char* argv[]) {
                  Parameter("secondary_phase", "LIQUID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
-      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, xo_vars,
-      xu_vars, heat_vars, calphad_outputs, var_phi, mob_liquid);
+      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, xo_vars, xu_vars,
+      heat_vars, calphad_outputs, var_phi, mob_liquid);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>,
+          VARS, PST>
       interdiffu_problem_o("Interdiffusion O", interdiffu_oper_o, xo_vars, interdiffu_pst,
-                           convergence, calphad_outputs, MO, heat_vars);
+                           calphad_outputs, MO, heat_vars);
 
   //======================
   // Uranium
@@ -484,12 +487,13 @@ int main(int argc, char* argv[]) {
                  Parameter("secondary_phase", "LIQUID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
-      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, xo_vars,
-      xu_vars, heat_vars, calphad_outputs, var_phi, mob_liquid);
+      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, xo_vars, xu_vars,
+      heat_vars, calphad_outputs, var_phi, mob_liquid);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant>, VARS, PST>
+  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>,
+          VARS, PST>
       interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, xu_vars, interdiffu_pst_u,
-                           convergence, calphad_outputs, MU, heat_vars);
+                           calphad_outputs, MU, heat_vars);
 
   //-----------------------
   // Coupling

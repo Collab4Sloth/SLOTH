@@ -30,38 +30,46 @@
 template <class VAR, class PST>
 class ProblemBase {
  private:
-  std::tuple<bool, double> check_convergence(const mfem::Vector& unk, const mfem::Vector& prev_unk);
+  void check_convergence(const std::vector<std::unique_ptr<mfem::Vector>>& unks);
 
  protected:
-  std::string description_{"Unnamed problem"};
+  std::string name_{"Unnamed problem"};
   VAR& variables_;
   std::vector<VAR*> auxvariables_;
   PST& pst_;
   const std::list<int> pop_elem_;
   std::vector<mfem::Vector> unknown_;
-  PhysicalConvergence convergence_;
+  std::shared_ptr<Convergence> convergence_;
+  std::vector<std::tuple<std::string, bool, double>> var_convergence_;
 
  public:
   template <class... Args>
-  ProblemBase(const std::string& name, VAR& variables, PST& pst,
-              const PhysicalConvergence& convergence, std::list<int> pop_elem,
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, Convergence& convergence,
+              std::list<int> pop_elem, Args&&... auxvariables);
+
+  template <class... Args>
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, std::list<int> pop_elem,
               Args&&... auxvariables);
 
   template <class... Args>
-  ProblemBase(const std::string& name, VAR& variables, PST& pst,
-              const PhysicalConvergence& convergence, Args&&... auxvariables);
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, Convergence& convergence,
+              Args&&... auxvariables);
+
+  template <class... Args>
+  ProblemBase(const std::string& name, VAR& variables, PST& pst, Args&&... auxvariables);
 
   std::string get_name();
   VAR get_problem_variables();
+
+  std::vector<std::tuple<std::string, bool, double>> get_convergence();
 
   /////////////////////////////////////////////////////
 
   virtual void initialize(const double& initial_time);
 
   /////////////////////////////////////////////////////
-  std::tuple<bool, double, std::vector<mfem::Vector>> execute(const int& iter, double& next_time,
-                                                              const double& current_time,
-                                                              const double& current_time_step);
+  void execute(const int& iter, double& next_time, const double& current_time,
+               const double& current_time_step);
 
   virtual void do_time_step(double& next_time, const double& current_time, double current_time_step,
                             const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
@@ -87,28 +95,28 @@ class ProblemBase {
 };
 
 /**
- * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param variables
- * @param pst
- * @param convergence
- * @param pop_elem
- * @param auxvariables
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param convergence Reference to the Convergence  object.
+ * @param pop_elem List of elements to remove from Variables.
+ * @param auxvariables Variadic pack of auxiliary variables.
  */
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                   Convergence& convergence, std::list<int> pop_elem,
                                    Args&&... auxvariables)
-    : description_(name),
-      variables_(variables),
-      pst_(pst),
-      pop_elem_(pop_elem),
-      convergence_(convergence) {
+    : name_(name), variables_(variables), pst_(pst), pop_elem_(pop_elem) {
+  this->convergence_ = std::make_shared<Convergence>(convergence);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -129,22 +137,65 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 }
 
 /**
- * @brief Construct a new Problem Base< V A R,  P S T>:: Problem Base object
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param variables
- * @param pst
- * @param convergence
- * @param auxvariables
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param pop_elem List of elements to remove from Variables.
+ * @param auxvariables Variadic pack of auxiliary variables.
  */
 template <class VAR, class PST>
 template <class... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
-                                   const PhysicalConvergence& convergence, Args&&... auxvariables)
-    : description_(name), variables_(variables), pst_(pst), convergence_(convergence) {
+                                   std::list<int> pop_elem, Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(pst), pop_elem_(pop_elem), convergence_(nullptr) {
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.resize(0);
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+
+    if (pop_elem.size() > 0) {
+      for (const auto& pp : pop_elem_) {
+        if (pp < this->auxvariables_.size()) {
+          this->auxvariables_.erase(std::next(this->auxvariables_.begin(), pp),
+                                    std::next(this->auxvariables_.begin(), pp + 1));
+        } else {
+          std::string msg = "ProblemBase: Error with index use to pop element ";
+          mfem::mfem_error(msg.c_str());
+        }
+      }
+    }
+  }
+}
+
+/**
+ * @brief Constructs a new ProblemBase object.
+ *
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param convergence Reference to the Convergence  object.
+ * @param auxvariables Variadic pack of auxiliary variables.
+ */
+template <class VAR, class PST>
+template <class... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
+                                   Convergence& convergence, Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(pst) {
+  this->convergence_ = std::make_shared<Convergence>(convergence);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
   } else {
@@ -153,23 +204,50 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
 }
 
 /**
- * @brief Return the name of the problem
+ * @brief Constructs a new ProblemBase object.
  *
- * @tparam VAR
- * @tparam PST
- * @return const std::string
+ * Initializes a Problem instance
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param pst Reference to the PostProcessing object.
+ * @param auxvariables Variadic pack of auxiliary variables.
+ */
+template <class VAR, class PST>
+template <class... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
+                                   Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(pst), convergence_(nullptr) {
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.resize(0);
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
+}
+
+/**
+ *
+ * @brief Returns the name of the problem
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @return std::string The name of the problem.
  */
 template <class VAR, class PST>
 std::string ProblemBase<VAR, PST>::get_name() {
-  return this->description_;
+  return this->name_;
 }
 
 /**
  * @brief  Return the variables associated with the problem
  *
- * @tparam VAR
- * @tparam PST
- * @return VAR
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @return VAR The list of Variables of the problem.
  */
 template <class VAR, class PST>
 VAR ProblemBase<VAR, PST>::get_problem_variables() {
@@ -177,13 +255,13 @@ VAR ProblemBase<VAR, PST>::get_problem_variables() {
 }
 
 /**
- * @brief Action done after execute method
+ * @brief Performs actions after the execute step.
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::post_execute(const int& iter, const double& current_time,
@@ -192,8 +270,8 @@ void ProblemBase<VAR, PST>::post_execute(const int& iter, const double& current_
 /**
  * @brief Update the variables associated with the problem
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::update() {
@@ -210,31 +288,30 @@ void ProblemBase<VAR, PST>::update() {
 /**
  * @brief Initialize the problem
  *
- * @tparam VAR
- * @tparam PST
- * @param initial_time
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param initial_time The initial time of the simulation.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::initialize(const double& initial_time) {}
 
 /**
- * @brief Run a time-step : calculation + check of convergence
+ * @brief Execute step
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
- * @return std::tuple<bool, double, mfem::Vector>
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param next_time Next simulation time (Current time+ current time step).
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
-std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execute(
-    const int& iter, double& next_time, const double& current_time,
-    const double& current_time_step) {
+void ProblemBase<VAR, PST>::execute(const int& iter, double& next_time, const double& current_time,
+                                    const double& current_time_step) {
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
     SlothInfo::verbose("   ============================== ");
-    SlothInfo::verbose("   ==== Problem : ", this->description_);
+    SlothInfo::verbose("   ==== Problem : ", this->name_);
     SlothInfo::verbose("   ============================== ");
   }
 
@@ -254,28 +331,16 @@ std::tuple<bool, double, std::vector<mfem::Vector>> ProblemBase<VAR, PST>::execu
 
   this->do_time_step(next_time, current_time, current_time_step, iter, vect_unk, vect_unk_info);
 
-  bool is_converged = true;
-  auto criterion = 0.;
-  std::vector<mfem::Vector> vunk;
-  if (iter > 1) {
-    int j = 0;
-    for (auto& var : this->variables_.getVariables()) {
-      const auto& prev_unk = var.get_last();
-      mfem::Vector& unk = *(vect_unk[j]);
-      vunk.emplace_back(unk);
-      const auto& [is_converged_iter, criterion_iter] = this->check_convergence(unk, prev_unk);
-      is_converged = is_converged_iter;
-      criterion = criterion_iter;
-    }
+  if (this->convergence_ != nullptr && iter > 1) {
+    this->check_convergence(vect_unk);
   }
-  return std::make_tuple(is_converged, criterion, vunk);
 }
 
 /**
  * @brief Finalize the problem
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::finalize() {
@@ -285,11 +350,11 @@ void ProblemBase<VAR, PST>::finalize() {
 /**
  * @brief Save variables of the problem (see save method for other actions)
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& current_time,
@@ -301,11 +366,14 @@ void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& curre
 /**
  * @brief Main actions done during a time-step
  *
- * @tparam VAR
- * @tparam PST
- * @param unk
- * @param current_time
- * @param current_time_step
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param next_time Next simulation time (Current time+ current time step).
+ * @param current_time Current simulation time.
+ * @param current_time_step Current time-step.
+ * @param iter Current iteration number.
+ * @param unks Unknown at the current time-step.
+ * @param unks_info Additionnal informations associated with the unkwon of the Problem.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& current_time,
@@ -314,27 +382,50 @@ void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& curren
                                          const std::vector<std::vector<std::string>>& unks_info) {}
 
 /**
- * @brief Check convergence at the current iteration
+ * @brief Check convergence of variables at the current time-step
  *
- * @tparam VAR
- * @tparam PST
- * @param unk
- * @param prev_unk
- * @return std::tuple<bool, double>
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param unks Unknown at the current time-step.
  */
 template <class VAR, class PST>
-std::tuple<bool, double> ProblemBase<VAR, PST>::check_convergence(const mfem::Vector& unk,
-                                                                  const mfem::Vector& prev_unk) {
-  return this->convergence_.getPhysicalConvergence(unk, prev_unk);
+void ProblemBase<VAR, PST>::check_convergence(
+    const std::vector<std::unique_ptr<mfem::Vector>>& unks) {
+  this->var_convergence_.clear();
+
+  std::vector<PhysicalConvergence> vect_convergence = this->convergence_->getPhysicalConvergence();
+
+  int j = -1;
+  for (auto& var : this->variables_.getVariables()) {
+    j++;
+    const auto& prev_unk = var.get_last();
+    mfem::Vector& unk = *(unks[j]);
+    const auto& [local_converged, local_criterion] =
+        vect_convergence[j].getPhysicalConvergence(unk, prev_unk);
+
+    int local_conv_int = static_cast<int>(local_converged);
+    int global_conv_int = 0;
+    double global_criterion = 0.0;
+
+    MPI_Allreduce(&local_conv_int, &global_conv_int, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_criterion, &global_criterion, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    // int rank = mfem::Mpi::WorldRank();
+    // if (rank == 0) {
+    bool has_converged = static_cast<bool>(global_conv_int);
+    this->var_convergence_.emplace_back(
+        std::make_tuple(var.getVariableName(), has_converged, global_criterion));
+    // }
+  }
 }
 
 /**
  * @brief Save variables
  *
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
@@ -343,10 +434,24 @@ void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
 }
 
 /**
+ * @brief Return for each variable, a tuple (string,string, boolean, double) where the boolean is
+ * the flag indicating if the criterion is reached or not, and the double is the criterion reached.
+ * The first string is the name of the problem, and the second the name of the variable.
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @return std::vector<std::tuple<std::string, bool, double>>
+ */
+template <class VAR, class PST>
+std::vector<std::tuple<std::string, bool, double>> ProblemBase<VAR, PST>::get_convergence() {
+  return this->var_convergence_;
+}
+
+/**
  * @brief Destroy the ProblemBase<VAR, PST>::ProblemBase object
  *
- * @tparam VAR
- * @tparam PST
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
  */
 template <class VAR, class PST>
 ProblemBase<VAR, PST>::~ProblemBase() {}

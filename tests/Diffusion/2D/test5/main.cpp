@@ -13,6 +13,7 @@
 // Headers
 //---------------------------------------
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -48,6 +49,7 @@ int main(int argc, char* argv[]) {
 
   SPA spatial("InlineSquareWithQuadrangles", 1, refinement_level,
               std::make_tuple(nb_fe, nb_fe, length, length));
+  std::vector<SPA*> spatials{&spatial};
   // ##############################
   //     Boundary conditions     //
   // ##############################
@@ -115,11 +117,13 @@ int main(int argc, char* argv[]) {
   //--- Integrator : alias definition for the sake of clarity
   using InterDiffusionIntegrator = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Operator definition
-  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
-      &spatial, td_parameters, TimeScheme::RungeKutta4);
+  using LHS_NLFI_1 = TimeNLFormIntegrator<VARS>;
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_1>
+      interdiffu_oper(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
-  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>
-      interdiffu_oper_u(&spatial, td_parameters, TimeScheme::RungeKutta4);
+  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_2>
+      interdiffu_oper_u(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
   //==========================================
@@ -189,15 +193,11 @@ int main(int argc, char* argv[]) {
                                          Parameter("frequency", frequency));
   auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
-  //--- Physical Convergence
-  const double crit_cvg = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg);
-
   //======================
   // Calphad
   //======================
   Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, mu_var, cc_pst, convergence, heat_vars, p_vars, var_o, var_u);
+      calphad_parameters, mu_var, cc_pst, heat_vars, p_vars, var_o, var_u);
 
   //======================
   // Oxygen
@@ -207,13 +207,13 @@ int main(int argc, char* argv[]) {
                  Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
-      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, convergence, var_o, var_u,
-      heat_vars, mobilities);
+      "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, var_o, var_u, heat_vars,
+      mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
-          PST>
-      interdiffu_problem_o("Interdiffusion O", interdiffu_oper, var_o, interdiffu_pst, convergence,
-                           mu_var, MO);
+  Problem<
+      DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_1>,
+      VARS, PST>
+      interdiffu_problem_o("Interdiffusion O", interdiffu_oper, var_o, interdiffu_pst, mu_var, MO);
 
   //======================
   // Uranium
@@ -223,13 +223,14 @@ int main(int argc, char* argv[]) {
                  Parameter("last_component", "PU"), Parameter("primary_phase", "SOLID"));
 
   Property_problem<InterDiffusionCoefficient, VARS, PST> uranium_interdiffusion_mobilities(
-      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, convergence, var_o,
-      var_u, heat_vars, mobilities);
+      "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, var_o, var_u, heat_vars,
+      mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
-          PST>
-      interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, var_u, interdiffu_pst_u,
-                           convergence, mu_var, MU);
+  Problem<
+      DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI_2>,
+      VARS, PST>
+      interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, var_u, interdiffu_pst_u, mu_var,
+                           MU);
 
   //-----------------------
   // Coupling

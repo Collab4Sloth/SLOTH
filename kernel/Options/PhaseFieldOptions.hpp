@@ -19,5 +19,5 @@ enum class PhaseChange { Null, Constant, Calphad };
 //   static value from(const std::string&);
 // };
 
-enum class ThermodynamicsPotentials { W, F, H, X, LOG };
+enum class ThermodynamicsPotentials { W, WW, F, H, X, LOG };
 enum class ThermodynamicsPotentialDiscretization { Implicit, Explicit, SemiImplicit };

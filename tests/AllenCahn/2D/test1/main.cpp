@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -44,12 +45,12 @@ int main(int argc, char* argv[]) {
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
 
   using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -106,8 +107,8 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, thickness, radius);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
-
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+  auto v1 = VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution);
+  auto vars = VARS(v1);
 
   // ###########################################
   // ###########################################
@@ -128,28 +129,14 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
-  auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [](const mfem::Vector& x, double time) { return 0.; });
-
-  auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-  auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
-
-  calculation_path = "ProblemMPI_";
-  auto p_pst1 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  auto pst1 = PST(&spatial, p_pst1);
-  PB1 problem2(vars1, pst1, convergence);
   // Coupling 1
-  auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
+  auto cc = Coupling("AllenCahn-MPI Coupling", problem1);
 
   // ###########################################
   // ###########################################

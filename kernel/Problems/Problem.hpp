@@ -11,12 +11,14 @@
 
 #pragma once
 #include <list>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
@@ -29,23 +31,39 @@ class Problem : public ProblemBase<VAR, PST> {
  private:
   OPE oper_;
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
+  void save_specialized(bool must_be_saved);
 
  public:
   template <class... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
+  Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
           std::list<int> pop_elem, Args&&... auxvariable);
 
   template <class... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, const PhysicalConvergence& convergence,
+  Problem(const OPE& oper, VAR& variables, PST& pst, std::list<int> pop_elem,
           Args&&... auxvariable);
 
   template <class... Args>
-  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          const PhysicalConvergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
+  Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
+          Args&&... auxvariable);
+
+  template <class... Args>
+  Problem(const OPE& oper, VAR& variables, PST& pst, Args&&... auxvariable);
 
   template <class... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          const PhysicalConvergence& convergence, Args&&... auxvariable);
+          Convergence& convergence, std::list<int> pop_elem, Args&&... auxvariables);
+
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          std::list<int> pop_elem, Args&&... auxvariables);
+
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          Convergence& convergence, Args&&... auxvariable);
+
+  template <class... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+          Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
   void initialize(const double& initial_time) override;
@@ -84,11 +102,30 @@ class Problem : public ProblemBase<VAR, PST> {
  */
 template <class OPE, class VAR, class PST>
 template <class... Args>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, std::list<int> pop_elem,
-                                Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Unnamed problem", variables, pst, convergence, pop_elem,
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
+                                std::list<int> pop_elem, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, convergence, pop_elem,
                             auxvariables...),
+      oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param pop_elem
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, std::list<int> pop_elem,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, pop_elem, auxvariables...),
       oper_(oper) {}
 
 /**
@@ -106,9 +143,28 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
  */
 template <class OPE, class VAR, class PST>
 template <class... Args>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Unnamed problem", variables, pst, convergence, auxvariables...),
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Convergence& convergence,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, convergence,
+                            auxvariables...),
+      oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, auxvariables...),
       oper_(oper) {}
 
 /**
@@ -129,10 +185,30 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst,
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, std::list<int> pop_elem,
+                                Convergence& convergence, std::list<int> pop_elem,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
       oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param pop_elem
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                std::list<int> pop_elem, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, pop_elem, auxvariables...), oper_(oper) {}
 
 /**
  * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
@@ -151,8 +227,27 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
 template <class OPE, class VAR, class PST>
 template <class... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                const PhysicalConvergence& convergence, Args&&... auxvariables)
+                                Convergence& convergence, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), oper_(oper) {}
+
+/**
+ * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param oper
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class OPE, class VAR, class PST>
+template <class... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...), oper_(oper) {}
 
 /**
  * @brief Initialize the calculation : operator + ODE
@@ -182,27 +277,51 @@ void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current
                                           const double& current_time_step) {}
 
 /**
- * @brief Show calculation information
+ * @brief Finalization stage
  *
  * @tparam OPE
  * @tparam VAR
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    if (!this->pst_.get_enable_save_specialized_at_iter()) {
-      this->pst_.save_specialized(this->oper_.get_time_specialized());
-    }
-    if (this->pst_.get_iso_val_to_compute() != mfem::infinity()) {
-      std::string str = "iso_computation.csv";
-      this->pst_.save_iso_specialized(this->oper_.get_time_iso_specialized(), str);
-    }
-  }
+  // Save specialized values only at the end of calculation if required
+  bool must_be_saved = !this->pst_.get_enable_save_specialized_at_iter();
+  this->save_specialized(must_be_saved);
 }
 
 /**
- * @brief  Call the post_execute method of the given problem and saves variables according with PST
+ * @brief Save specialized values
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ */
+template <class OPE, class VAR, class PST>
+void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
+  int rank = mfem::Mpi::WorldRank();
+  if (rank == 0) {
+    if (must_be_saved) {
+      if (!this->oper_.get_time_specialized().empty()) {
+        this->pst_.save_specialized(this->oper_.get_time_specialized());
+      }
+
+      if (!this->oper_.get_time_iso_specialized().empty()) {
+        for (const auto& [var_name, variable_time_iso_specialized] :
+             this->oper_.get_time_iso_specialized()) {
+          std::string str = var_name + "_iso_computation.csv";
+          this->pst_.save_specialized(variable_time_iso_specialized, str);
+        }
+      }
+    }
+  }
+  if (must_be_saved) {
+    this->oper_.clear_time_specialized();
+    this->oper_.clear_iso_time_specialized();
+  }
+}
+/**
+ * @brief  Call the post_execute method of the given problem and saves variables according with
+ * PST
  *
  * @tparam OPE
  * @tparam VAR
@@ -214,35 +333,53 @@ void Problem<OPE, VAR, PST>::finalize() {
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time,
                                              const double& current_time_step) {
-  ////
-  auto vv = this->variables_.getIVariable(0);
-  auto unk = vv.get_unknown();
-  auto solution = vv.get_analytical_solution();
-  // Errors
-  if (solution != nullptr) {
-    auto solution_func = solution.get();
-    this->oper_.ComputeError(iter, current_time, current_time_step, unk, *solution_func);
-  }
-  // Isovalues
-  const double iso_value = this->pst_.get_iso_val_to_compute();
-  if (iso_value != mfem::infinity()) {
-    this->oper_.ComputeIsoVal(iter, current_time, current_time_step, unk, iso_value);
+  const auto nvars = this->variables_.get_variables_number();
+  std::vector<mfem::Vector> u_vect;
+
+  // Isovalue to compute by variable
+  const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
+
+  // Integral value to compute by variable
+  const std::map<std::string, std::tuple<double, double>> map_integral =
+      this->pst_.get_integral_to_compute();
+
+  for (auto iv = 0; iv < nvars; iv++) {
+    auto vv = this->variables_.getIVariable(iv);
+    auto solution = vv.get_analytical_solution();
+    auto unk = vv.get_unknown();
+    auto unk_name = vv.getVariableName();
+
+    // Errors
+    if (solution != nullptr) {
+      auto solution_func = solution.get();
+      this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
+                               *solution_func);
+    }
+
+    // Isovalues
+    if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
+      const double iso_value = map_iso_value.at(unk_name);
+      this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
+                                iso_value);
+    }
+
+    // Integral
+    if (!map_integral.empty() && map_integral.contains(unk_name)) {
+      const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
+      this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
+                                  lower_bound, upper_bound);
+    }
+    u_vect.emplace_back(std::move(unk));
   }
   // Energies
-  this->oper_.ComputeEnergies(iter, current_time, current_time_step, unk);
-  ////
+  this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
 
-  // Save for visualization
+  // Save variables for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
-  // if (this->pst_.get_enable_save_specialized_at_iter()) {
-  //   this->pst_.save_specialized(this->oper_.get_time_specialized());
-  // }
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    if (this->pst_.get_enable_save_specialized_at_iter()) {
-      this->pst_.save_specialized(this->oper_.get_time_specialized());
-    }
-  }
+
+  // Save specialized values at each time-step if required
+  bool must_be_saved = this->pst_.get_enable_save_specialized_at_iter();
+  this->save_specialized(must_be_saved);
 }
 
 /**
@@ -262,15 +399,21 @@ void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& curre
                                           double current_time_step, const int iter,
                                           std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                           const std::vector<std::vector<std::string>>& unks_info) {
-  // TODO(cci) generaliser au niveau des opérateurs pour le multivariable avec des verros
+  // auto& unk = *(vect_unk[0]);
 
-  auto& unk = *(vect_unk[0]);
+  const size_t unk_size = vect_unk.size();
 
-  this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
+  // this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
+  this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
   // calculation converges
-  this->unknown_.emplace_back(unk);
+  // this->unknown_.emplace_back(unk);
+
+  for (size_t i = 0; i < unk_size; i++) {
+    auto& unk_i = *(vect_unk[i]);
+    this->unknown_.emplace_back(unk_i);
+  }
 }
 
 /**

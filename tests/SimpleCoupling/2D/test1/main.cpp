@@ -13,6 +13,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -45,16 +46,20 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   // ALLEN-CAHN
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+
   using NLFI = AllenCahnTemperatureMeltingNLFormIntegrator<
       VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
       Mobility::Constant, ThermodynamicsPotentials::H>;
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
 
   // Heat
+  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
   using NLFI2 =
       HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 = HeatOperator<FECollection, DIM, NLFI2, Density::Constant, HeatCapacity::Constant>;
+  using OPE2 =
+      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI_2, Density::Constant, HeatCapacity::Constant>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################
@@ -172,18 +177,17 @@ int main(int argc, char* argv[]) {
   // ####################
   //     Probelms      //
   // ####################
-  const auto crit_cvg_1 = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-
   // AllenCahn:
-  OPE oper(&spatial, ac_params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, ac_params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, convergence, heat_vars);
+  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, heat_vars);
 
   // Heat:
-  auto source_term = AnalyticalFunctions<DIM>(src_func);
-  OPE2 oper2(&spatial, TimeScheme::EulerImplicit, source_term);
+  std::vector<AnalyticalFunctions<DIM> > src_term;
+  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
+  OPE2 oper2(spatials, TimeScheme::EulerImplicit, src_term);
   oper2.overload_density(Parameters(Parameter("rho", rho)));
   oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
   oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));
@@ -192,13 +196,10 @@ int main(int argc, char* argv[]) {
                            Parameters(Parameter("description", "Newton solver "),
                                       Parameter("print_level", 1), Parameter("abs_tol", 1.e-9)));
 
-  PB2 Heat_pb("Heat", oper2, heat_vars, pst2, convergence);
-
-  // MPI_Problem<VAR, PST> mpi(vars3, pst3, convergence);
+  PB2 Heat_pb("Heat", oper2, heat_vars, pst2);
 
   // Coupling 1
   auto cc = Coupling("AC-Heat coupling", allencahn_pb, Heat_pb);
-  // auto cc = Coupling("AC-Heat coupling", Heat_pb);
 
   // ###########################################
   // ###########################################

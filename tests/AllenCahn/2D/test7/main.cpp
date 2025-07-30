@@ -13,6 +13,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -47,8 +48,10 @@ int main(int argc, char* argv[]) {
   using NLFI2 =
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
 
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
-  using OPE2 = DiffusionOperator<FECollection, DIM, NLFI2, Density::Constant>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using LHS_NLFI2 = TimeNLFormIntegrator<VARS>;
+  using OPE2 = DiffusionOperator<FECollection, DIM, NLFI2, Density::Constant, LHS_NLFI2>;
   using PB = Problem<OPE, VARS, PST>;
   using PB2 = Problem<OPE2, VARS, PST>;
   // ###########################################
@@ -145,20 +148,19 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const auto crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerExplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerExplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst, convergence);
+  PB problem1(oper, vars, pst);
 
   // Problem 2:
 
-  OPE2 oper2(&spatial, TimeScheme::EulerExplicit);
+  OPE2 oper2(spatials, TimeScheme::EulerExplicit);
   oper2.overload_diffusion(Parameters(Parameter("D", mob)));
   auto pst2 = PST(&spatial, p_pst2);
-  PB2 problem2(oper2, vars2, pst2, convergence);
+  PB2 problem2(oper2, vars2, pst2);
 
   // Coupling 1
   auto cc = Coupling("AllenCahn + Diffusion", problem1, problem2);

@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-03-13
  *
- * @copyright Copyright (c) 2025
+ * Copyright (c) 2025
  *
  */
 
@@ -14,6 +14,7 @@
 //---------------------------------------
 
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -50,6 +51,8 @@ int main(int argc, char* argv[]) {
 
   SPA spatial("InlineSquareWithQuadrangles", 1, refinement_level,
               std::make_tuple(nb_fe, nb_fe, length, length));
+
+  std::vector<SPA*> spatials{&spatial};
   // ##############################
   //     Boundary conditions     //
   // ##############################
@@ -96,8 +99,9 @@ int main(int argc, char* argv[]) {
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
 
   //--- Operator definition
-  DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant> diffu_oper(
-      &spatial, TimeScheme::RungeKutta4);
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant, LHS_NLFI> diffu_oper(
+      spatials, TimeScheme::RungeKutta4);
   diffu_oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
 
   //==========================================
@@ -122,8 +126,10 @@ int main(int argc, char* argv[]) {
   //--- Integrator : alias definition for the sake of clarity
   using InterDiffusionIntegrator = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Operator definition
-  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant> interdiffu_oper(
-      &spatial, td_parameters, TimeScheme::RungeKutta4);
+  using LHS_NLFI2 = TimeNLFormIntegrator<VARS>;
+
+  DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI2>
+      interdiffu_oper(spatials, td_parameters, TimeScheme::RungeKutta4);
   interdiffu_oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
 
   //==========================================
@@ -182,30 +188,27 @@ int main(int argc, char* argv[]) {
                                          Parameter("frequency", frequency));
   auto diffu_pst = PST(&spatial, diffu_pst_parameters);
 
-  //--- Physical Convergence
-  const double crit_cvg = 1.e-12;
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg);
-
   //-----------------------
   // Problems
   //-----------------------
   Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, mu_var, cc_pst, convergence, heat_vars, p_vars, compo_vars);
+      calphad_parameters, mu_var, cc_pst, heat_vars, p_vars, compo_vars);
 
   auto pp_parameters =
       Parameters(Parameter("Description", "Oxygen Mobilities"), Parameter("first_component", "O"),
                  Parameter("last_component", "U"), Parameter("primary_phase", "SOLID"));
   Property_problem<InterDiffusionCoefficient, VARS, PST> oxygen_interdiffusion_mobilities(
-      "Oxygen inter-diffusion mobilities", pp_parameters, MO, mob_pst_o, convergence, compo_vars,
-      heat_vars, mobilities);
+      "Oxygen inter-diffusion mobilities", pp_parameters, MO, mob_pst_o, compo_vars, heat_vars,
+      mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant>, VARS,
-          PST>
-      interdiffu_problem("InterDiffusion", interdiffu_oper, compo_vars, interdiffu_pst, convergence,
-                         mu_var, MO);
+  Problem<
+      DiffusionOperator<FECollection, DIM, InterDiffusionIntegrator, Density::Constant, LHS_NLFI2>,
+      VARS, PST>
+      interdiffu_problem("InterDiffusion", interdiffu_oper, compo_vars, interdiffu_pst, mu_var, MO);
 
-  Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant>, VARS, PST>
-      diffu_problem("Fick", diffu_oper, diffu_vars, diffu_pst, convergence);
+  Problem<DiffusionOperator<FECollection, DIM, DiffusionIntegrator, Density::Constant, LHS_NLFI>,
+          VARS, PST>
+      diffu_problem("Fick", diffu_oper, diffu_vars, diffu_pst);
 
   //-----------------------
   // Coupling

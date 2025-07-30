@@ -14,6 +14,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -48,7 +49,8 @@ int main(int argc, char* argv[]) {
       VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
       Mobility::Constant, ThermodynamicsPotentials::H>;
 
-  using OPE = AllenCahnOperator<FECollection, DIM, NLFI>;
+  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
+  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
   using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
@@ -115,8 +117,8 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Problem 1:
-  const double crit_cvg_1 = 1.e-12;
-  OPE oper(&spatial, params, TimeScheme::EulerImplicit);
+  std::vector<SPA*> spatials{&spatial};
+  OPE oper(spatials, params, TimeScheme::EulerImplicit);
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
   auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
@@ -124,9 +126,7 @@ int main(int argc, char* argv[]) {
 
   oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
 
-  PhysicalConvergence convergence(ConvergenceType::ABSOLUTE_MAX, crit_cvg_1);
-
-  PB problem1("AllenCahn", oper, vars, pst, convergence);
+  PB problem1("AllenCahn", oper, vars, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

@@ -71,7 +71,7 @@ class AnalyticalFunctions {
 
   std::function<double(const mfem::Vector &, double)> analytical_function_;
 
-  std::function<double(const mfem::Vector &, double)> getFunction();
+  std::function<double(const mfem::Vector &, double)> getFunction() const;
 
   ~AnalyticalFunctions();
 };
@@ -400,7 +400,7 @@ AnalyticalFunctions<DIM>::AnalyticalFunctions(
  * @return std::function<double(const mfem::Vector &, double)>
  */
 template <int DIM>
-std::function<double(const mfem::Vector &, double)> AnalyticalFunctions<DIM>::getFunction() {
+std::function<double(const mfem::Vector &, double)> AnalyticalFunctions<DIM>::getFunction() const {
   return this->analytical_function_;
 }
 
