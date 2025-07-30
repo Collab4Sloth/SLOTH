@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"

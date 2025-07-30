@@ -25,6 +25,7 @@
 using param_type = std::variant<int, double, std::string, bool, MapStringDouble,
                                 vTuple2StringDouble, Map2String2Double, MapString2Double, vString,
                                 vInt, vDouble, vTupleStringInt, vTupleStringString>;
+
 class Parameter {
  private:
   std::string name_;

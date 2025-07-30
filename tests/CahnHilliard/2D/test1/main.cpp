@@ -153,8 +153,10 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
+
   const std::vector<int> iterations_list = {1, 3, 5};
   const std::vector<double> times_list = {0.35, 0.45};
+
   std::string calculation_path = "CahnHilliard";
   const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
@@ -164,6 +166,7 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path),
                  Parameter("iterations_list", iterations_list), Parameter("times_list", times_list),
+
                  Parameter("level_of_detail", level_of_detail),
                  Parameter("integral_to_compute", map_threshold_integral),
                  Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
