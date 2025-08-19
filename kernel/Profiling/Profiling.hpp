@@ -135,9 +135,8 @@ void Profiling::print() {
   if (this->Profiling_enabled_ == false) {
     return;
   }
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int rank = mfem::Mpi::WorldRank();
+  int size = mfem::Mpi::WorldSize();
 
   std::filesystem::path filename = "profiling.txt";
   std::ofstream outputFile;
@@ -244,8 +243,6 @@ void Profiling::print() {
           break;
         }
       }
-      std::uint64_t global_calls;
-      MPI_Reduce(&timer.call_nmbrCalls, &global_calls, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
       double global_time;
       MPI_Reduce(&timer.total_time, &global_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
       double Max_time;
@@ -256,14 +253,16 @@ void Profiling::print() {
         int space = 80;
         outputFile << " | ";
 
-        for (int k = 0; k < index; k++) {
-          outputFile << "-->";
+        for (int k = 0; k < index - 1; k++) {
+          outputFile << "---";
           space -= 3;
         }
+        outputFile << "-->";
+        space -= 3;
         // Name
         outputFile << std::setw(space) << std::left << timer.function_name << " | ";
         // Number of Calls
-        outputFile << std::setw(17) << std::left << global_calls << " | ";
+        outputFile << std::setw(17) << std::left << timer.call_nmbrCalls << " | ";
         // time_Max(s)
         outputFile << std::setw(17) << std::left << std::scientific << std::setprecision(10)
                    << Max_time << " | ";
