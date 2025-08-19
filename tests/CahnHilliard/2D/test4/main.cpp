@@ -1,8 +1,7 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief CahnHilliard problem solved in a square
- * Convergence toward steady solution
+ * @brief  Steady solution of the Cahn-Hilliard equations
  * @version 0.1
  * @date 2025-07-11
  *
@@ -208,7 +207,6 @@ int main(int argc, char* argv[]) {
                                       Parameter("final_time", t_final), Parameter("time_step", dt));
         auto time = TimeDiscretization(time_params, cc);
 
-        // time.get_tree();
         time.solve();
         //---------------------------------------
         // Profiling stop
