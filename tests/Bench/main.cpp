@@ -27,7 +27,7 @@ struct TestParameters {
   int nz = 32;
   int refinement = 1;
   int verbosity = -1;
-  int post_processing = 1; // default value : disabled
+  int post_processing = 1; // default value : enabled
   double duration = 5.0;
   double dt = 5.e-2;
 };
@@ -49,10 +49,47 @@ void common_parameters(mfem::OptionsParser& args, TestParameters& p)
 
   if (!args.Good()) {
     if (mfem::Mpi::WorldRank() == 0) {
-      args.PrintUsage(std::cout);
+      args.PrintUsage(mfem::out);
       std::exit(EXIT_FAILURE);
     }
   }
+  if(mfem::Mpi::WorldRank() == 0) args.PrintOptions(mfem::out);
+}
+
+int64_t sum(int64_t in) {
+  int64_t res = 0;
+  MPI_Reduce(&in, &res, 1, MPI_INT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+  return res;
+};
+
+template <typename Arg>
+void Message(Arg a_msg) {
+  if (mfem::Mpi::WorldRank() == 0) {
+    mfem::out << a_msg << std::endl;
+  }
+}
+
+template <typename Arg, typename... Args>
+void Message(Arg a_msg, Args... a_msgs) {
+  if (mfem::Mpi::WorldRank() == 0) {
+    mfem::out << a_msg << " ";
+    Message(a_msgs...);
+  }
+}
+
+template <typename Mesh>
+void print_mesh_information(Mesh& mesh) {
+
+  // get the number of vertices
+  int64_t numbers_of_vertices_local = mesh.GetNV();
+  int64_t numbers_of_vertices = sum(numbers_of_vertices_local);
+
+  // get the number of elements
+  int64_t numbers_of_elements_local = mesh.GetNE();
+  int64_t numbers_of_elements = sum(numbers_of_elements_local);
+
+  Message("INFO: number of vertices -> ", numbers_of_vertices);
+  Message("INFO: number of elements -> ", numbers_of_elements);
 }
 
 ///---------------
@@ -83,7 +120,7 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::F, Mobility::Constant>;
+	ThermodynamicsPotentials::F, Mobility::Constant>;
 
   using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
@@ -108,7 +145,7 @@ int main(int argc, char* argv[]) {
   //           Meshing           //
   // ##############################
   const std::string mesh_type =
-      "InlineSquareWithHexaedres";  // type of mesh // "InlineSquareWithTriangles"
+    "InlineSquareWithHexaedres";  // type of mesh // "InlineSquareWithTriangles"
   const int order_fe = p.order;           // finite element order
   const int refinement_level = p.refinement;   // number of levels of uniform refinement
   const int nx = p.nx;
@@ -121,16 +158,18 @@ int main(int argc, char* argv[]) {
       nx, ny, nz, lx, ly, ly);  // Number of elements and maximum length in each direction
 
   SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
+  print_mesh_information(*(spatial.get_mesh()));
+
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("bottom", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("top", 2, "Neumann", 0.),    Boundary("left", 3, "Neumann", 0.),
-                     Boundary("front", 4, "Neumann", 0.),  Boundary("rear", 5, "Neumann", 0.)};
+    Boundary("top", 2, "Neumann", 0.),    Boundary("left", 3, "Neumann", 0.),
+    Boundary("front", 4, "Neumann", 0.),  Boundary("rear", 5, "Neumann", 0.)};
   auto bcs_phi = BCS(&spatial, boundaries);
   auto boundaries_mu = {Boundary("bottom", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                        Boundary("top", 2, "Neumann", 0.),    Boundary("left", 3, "Neumann", 0.),
-                        Boundary("front", 4, "Neumann", 0.),  Boundary("rear", 5, "Neumann", 0.)};
+    Boundary("top", 2, "Neumann", 0.),    Boundary("left", 3, "Neumann", 0.),
+    Boundary("front", 4, "Neumann", 0.),  Boundary("rear", 5, "Neumann", 0.)};
   auto bcs_mu = BCS(&spatial, boundaries_mu);
 
   // ###########################################
@@ -150,50 +189,50 @@ int main(int argc, char* argv[]) {
   const double lambda = (epsilon * epsilon);
   const double omega = 1.;
   auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega));
+      Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
 
   auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
-        const double xx = x[0];
-        const double yy = x[1];
-        const double zz = x[2];
-        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        const double r3 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        double sol = 0.;
-        if (r1 < 1 || r2 < 1 || r3 < 1) {
-          sol = 1.;
-        } else {
-          sol = -1.;
-        }
-        return sol;
-      });
+    std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+	const double xx = x[0];
+	const double yy = x[1];
+	const double zz = x[2];
+	const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI) +
+	(zz - M_PI) * (zz - M_PI);
+	const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
+	(zz - M_PI) * (zz - M_PI);
+	const double r3 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
+	(zz - M_PI) * (zz - M_PI);
+	double sol = 0.;
+	if (r1 < 1 || r2 < 1 || r3 < 1) {
+	sol = 1.;
+	} else {
+	sol = -1.;
+	}
+	return sol;
+	});
 
   auto mu_user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
-        const double xx = x[0];
-        const double yy = x[1];
-        const double zz = x[2];
-        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        const double r3 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
-                          (zz - M_PI) * (zz - M_PI);
-        double sol = 0.;
-        if (r1 < 1 || r2 < 1 || r3 < 1) {
-          sol = 0;
-        } else {
-          sol = 0;
-        }
-        return sol;
-      });
+    std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+	const double xx = x[0];
+	const double yy = x[1];
+	const double zz = x[2];
+	const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI) +
+	(zz - M_PI) * (zz - M_PI);
+	const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
+	(zz - M_PI) * (zz - M_PI);
+	const double r3 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI) +
+	(zz - M_PI) * (zz - M_PI);
+	double sol = 0.;
+	if (r1 < 1 || r2 < 1 || r3 < 1) {
+	sol = 0;
+	} else {
+	sol = 0;
+	}
+	return sol;
+	});
 
   auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
   auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
@@ -208,21 +247,22 @@ int main(int argc, char* argv[]) {
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 10;
   std::string calculation_path = "CahnHilliard";
   const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
-      {var_name_1, {-1.1, 1.1}}};
+    {var_name_1, {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;
-  auto p_pst =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail),
-                 Parameter("integral_to_compute", map_threshold_integral),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+  Parameters p_pst;
+  const int frequency = p.post_processing ? 10 : 10000;
+  p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
+      Parameter("calculation_path", calculation_path), 
+      Parameter("frequency", frequency),
+      Parameter("level_of_detail", level_of_detail),
+      Parameter("integral_to_compute", map_threshold_integral),
+      Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+
   // ####################
   //     operators     //
   // ####################
@@ -234,7 +274,9 @@ int main(int argc, char* argv[]) {
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", p.verbosity),
-                 Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+	Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+  //const auto& solver = HypreSolverType::HYPRE_PCG;
+  //const auto& precond = HyprePreconditionerType::HYPRE_BOOMER_AMG;
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   oper.overload_solver(solver);
@@ -255,7 +297,7 @@ int main(int argc, char* argv[]) {
   const double t_final = p.duration;
   const double dt = p.dt;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
-                                Parameter("final_time", t_final), Parameter("time_step", dt));
+      Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
 
   // time.get_tree();

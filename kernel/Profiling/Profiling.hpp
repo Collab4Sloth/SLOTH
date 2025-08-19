@@ -322,12 +322,16 @@ void Profiling::get_lose_indentation(std::string func) {
   }
 
   bool inside = false;
-  for (std::size_t i = 0; i < indentationlist.size(); i++) {
+  if (std::get<1>(indentationlist[this->indentation_level_]) == func) {
+    inside = true;
+  }
+/*  for (std::size_t i = 0; i < indentationlist.size(); i++) {
     if (std::get<1>(indentationlist[i]) == func) {
       inside = true;
       break;
     }
   }
+*/
   if (inside == false) {
     indentationlist.push_back(std::make_tuple(this->indentation_level_, func));
   }
