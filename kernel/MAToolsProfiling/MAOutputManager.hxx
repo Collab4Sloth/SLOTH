@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <omp.h>
 #include <fstream>
 #include <MAToolsProfiling/Column.hxx>
 #include <MAToolsProfiling/MATimerNode.hxx>
