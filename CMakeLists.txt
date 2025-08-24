@@ -9,6 +9,19 @@ set(CMAKE_CXX_EXTENSIONS NO)
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
 
+## Force Release Mode
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+endif()
+
+## Debug option
+option(MATOOLS_VERBOSITY_LEVEL_1 "add verbosity level 1" OFF)
+
+if(MATOOLS_VERBOSITY_LEVEL_1)
+	add_definitions(-DMATIMERS_VEROBSITY_LEVEL_1)
+endif()
+
 # Check GCC version
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
@@ -54,8 +67,6 @@ endif(NOT TARGET doc)
 # # Test Configuration
 # ########################
 include(COMPILE4SLOTH)
-
-
 
 include(TEST4SLOTH)
 

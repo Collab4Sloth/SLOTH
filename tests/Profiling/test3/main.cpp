@@ -10,7 +10,7 @@
  */
 #include <iostream>
 
-#include "Profiling/Profiling.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 
 int main(int argc, char** argv) {
   //---------------------------------------
