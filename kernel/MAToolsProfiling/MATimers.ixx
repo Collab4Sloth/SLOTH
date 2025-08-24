@@ -70,7 +70,9 @@ namespace MATools
 			MATimerNode* root_ptr 	 = MATools::MATimer::get_MATimer_node<ROOT>() ;
 			MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>() ;
 			delete root_ptr;
+			delete current_ptr;
 			root_ptr = nullptr;
+			current_ptr = nullptr;
 		}
 	};
 };
