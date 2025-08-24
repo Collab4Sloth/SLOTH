@@ -13,9 +13,9 @@ namespace MATools
 		{
 			MATools::MAOutput::printMessage("MATimers_LOG: MATimers initialization ");
 			MATimerNode*& root_timer_ptr 	= MATools::MATimer::get_MATimer_node<ROOT>() ;
-			assert(root_timer_ptr == nullptr && "MATimer::initialize has already be called");	
-			root_timer_ptr 			= new MATimerNode(); 
 			MATimerNode*& current 	        = MATools::MATimer::get_MATimer_node<CURRENT>(); 
+			assert((root_timer_ptr == nullptr || root_timer_ptr == current) && "MATimer::initialize has already be called");	
+			root_timer_ptr 			= new MATimerNode(); 
 			current 			= root_timer_ptr;
 			assert(current != nullptr);	
 			MATools::MATimer::start_global_timer<ROOT>();
