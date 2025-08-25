@@ -8,11 +8,6 @@
  * \date 24/03/2023
  */
 
-/*!
- * \page __spatial SpatialDiscretization
- * \section _spatial_sec1 Description
- */
-
 #pragma once
 #include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
