@@ -31,23 +31,23 @@ DOXYFILE_ENCODING= UTF-8
 # project for which the documentation is generated. This name is used in the
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
-PROJECT_NAME= @PROGRAM_NAME@
+PROJECT_NAME= SLOTH
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
 # control system is used.
-PROJECT_NUMBER= @PROGRAM_VERSION@
+PROJECT_NUMBER= "v1.0.0"
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
 # quick idea about the purpose of the project. Keep the description short.
-PROJECT_BRIEF= @PROGRAM_DESCRIPTION@
+PROJECT_BRIEF= "PhaseField solver"
 
 # With the PROJECT_LOGO tag one can specify a logo or an icon that is included
 # in the documentation. The maximum height of the logo should not exceed 55
 # pixels and the maximum width should not exceed 200 pixels. Doxygen will copy
 # the logo to the output directory.
-PROJECT_LOGO= @PROJECT_LOGO@
+PROJECT_LOGO= @CMAKE_CURRENT_SOURCE_DIR@/img/sloth_blanc.jpg
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute) path
 # into which the generated documentation will be written. If a relative path is
@@ -133,7 +133,7 @@ INLINE_INHERITED_MEMB  = NO
 # shortest path that makes the file name unique will be used
 # The default value is: YES.
 
-FULL_PATH_NAMES        = YES
+FULL_PATH_NAMES        = NO
 
 # The STRIP_FROM_PATH tag can be used to strip a user-defined part of the path.
 # Stripping is only done if one of the specified strings matches the left-hand
@@ -416,7 +416,7 @@ EXTRACT_PACKAGE= NO
 # included in the documentation.
 # The default value is: NO.
 
-EXTRACT_STATIC         = NO
+EXTRACT_STATIC         = YES
 
 # If the EXTRACT_LOCAL_CLASSES tag is set to YES, classes (and structs) defined
 # locally in source files will be included in the documentation. If set to NO,
@@ -455,14 +455,14 @@ RESOLVE_UNNAMED_PARAMS = YES
 # members will be included in the various overviews, but no documentation
 # section is generated. This option has no effect if EXTRACT_ALL is enabled.
 # The default value is: NO.
-HIDE_UNDOC_MEMBERS= NO
+HIDE_UNDOC_MEMBERS= YES
 
 # If the HIDE_UNDOC_CLASSES tag is set to YES, doxygen will hide all
 # undocumented classes that are normally visible in the class hierarchy. If set
 # to NO, these classes will be included in the various overviews. This option
 # has no effect if EXTRACT_ALL is enabled.
 # The default value is: NO.
-HIDE_UNDOC_CLASSES= NO
+HIDE_UNDOC_CLASSES= YES
 
 # If the HIDE_FRIEND_COMPOUNDS tag is set to YES, doxygen will hide all friend
 # (class|struct|union) declarations. If set to NO, these declarations will be
@@ -592,7 +592,7 @@ STRICT_PROTO_MATCHING= NO
 # The GENERATE_TODOLIST tag can be used to enable (YES) or disable (NO) the todo
 # list. This list is created by putting \todo commands in the documentation.
 # The default value is: YES.
-GENERATE_TODOLIST= YES
+GENERATE_TODOLIST= NO
 
 # The GENERATE_TESTLIST tag can be used to enable (YES) or disable (NO) the test
 # list. This list is created by putting \test commands in the documentation.
@@ -642,7 +642,7 @@ SHOW_FILES= YES
 # page. This will remove the Namespaces entry from the Quick Index and from the
 # Folder Tree View (if specified).
 # The default value is: YES.
-SHOW_NAMESPACES= YES
+SHOW_NAMESPACES= NO
 
 # The FILE_VERSION_FILTER tag can be used to specify a program or script that
 # doxygen should invoke to get the current version for each file (typically from
@@ -740,8 +740,7 @@ WARN_LOGFILE=doxygen.log
 # directories like /usr/src/myproject. Separate the files or directories with
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
-INPUT= @CMAKE_SOURCE_DIR@/doc/CodeDocumentation.dox \
-       @CMAKE_SOURCE_DIR@
+INPUT= @CMAKE_SOURCE_DIR@/kernel  @CMAKE_CURRENT_SOURCE_DIR@/CodeSloth.md
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -764,7 +763,7 @@ INPUT_ENCODING= UTF-8
 # *.hh, *.hxx, *.hpp, *.h++, *.cs, *.d, *.php, *.php4, *.php5, *.phtml, *.inc,
 # *.m, *.markdown, *.md, *.mm, *.dox, *.py, *.pyw, *.f90, *.f95, *.f03, *.f08,
 # *.f, *.for, *.tcl, *.vhd, *.vhdl, *.ucf and *.qsf.
-FILE_PATTERNS= *.c \ *.cc \ *.cxx \ *.cpp \ *.c++ \ *.d \ *.java \ *.ii \ *.ixx \ *.ipp \ *.i++ \ *.inl \ *.h \ *.hh \ *.hxx \ *.hpp \ *.h++ \ *.idl \ *.odl \ *.cs \ *.php \ *.php3 \ *.inc \ *.m \ *.mm \ *.dox \ *.py \ *.f90 \ *.f \ *.vhd \ *.vhdl \ *.C \ *.CC \ *.C++ \ *.II \ *.I++ \ *.H \ *.HH \ *.H++ \ *.CS \ *.PHP \ *.PHP3 \ *.M \ *.MM \ *.PY \ *.F90 \ *.F \ *.VHD \ *.VHDL \ *.C \ *.H \ *.tlh \ *.diff \ *.patch \ *.moc \ *.xpm \ *.dox
+FILE_PATTERNS= *.hpp 
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.
@@ -875,7 +874,7 @@ FILTER_SOURCE_PATTERNS=
 # is part of the input, its contents will be placed on the main page
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
-USE_MDFILE_AS_MAINPAGE= YES
+USE_MDFILE_AS_MAINPAGE= CodeSloth.md
 
 # ---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -892,7 +891,7 @@ SOURCE_BROWSER= YES
 # Setting the INLINE_SOURCES tag to YES will include the body of functions,
 # classes and enums directly into the documentation.
 # The default value is: NO.
-INLINE_SOURCES= YES
+INLINE_SOURCES= NO
 
 # Setting the STRIP_CODE_COMMENTS tag to YES will instruct doxygen to hide any
 # special comment blocks from generated source code fragments. Normal C, C++ and
@@ -1064,7 +1063,7 @@ HTML_STYLESHEET=
 # style sheet in the list overrules the setting of the previous ones in the
 # list). For an example see the documentation.
 # This tag requires that the tag GENERATE_HTML is set to YES.
-HTML_EXTRA_STYLESHEET=
+HTML_EXTRA_STYLESHEET= @CMAKE_CURRENT_SOURCE_DIR@/css/doxygen-awesome.css @CMAKE_CURRENT_SOURCE_DIR@/css/customization.css 
 
 # The HTML_EXTRA_FILES tag can be used to specify one or more extra images or
 # other source files which should be copied to the HTML output directory. Note
@@ -1084,14 +1083,14 @@ HTML_EXTRA_FILES=
 # Minimum value: 0, maximum value: 359, default value: 220.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_HUE    = 209
 
 # The HTML_COLORSTYLE_SAT tag controls the purity (or saturation) of the colors
 # in the HTML output. For a value of 0 the output will use grayscales only. A
 # value of 255 will produce the most vivid colors.
 # Minimum value: 0, maximum value: 255, default value: 100.
 # This tag requires that the tag GENERATE_HTML is set to YES.
-HTML_COLORSTYLE_SAT= 100
+HTML_COLORSTYLE_SAT= 255
 
 # The HTML_COLORSTYLE_GAMMA tag controls the gamma correction applied to the
 # luminance component of the colors in the HTML output. Values below 100
@@ -1101,7 +1100,7 @@ HTML_COLORSTYLE_SAT= 100
 # change the gamma.
 # Minimum value: 40, maximum value: 240, default value: 80.
 # This tag requires that the tag GENERATE_HTML is set to YES.
-HTML_COLORSTYLE_GAMMA= 80
+HTML_COLORSTYLE_GAMMA= 113
 
 # If the HTML_TIMESTAMP tag is set to YES then the footer of each generated HTML
 # page will contain the date and time when the page was generated. Setting this
@@ -2137,7 +2136,7 @@ DIRECTORY_GRAPH= YES
 # png:gdiplus:gdiplus.
 # The default value is: png.
 # This tag requires that the tag HAVE_DOT is set to YES.
-DOT_IMAGE_FORMAT= png
+DOT_IMAGE_FORMAT= svg
 
 # If DOT_IMAGE_FORMAT is set to svg, then this option can be set to YES to
 # enable generation of interactive SVG images that allow zooming and panning.

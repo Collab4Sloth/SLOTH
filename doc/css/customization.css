@@ -4,7 +4,7 @@ html {
     --fragment-background: #FFFFF;
 }
 
-img[src*="sloth_bl.png"] {
-    width: 100px;
+img[src="sloth_blanc.jpg"] {
+    width: auto;
     height: auto;
 }
