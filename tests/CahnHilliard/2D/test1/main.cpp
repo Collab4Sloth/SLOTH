@@ -53,7 +53,6 @@ int main(int argc, char* argv[]) {
   using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -122,23 +121,8 @@ int main(int argc, char* argv[]) {
         return sol;
       });
 
-  auto mu_user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
-        const double xx = x[0];
-        const double yy = x[1];
-        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);
-        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI);
-        double sol = 0.;
-        if (r1 < 1 || r2 < 1) {
-          sol = 0;
-        } else {
-          sol = 0;
-        }
-        return sol;
-      });
-
   auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
-  auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
+  double mu_initial_condition = 0.0;
   const std::string& var_name_1 = "phi";
   const std::string& var_name_2 = "mu";
   auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, phi_initial_condition);
@@ -205,7 +189,6 @@ int main(int argc, char* argv[]) {
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
 
-  // time.get_tree();
   time.solve();
   //---------------------------------------
   // Profiling stop

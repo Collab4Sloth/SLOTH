@@ -52,7 +52,7 @@ std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(HypreSolverType SO
       params.get_param_value_or_default<int>("iter_max", HYPRE_PCG_DefaultConstant::iter_max);
   const double tol =
       params.get_param_value_or_default<double>("tol", HYPRE_PCG_DefaultConstant::tol);
-  const double print_level = params.get_param_value_or_default<double>(
+  const int print_level = params.get_param_value_or_default<double>(
       "print_level", HYPRE_PCG_DefaultConstant::print_level);
 
   auto ss = std::make_shared<mfem::HyprePCG>(MPI_COMM_WORLD);
@@ -105,9 +105,9 @@ std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverTyp
       params.get_param_value_or_default<int>("iter_max", HYPRE_GMRES_DefaultConstant::iter_max);
   const double tol =
       params.get_param_value_or_default<double>("tol", HYPRE_GMRES_DefaultConstant::tol);
-  const double kdim =
+  const int kdim =
       params.get_param_value_or_default<double>("kdim", HYPRE_GMRES_DefaultConstant::kdim);
-  const double print_level = params.get_param_value_or_default<double>(
+  const int print_level = params.get_param_value_or_default<double>(
       "print_level", HYPRE_GMRES_DefaultConstant::print_level);
 
   auto ss = std::make_shared<mfem::HypreGMRES>(MPI_COMM_WORLD);
@@ -160,9 +160,9 @@ std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverT
       params.get_param_value_or_default<int>("iter_max", HYPRE_FGMRES_DefaultConstant::iter_max);
   const double tol =
       params.get_param_value_or_default<double>("tol", HYPRE_FGMRES_DefaultConstant::tol);
-  const double kdim =
+  const int kdim =
       params.get_param_value_or_default<double>("kdim", HYPRE_FGMRES_DefaultConstant::kdim);
-  const double print_level = params.get_param_value_or_default<double>(
+  const int print_level = params.get_param_value_or_default<double>(
       "print_level", HYPRE_FGMRES_DefaultConstant::print_level);
 
   auto ss = std::make_shared<mfem::HypreFGMRES>(MPI_COMM_WORLD);

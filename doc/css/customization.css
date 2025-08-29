@@ -1,0 +1,10 @@
+html {
+    --content-maxwidth: auto;
+    --primary-color: #1174ff;
+    --fragment-background: #FFFFF;
+}
+
+img[src="sloth_blanc.jpg"] {
+    width: auto;
+    height: auto;
+}
