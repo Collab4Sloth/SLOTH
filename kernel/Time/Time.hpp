@@ -9,18 +9,13 @@
  *
  */
 
-#include <functional>
-#include <memory>
-#include <ranges>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "Problems/Problem.hpp"
 #include "Profiling/Profiling.hpp"
 #include "Utils/Utils.hpp"
-#include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once

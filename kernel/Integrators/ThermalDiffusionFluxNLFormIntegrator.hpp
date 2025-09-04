@@ -9,21 +9,11 @@
  *
  */
 
-#include <algorithm>
-#include <map>
-#include <memory>
-#include <set>
 #include <string>
-#include <tuple>
-#include <utility>
 #include <vector>
 
-#include "Coefficients/DiffusionCoefficient.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothGridFunction.hpp"
-#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Options/Options.hpp"
-#include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 

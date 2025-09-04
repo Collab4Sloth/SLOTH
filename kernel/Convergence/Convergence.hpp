@@ -38,6 +38,7 @@ class Convergence {
  *
  */
 Convergence::Convergence() {}
+
 /**
  * @brief Construct a new Convergence:: Convergence object
  *

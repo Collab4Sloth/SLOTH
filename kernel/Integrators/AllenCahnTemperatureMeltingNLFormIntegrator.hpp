@@ -10,13 +10,11 @@
  * Copyright CEA (c) 2024
  *
  */
-#include <algorithm>
+#include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "Integrators/AllenCahnMeltingBaseNLFormIntegrator.hpp"
-#include "Profiling/Profiling.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 

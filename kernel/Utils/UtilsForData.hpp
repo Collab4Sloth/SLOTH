@@ -19,14 +19,10 @@
 #include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
-#include <ranges>
 #include <string>
-#include <string_view>
 #include <tuple>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]

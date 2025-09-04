@@ -21,21 +21,21 @@
 
 class PhysicalConvergence {
  private:
-  std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
+  std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>
   getPhysicalConvergenceCriterion(ConvergenceType::value convergence_criterion_type,
-                                  const double &given_criterion);
-  std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
-  getAbsoluteMax(const double &given_criterion);
-  std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
-  getRelativeMax(const double &given_criterion);
+                                  const double& given_criterion);
+  std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)> getAbsoluteMax(
+      const double& given_criterion);
+  std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)> getRelativeMax(
+      const double& given_criterion);
 
-  std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
+  std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>
       physical_convergence_;
 
  public:
   PhysicalConvergence(ConvergenceType::value convergence_criterion_type,
-                      const double &given_criterion);
-  std::tuple<bool, double> getPhysicalConvergence(const mfem::Vector &x, const mfem::Vector &y);
+                      const double& given_criterion);
+  std::tuple<bool, double> getPhysicalConvergence(const mfem::Vector& x, const mfem::Vector& y);
   ~PhysicalConvergence();
 };
 
@@ -46,13 +46,13 @@ class PhysicalConvergence {
  * @param given_criterion
  */
 PhysicalConvergence::PhysicalConvergence(ConvergenceType::value convergence_criterion_type,
-                                         const double &given_criterion) {
+                                         const double& given_criterion) {
   this->physical_convergence_ =
       this->getPhysicalConvergenceCriterion(convergence_criterion_type, given_criterion);
 }
 
-std::tuple<bool, double> PhysicalConvergence::getPhysicalConvergence(const mfem::Vector &x,
-                                                                     const mfem::Vector &y) {
+std::tuple<bool, double> PhysicalConvergence::getPhysicalConvergence(const mfem::Vector& x,
+                                                                     const mfem::Vector& y) {
   return this->physical_convergence_(x, y);
 }
 
@@ -64,9 +64,9 @@ std::tuple<bool, double> PhysicalConvergence::getPhysicalConvergence(const mfem:
  * @param given_criterion
  * @return std::function<double(const mfem::Vector &, const mfem::Vector &)>
  */
-std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
+std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>
 PhysicalConvergence::getPhysicalConvergenceCriterion(
-    ConvergenceType::value convergence_criterion_type, const double &given_criterion) {
+    ConvergenceType::value convergence_criterion_type, const double& given_criterion) {
   switch (convergence_criterion_type) {
     case ConvergenceType::RELATIVE_MAX: {
       return this->getRelativeMax(given_criterion);
@@ -89,10 +89,10 @@ PhysicalConvergence::getPhysicalConvergenceCriterion(
  * @param given_criterion
  * @return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
  */
-std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
-PhysicalConvergence::getRelativeMax(const double &given_criterion) {
-  return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>(
-      [given_criterion](const mfem::Vector &x, const mfem::Vector &xn) {
+std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>
+PhysicalConvergence::getRelativeMax(const double& given_criterion) {
+  return std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>(
+      [given_criterion](const mfem::Vector& x, const mfem::Vector& xn) {
         std::vector<double> abs_error;
         abs_error.resize(x.Size());
         const auto epsilon = 1.e-12;
@@ -103,7 +103,7 @@ PhysicalConvergence::getRelativeMax(const double &given_criterion) {
                        });
         // Maximum among the absolute differences
 
-        const auto &criterion = *(std::max_element(abs_error.begin(), abs_error.end()));
+        const auto& criterion = *(std::max_element(abs_error.begin(), abs_error.end()));
         // Checking if criterion is satisfied
         bool is_cvg = (criterion < given_criterion);
         abs_error.clear();
@@ -118,17 +118,17 @@ PhysicalConvergence::getRelativeMax(const double &given_criterion) {
  * @param given_criterion
  * @return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
  */
-std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>
-PhysicalConvergence::getAbsoluteMax(const double &given_criterion) {
-  return std::function<std::tuple<bool, double>(const mfem::Vector &, const mfem::Vector &)>(
-      [given_criterion](const mfem::Vector &x, const mfem::Vector &xn) {
+std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>
+PhysicalConvergence::getAbsoluteMax(const double& given_criterion) {
+  return std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>(
+      [given_criterion](const mfem::Vector& x, const mfem::Vector& xn) {
         std::vector<double> abs_error;
         abs_error.resize(x.Size());
         // Absolute difference element per element
         std::transform(x.begin(), x.end(), xn.begin(), abs_error.begin(),
                        [](double a, double b) { return std::abs(a - b); });
         // Maximum among the absolute differences
-        const auto &criterion = *(std::max_element(abs_error.begin(), abs_error.end()));
+        const auto& criterion = *(std::max_element(abs_error.begin(), abs_error.end()));
         // Checking if criterion is satisfied
         bool is_cvg = (criterion < given_criterion);
         abs_error.clear();

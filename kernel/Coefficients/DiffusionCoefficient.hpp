@@ -9,13 +9,8 @@
  *
  */
 #include <limits>
-#include <numeric>
-#include <string>
-#include <vector>
 
 #include "Coefficients/DiffusionFunctions.hpp"
-#include "Options/Options.hpp"
-#include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
@@ -27,15 +22,15 @@ class DiffusionCoefficient : public mfem::Coefficient {
  private:
   DiffusionFunctions<ORDER, NAME> property_;
   FType property_function_;
-  mfem::ParGridFunction *gfu_;
+  mfem::ParGridFunction* gfu_;
   double dble_gfu_{std::numeric_limits<double>::max()};
 
  public:
-  DiffusionCoefficient(mfem::ParGridFunction *gfu, const Parameters &params);
+  DiffusionCoefficient(mfem::ParGridFunction* gfu, const Parameters& params);
 
-  DiffusionCoefficient(const double gfu, const Parameters &params);
+  DiffusionCoefficient(const double gfu, const Parameters& params);
 
-  double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
+  double Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip);
   ~DiffusionCoefficient();
 };
 
@@ -49,14 +44,14 @@ class DiffusionCoefficient : public mfem::Coefficient {
  * @param args
  */
 template <int ORDER, Diffusion NAME>
-DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(mfem::ParGridFunction *gfu,
-                                                        const Parameters &params)
+DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(mfem::ParGridFunction* gfu,
+                                                        const Parameters& params)
     : gfu_(gfu) {
   this->property_function_ = this->property_.getFunction(params);
 }
 
 template <int ORDER, Diffusion NAME>
-DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(const double gfu, const Parameters &params)
+DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(const double gfu, const Parameters& params)
     : gfu_(nullptr), dble_gfu_(gfu) {
   this->property_function_ = this->property_.getFunction(params);
 }
@@ -70,8 +65,8 @@ DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(const double gfu, const 
  * @param ip
  */
 template <int ORDER, Diffusion NAME>
-double DiffusionCoefficient<ORDER, NAME>::Eval(mfem::ElementTransformation &T,
-                                               const mfem::IntegrationPoint &ip) {
+double DiffusionCoefficient<ORDER, NAME>::Eval(mfem::ElementTransformation& T,
+                                               const mfem::IntegrationPoint& ip) {
   auto var_at_ip = this->dble_gfu_;
   if (this->gfu_) {
     var_at_ip = this->gfu_->GetValue(T.ElementNo, ip);

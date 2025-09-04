@@ -8,10 +8,6 @@
  * Copyright CEA (c) 2025
  *
  */
-#include <algorithm>
-#include <memory>
-#include <tuple>
-#include <vector>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -22,8 +18,8 @@ class SlothGridFunction : public mfem::ParGridFunction {
  protected:
  public:
   SlothGridFunction();
-  explicit SlothGridFunction(const mfem::ParGridFunction &orig);
-  void GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi, mfem::Vector &grad);
+  explicit SlothGridFunction(const mfem::ParGridFunction& orig);
+  void GetGradient(mfem::ElementTransformation& Tr, mfem::DenseMatrix& gradPsi, mfem::Vector& grad);
   ~SlothGridFunction();
 };
 
@@ -38,7 +34,7 @@ SlothGridFunction::SlothGridFunction() : mfem::ParGridFunction() {}
  *
  * @param gf
  */
-SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction &gf) : mfem::ParGridFunction(gf) {}
+SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction& gf) : mfem::ParGridFunction(gf) {}
 
 /**
  * @brief Compute the gradient of a given GridFunction
@@ -47,10 +43,10 @@ SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction &gf) : mfem::Pa
  * @param gradPsi
  * @param grad
  */
-void SlothGridFunction::GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi,
-                                    mfem::Vector &grad) {
+void SlothGridFunction::GetGradient(mfem::ElementTransformation& Tr, mfem::DenseMatrix& gradPsi,
+                                    mfem::Vector& grad) {
   mfem::Vector elfun;
-  const int &num = Tr.ElementNo;
+  const int& num = Tr.ElementNo;
   GetElementDofValues(num, elfun);
   gradPsi.MultTranspose(elfun, grad);
 }

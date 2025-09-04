@@ -8,16 +8,13 @@
  * Copyright CEA (c) 2024
  *
  */
-#include <algorithm>
+
 #include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "Coefficients/ConductivityCoefficient.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
-#include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
