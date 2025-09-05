@@ -1,21 +1,31 @@
 /**
  * @file DiffusionCoefficient.hpp
- * @author ci230846  (clement.introini@cea.fr)
+ * @author Clément Introïni (clement.introini@cea.fr)
  * @brief Class dedicated to Diffusion coefficient
  * @version 0.1
- * @date 2024-09-03
- *
- * @copyright Copyright (c) 2024
- *
+ * @date 2025-09-05
+ * 
+ * Copyright CEA (C) 2025
+ * 
+ * This file is part of SLOTH.
+ * 
+ * SLOTH is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * SLOTH is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
  */
 #include <limits>
-#include <numeric>
-#include <string>
-#include <vector>
 
 #include "Coefficients/DiffusionFunctions.hpp"
-#include "Options/Options.hpp"
-#include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
@@ -27,15 +37,15 @@ class DiffusionCoefficient : public mfem::Coefficient {
  private:
   DiffusionFunctions<ORDER, NAME> property_;
   FType property_function_;
-  mfem::ParGridFunction *gfu_;
+  mfem::ParGridFunction* gfu_;
   double dble_gfu_{std::numeric_limits<double>::max()};
 
  public:
-  DiffusionCoefficient(mfem::ParGridFunction *gfu, const Parameters &params);
+  DiffusionCoefficient(mfem::ParGridFunction* gfu, const Parameters& params);
 
-  DiffusionCoefficient(const double gfu, const Parameters &params);
+  DiffusionCoefficient(const double gfu, const Parameters& params);
 
-  double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip);
+  double Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip);
   ~DiffusionCoefficient();
 };
 
@@ -49,14 +59,14 @@ class DiffusionCoefficient : public mfem::Coefficient {
  * @param args
  */
 template <int ORDER, Diffusion NAME>
-DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(mfem::ParGridFunction *gfu,
-                                                        const Parameters &params)
+DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(mfem::ParGridFunction* gfu,
+                                                        const Parameters& params)
     : gfu_(gfu) {
   this->property_function_ = this->property_.getFunction(params);
 }
 
 template <int ORDER, Diffusion NAME>
-DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(const double gfu, const Parameters &params)
+DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(const double gfu, const Parameters& params)
     : gfu_(nullptr), dble_gfu_(gfu) {
   this->property_function_ = this->property_.getFunction(params);
 }
@@ -70,8 +80,8 @@ DiffusionCoefficient<ORDER, NAME>::DiffusionCoefficient(const double gfu, const 
  * @param ip
  */
 template <int ORDER, Diffusion NAME>
-double DiffusionCoefficient<ORDER, NAME>::Eval(mfem::ElementTransformation &T,
-                                               const mfem::IntegrationPoint &ip) {
+double DiffusionCoefficient<ORDER, NAME>::Eval(mfem::ElementTransformation& T,
+                                               const mfem::IntegrationPoint& ip) {
   auto var_at_ip = this->dble_gfu_;
   if (this->gfu_) {
     var_at_ip = this->gfu_->GetValue(T.ElementNo, ip);
