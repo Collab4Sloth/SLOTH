@@ -1,28 +1,17 @@
 /**
  * @file SlothGridFunction.hpp
- * @author clement.plumecocq@cea.fr
+ * @author  cp273896  (clement.plumecocq@cea.fr)
  * @brief Class dedicated to the calculation of the gradient of a GridFunction
  * @version 0.1
- * @date 2025-09-05
- * 
- * Copyright CEA (C) 2025
- * 
- * This file is part of SLOTH.
- * 
- * SLOTH is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * SLOTH is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ * @date 2025-01-14
+ *
+ * Copyright CEA (c) 2025
+ *
  */
+#include <algorithm>
+#include <memory>
+#include <tuple>
+#include <vector>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -33,8 +22,8 @@ class SlothGridFunction : public mfem::ParGridFunction {
  protected:
  public:
   SlothGridFunction();
-  explicit SlothGridFunction(const mfem::ParGridFunction& orig);
-  void GetGradient(mfem::ElementTransformation& Tr, mfem::DenseMatrix& gradPsi, mfem::Vector& grad);
+  explicit SlothGridFunction(const mfem::ParGridFunction &orig);
+  void GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi, mfem::Vector &grad);
   ~SlothGridFunction();
 };
 
@@ -49,7 +38,7 @@ SlothGridFunction::SlothGridFunction() : mfem::ParGridFunction() {}
  *
  * @param gf
  */
-SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction& gf) : mfem::ParGridFunction(gf) {}
+SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction &gf) : mfem::ParGridFunction(gf) {}
 
 /**
  * @brief Compute the gradient of a given GridFunction
@@ -58,10 +47,10 @@ SlothGridFunction::SlothGridFunction(const mfem::ParGridFunction& gf) : mfem::Pa
  * @param gradPsi
  * @param grad
  */
-void SlothGridFunction::GetGradient(mfem::ElementTransformation& Tr, mfem::DenseMatrix& gradPsi,
-                                    mfem::Vector& grad) {
+void SlothGridFunction::GetGradient(mfem::ElementTransformation &Tr, mfem::DenseMatrix &gradPsi,
+                                    mfem::Vector &grad) {
   mfem::Vector elfun;
-  const int& num = Tr.ElementNo;
+  const int &num = Tr.ElementNo;
   GetElementDofValues(num, elfun);
   gradPsi.MultTranspose(elfun, grad);
 }

@@ -1,28 +1,14 @@
 /**
  * @file ReducedOperator.hpp
- * @author Clément Introïni (clement.introini@cea.fr)
+ * @author ci230846  (clement.introini@cea.fr)
  * @brief UnSteady version of the linear system resulting from the NonLinear algorithm
  * @version 0.1
- * @date 2025-09-05
- * 
- * Copyright CEA (C) 2025
- * 
- * This file is part of SLOTH.
- * 
- * SLOTH is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * SLOTH is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ * @date 2024-07-30
+ *
+ * Copyright CEA (c) 2024
+ *
  */
+#include <memory>
 #include <vector>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -33,32 +19,32 @@
 class PhaseFieldReducedOperator : public mfem::Operator {
  private:
   // LHS
-  mfem::ParBlockNonlinearForm* LHS_;
+  mfem::ParBlockNonlinearForm *LHS_;
   // RHS
-  mfem::ParBlockNonlinearForm* RHS_;
+  mfem::ParBlockNonlinearForm *RHS_;
   // Jacobian matrix
-  mutable mfem::HypreParMatrix* Jacobian;
+  mutable mfem::HypreParMatrix *Jacobian;
 
   // Time step
   double dt_;
   // Unknown
-  const mfem::Vector* unk_;
+  const mfem::Vector *unk_;
   mutable mfem::Vector z;
 
-  const std::vector<mfem::Array<int>>& ess_tdof_list;
+  const std::vector<mfem::Array<int>> &ess_tdof_list;
 
  public:
-  PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm* M, mfem::ParBlockNonlinearForm* N,
-                            const std::vector<mfem::Array<int>>& ess_tdof);
+  PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *M, mfem::ParBlockNonlinearForm *N,
+                            const std::vector<mfem::Array<int>> &ess_tdof);
 
   /// Set current dt, unk values - needed to compute action and Jacobian.
-  void SetParameters(double dt, const mfem::Vector* unk);
+  void SetParameters(double dt, const mfem::Vector *unk);
 
   /// Compute y = N(unk + dt*k) + M k
-  void Mult(const mfem::Vector& k, mfem::Vector& y) const;
+  void Mult(const mfem::Vector &k, mfem::Vector &y) const;
 
   /// Compute y = dt*grad_N(unk + dt*k) + M
-  mfem::Operator& GetGradient(const mfem::Vector& k) const;
+  mfem::Operator &GetGradient(const mfem::Vector &k) const;
   ~PhaseFieldReducedOperator();
 };
 
@@ -68,9 +54,9 @@ class PhaseFieldReducedOperator : public mfem::Operator {
  * @param M
  * @param N
  */
-PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm* LHS,
-                                                     mfem::ParBlockNonlinearForm* RHS,
-                                                     const std::vector<mfem::Array<int>>& ess_tdof)
+PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm *LHS,
+                                                     mfem::ParBlockNonlinearForm *RHS,
+                                                     const std::vector<mfem::Array<int>> &ess_tdof)
     : Operator(RHS->Height()),
       // : Operator(N->ParFESpace()->TrueVSize()),
       LHS_(LHS),
@@ -87,7 +73,7 @@ PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm
  * @param dt
  * @param unk
  */
-void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector* unk) {
+void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector *unk) {
   dt_ = dt;
   unk_ = unk;
 }
@@ -98,7 +84,7 @@ void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector* unk
  * @param k
  * @param y
  */
-void PhaseFieldReducedOperator::Mult(const mfem::Vector& k, mfem::Vector& y) const {
+void PhaseFieldReducedOperator::Mult(const mfem::Vector &k, mfem::Vector &y) const {
   add(*unk_, dt_, k, z);
   this->RHS_->Mult(z, y);
   LHS_->AddMult(k, y);
@@ -121,7 +107,7 @@ void PhaseFieldReducedOperator::Mult(const mfem::Vector& k, mfem::Vector& y) con
  * @param k
  * @return mfem::Operator&
  */
-mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) const {
+mfem::Operator &PhaseFieldReducedOperator::GetGradient(const mfem::Vector &k) const {
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
@@ -129,25 +115,25 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
   const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
   const int fes_size = offsets.Size() - 1;
   // Gets gradients of RHS_ and LHS_
-  mfem::Operator& LHS_grad = LHS_->GetGradient(z);
-  mfem::Operator& RHS_grad = this->RHS_->GetGradient(z);
+  mfem::Operator &LHS_grad = LHS_->GetGradient(z);
+  mfem::Operator &RHS_grad = this->RHS_->GetGradient(z);
   // Converts operators into BlockOperator
-  mfem::BlockOperator* LHS_block_grad = dynamic_cast<mfem::BlockOperator*>(&LHS_grad);
-  mfem::BlockOperator* RHS_block_grad = dynamic_cast<mfem::BlockOperator*>(&RHS_grad);
-  mfem::Array2D<mfem::HypreParMatrix*> tmp_blocks(fes_size, fes_size);
-  std::vector<mfem::HypreParMatrix*> blocks_to_delete;
+  mfem::BlockOperator *LHS_block_grad = dynamic_cast<mfem::BlockOperator *>(&LHS_grad);
+  mfem::BlockOperator *RHS_block_grad = dynamic_cast<mfem::BlockOperator *>(&RHS_grad);
+  mfem::Array2D<mfem::HypreParMatrix *> tmp_blocks(fes_size, fes_size);
+  std::vector<mfem::HypreParMatrix *> blocks_to_delete;
 
   for (int i = 0; i < fes_size; ++i) {
     for (int j = 0; j < fes_size; ++j) {
-      mfem::Operator* LHS_block = &(LHS_block_grad->GetBlock(i, j));
-      mfem::Operator* RHS_block = &(RHS_block_grad->GetBlock(i, j));
+      mfem::Operator *LHS_block = &(LHS_block_grad->GetBlock(i, j));
+      mfem::Operator *RHS_block = &(RHS_block_grad->GetBlock(i, j));
 
-      mfem::HypreParMatrix* LHS_sparse_block = dynamic_cast<mfem::HypreParMatrix*>(LHS_block);
-      mfem::HypreParMatrix* RHS_sparse_block = dynamic_cast<mfem::HypreParMatrix*>(RHS_block);
+      mfem::HypreParMatrix *LHS_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(LHS_block);
+      mfem::HypreParMatrix *RHS_sparse_block = dynamic_cast<mfem::HypreParMatrix *>(RHS_block);
 
       if (LHS_sparse_block && RHS_sparse_block) {
         // if (i == 1) {
-        mfem::HypreParMatrix* block = new mfem::HypreParMatrix(*LHS_sparse_block);
+        mfem::HypreParMatrix *block = new mfem::HypreParMatrix(*LHS_sparse_block);
         block->Add(dt_, *RHS_sparse_block);
 
         // TODO(CCI) check if needed
@@ -165,7 +151,7 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
       }
     }
   }
-  mfem::HypreParMatrix* JJ(mfem::HypreParMatrixFromBlocks(tmp_blocks));
+  mfem::HypreParMatrix *JJ(mfem::HypreParMatrixFromBlocks(tmp_blocks));
   Jacobian = JJ;
   for (auto ptr : blocks_to_delete) {
     delete ptr;
