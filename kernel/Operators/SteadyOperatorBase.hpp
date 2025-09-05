@@ -1,40 +1,39 @@
 /**
  * @file SteadyOperatorBase.hpp
- * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Steady  Operator base
+ * @author ci230846 (clement.introini@cea.fr)
+ * @brief Steady PhaseField Operator base
  * @version 0.1
- * @date 2025-09-05
- * 
- * Copyright CEA (C) 2025
- * 
- * This file is part of SLOTH.
- * 
- * SLOTH is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * SLOTH is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ * @date 2024-07-19
+ *
+ * @copyright Copyright (c) 2024
+ *
  */
 
+#include <algorithm>
+#include <map>
 #include <memory>
+#include <set>
+#include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
+#include "BCs/BoundaryConditions.hpp"
+#include "Coefficients/EnergyCoefficient.hpp"
+#include "Coefficients/MobilityCoefficient.hpp"
+#include "Coefficients/PhaseChangeFunction.hpp"
 #include "Operators/OperatorBase.hpp"
 #include "Operators/SteadyReducedOperator.hpp"
 #include "Options/Options.hpp"
+#include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Profiling/Profiling.hpp"
+#include "Solvers/LSolver.hpp"
+#include "Solvers/NLSolver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
+#include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -47,21 +46,22 @@
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 class SteadyOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI> {
  private:
-  SteadyPhaseFieldReducedOperator* steady_reduced_oper;
+  SteadyPhaseFieldReducedOperator *steady_reduced_oper;
 
  public:
-  explicit SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials);
+  explicit SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials);
 
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
                      std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                     const Parameters& params);
+  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params);
 
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
+  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM> *> spatials,
+                     const Parameters &params,
                      std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
-  void Mult(const mfem::Vector& k, mfem::Vector& y) const override;
+  void Mult(const mfem::Vector &k, mfem::Vector &y) const override;
   // mfem::Operator &GetGradient(const mfem::Vector &k) const override;
 
   virtual ~SteadyOperatorBase();
@@ -70,17 +70,17 @@ class SteadyOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI> {
   void set_default_properties() override = 0;
 
   // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
-  void initialize(const double& initial_time, Variables<T, DIM>& vars,
-                  std::vector<Variables<T, DIM>*> auxvars) override;
+  void initialize(const double &initial_time, Variables<T, DIM> &vars,
+                  std::vector<Variables<T, DIM> *> auxvars) override;
   // Pure virtual methods
-  void SetConstantParameters(const double dt, const std::vector<mfem::Vector>& u_vect) override;
-  void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vet) override;
-  void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
-             const double& current_time, double dt, const int iter) override;
-  NLFI* set_nlfi_ptr(const double dt, const std::vector<mfem::Vector>& u) override = 0;
+  void SetConstantParameters(const double dt, const std::vector<mfem::Vector> &u_vect) override;
+  void SetTransientParameters(const double dt, const std::vector<mfem::Vector> &u_vet) override;
+  void solve(std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+             const double &current_time, double dt, const int iter) override;
+  NLFI *set_nlfi_ptr(const double dt, const std::vector<mfem::Vector> &u) override = 0;
   void get_parameters() override = 0;
-  void ComputeEnergies(const int& it, const double& t, const double& dt,
-                       const std::vector<mfem::Vector>& u) override = 0;
+  void ComputeEnergies(const int &it, const double &t, const double &dt,
+                       const std::vector<mfem::Vector> &u) override = 0;
 };
 
 ////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ class SteadyOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI> {
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials)
+    std::vector<SpatialDiscretization<T, DIM> *> spatials)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -114,7 +114,7 @@ SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    std::vector<SpatialDiscretization<T, DIM> *> spatials,
     std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, source_term_name), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
@@ -133,7 +133,7 @@ SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params)
+    std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -152,7 +152,7 @@ SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
+    std::vector<SpatialDiscretization<T, DIM> *> spatials, const Parameters &params,
     std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params, source_term_name),
       steady_reduced_oper(NULL) {
@@ -172,7 +172,7 @@ SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SteadyOperatorBase(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
-    const double& initial_time, Variables<T, DIM>& vars, std::vector<Variables<T, DIM>*> auxvars) {
+    const double &initial_time, Variables<T, DIM> &vars, std::vector<Variables<T, DIM> *> auxvars) {
   Catch_Time_Section("SteadyOperatorBase::initialize");
 
   OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(initial_time, vars, auxvars);
@@ -190,8 +190,8 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
-    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
-    const double& current_time, double dt, const int iter) {
+    std::vector<std::unique_ptr<mfem::Vector>> &vect_unk, double &next_time,
+    const double &current_time, double dt, const int iter) {
   this->current_time_ = current_time;
   this->current_dt_ = dt;
 
@@ -202,8 +202,8 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   mfem::BlockVector block_unk(this->block_trueOffsets_);
   std::vector<mfem::Vector> u_vect;
   for (size_t i = 0; i < unk_size; i++) {
-    auto& unk_i = *(vect_unk[i]);
-    mfem::Vector& bb = block_unk.GetBlock(i);
+    auto &unk_i = *(vect_unk[i]);
+    mfem::Vector &bb = block_unk.GetBlock(i);
     bb = unk_i;
     u_vect.emplace_back(unk_i);
   }
@@ -224,8 +224,8 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
       if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
-        mfem::Vector& src_i = source_term.GetBlock(i);
+        mfem::ParLinearForm *RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::Vector &src_i = source_term.GetBlock(i);
         this->get_source_term(i, this->src_func_[i], src_i, RHS);
         delete RHS;
       }
@@ -235,8 +235,8 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   delete this->rhs_solver_;
 
   for (size_t i = 0; i < unk_size; i++) {
-    auto& unk_i = *(vect_unk[i]);
-    const mfem::Vector& bb = block_unk.GetBlock(i);
+    auto &unk_i = *(vect_unk[i]);
+    const mfem::Vector &bb = block_unk.GetBlock(i);
     unk_i = bb;
   }
   next_time = current_time + static_cast<double>(iter) * dt;
@@ -257,7 +257,7 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
-    const double dt, const std::vector<mfem::Vector>& u_vect) {
+    const double dt, const std::vector<mfem::Vector> &u_vect) {
   // Catch_Time_Section("OperatorBase::SetConstantParameters");
   // Nothing to be done
 }
@@ -269,7 +269,7 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
 void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
-    const double dt, const std::vector<mfem::Vector>& u_vect) {
+    const double dt, const std::vector<mfem::Vector> &u_vect) {
   Catch_Time_Section("SteadyOperatorBase::SetTransientParameters");
 
   ////////////////////////////////////////////
@@ -305,8 +305,8 @@ void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
  * @param y
  */
 template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector& k,
-                                                      mfem::Vector& y) const {
+void SteadyOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector &k,
+                                                      mfem::Vector &y) const {
   // Nothing to be done because of manage by steadyreducedoperator
 }
 
