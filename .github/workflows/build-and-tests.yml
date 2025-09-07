@@ -34,7 +34,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich wget unzip
+        sudo apt-get install -y mpich wget unzip libboost-all-dev
         
     - name: Install MFEM
       shell: spack-bash {0}

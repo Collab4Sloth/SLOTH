@@ -59,7 +59,6 @@ int main(int argc, char* argv[]) {
   using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //

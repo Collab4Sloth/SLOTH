@@ -51,7 +51,6 @@ int main(int argc, char* argv[]) {
   using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
   using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -177,7 +176,6 @@ int main(int argc, char* argv[]) {
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
 
-  // time.get_tree();
   time.solve();
   //---------------------------------------
   // Profiling stop

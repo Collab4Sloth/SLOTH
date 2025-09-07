@@ -59,7 +59,6 @@ include(HEADER4SLOTH)
 # # Doc Configuration
 # ########################
 if(NOT TARGET doc)
-  add_custom_target(doc)
   add_subdirectory(doc)
 endif(NOT TARGET doc)
 

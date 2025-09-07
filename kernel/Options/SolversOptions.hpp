@@ -131,7 +131,7 @@ const auto print_level = 0;
  */
 namespace HYPRE_PCG_DefaultConstant {
 const auto iter_max = 100;
-const auto tol = 1.e-6;
+const auto tol = 1.e-12;
 // const auto abs_tol = 1.e-6;
 const auto print_level = 0;
 }  // namespace HYPRE_PCG_DefaultConstant
@@ -141,10 +141,9 @@ const auto print_level = 0;
  *
  */
 namespace HYPRE_GMRES_DefaultConstant {
-const auto iter_max = 100;
-const auto tol = 1.e-6;
-// const auto abs_tol = 1.e-6;
-const auto kdim = 50;
+const auto iter_max = 5000;
+const auto tol = 1.e-12;
+const auto kdim = 100;
 const auto print_level = 0;
 }  // namespace HYPRE_GMRES_DefaultConstant
 
@@ -153,10 +152,9 @@ const auto print_level = 0;
  *
  */
 namespace HYPRE_FGMRES_DefaultConstant {
-const auto iter_max = 100;
-const auto tol = 1.e-6;
-// const auto abs_tol = 1.e-6;
-const auto kdim = 50;
+const auto iter_max = 5000;
+const auto tol = 1.e-12;
+const auto kdim = 100;
 const auto print_level = 0;
 }  // namespace HYPRE_FGMRES_DefaultConstant
 
