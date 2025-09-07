@@ -11,6 +11,7 @@ namespace MATools
 		 */
 		void initialize()
 		{
+      active();
 			MATools::MAOutput::printMessage("MATimers_LOG: MATimers initialization ");
 			MATimerNode*& root_timer_ptr 	= MATools::MATimer::get_MATimer_node<ROOT>() ;
 			MATimerNode*& current 	        = MATools::MATimer::get_MATimer_node<CURRENT>(); 
@@ -27,9 +28,12 @@ namespace MATools
 		 */
 		void print_and_write_timers()
 		{
-			MATools::MATimer::end_global_timer<ROOT>(); 
-			MATools::MAOutputManager::write_file(); 
-			MATools::MAOutputManager::print_timetable<ROOT>();
+      if(is_enable())
+      {
+			  MATools::MATimer::end_global_timer<ROOT>(); 
+			  MATools::MAOutputManager::write_file(); 
+			  MATools::MAOutputManager::print_timetable<ROOT>();
+      }
 		}
 
 
@@ -38,25 +42,26 @@ namespace MATools
 		 */
 		void print()
 		{
-			using namespace MATools::MATimer::Optional;
-			using namespace MATools::MAOutput;
-			MATimerNode* root_ptr 	 = MATools::MATimer::get_MATimer_node<ROOT>() ;
-			MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>() ;
-			assert(root_ptr != nullptr);
-			assert(current_ptr != nullptr);
+      if(is_enable())
+      {
+			  using namespace MATools::MATimer::Optional;
+			  using namespace MATools::MAOutput;
+			  MATimerNode* root_ptr 	 = MATools::MATimer::get_MATimer_node<ROOT>() ;
+			  MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>() ;
+			  assert(root_ptr != nullptr);
+			  assert(current_ptr != nullptr);
 
-			MATools::MATimer::end_global_timer<ROOT>(); 
-			//if(is_full_tree_mode())
-			//	MATools::MATimer::FullTreeMode::build_full_tree();
+			  MATools::MATimer::end_global_timer<ROOT>(); 
 
-			if(is_print_timetable())
-				MATools::MAOutputManager::print_timetable<enumTimer::ROOT>();
+			  if(is_print_timetable())
+				  MATools::MAOutputManager::print_timetable<enumTimer::ROOT>();
 
-			if(is_write_file())
-			{
-				MATools::MAOutput::printMessage("MATimers_LOG: Writing timetable ... ");
-				MATools::MAOutputManager::write_file(); 
-			}
+			  if(is_write_file())
+			  {
+			  	MATools::MAOutput::printMessage("MATimers_LOG: Writing timetable ... ");
+				  MATools::MAOutputManager::write_file(); 
+		  	}
+      }
 		}
 
 
@@ -65,14 +70,16 @@ namespace MATools
 		 */
 		void finalize()
 		{
-			using namespace MATools::MATimer::Optional;
-			using namespace MATools::MAOutput;
-			MATimerNode* root_ptr 	 = MATools::MATimer::get_MATimer_node<ROOT>() ;
-			MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>() ;
-			//delete root_ptr;
-			//delete current_ptr;
-			//root_ptr = nullptr;
-			//current_ptr = nullptr;
+      if(is_enable()) 
+      {
+			  using namespace MATools::MATimer::Optional;
+			  using namespace MATools::MAOutput;
+			  MATimerNode* root_ptr 	 = MATools::MATimer::get_MATimer_node<ROOT>() ;
+			  MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>() ;
+			  root_ptr = nullptr;
+			  current_ptr = nullptr;
+      }
+      disactive();
 		}
 	};
 };

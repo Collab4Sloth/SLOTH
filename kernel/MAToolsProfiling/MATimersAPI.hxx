@@ -16,16 +16,19 @@
 std::chrono::duration<double>* get_duration(std::string a_name)
 {
   auto& ptr = MATools::MATimer::get_MATimer_node<CURRENT>();
-  assert(ptr != nullptr && "do not use an undefined MATimerNode");
-  ptr = ptr->find(a_name);
-  ptr -> update_count();
-  MATools::MATimer::print_verbosity_level_1(a_name, ptr->get_level());
-  return ptr-> get_ptr_duration();
+  if(MATools::MATimer::is_enable())
+  {
+    assert(ptr != nullptr && "do not use an undefined MATimerNode");
+    ptr = ptr->find(a_name);
+    ptr -> update_count();
+    MATools::MATimer::print_verbosity_level_1(a_name, ptr->get_level());
+    return ptr-> get_ptr_duration();
+  }
+  return nullptr;
 }
 
 #define Catch_Time_Section(XNAME)\
   MATools::MATimer::Timer VARNAME()(get_duration(XNAME));
-
 
 // alias
 #define Catch_Nested_Time_Section(XNAME) Catch_Time_Section(XNAME)
