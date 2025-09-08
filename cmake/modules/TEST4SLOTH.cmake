@@ -45,6 +45,3 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
   set_compile_options(${CURRENT_EXE})
   install(TARGETS ${CURRENT_EXE})
 endfunction(create_test)
-
-function(create_test_options exe_name test_name test_will_fail test_label test_cpu test_options)
-endfunction(create_test)
