@@ -14,9 +14,11 @@ class Sloth(CMakePackage):
     url      = "https://github.com/Collab4Sloth/SLOTH.git"
 
     version('master', git='https://github.com/Collab4Sloth/SLOTH.git',  branch='master', preferred=True)
+    version('1.0.0-beta.1', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-beta.1')
     version('1.0.0-alpha', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha')
     version('1.0.0-alpha.1', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha.1')
     version('1.0.0-alpha.2', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha.2')
+    version('1.0.0-alpha.3', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha.3')
 
     variant('petsc'       , default=True  , description='Enable PETSc solvers, preconditioners, etc.')
 
