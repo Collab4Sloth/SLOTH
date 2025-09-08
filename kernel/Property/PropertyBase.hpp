@@ -1,12 +1,30 @@
 
 /**
  * @file PropertyBase.hpp
- * @author ci230846  (clement.introini@cea.fr)
+ * @author Clément Introïni (clement.introini@cea.fr)
  * @brief Base class for Property objects
  * @version 0.1
- * @date 2025-01-07
+ * @date 2025-09-05
  *
- * Copyright CEA (c) 2025
+ * @anchor PropertyBase
+ *
+ *
+ * Copyright CEA (C) 2025
+ *
+ * This file is part of SLOTH.
+ *
+ * SLOTH is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SLOTH is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
 #include <algorithm>
@@ -18,17 +36,17 @@
 #include <tuple>
 #include <vector>
 
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "MAToolsProfiling/MATimersAPI.hxx"
 
 #pragma once
 
 class PropertyBase {
  protected:
   // Parameters of the property
-  const Parameters &params_;
+  const Parameters& params_;
 
   // Flag used to avoid verification at each time-step
   bool is_checked_{false};
@@ -40,8 +58,8 @@ class PropertyBase {
    * @param input_system  The inputs of the property problem (auxiliary variables).
    */
   virtual void check_variables_consistency(
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
-          &output_system,
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
+          output_system,
       std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) = 0;
 
   /**
@@ -54,15 +72,15 @@ class PropertyBase {
    * @param input_system  The inputs of the property problem (auxiliary variables).
    */
   virtual void get_property(
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
-          &output_system,
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
+          output_system,
       std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) = 0;
 
  public:
-  explicit PropertyBase(const Parameters &params);
+  explicit PropertyBase(const Parameters& params);
   void compute(
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
-          &output_system,
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
+          output_system,
       std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system);
 
   virtual ~PropertyBase() = default;
@@ -72,7 +90,7 @@ class PropertyBase {
  * @brief Construct a new PropertyBase::PropertyBase object
  *
  */
-PropertyBase::PropertyBase(const Parameters &params) : params_(params) {}
+PropertyBase::PropertyBase(const Parameters& params) : params_(params) {}
 
 /**
  * @brief Compute the variables (properties) as functions of auxiliary variables
@@ -81,8 +99,8 @@ PropertyBase::PropertyBase(const Parameters &params) : params_(params) {}
  * @param input_system  The inputs of the property problem (auxiliary variables).
  */
 void PropertyBase::compute(
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
-        &output_system,
+    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
+        output_system,
     std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system) {
   if (!this->is_checked_) {
     this->check_variables_consistency(output_system, input_system);

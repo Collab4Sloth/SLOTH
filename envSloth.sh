@@ -65,6 +65,14 @@ for argument; do
         built_code="Optim"
         Print "Sloth built with Optim compiler options "
         ;;
+    --minsizerel)
+        built_code="MinSizeRel"
+        Print "Sloth built with MinSizeRel compiler options "
+        ;;
+    --relwithdebinfo)
+        built_code="RelWithDebInfo"
+        Print "Sloth built with RelWithDebInfo compiler options "
+        ;;
     --libtorch)
         export LIBTORCH=$(to_absolute_path "$value")
         if [[ ! -d "$LIBTORCH" ]]; then

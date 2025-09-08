@@ -56,7 +56,6 @@ endif()
 
 
 # LibTorch API ??
-option(SLOTH_USE_LIBTORCH "Enable the use of libtorch API" OFF)
 if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
     MESSAGE(STATUS "Sloth use libTorch API ")

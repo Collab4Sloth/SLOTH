@@ -1,11 +1,29 @@
-/*
- * Copyright © CEA 2023
+/**
+ * @file BoundaryConditions.hpp
+ * @author Clément Introïni (clement.introini@cea.fr)
+ * @brief BoundaryConditions class used to build and manage boundary conditions
+ * @version 0.1
+ * @date 2025-09-05
  *
- * \brief BoundaryConditions class used to build and manage boundary conditions
+ * @anchor bcs
  *
- * \file BoundaryConditions.hpp
- * \author ci230846
- * \date 23/03/2023
+ * Copyright CEA (C) 2025
+ *
+ * This file is part of SLOTH.
+ *
+ * SLOTH is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SLOTH is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 #include <limits>
 #include <map>
@@ -26,8 +44,8 @@
 template <class T, int DIM>
 class BoundaryConditions {
  private:
-  T *fecollection_;
-  mfem::ParFiniteElementSpace *fespace_;
+  T* fecollection_;
+  mfem::ParFiniteElementSpace* fespace_;
   mfem::Array<int> Dirichlet_bdr_;
   mfem::Array<double> Dirichlet_value_;
   mfem::Array<int> ess_tdof_list_;
@@ -35,8 +53,8 @@ class BoundaryConditions {
 
  public:
   template <class... Args>
-  BoundaryConditions(SpatialDiscretization<T, DIM> *spatial, const Args &...boundaries);
-  void SetBoundaryConditions(mfem::Vector &u);
+  BoundaryConditions(SpatialDiscretization<T, DIM>* spatial, const Args&... boundaries);
+  void SetBoundaryConditions(mfem::Vector& u);
   mfem::Array<int> GetEssentialDofs();
   ~BoundaryConditions();
 };
@@ -51,8 +69,8 @@ class BoundaryConditions {
  */
 template <class T, int DIM>
 template <class... Args>
-BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *spatial,
-                                               const Args &...boundaries) {
+BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* spatial,
+                                               const Args&... boundaries) {
   bool must_be_periodic = spatial->is_periodic();
 
   this->fespace_ = spatial->get_finite_element_space();
@@ -68,7 +86,7 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
   Dirichlet_bdr_.SetSize(mesh_max_bdr_attributes);
   Dirichlet_value_.SetSize(mesh_max_bdr_attributes);
   bool exist_periodic_bdr = false;
-  for (const auto &bdr : bdrs) {
+  for (const auto& bdr : bdrs) {
     if (bdr.is_periodic_boundary()) {
       exist_periodic_bdr = true;
       break;
@@ -92,8 +110,8 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM> *sp
   if (exist_periodic_bdr || test_standard_bdr) {
     std::unordered_set<int> id_seen;
 
-    for (const auto &bdr : bdrs) {
-      const auto &id = bdr.get_boundary_index();
+    for (const auto& bdr : bdrs) {
+      const auto& id = bdr.get_boundary_index();
       // Check index value
       if (id >= static_cast<int>(mesh_max_bdr_attributes)) {
         std::string msg = "BoundaryConditions::BoundaryConditions(): bad index " +
@@ -143,7 +161,7 @@ mfem::Array<int> BoundaryConditions<T, DIM>::GetEssentialDofs() {
  * @param u unknown vector
  */
 template <class T, int DIM>
-void BoundaryConditions<T, DIM>::SetBoundaryConditions(mfem::Vector &u) {
+void BoundaryConditions<T, DIM>::SetBoundaryConditions(mfem::Vector& u) {
   mfem::Array<int> tmp_array_bdr(this->Dirichlet_bdr_.Size());
   for (auto i = 0; i < this->Dirichlet_bdr_.Size(); i++) {
     tmp_array_bdr = 0;
