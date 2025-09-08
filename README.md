@@ -33,7 +33,7 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md). Main guidelines are:
   
     ---    
     - [Clément Introïni](https://www.researchgate.net/profile/Clement-Introini) (Phase-Field, Computer Science, Material Science)
-    - [Raphaël Prat]() (Computer Science, HPC)
+    - [Raphaël Prat](https://www.researchgate.net/profile/Raphael-Prat) (Computer Science, HPC)
 
 
 
@@ -42,7 +42,9 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md). Main guidelines are:
     ---
     - [Alessandro Scapini (PhD 2024-2027)]()
     - [Clément Plumecocq (PhD 2023-2026)]()
-    - [Mouad Bakhkhakh (Master 2024)]()
+    - [Victor Navarre (Master 2025)]()
+    - [Jules Czuckermand (Master 2025)]()     
+    - [Mouad Bakhkakh (Master 2024)]()
     - [Etienne Delobre (Master 2023)]()
 
 
