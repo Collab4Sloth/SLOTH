@@ -65,6 +65,14 @@ for argument; do
         built_code="Optim"
         Print "Sloth built with Optim compiler options "
         ;;
+    --minsizerel)
+        built_code="MinSizeRel"
+        Print "Sloth built with MinSizeRel compiler options "
+        ;;
+    --relwithdebinfo)
+        built_code="RelWithDebInfo"
+        Print "Sloth built with RelWithDebInfo compiler options "
+        ;;
     --libtorch)
         export LIBTORCH=$(to_absolute_path "$value")
         if [[ ! -d "$LIBTORCH" ]]; then
@@ -235,7 +243,7 @@ else
     #  Linux and Spack
     #=============================================
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        spack load mfem
+        spack load mfem@4.8.0
         export HYPRE_DIR=$(spack location -i hypre)
         export MPI_DIR=$(spack location -i mpi)
         export METIS_DIR=$(spack location -i metis)
