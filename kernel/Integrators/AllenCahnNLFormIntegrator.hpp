@@ -38,7 +38,7 @@
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Profiling/Profiling.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 

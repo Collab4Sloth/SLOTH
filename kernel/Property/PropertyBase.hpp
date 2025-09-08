@@ -36,7 +36,7 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Profiling/Profiling.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 
 #pragma once
 

@@ -11,6 +11,19 @@ set(CMAKE_CXX_EXTENSIONS NO)
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
 
+## Force Release Mode
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+endif()
+
+## Debug option
+option(MATOOLS_VERBOSITY_LEVEL_1 "add verbosity level 1" OFF)
+
+if(MATOOLS_VERBOSITY_LEVEL_1)
+	add_definitions(-DMATIMERS_VEROBSITY_LEVEL_1)
+endif()
+
 # Check GCC version
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
@@ -101,6 +114,7 @@ if(NOT TARGET lint)
     --counting=total
     --extensions=cpp,cxx,hpp,h,hxx
     --linelength=100
+    --exclude ${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling
     --recursive ${CMAKE_SOURCE_DIR}/kernel ${CMAKE_SOURCE_DIR}/tests
     COMMENT "Linting source files"
   )

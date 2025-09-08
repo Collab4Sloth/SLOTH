@@ -4,24 +4,24 @@
  * @brief  Transient Operator base
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include <memory>
@@ -29,11 +29,11 @@
 #include <vector>
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Operators/OperatorBase.hpp"
 #include "Operators/ReducedOperator.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Profiling/Profiling.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
@@ -596,44 +596,53 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
   mfem::Vector dv_dt(du_dt.GetData(), sc);
   const int fes_size = this->block_trueOffsets_.Size() - 1;
 
-  std::vector<mfem::Vector> v_vect;
-
-  auto sc_1 = 0;
-  auto sc_2 = sc / fes_size;
-  for (int i = 0; i < fes_size; ++i) {
-    mfem::Vector v_i(u.GetData() + sc_1, sc_2);
-    sc_1 += sc_2;
-    v_vect.emplace_back(v_i);
+  {
+    Catch_Time_Section("ImplicitSolve::SetTransientParams");
+    std::vector<mfem::Vector> v_vect;
+    auto sc_1 = 0;
+    auto sc_2 = sc / fes_size;
+    for (int i = 0; i < fes_size; ++i) {
+      mfem::Vector v_i(u.GetData() + sc_1, sc_2);
+      sc_1 += sc_2;
+      v_vect.emplace_back(v_i);
+    }
+    this->SetTransientParameters(dt, v_vect);
   }
-
-  this->SetTransientParameters(dt, v_vect);
   // Apply BCs
-  sc_1 = 0;
-  sc_2 = sc / fes_size;
-  for (int i = 0; i < fes_size; ++i) {
-    mfem::Vector v_i(u.GetData() + sc_1, sc_2);
-    this->bcs_[i]->SetBoundaryConditions(v_i);
-    sc_1 += sc_2;
+  {
+    Catch_Time_Section("ImplicitSolve::ApplyBCs");
+    auto sc_1 = 0;
+    auto sc_2 = sc / fes_size;
+    for (int i = 0; i < fes_size; ++i) {
+      mfem::Vector v_i(u.GetData() + sc_1, sc_2);
+      this->bcs_[i]->SetBoundaryConditions(v_i);
+      sc_1 += sc_2;
+    }
+    reduced_oper->SetParameters(dt, &v);
   }
-  reduced_oper->SetParameters(dt, &v);
-
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
-  if (!this->src_func_.empty()) {
-    for (int i = 0; i < fes_size; ++i) {
-      if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
-        mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, RHS);
-        delete RHS;
+  {
+    Catch_Time_Section("ImplicitSolve::SourceTerm");
+    if (!this->src_func_.empty()) {
+      for (int i = 0; i < fes_size; ++i) {
+        if (this->src_func_[i] != nullptr) {
+          mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
+          mfem::Vector& src_i = source_term.GetBlock(i);
+          this->get_source_term(i, this->src_func_[i], src_i, RHS);
+          delete RHS;
+        }
       }
     }
   }
 
   // source_term.Print();
-  this->newton_solver_->Mult(source_term, dv_dt);
-  delete this->rhs_solver_;
+  {
+    Catch_Time_Section("ImplicitSolve::CallMult");
+    this->newton_solver_->Mult(source_term, dv_dt);
+    delete this->rhs_solver_;
+  }
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
 }
