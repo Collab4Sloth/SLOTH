@@ -1,6 +1,12 @@
 SLOTH 
 =====
 
+[![Build](https://github.com/Collab4Sloth/SLOTH/actions/workflows/build-and-tests.yml/badge.svg?color=green)](https://github.com/Collab4Sloth/SLOTH/actions/workflows/build-and-tests.yml)
+![C++17](https://img.shields.io/badge/C%2B%2B-17|20-cyan.svg)
+[![License](https://img.shields.io/github/license/Collab4Sloth/SLOTH.svg)](https://github.com/Collab4Sloth/SLOTH/blob/main/LICENSE)
+
+_____________
+
 Phase-field methods represent a versatile and effective approach to modelling the spatiotemporal evolution of complex physical systems that exhibit significant heterogeneities, such as phase transitions, coalescence, and cracking. These methods have found extensive application in the field of materials science, including in the modelling of the behaviour of nuclear fuels. 
 
 The phase-field approach has also been employed in recent studies conducted with the multiphysics computational tools of the PLEIADES platform. Broadly speaking, the `PLEIADES`/Fuel Performance Codes aim at providing a state-of-the-art multiphysics multiscale description of the fuel under irradiated conditions. The inclusion of advanced multiphysics and multiscale modelling such as phase-field, is a logical step forward.
