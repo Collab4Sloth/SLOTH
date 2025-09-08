@@ -28,8 +28,6 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
-  // Profiling
-  Profiling::getInstance().enable();
   //---------------------------------------
   // Common aliases
   //---------------------------------------

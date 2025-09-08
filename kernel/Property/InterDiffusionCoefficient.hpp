@@ -22,7 +22,7 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "MAToolsProfiling/MATimersAPI.hxx"
+#include "Profiling/Profiling.hpp"
 #include "Property/PropertyBase.hpp"
 
 #pragma once

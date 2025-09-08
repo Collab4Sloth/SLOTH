@@ -30,8 +30,6 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
-  // Profiling
-  Profiling::getInstance().enable();
   //---------------------------------------
   // Common aliases
   //---------------------------------------
@@ -229,11 +227,6 @@ int main(int argc, char* argv[]) {
   auto time = TimeDiscretization(time_parameters, main_coupling, checking_coupling);
 
   time.solve();
-  //---------------------------------------
-  // Profiling stop
-  //---------------------------------------
-  Profiling::getInstance().print();
-
 
   //---------------------------------------
   // Finalize MPI

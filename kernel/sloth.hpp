@@ -79,6 +79,8 @@
 #include "Problems/Problem.hpp"
 #include "Problems/ProblemBase.hpp"
 #include "Problems/PropertyProblem.hpp"
+#include "Profiling/Profiling.hpp"
+#include "Profiling/Timer.hpp"
 #include "Property/InterDiffusionCoefficient.hpp"
 #include "Property/PropertyBase.hpp"
 #include "Solvers/DSolverBase.hpp"
