@@ -243,7 +243,7 @@ else
     #  Linux and Spack
     #=============================================
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        spack load mfem@4.8.0
+        spack load mfem
         export HYPRE_DIR=$(spack location -i hypre)
         export MPI_DIR=$(spack location -i mpi)
         export METIS_DIR=$(spack location -i metis)
