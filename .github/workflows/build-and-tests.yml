@@ -48,7 +48,7 @@ jobs:
           echo "F77=$(which gfortran)" >> $GITHUB_ENV
           echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
           spack install hypre@2.33.0%gcc
-          spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.7.0
+          spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
         
     - name: Download and extract libtorch
       run: |
