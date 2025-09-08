@@ -56,6 +56,16 @@ include(COMPILE4SLOTH)
 
 
 
+# ########################
+# LibTorch API ??
+# ########################
+option(SLOTH_USE_LIBTORCH "Enable the use of libtorch API" OFF)
+if(SLOTH_USE_LIBTORCH)
+    find_package(Torch REQUIRED)
+endif(SLOTH_USE_LIBTORCH)
+
+
+
 include(TEST4SLOTH)
 
 include(CTest)
@@ -70,7 +80,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Coverage)
   # Collect CodeCoverage analysis with gcovr
   add_custom_target(cc
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
-    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --sort uncovered-number --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
+    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --sort-uncovered --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
     COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
   )
 ENDIF()
