@@ -100,6 +100,7 @@ if(NOT TARGET lint)
     --counting=total
     --extensions=cpp,cxx,hpp,h,hxx
     --linelength=100
+    --exclude ${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling
     --recursive ${CMAKE_SOURCE_DIR}/kernel ${CMAKE_SOURCE_DIR}/tests
     COMMENT "Linting source files"
   )
