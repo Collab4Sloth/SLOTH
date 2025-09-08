@@ -28,7 +28,7 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Profiling/Profiling.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Solvers/LSolver.hpp"
 #include "Solvers/NLSolver.hpp"
 #include "Spatial/Spatial.hpp"
