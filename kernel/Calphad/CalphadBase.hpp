@@ -5,24 +5,27 @@
  * @brief Base class for Calphad objets
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
+ * @anchor CalphadBase
+ *
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include <algorithm>
@@ -38,10 +41,10 @@
 
 #include "Calphad/CalphadUtils.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "MAToolsProfiling/MATimersAPI.hxx"
 
 #pragma once
 // Previous declaration of the KKS class
@@ -75,13 +78,13 @@ class CalphadBase {
 
   void update_outputs(
       const int dt, const size_t nb_nodes,
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
-      const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
-          &previous_output_system);
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system,
+      const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>&
+          previous_output_system);
 
  public:
   // Parameters for CALPHAD problems
-  const Parameters &params_;
+  const Parameters& params_;
 
   // Symbol of the chemical element removed from the system when initializing equilibrium
   // calculations (performed with molar fractions).
@@ -111,27 +114,27 @@ class CalphadBase {
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
 
-  explicit CalphadBase(const Parameters &params);
-  CalphadBase(const Parameters &params, bool is_KKS);
+  explicit CalphadBase(const Parameters& params);
+  CalphadBase(const Parameters& params, bool is_KKS);
 
   virtual void get_parameters();
 
   virtual void initialize(
-      const std::vector<std::tuple<std::string, std::string>> &sorted_chemical_system) = 0;
+      const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) = 0;
 
   void global_execute(
-      const int dt, const double time_step, const std::vector<T> &tp_gf,
-      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
-      const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
+      const int dt, const double time_step, const std::vector<T>& tp_gf,
+      const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+      std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system,
+      const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>& previous_output_system,
       std::optional<const std::tuple<std::string, T, T>> phase_fields = std::nullopt,
       std::optional<const std::vector<T>> tp_gf_old = std::nullopt,
       std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf =
           std::nullopt,
       std::optional<const std::vector<std::tuple<std::string, T>>> coordinates = std::nullopt);
 
-  virtual void execute(const int dt, const std::set<int> &list_nodes, const std::vector<T> &tp_gf,
-                       const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
+  virtual void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+                       const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
                        std::optional<std::vector<std::tuple<std::string, std::string, double>>>
                            status_phase = std::nullopt) = 0;
 
@@ -147,7 +150,7 @@ class CalphadBase {
  * @param params The parameters to initialize the CalphadBase object.
  */
 template <typename T>
-CalphadBase<T>::CalphadBase(const Parameters &params) : CalphadBase(params, false) {
+CalphadBase<T>::CalphadBase(const Parameters& params) : CalphadBase(params, false) {
   this->CU_ = std::make_shared<CalphadUtils<T>>();
   this->get_parameters();
 }
@@ -160,7 +163,7 @@ CalphadBase<T>::CalphadBase(const Parameters &params) : CalphadBase(params, fals
  * @param is_KKS A boolean flag indicating whether to initialize KKS.
  */
 template <typename T>
-CalphadBase<T>::CalphadBase(const Parameters &params, bool is_KKS)
+CalphadBase<T>::CalphadBase(const Parameters& params, bool is_KKS)
     : params_(params), is_KKS_(is_KKS) {
   this->KKS_ = std::make_shared<KKS<T>>();
   this->get_parameters();
@@ -199,10 +202,10 @@ void CalphadBase<T>::get_parameters() {
  */
 template <typename T>
 void CalphadBase<T>::global_execute(
-    const int dt, const double time_step, const std::vector<T> &tp_gf,
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
-    const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system,
+    const int dt, const double time_step, const std::vector<T>& tp_gf,
+    const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system,
+    const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>& previous_output_system,
     std::optional<const std::tuple<std::string, T, T>> phase_field_gf,
     std::optional<const std::vector<T>> tp_gf_old,
     std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf,
@@ -275,15 +278,15 @@ void CalphadBase<T>::clear_containers() {
 template <typename T>
 void CalphadBase<T>::update_outputs(
     const int dt, const size_t nb_nodes,
-    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>> &output_system,
-    const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> &previous_output_system) {
+    std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system,
+    const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>& previous_output_system) {
   Catch_Time_Section("CalphadBase<T>::update_outputs");
 
   ////////////////////
   // Update outputs //
   ////////////////////
   T output(nb_nodes);
-  auto get_or_default = [&](const auto &map, const auto &key, auto default_value) {
+  auto get_or_default = [&](const auto& map, const auto& key, auto default_value) {
     if (map.contains(key)) {
       return map.at(key);
     } else {
@@ -293,15 +296,15 @@ void CalphadBase<T>::update_outputs(
   int id_output = -1;
   double default_value = 0.;
 
-  for (auto &[output_infos, output_value] : output_system) {
+  for (auto& [output_infos, output_value] : output_system) {
     id_output++;
-    const std::string &output_type = output_infos.back();
+    const std::string& output_type = output_infos.back();
 
     // Fill output with the relevant values
     switch (calphad_outputs::from(output_type)) {
       // Chemical potential of the elements
       case calphad_outputs::mu: {
-        const std::string &output_elem = output_infos[1];
+        const std::string& output_elem = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -314,7 +317,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Diffusion chemical potentials (reference is the element removed from initial condition)
       case calphad_outputs::dmu: {
-        const std::string &output_elem = output_infos[1];
+        const std::string& output_elem = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -327,7 +330,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Molar fraction of the phases
       case calphad_outputs::xph: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -340,8 +343,8 @@ void CalphadBase<T>::update_outputs(
       }
       // Molar fraction of the element by phase
       case calphad_outputs::xp: {
-        const std::string &output_elem = output_infos[1];
-        const std::string &output_phase = output_infos[2];
+        const std::string& output_elem = output_infos[1];
+        const std::string& output_phase = output_infos[2];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -354,9 +357,9 @@ void CalphadBase<T>::update_outputs(
       }
       // Site fractions
       case calphad_outputs::y: {
-        const std::string &output_cons = output_infos[1];
-        const int &output_sub = std::stoi(output_infos[2]);
-        const std::string &output_phase = output_infos[3];
+        const std::string& output_cons = output_infos[1];
+        const int& output_sub = std::stoi(output_infos[2]);
+        const std::string& output_phase = output_infos[3];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -370,7 +373,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Gibbs energy
       case calphad_outputs::g: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -383,7 +386,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Molar Gibbs energy
       case calphad_outputs::gm: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -396,7 +399,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Enthalpy
       case calphad_outputs::h: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -409,7 +412,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Molar enthalpy
       case calphad_outputs::hm: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -422,7 +425,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Driving force
       case calphad_outputs::dgm: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -446,8 +449,8 @@ void CalphadBase<T>::update_outputs(
       }
       // Mobility by element (if a model exists)
       case calphad_outputs::mob: {
-        const std::string &output_phase = output_infos[1];
-        const std::string &output_elem = output_infos[2];
+        const std::string& output_phase = output_infos[1];
+        const std::string& output_elem = output_infos[2];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
@@ -460,7 +463,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Seed for starting nucleation in KKS studies
       case calphad_outputs::nucleus: {
-        const std::string &output_phase = output_infos[1];
+        const std::string& output_phase = output_infos[1];
         for (std::size_t i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {

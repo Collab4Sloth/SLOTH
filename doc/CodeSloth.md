@@ -1,34 +1,34 @@
 # Code documentation
 
 - Data:
-  - AnalyticalFunctions	
+  - [Analytical Functions](@ref analytical)
   - Coefficients	
   - Parameters
   - Variables
-  - Options	
+  - [Options](@ref Options)
 
-- Spatial Discrtization:
-  - [Meshing](#SpatialDiscretization)	
-  - [BCs](#BoundaryConditions)	
+- Spatial Discretization:
+  - [Meshing](@ref meshing)	
+  - [BCs](@ref bcs)	
 
 - Multiphysics Coupling Scheme:
-  - [Time](#TimeDiscretization)		
-  - [Couplings](#Coupling)		
-  - [Problems](#ProblemBase)	
-  - [Solvers](#SolverBase)	
-  - [Convergence](#Convergence)
+  - [Time](@ref time)		
+  - [Couplings](@ref couplings)		
+  - [Problems](@ref ProblemBase)	
+  - [Solvers](@ref SolverBase)	
+  - [Convergence](@ref Convergence)
 
 - PostProcessing
 
 - Partial Differential Equations:
-  - [Integrators](#SlothNLFormIntegrator)	
-  - [Operators](#OperatorBase)
+  - [Integrators](@ref SlothNLFormIntegrator)	
+  - [Operators](@ref OperatorBase)
 
 - 0D problems: 
-  - [Calphad](#CalphadBase)
+  - [Calphad](@ref CalphadBase)
 - _The remainder_:
-  - [Property](#PropertyBase)	
+  - [Property](@ref PropertyBase)	
 
 - Utilities:
-  - Utils	
+  - [Utils](@ref Utils)
   - Profiling	
