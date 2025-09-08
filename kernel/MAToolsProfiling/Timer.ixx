@@ -24,6 +24,7 @@
  *
  */
 
+#pragma once
 namespace MATools {
 namespace MATimer {
 /**

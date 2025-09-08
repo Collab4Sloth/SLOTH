@@ -24,6 +24,7 @@
  *
  */
 
+#pragma once
 #include <chrono>  // NOLINT [unapproved C++11]
 #include <string>
 

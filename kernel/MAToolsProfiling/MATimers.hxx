@@ -24,6 +24,7 @@
  *
  */
 
+#pragma once
 #include <MAToolsProfiling/EnumTimer.hxx>
 #include <MAToolsProfiling/MAOutputManager.hxx>
 #include <MAToolsProfiling/MATimerInfo.hxx>

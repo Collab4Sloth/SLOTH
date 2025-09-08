@@ -24,6 +24,7 @@
  *
  */
 
+#pragma once
 #include <algorithm>
 #include <fstream>
 #include <string>

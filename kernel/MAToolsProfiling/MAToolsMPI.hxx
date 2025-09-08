@@ -24,7 +24,8 @@
  *
  */
 
-#include <mpi.h>
+#pragma once
+#include "mpi.h"
 
 /**
  * @namespace MATools

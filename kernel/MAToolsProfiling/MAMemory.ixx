@@ -23,6 +23,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 #include <MAToolsProfiling/MAMemory.hxx>
 #include <MAToolsProfiling/MAOutput.hxx>
 #include <MAToolsProfiling/MAToolsMPI.hxx>

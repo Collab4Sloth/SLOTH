@@ -24,6 +24,7 @@
  *
  */
 
+#pragma once
 #include "MAToolsProfiling/MATimerNode.hxx"
 
 namespace MATools {

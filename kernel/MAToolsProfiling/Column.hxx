@@ -23,8 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 #include <iostream>
 #include <string>
+
 // variables
 const int cWidth = 20;   // Column width
 const int nColumns = 6;  // Number of columns
