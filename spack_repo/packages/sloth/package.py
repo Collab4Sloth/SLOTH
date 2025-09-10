@@ -14,17 +14,13 @@ class Sloth(CMakePackage):
     url      = "https://github.com/Collab4Sloth/SLOTH.git"
 
     version('master', git='https://github.com/Collab4Sloth/SLOTH.git',  branch='master', preferred=True)
-    version('1.0.0-beta.1', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-beta.1')
-    version('1.0.0-alpha', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha')
-    version('1.0.0-alpha.1', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha.1')
-    version('1.0.0-alpha.2', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha.2')
-    version('1.0.0-alpha.3', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0-alpha.3')
+    version('1.0.0', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0', preferred=True)
 
-    variant('petsc'       , default=True  , description='Enable PETSc solvers, preconditioners, etc.')
+    variant('petsc'       , default=False  , description='Enable PETSc solvers, preconditioners, etc.')
 
     depends_on('hypre+int64', when='+petsc')
     depends_on('petsc+int64', when='+petsc')
-    depends_on('mfem@4.7.0:+mpi+suite-sparse+sundials+superlu-dist+miniapps')
-    depends_on('mfem@4.7.0:+petsc', when='+petsc')
+    depends_on('mfem@4.8.0:+mpi+suite-sparse+sundials+superlu-dist+miniapps')
+    depends_on('mfem@4.8.0:+petsc', when='+petsc')
     depends_on('cmake', type='build')
 

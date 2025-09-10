@@ -1,10 +1,10 @@
 SLOTH 
 =====
 
+[![Latest Release](https://img.shields.io/github/v/release/Collab4Sloth/SLOTH.svg)](https://github.com/Collab4Sloth/SLOTH/releases/latest)
 [![Build](https://github.com/Collab4Sloth/SLOTH/actions/workflows/build-and-tests.yml/badge.svg?color=green)](https://github.com/Collab4Sloth/SLOTH/actions/workflows/build-and-tests.yml)
-![C++17](https://img.shields.io/badge/C%2B%2B-17|20-cyan.svg)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-cyan.svg)
 [![License](https://img.shields.io/github/license/Collab4Sloth/SLOTH.svg)](https://github.com/Collab4Sloth/SLOTH/blob/main/LICENSE)
-
 _____________
 
 Phase-field methods represent a versatile and effective approach to modelling the spatiotemporal evolution of complex physical systems that exhibit significant heterogeneities, such as phase transitions, coalescence, and cracking. These methods have found extensive application in the field of materials science, including in the modelling of the behaviour of nuclear fuels. 
