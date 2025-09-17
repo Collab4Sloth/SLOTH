@@ -449,6 +449,13 @@ template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
   auto vars = this->get_problem_variables();
   this->pst_.save_variables(vars, iter, current_time);
+
+  // CCI AMR
+
+  for (auto& var : this->variables_.getVariables()) {
+    this->pst_.UpdateAndRebalance(var);
+  }
+  // CCI AMR
 }
 
 /**

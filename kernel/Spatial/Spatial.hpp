@@ -162,6 +162,7 @@ class SpatialDiscretization {
   mfem::ParMesh* mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
+  bool is_nc_simplices_ = {false};
 
   void set_finite_element_space();
 
@@ -220,6 +221,12 @@ struct specialized_spatial_constructor<T, 1> {
           // a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
           // CCI
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+          // CCI taken from ex15
+          // Make sure tet-only meshes are marked for local refinement.
+          tmp_mesh.Finalize(true);
+          // CCI
           a_my_class.mesh_ =
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
@@ -314,6 +321,11 @@ struct specialized_spatial_constructor<T, 1> {
           const auto nx = std::get<0>(tup_args);
           const auto sx = std::get<1>(tup_args);
           mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian1D(nx, sx);
+          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          // CCI taken from ex15
+          // Make sure tet-only meshes are marked for local refinement.
+          tmp_mesh.Finalize(true);
+          // CCI
           a_my_class.mesh_ =
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
@@ -372,6 +384,11 @@ struct specialized_spatial_constructor<T, 1> {
           tmp_mesh.Clear();
           mfem::Mesh tmp_mesh_periodic =
               mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+          tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          // CCI taken from ex15
+          // Make sure tet-only meshes are marked for local refinement.
+          tmp_mesh.Finalize(true);
+          // CCI
           a_my_class.mesh_ =
               mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
           tmp_mesh_periodic.Clear();
@@ -427,6 +444,12 @@ struct specialized_spatial_constructor<T, 2> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh(mesh_file, 1, 1);
+          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+          // CCI taken from ex15
+          // Make sure tet-only meshes are marked for local refinement.
+          tmp_mesh.Finalize(true);
+          // CCI
 
           a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD,
                                                tmp_mesh);  // definition of the parallel mesh
@@ -537,6 +560,12 @@ struct specialized_spatial_constructor<T, 2> {
       const auto sx = std::get<2>(tup_args);
       const auto sy = std::get<3>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
+      tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+      // CCI taken from ex15
+      // Make sure tet-only meshes are marked for local refinement.
+      tmp_mesh.Finalize(true);
+      // CCI
       a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel
                                                                        // mesh
       tmp_mesh.Clear();
@@ -597,6 +626,12 @@ struct specialized_spatial_constructor<T, 2> {
       tmp_mesh.Clear();
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+      tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+      // CCI taken from ex15
+      // Make sure tet-only meshes are marked for local refinement.
+      tmp_mesh.Finalize(true);
+      // CCI
       a_my_class.mesh_ =
           new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();
@@ -642,6 +677,12 @@ struct specialized_spatial_constructor<T, 3> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+          // CCI taken from ex15
+          // Make sure tet-only meshes are marked for local refinement.
+          tmp_mesh.Finalize(true);
+          // CCI
           a_my_class.mesh_ =
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
@@ -755,6 +796,12 @@ struct specialized_spatial_constructor<T, 3> {
       const auto sy = std::get<4>(tup_args);
       const auto sz = std::get<5>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
+      tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+      // CCI taken from ex15
+      // Make sure tet-only meshes are marked for local refinement.
+      tmp_mesh.Finalize(true);
+      // CCI
       a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
       tmp_mesh.Clear();
     } else {
@@ -817,6 +864,12 @@ struct specialized_spatial_constructor<T, 3> {
       tmp_mesh.Clear();
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+      tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+
+      // CCI taken from ex15
+      // Make sure tet-only meshes are marked for local refinement.
+      tmp_mesh.Finalize(true);
+      // CCI
       a_my_class.mesh_ =
           new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();

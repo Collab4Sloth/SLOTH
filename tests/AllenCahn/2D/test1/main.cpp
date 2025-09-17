@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles"};
   // std::vector<int> vect_order{1, 2};
   std::vector<int> vect_order{1};
-  std::vector<int> vect_NN{30, 60, 90, 120};
+  std::vector<int> vect_NN{30};  //, 60, 90, 120};
   for (const auto elem_type : vect_elem) {
     for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {
@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
         // ###########################################
         // ###########################################
         const double t_initial = 0.0;
-        const double t_final = 1.;
+        const double t_final = 2.e-3;
         const double dt = 1.e-3;
         auto time_params = Parameters(Parameter("initial_time", t_initial),
                                       Parameter("final_time", t_final), Parameter("time_step", dt));

@@ -4,24 +4,24 @@
  * @brief  Post-processing features
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #pragma once
@@ -53,6 +53,10 @@
 template <class T, class DC, int DIM>
 class PostProcessing : public DC {
  private:
+  // CCI AMR
+  mfem::ParMesh* par_mesh_;
+  // CCI AMR
+
   std::string main_folder_path_;
   std::string calculation_path_;
 
@@ -93,6 +97,9 @@ class PostProcessing : public DC {
   std::map<std::string, double> get_iso_val_to_compute();
   std::map<std::string, std::tuple<double, double>> get_integral_to_compute();
 
+  // CCI AMR
+  void UpdateAndRebalance(Variable<T, DIM>& var);
+  // CCI AMR
   ~PostProcessing();
 };
 
@@ -114,6 +121,9 @@ PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
                                            const Parameters& params)
     : DC(params.get_param_value<std::string>("calculation_path"), space->get_mesh()),
       params_(params) {
+  // CCI AMR
+  this->par_mesh_ = space->get_mesh();
+  // CCI AMR
   this->get_parameters();
 
   this->clean_output_directory();
@@ -382,6 +392,52 @@ void PostProcessing<T, DC, DIM>::clean_output_directory() {
     }
   }
 }
+
+// CCI AMR
+/**
+ * @brief Update and rebalance mesh after refinement/derefinement steps
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::UpdateAndRebalance(Variable<T, DIM>& var) {
+  // Update the space: recalculate the number of DOFs and construct a matrix
+  // that will adjust any GridFunctions to the new mesh state.
+  mfem::ParFiniteElementSpace* var_fespace = var.get_fespace();
+  this->par_mesh_->UniformRefinement();
+  var_fespace->Update();
+  if (this->par_mesh_) {
+    mfem::ParMesh& up_mesh = *this->par_mesh_;
+    // // Interpolate the solution on the new mesh by applying the transformation
+    // // matrix computed in the finite element space. Multiple GridFunctions could
+    // // be updated here.
+    // x.Update();
+
+    /// recuperation de la grid function et mise à jour de toute la map
+
+    auto gf = var.get_gf();
+    mfem::NewDataAndSize(this->unk_, gf.size());
+
+    /// fin de la mie à jour de toute la map
+
+    if (up_mesh.Nonconforming()) {
+      // Load balance the mesh.
+      up_mesh.Rebalance();
+
+      // Update the space again, this time a GridFunction redistribution matrix
+      // is created. Apply it to the solution.
+      var_fespace->Update();
+      // x.Update();
+    }
+    // No update for operators because rebuild at each time-step
+  }
+  // Free any transformation matrices to save memory.
+  var_fespace->UpdatesFinished();
+}
+
+// CCI AMR
 
 /**
  * @brief Destroy the Post Processing:: Post Processing object
