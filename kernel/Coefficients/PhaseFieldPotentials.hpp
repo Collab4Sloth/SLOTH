@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "Utils/Utils.hpp"
+#include "Options/PhaseFieldOptions.hpp"
 
 template <int ORDER, ThermodynamicsPotentialDiscretization SCHEME>
 struct potential_function {};

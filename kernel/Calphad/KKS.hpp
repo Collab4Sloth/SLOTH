@@ -288,6 +288,7 @@ void KKS<T>::execute_linearization(
     const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
     const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
     const std::vector<std::tuple<std::string, T>> &coordinates) {
+      Catch_Time_Section("KKS::execute_linearization");
   // Number of chemical elements
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes

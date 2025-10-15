@@ -30,6 +30,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include "Options/CalphadOptions.hpp"
 #pragma once
 
 template <typename T>

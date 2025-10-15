@@ -210,6 +210,7 @@ void CalphadBase<T>::global_execute(
     std::optional<const std::vector<T>> tp_gf_old,
     std::optional<const std::vector<std::tuple<std::string, std::string, T, T>>> x_gf,
     std::optional<const std::vector<std::tuple<std::string, T>>> coordinates) {
+  Catch_Time_Section("CalphadBase::global_execute");
   const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
   // Reinitialize containers
   this->clear_containers();
