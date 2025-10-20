@@ -336,7 +336,7 @@ void MATimerNode::print(int shift, double total_time) {
                     0, std::to_string(part_time).find(".") + precisionVal + 1) +
                 "%";
     cValue[5] = std::to_string((global_max / global_mean) - 1)
-                    .substr(0, std::to_string((global_max / global_mean) - 1).find(".") +
+                    .substr(0, std::to_string((100*(global_max / global_mean) - 1)).find(".") +
                                    precisionVal + 1) +
                 "%";
   }
