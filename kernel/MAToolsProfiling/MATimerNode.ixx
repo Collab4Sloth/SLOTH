@@ -323,22 +323,34 @@ void MATimerNode::print(int shift, double total_time) {
     assert(global_max >= global_mean);
     assert(global_mean >= global_min);
 
-    std::cout << std::setprecision(25);
-    const int precisionVal = 25;
+    const int precisionVal = 6;
+    // std::cout << std::setprecision(6);
 
-    cValue[1] = std::to_string(global_min)
-                    .substr(0, std::to_string(global_min).find(".") + precisionVal + 1);
-    cValue[2] = std::to_string(global_mean)
-                    .substr(0, std::to_string(global_mean).find(".") + precisionVal + 1);
-    cValue[3] = std::to_string(global_max)
-                    .substr(0, std::to_string(global_max).find(".") + precisionVal + 1);
-    cValue[4] = std::to_string(part_time).substr(
-                    0, std::to_string(part_time).find(".") + precisionVal + 1) +
-                "%";
-    cValue[5] = std::to_string((global_max / global_mean) - 1)
-                    .substr(0, std::to_string((100*(global_max / global_mean) - 1)).find(".") +
-                                   precisionVal + 1) +
-                "%";
+    auto formatDouble = [&](double value, int precision, bool addPercent = false) {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(precision) << value;
+      if (addPercent) oss << "%";
+      return oss.str();
+    };
+    cValue[1] = formatDouble(global_min, precisionVal);
+    cValue[2] = formatDouble(global_mean, precisionVal);
+    cValue[3] = formatDouble(global_max, precisionVal);
+    cValue[4] = formatDouble(part_time, precisionVal, true);
+    cValue[5] = formatDouble(100 * ((global_max / global_mean) - 1), precisionVal, true);
+
+    // cValue[1] = std::to_string(global_min)
+    //                 .substr(0, std::to_string(global_min).find(".") + precisionVal + 1);
+    // cValue[2] = std::to_string(global_mean)
+    //                 .substr(0, std::to_string(global_mean).find(".") + precisionVal + 1);
+    // cValue[3] = std::to_string(global_max)
+    //                 .substr(0, std::to_string(global_max).find(".") + precisionVal + 1);
+    // cValue[4] = std::to_string(part_time).substr(
+    //                 0, std::to_string(part_time).find(".") + precisionVal + 1) +
+    //             "%";
+    // cValue[5] = std::to_string((global_max / global_mean) - 1)
+    //                 .substr(0, std::to_string((global_max / global_mean) - 1).find(".") +
+    //                                precisionVal + 1) +
+    //             "%";
   }
   if (MATools::MPI::is_master()) {
     for (int i = 0; i < nColumns; i++) {
