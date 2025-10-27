@@ -451,9 +451,11 @@ void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
   this->pst_.save_variables(vars, iter, current_time);
 
   // CCI AMR
-
-  for (auto& var : this->variables_.getVariables()) {
-    this->pst_.UpdateAndRebalance(var);
+  if (iter > 0) {
+    for (auto& var : this->variables_.getVariables()) {
+      this->pst_.UpdateAndRebalance(var);
+      this->pst_.save_variables(vars, iter + 100, current_time + 100.);
+    }
   }
   // CCI AMR
 }

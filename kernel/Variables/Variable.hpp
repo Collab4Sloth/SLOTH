@@ -74,6 +74,7 @@ class Variable {
   void setAnalyticalSolution(const AnalyticalFunctions<DIM>& analytical_solution_name);
   void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
   void saveBeforeUpdate();
+
   void set_attributes(SpatialDiscretization<T, DIM>* spatial,
                       const std::set<std::string>& attribute_names);
 
@@ -191,6 +192,8 @@ class Variable {
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
   BoundaryConditions<T, DIM>* get_boundary_conditions();
   mfem::ParFiniteElementSpace* get_fespace();
+
+  void UpdateAfterRefine(std::vector<mfem::ParGridFunction> vect_gf);
 
   // CCI
 
@@ -865,6 +868,25 @@ mfem::Vector Variable<T, DIM>::get_second_to_last() const {
 template <class T, int DIM>
 mfem::Vector Variable<T, DIM>::get_last() const {
   return std::prev(this->map_of_unk_.end())->second;
+}
+
+template <class T, int DIM>
+void Variable<T, DIM>::UpdateAfterRefine(std::vector<mfem::ParGridFunction> vect_gf) {
+  std::vector<mfem::ParGridFunction> vect_old_gf;
+
+  for (int i = 0; i < this->map_of_unk_.size(); i++) {
+    mfem::ParGridFunction gf_old_fe(this->fespace_);
+    gf_old_fe = this->map_of_unk_[i];
+    vect_old_gf.emplace_back(gf_old_fe);
+  }
+
+  for (auto& [i, unk] : this->map_of_unk_) {
+    vect_gf[i].Update();
+    vect_gf[i].GetTrueDofs(unk);
+    SlothInfo::print("sizes var ", vect_gf[i].Size());
+  }
+  this->uh_.Update();
+  this->uh_.GetTrueDofs(this->unk_);
 }
 
 /**

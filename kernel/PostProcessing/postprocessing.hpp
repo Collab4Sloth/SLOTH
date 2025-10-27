@@ -406,6 +406,14 @@ void PostProcessing<T, DC, DIM>::UpdateAndRebalance(Variable<T, DIM>& var) {
   // Update the space: recalculate the number of DOFs and construct a matrix
   // that will adjust any GridFunctions to the new mesh state.
   mfem::ParFiniteElementSpace* var_fespace = var.get_fespace();
+  auto map_unk = var.get_map_unknown();
+  std::vector<mfem::ParGridFunction> vect_old_gf;
+  vect_old_gf.reserve(map_unk.size());
+  for (int i = 0; i < map_unk.size(); i++) {
+    mfem::ParGridFunction gf_old_fe(var_fespace);
+    gf_old_fe = map_unk[i];
+    vect_old_gf.emplace_back(gf_old_fe);
+  }
   this->par_mesh_->UniformRefinement();
   var_fespace->Update();
   if (this->par_mesh_) {
@@ -415,10 +423,7 @@ void PostProcessing<T, DC, DIM>::UpdateAndRebalance(Variable<T, DIM>& var) {
     // // be updated here.
     // x.Update();
 
-    /// recuperation de la grid function et mise à jour de toute la map
-
-    auto gf = var.get_gf();
-    mfem::NewDataAndSize(this->unk_, gf.size());
+    var.UpdateAfterRefine(vect_old_gf);
 
     /// fin de la mie à jour de toute la map
 
@@ -429,6 +434,17 @@ void PostProcessing<T, DC, DIM>::UpdateAndRebalance(Variable<T, DIM>& var) {
       // Update the space again, this time a GridFunction redistribution matrix
       // is created. Apply it to the solution.
       var_fespace->Update();
+      vect_old_gf.clear();
+      auto map_unk2 = var.get_map_unknown();
+
+      for (int i = 0; i < map_unk2.size(); i++) {
+        mfem::ParGridFunction gf_old_fe(var_fespace);
+        gf_old_fe = map_unk2[i];
+        vect_old_gf.emplace_back(gf_old_fe);
+      }
+
+      var.UpdateAfterRefine(vect_old_gf);
+
       // x.Update();
     }
     // No update for operators because rebuild at each time-step
