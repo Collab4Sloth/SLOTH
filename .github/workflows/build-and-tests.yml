@@ -95,8 +95,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install local MFEM formula
+      run: |
+        mkdir -p $(brew --repo homebrew/core)/Formula
+        cp .github/formula/mfem.rb $(brew --repo homebrew/core)/Formula/
+
     - name: Install MFEM
-      run: brew install ./.github/formula/mfem.rb
+      run: brew install mfem
 
     - name: Setup Python 
       uses: actions/setup-python@v5
