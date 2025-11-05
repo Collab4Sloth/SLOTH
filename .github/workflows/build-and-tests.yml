@@ -94,15 +94,36 @@ jobs:
       CORES: $(sysctl -n hw.ncpu)
     steps:
     - uses: actions/checkout@v4
-
-    - name: Install local MFEM formula
+    - name: Set up Spack
+      uses: spack/setup-spack@v2
+      with:
+        ref: develop      
+        buildcache: false 
+        color: true       
+        path: ${{github.workspace}}/spack   
+    - name: Install dependencies
       run: |
-        mkdir -p $(brew --repo homebrew/core)/Formula
-        cp .github/formula/mfem.rb $(brew --repo homebrew/core)/Formula/
-
+        brew update
+        brew install mpich wget unzip
     - name: Install MFEM
-      run: brew install mfem
-
+      shell: spack-bash {0}
+      run: |
+          spack clean --downloads
+          spack install gcc@14
+          spack load gcc
+          spack compiler find
+          spack compilers
+          echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          echo "F77=$(which gfortran)" >> $GITHUB_ENV
+          echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
+          spack install hypre@2.33.0%gcc
+          spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
+    - name: Download and extract libtorch
+      run: |
+        wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
+        unzip libtorch-shared-with-deps-latest.zip
+        LIBTORCH_DIR=$(realpath libtorch)
+        echo "LIBTORCH_DIR=$LIBTORCH_DIR" >> $GITHUB_ENV
     - name: Setup Python 
       uses: actions/setup-python@v5
       with:
@@ -115,7 +136,7 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage
+        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR
         make -j${{ env.CORES }}
 
     - name: Test SLOTH 
