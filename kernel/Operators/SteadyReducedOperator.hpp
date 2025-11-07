@@ -108,7 +108,7 @@ mfem::Operator& SteadyPhaseFieldReducedOperator::GetGradient(const mfem::Vector&
   mfem::Operator& RHS_grad = this->RHS_->GetGradient(k);
   // Converts operators into BlockOperator
   mfem::BlockOperator* RHS_block_grad = dynamic_cast<mfem::BlockOperator*>(&RHS_grad);
-  mfem::Array2D<mfem::HypreParMatrix*> tmp_blocks(fes_size, fes_size);
+  mfem::Array2D<const mfem::HypreParMatrix*> tmp_blocks(fes_size, fes_size);
   std::vector<mfem::HypreParMatrix*> blocks_to_delete;
 
   for (int i = 0; i < fes_size; ++i) {
