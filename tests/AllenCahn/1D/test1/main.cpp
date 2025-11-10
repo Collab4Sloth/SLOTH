@@ -120,9 +120,12 @@ int main(int argc, char* argv[]) {
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::from("HyperbolicTangent"), center_x, a_x, epsilon, radius);
-  auto vars = VARS(VAR(&spatial, bcs, "phi1", 2, initial_condition, analytical_solution));
-  auto vars2 = VARS(VAR(&spatial, bcs, "phi2", 2, initial_condition, analytical_solution));
-  auto vars3 = VARS(VAR(&spatial, bcs, "phi3", 2, initial_condition, analytical_solution));
+  auto vars =
+      VARS(VAR(&spatial, bcs, "phi1", Glossary::Phi, 2, initial_condition, analytical_solution));
+  auto vars2 =
+      VARS(VAR(&spatial, bcs, "phi2", Glossary::Phi, 2, initial_condition, analytical_solution));
+  auto vars3 =
+      VARS(VAR(&spatial, bcs, "phi3", Glossary::Phi, 2, initial_condition, analytical_solution));
   // ###########################################
   // ###########################################
   //      Post-processing                     //

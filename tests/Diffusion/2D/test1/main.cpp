@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
 
-  auto vars = VARS(VAR(&spatial, bcs, "c", 2, initial_condition));
+  auto vars = VARS(VAR(&spatial, bcs, "c", Glossary::X, 2, initial_condition));
 
   // ###########################################
   // ###########################################

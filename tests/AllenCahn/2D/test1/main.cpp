@@ -122,7 +122,8 @@ int main(int argc, char* argv[]) {
                                      a_x, a_y, epsilon, radius);
 
         const std::string& var_name_1 = "phi";
-        auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, initial_condition, analytical_solution);
+        auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::Phi, 2, initial_condition,
+                      analytical_solution);
         auto vars = VARS(v1);
 
         // ###########################################

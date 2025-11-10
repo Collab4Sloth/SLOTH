@@ -128,7 +128,8 @@ int main(int argc, char* argv[]) {
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
-      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+      auto vars =
+          VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, initial_condition, analytical_solution));
 
       // ###########################################
       // ###########################################

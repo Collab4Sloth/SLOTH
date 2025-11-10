@@ -96,23 +96,23 @@ int main(int argc, char* argv[]) {
                                   Parameter("ScaleCoefficientsByTemperature", false),
                                   Parameter("EnableDiffusionChemicalPotentials", true));
   //   Parameter("MO", diffusionCoeff), Parameter("MU", diffusionCoeff),
-  auto mobO = VAR(&spatial, bcs, "Mo", 2, diffusionCoeff);
+  auto mobO = VAR(&spatial, bcs, "Mo", Glossary::Mob, 2, diffusionCoeff);
   mobO.set_additional_information("SOLID", "O", "mob");
-  auto mobU = VAR(&spatial, bcs, "Mu", 2, diffusionCoeff);
+  auto mobU = VAR(&spatial, bcs, "Mu", Glossary::Mob, 2, diffusionCoeff);
   mobU.set_additional_information("SOLID", "U", "mob");
-  auto mobPU = VAR(&spatial, bcs, "Mpu", 2, diffusionCoeff);
+  auto mobPU = VAR(&spatial, bcs, "Mpu", Glossary::Mob, 2, diffusionCoeff);
   mobPU.set_additional_information("SOLID", "PU", "mob");
   auto mobilities = VARS(mobO, mobU, mobPU);
 
-  auto mo1 = VAR(&spatial, bcs, "Mo1", 2, 0.);
+  auto mo1 = VAR(&spatial, bcs, "Mo1", Glossary::Mob, 2, 0.);
   mo1.set_additional_information("O", "inter_mob");
-  auto mo2 = VAR(&spatial, bcs, "Mo2", 2, 0.);
+  auto mo2 = VAR(&spatial, bcs, "Mo2", Glossary::Mob, 2, 0.);
   mo2.set_additional_information("U", "inter_mob");
   auto MO = VARS(mo1, mo2);
 
-  auto mu1 = VAR(&spatial, bcs, "Mu1", 2, 0.);
+  auto mu1 = VAR(&spatial, bcs, "Mu1", Glossary::Mob, 2, 0.);
   mu1.set_additional_information("U", "inter_mob");
-  auto mu2 = VAR(&spatial, bcs, "Mu2", 2, 0.);
+  auto mu2 = VAR(&spatial, bcs, "Mu2", Glossary::Mob, 2, 0.);
   mu2.set_additional_information("O", "inter_mob");
   auto MU = VARS(mu1, mu2);
 
@@ -133,26 +133,26 @@ int main(int argc, char* argv[]) {
   //==========================================
   //--- Variables
   // Temperature
-  auto temp = VAR(&spatial, bcs, "T", level_of_storage, 1. / Physical::R);
+  auto temp = VAR(&spatial, bcs, "T", Glossary::Tk, level_of_storage, 1. / Physical::R);
   temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
   // Pressure
-  auto pres = VAR(&spatial, bcs, "pressure", level_of_storage, 1.);
+  auto pres = VAR(&spatial, bcs, "pressure", Glossary::P, level_of_storage, 1.);
   pres.set_additional_information("Pa", "P");
   auto p_vars = VARS(pres);
 
   // Initial condition for composition
-  auto xo = VAR(&spatial, bcs, "O", 2, initial_compo);
+  auto xo = VAR(&spatial, bcs, "O", Glossary::X, 2, initial_compo);
   xo.set_additional_information("O", "x");
   auto var_o = VARS(xo);
-  auto xu = VAR(&spatial, bcs, "U", 2, initial_compo_u);
+  auto xu = VAR(&spatial, bcs, "U", Glossary::X, 2, initial_compo_u);
   xu.set_additional_information("U", "x");
   auto var_u = VARS(xu);
 
   // Chemical potential
-  auto muo = VAR(&spatial, bcs, "muO", 2, 0.);
+  auto muo = VAR(&spatial, bcs, "muO", Glossary::Mu, 2, 0.);
   muo.set_additional_information("O", "dmu");
-  auto muu = VAR(&spatial, bcs, "muU", 2, 0.);
+  auto muu = VAR(&spatial, bcs, "muU", Glossary::Mu, 2, 0.);
   muu.set_additional_information("U", "dmu");
 
   auto mu_var = VARS(muo, muu);

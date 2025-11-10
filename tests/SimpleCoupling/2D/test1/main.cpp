@@ -128,10 +128,10 @@ int main(int argc, char* argv[]) {
 
   auto ac_ic = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x,
                                         center_y, a_x, a_y, thickness, radius);
-  auto ac_vars = VARS(VAR(&spatial, bcs, "phi", 2, ac_ic));
+  auto ac_vars = VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, ac_ic));
 
   // Heat
-  auto temp = VAR(&spatial, Tbcs, "T", 2, 1073.15);
+  auto temp = VAR(&spatial, Tbcs, "T", Glossary::Tk, 2, 1073.15);
   temp.set_additional_information("T");
   auto heat_vars = VARS(temp);
   auto pl = 15.e4;

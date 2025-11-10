@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
   // ####################
   //     variables     //
   // ####################
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, 1., {"cluster"}));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, 1., {"cluster"}));
 
   // ###########################################
   // ###########################################

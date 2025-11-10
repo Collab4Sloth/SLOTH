@@ -110,7 +110,8 @@ int main(int argc, char* argv[]) {
       AnalyticalFunctions<DIM>(AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y,
                                center_z, a_x, a_y, a_z, epsilon, radius);
 
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+  auto vars =
+      VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, initial_condition, analytical_solution));
 
   // ###########################################
   // ###########################################
