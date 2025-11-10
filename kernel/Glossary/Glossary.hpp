@@ -173,7 +173,7 @@ static const GlossaryQuantity Y = GlossaryQuantity(GlossaryType::SiteFraction, G
  * @brief Quantity associated with phase-field mobility coefficients
  *
  */
-static const GlossaryQuantity MobPhi = GlossaryQuantity(
+static GlossaryQuantity MobPhi = GlossaryQuantity(
     GlossaryType::Mobility, GlossaryUnit::CubicMeterPerJoulesPerSecond,
     "Mobility coefficient in " + toString(GlossaryUnit::CubicMeterPerJoulesPerSecond));
 
