@@ -39,6 +39,7 @@ enum class GlossaryUnit {
   Meter,
   Joules,
   Mole,
+  SquareMeterPerSecond,
   MolePerCubicMeter,
   JoulesPerMole,
   JoulesPerMeter,
@@ -46,6 +47,9 @@ enum class GlossaryUnit {
   JoulesPerCubicMeter,
   CubicMeterPerJoulesPerSecond,
   MolesSquareMeterPerJoulesPerSecond,
+  JoulesPerMeterPerSecondPerKelvin,
+  JoulesPerMolePerKelvin,
+  JoulesPerKelvin,
   None
 };
 
@@ -56,9 +60,9 @@ enum class GlossaryUnit {
 static std::unordered_map<GlossaryUnit, std::string> GlossaryUnitMap = {
     {GlossaryUnit::Kelvin, "K"},
     {GlossaryUnit::Pascal, "Pa"},
-    {GlossaryUnit::Watt, "W"},
     {GlossaryUnit::Second, "s"},
     {GlossaryUnit::Meter, "m"},
+    {GlossaryUnit::SquareMeterPerSecond, "m2.s-1"},
     {GlossaryUnit::Mole, "mol"},
     {GlossaryUnit::Joules, "J"},
     {GlossaryUnit::JoulesPerMole, "J.mol-1"},
@@ -66,6 +70,9 @@ static std::unordered_map<GlossaryUnit, std::string> GlossaryUnitMap = {
     {GlossaryUnit::JoulesPerSquareMeter, "J.m-2"},
     {GlossaryUnit::JoulesPerCubicMeter, "J.m-3"},
     {GlossaryUnit::MolePerCubicMeter, "mol.m-3"},
+    {GlossaryUnit::JoulesPerMeterPerSecondPerKelvin, "J.s-1.m-1.K-1"},
+    {GlossaryUnit::JoulesPerKelvin, "J.K-1"},
+    {GlossaryUnit::JoulesPerMolePerKelvin, "J.mol-1.K-1"},
     {GlossaryUnit::CubicMeterPerJoulesPerSecond, "m3.J-1.s-1"},
     {GlossaryUnit::MolesSquareMeterPerJoulesPerSecond, "mol.m2.J-1.s-1"},
     {GlossaryUnit::None, "-"}};
@@ -93,12 +100,12 @@ enum class GlossaryType {
   HeatCapacity,
   Diffusivity,
   Mobility,
-  Density,
   SurfaceTension,
   Capillary,
   Temperature,
   Pressure,
   Concentration,
+  Mole,
   MolarFraction,
   SiteFraction,
   ChemicalPotential,
@@ -120,9 +127,13 @@ struct GlossaryQuantity {
    * @param u GloassaryUnit of the quantity
    * @param d Description of the quantity
    */
+ public:
   GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d)
       : type(t), unit(u), description(d) {}
 
+  void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
+
+ private:
   GlossaryType type;
   GlossaryUnit unit;
   std::string description;
@@ -140,28 +151,48 @@ namespace Glossary {
 static const GlossaryQuantity Phi = GlossaryQuantity(GlossaryType::PhaseField, GlossaryUnit::None,
                                                      "PhaseField variable (dimensionless)");
 /**
+ * @brief Quantity associated with a number of moles
+ *
+ */
+static const GlossaryQuantity N =
+    GlossaryQuantity(GlossaryType::Mole, GlossaryUnit::Mole, "Mole number");
+/**
  * @brief Quantity associated with molar fraction variables
  *
  */
 static const GlossaryQuantity X = GlossaryQuantity(GlossaryType::MolarFraction, GlossaryUnit::None,
                                                    "Molar fraction variable (dimensionless)");
+/**
+ * @brief Quantity associated with site fraction variables
+ *
+ */
+static const GlossaryQuantity Y = GlossaryQuantity(GlossaryType::SiteFraction, GlossaryUnit::None,
+                                                   "Site fraction variable (dimensionless)");
 
 /**
- * @brief Quantity associated with Allen-Cahn mobility coefficients
+ * @brief Quantity associated with phase-field mobility coefficients
  *
  */
 static const GlossaryQuantity MobPhi = GlossaryQuantity(
     GlossaryType::Mobility, GlossaryUnit::CubicMeterPerJoulesPerSecond,
-    "Allen-Cahn Mobility coefficient in " + toString(GlossaryUnit::CubicMeterPerJoulesPerSecond));
+    "Mobility coefficient in " + toString(GlossaryUnit::CubicMeterPerJoulesPerSecond));
 
 /**
  * @brief Quantity associated with inter-diffusion mobility coefficients
  *
  */
-static const GlossaryQuantity Mob =
+static GlossaryQuantity Mob =
     GlossaryQuantity(GlossaryType::Mobility, GlossaryUnit::MolesSquareMeterPerJoulesPerSecond,
                      "Inter-diffusion mobility coefficient in " +
                          toString(GlossaryUnit::MolesSquareMeterPerJoulesPerSecond));
+
+/**
+ * @brief Quantity associated with mass diffusion coefficient
+ *
+ */
+static GlossaryQuantity D = GlossaryQuantity(
+    GlossaryType::Diffusivity, GlossaryUnit::SquareMeterPerSecond,
+    "Mass diffusion coefficient in " + toString(GlossaryUnit::SquareMeterPerSecond));
 
 /**
  * @brief Quantity associated with chemical potential variables
@@ -177,7 +208,7 @@ static const GlossaryQuantity Mu =
  */
 static const GlossaryQuantity C =
     GlossaryQuantity(GlossaryType::Concentration, GlossaryUnit::MolePerCubicMeter,
-                     "PhaseField variable in " + toString(GlossaryUnit::MolePerCubicMeter));
+                     "Concentration variable in " + toString(GlossaryUnit::MolePerCubicMeter));
 /**
  * @brief Quantity associated with surface tension property
  *
@@ -198,7 +229,7 @@ static const GlossaryQuantity Kappa =
  * @brief Quantity associated with temperature in Kelvin
  *
  */
-static const GlossaryQuantity Tk =
+static const GlossaryQuantity T =
     GlossaryQuantity(GlossaryType::Temperature, GlossaryUnit::Kelvin,
                      "Temperature in " + toString(GlossaryUnit::Kelvin));
 
@@ -206,7 +237,7 @@ static const GlossaryQuantity Tk =
  * @brief Quantity associated with pressure in Pascal
  *
  */
-static const GlossaryQuantity P = GlossaryQuantity(GlossaryType::Temperature, GlossaryUnit::Pascal,
+static const GlossaryQuantity P = GlossaryQuantity(GlossaryType::Pressure, GlossaryUnit::Pascal,
                                                    "Pressure in " + toString(GlossaryUnit::Pascal));
 
 /**
@@ -266,6 +297,29 @@ static const GlossaryQuantity Dgm =
  */
 static const GlossaryQuantity F = GlossaryQuantity(
     GlossaryType::PhaseFieldPotential, GlossaryUnit::None, "Free energy function (dimensionless)");
+
+/**
+ * @brief Quantity associated with the thermal conductivity
+ *
+ */
+static const GlossaryQuantity K = GlossaryQuantity(
+    GlossaryType::Conductivity, GlossaryUnit::JoulesPerMeterPerSecondPerKelvin,
+    "Themal conductivity in " + toString(GlossaryUnit::JoulesPerMeterPerSecondPerKelvin));
+
+/**
+ * @brief Quantity associated with the heat capacity
+ *
+ */
+static const GlossaryQuantity Cp =
+    GlossaryQuantity(GlossaryType::HeatCapacity, GlossaryUnit::JoulesPerKelvin,
+                     "Heat capacity in " + toString(GlossaryUnit::JoulesPerKelvin));
+/**
+ * @brief Quantity associated with the molar heat capacity
+ *
+ */
+static const GlossaryQuantity Cpm =
+    GlossaryQuantity(GlossaryType::HeatCapacity, GlossaryUnit::JoulesPerMolePerKelvin,
+                     "Heat capacity in " + toString(GlossaryUnit::JoulesPerMolePerKelvin));
 
 /**
  * @brief Quantity associated with the MPI rank

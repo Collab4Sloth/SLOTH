@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
       HeatOperator<FECollection, DIM, TH_NLFI, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
   using TH_PB = Problem<TH_OPE, VARS, PST>;
 
-  auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::Tk, level_of_storage, 700.);
+  auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::T, level_of_storage, 700.);
   temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
   const auto& rho(32.e3);  // mol/m3

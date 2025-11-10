@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
   //==========================================
   //--- Variables
   // Temperature
-  auto temp = VAR(&spatial, bcs, "T", Glossary::Tk, level_of_storage, 1. / Physical::R);
+  auto temp = VAR(&spatial, bcs, "T", Glossary::T, level_of_storage, 1. / Physical::R);
   temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
   // Pressure

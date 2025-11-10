@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
   const auto& pellet_radius = 0.00465;
   // Heat
 
-  auto temp = VAR(&spatial, Tbcs, "T", Glossary::Tk, 2, 750.);
+  auto temp = VAR(&spatial, Tbcs, "T", Glossary::T, 2, 750.);
   temp.set_additional_information("K", "T");
 
   auto heat_vars = VARS(temp);

@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
 
         return func;
       });
-  auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::Tk, level_of_storage, parabolic_temp);
+  auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::T, level_of_storage, parabolic_temp);
   temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
   // Pressure
