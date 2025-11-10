@@ -1,4 +1,3 @@
-
 /**
  * @file SolverBase.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
@@ -27,6 +26,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
 #include <memory>
 #include <string>
 
