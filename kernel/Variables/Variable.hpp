@@ -216,12 +216,10 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
     : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
-  this->setVariableDepth(depth);
-
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
-
   this->setInitialCondition(initial_condition_name);
+  this->setVariableDepth(depth);
 
   this->additional_variable_info_.resize(0);
 }
@@ -247,13 +245,9 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
-  // std::apply([dim, initial_condition_name, this]() {
   this->setInitialCondition(initial_condition_name);
-  // });
   this->setVariableDepth(depth);
-  // std::apply([dim, analytical_solution_name, this]() {
   this->setAnalyticalSolution(analytical_solution_name);
-  // });
 
   this->additional_variable_info_.resize(0);
 }
@@ -280,8 +274,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->uh_.SetSpace(fespace_);
 
   const auto dim = spatial->get_dimension();
-  std::apply(
-      [dim, initial_condition_name, this]() { this->setInitialCondition(initial_condition_name); });
+  this->setInitialCondition(initial_condition_name);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
 
@@ -335,9 +328,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_function);
   this->setVariableDepth(depth);
-  std::apply([dim, analytical_solution_name, this]() {
-    this->setAnalyticalSolution(analytical_solution_name);
-  });
+  this->setAnalyticalSolution(analytical_solution_name);
 
   this->additional_variable_info_.resize(0);
 }
@@ -415,9 +406,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
-  std::apply([dim, analytical_solution_name, this]() {
-    this->setAnalyticalSolution(analytical_solution_name);
-  });
+  this->setAnalyticalSolution(analytical_solution_name);
 
   this->additional_variable_info_.resize(0);
 }
@@ -470,12 +459,11 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
     : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
-  this->setVariableDepth(depth);
-
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
   this->set_attributes(spatial, attribute_names);
-  // this->setInitialCondition(initial_condition_name);
+  this->setInitialCondition(initial_condition_name);
+  this->setVariableDepth(depth);
 
   this->additional_variable_info_.resize(0);
 }
@@ -502,16 +490,12 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 
   this->uh_.SetSpace(fespace_);
   const auto dim = spatial->get_dimension();
-
-  // std::apply([dim, initial_condition_name, this]() {
 
   this->set_attributes(spatial, attribute_names);
   this->setInitialCondition(initial_condition_name);
-  // });
+
   this->setVariableDepth(depth);
-  // std::apply([dim, analytical_solution_name, this]() {
   this->setAnalyticalSolution(analytical_solution_name);
-  // });
 
   this->additional_variable_info_.resize(0);
 }
@@ -541,8 +525,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   const auto dim = spatial->get_dimension();
 
   this->set_attributes(spatial, attribute_names);
-  std::apply(
-      [dim, initial_condition_name, this]() { this->setInitialCondition(initial_condition_name); });
+  this->setInitialCondition(initial_condition_name);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_function);
 
@@ -601,9 +584,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->set_attributes(spatial, attribute_names);
   this->setInitialCondition(initial_condition_function);
   this->setVariableDepth(depth);
-  std::apply([dim, analytical_solution_name, this]() {
-    this->setAnalyticalSolution(analytical_solution_name);
-  });
+
+  this->setAnalyticalSolution(analytical_solution_name);
 
   this->additional_variable_info_.resize(0);
 }
@@ -689,9 +671,7 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->set_attributes(spatial, attribute_names);
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
-  std::apply([dim, analytical_solution_name, this]() {
-    this->setAnalyticalSolution(analytical_solution_name);
-  });
+  this->setAnalyticalSolution(analytical_solution_name);
 
   this->additional_variable_info_.resize(0);
 }
@@ -1002,7 +982,8 @@ template <class T, int DIM>
 void Variable<T, DIM>::setVariableDepth(const int& depth) {
   this->depth_ = std::max(2, depth);
 
-  for (auto id = 0; id < depth; id++) {
+  for (auto id = 0; id < this->depth_; id++) {
+    std::cout << " id " << id << " s " << this->unk_.Size() << std::endl;
     this->map_of_unk_.insert(std::pair<int, mfem::Vector>(id, this->unk_));
   }
 }
