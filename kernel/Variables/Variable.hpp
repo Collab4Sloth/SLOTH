@@ -4,24 +4,24 @@
  * @brief Variable class used to build and manage variables of model
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
 #include <any>
@@ -47,6 +47,7 @@ class Variable {
   T* fecollection_;
   BoundaryConditions<T, DIM> bcs_;
   std::string variable_name_;
+  GlossaryQuantity variable_type_;
   mfem::ParFiniteElementSpace* fespace_;
 
   // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
@@ -82,44 +83,44 @@ class Variable {
   // Without attributes names   //
   /////////////////////////////
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name,
            const AnalyticalFunctions<DIM>& analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const AnalyticalFunctions<DIM>& analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const double& initial_condition_value);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const double& initial_condition_value,
            const AnalyticalFunctions<DIM>& analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const double& initial_condition_value,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
@@ -127,50 +128,50 @@ class Variable {
   // With attributes names   //
   /////////////////////////////
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name,
            const std::set<std::string>& attribute_names);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name,
            const std::set<std::string>& attribute_names,
            const AnalyticalFunctions<DIM>& analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name,
            const std::set<std::string>& attribute_names,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const std::set<std::string>& attribute_names);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const std::set<std::string>& attribute_names,
            const AnalyticalFunctions<DIM>& analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const mfem::FunctionCoefficient& initial_condition_function,
            const std::set<std::string>& attribute_names,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const double& initial_condition_value, const std::set<std::string>& attribute_names);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const double& initial_condition_value, const std::set<std::string>& attribute_names,
            const AnalyticalFunctions<DIM>& analytical_solution_name);
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, const int& depth,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const double& initial_condition_value, const std::set<std::string>& attribute_names,
            const mfem::FunctionCoefficient& analytical_solution_function);
 
@@ -210,8 +211,9 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+                           GlossaryQuantity type, const int& depth,
+                           const AnalyticalFunctions<DIM>& initial_condition_name)
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->setVariableDepth(depth);
@@ -237,9 +239,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
+                           GlossaryQuantity type, const int& depth,
+                           const AnalyticalFunctions<DIM>& initial_condition_name,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -268,9 +271,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
+                           GlossaryQuantity type, const int& depth,
+                           const AnalyticalFunctions<DIM>& initial_condition_name,
                            const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -296,9 +300,9 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth,
+                           GlossaryQuantity type, const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -321,10 +325,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth,
+                           GlossaryQuantity type, const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -351,10 +355,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth,
+                           GlossaryQuantity type, const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -377,8 +381,9 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const double& initial_condition_value)
-    : bcs_(bcs), variable_name_(variable_name) {
+                           GlossaryQuantity type, const int& depth,
+                           const double& initial_condition_value)
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -400,9 +405,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const double& initial_condition_value,
+                           GlossaryQuantity type, const int& depth,
+                           const double& initial_condition_value,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -429,9 +435,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const double& initial_condition_value,
+                           GlossaryQuantity type, const int& depth,
+                           const double& initial_condition_value,
                            const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -457,9 +464,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
+                           GlossaryQuantity type, const int& depth,
+                           const AnalyticalFunctions<DIM>& initial_condition_name,
                            const std::set<std::string>& attribute_names)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->setVariableDepth(depth);
@@ -485,10 +493,11 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
+                           GlossaryQuantity type, const int& depth,
+                           const AnalyticalFunctions<DIM>& initial_condition_name,
                            const std::set<std::string>& attribute_names,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -520,10 +529,11 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const AnalyticalFunctions<DIM>& initial_condition_name,
+                           GlossaryQuantity type, const int& depth,
+                           const AnalyticalFunctions<DIM>& initial_condition_name,
                            const std::set<std::string>& attribute_names,
                            const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -551,10 +561,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth,
+                           GlossaryQuantity type, const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const std::set<std::string>& attribute_names)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -578,11 +588,11 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth,
+                           GlossaryQuantity type, const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const std::set<std::string>& attribute_names,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -611,11 +621,11 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth,
+                           GlossaryQuantity type, const int& depth,
                            const mfem::FunctionCoefficient& initial_condition_function,
                            const std::set<std::string>& attribute_names,
                            const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -640,9 +650,10 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const double& initial_condition_value,
+                           GlossaryQuantity type, const int& depth,
+                           const double& initial_condition_value,
                            const std::set<std::string>& attribute_names)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -666,10 +677,11 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const double& initial_condition_value,
+                           GlossaryQuantity type, const int& depth,
+                           const double& initial_condition_value,
                            const std::set<std::string>& attribute_names,
                            const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
@@ -697,10 +709,11 @@ template <class T, int DIM>
 
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           const int& depth, const double& initial_condition_value,
+                           GlossaryQuantity type, const int& depth,
+                           const double& initial_condition_value,
                            const std::set<std::string>& attribute_names,
                            const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name) {
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
