@@ -138,8 +138,8 @@ int main(int argc, char* argv[]) {
   //--- Variables
   auto xcoord = std::function<double(const mfem::Vector&, double)>(
       [](const mfem::Vector& vcoord, double time) { return vcoord[0]; });
-  auto XC =
-      VAR(&spatial, calphad_bcs, "XCOORD", level_of_storage, AnalyticalFunctions<DIM>(xcoord));
+  auto XC = VAR(&spatial, calphad_bcs, "XCOORD", Glossary::Coord, level_of_storage,
+                AnalyticalFunctions<DIM>(xcoord));
   XC.set_additional_information("XCOORD");
   auto coord = VARS(XC);
   // Pressure

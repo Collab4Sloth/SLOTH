@@ -328,4 +328,11 @@ static const GlossaryQuantity Cpm =
 static const GlossaryQuantity MPI =
     GlossaryQuantity(GlossaryType::System, GlossaryUnit::None, "MPI rank variable (dimensionless)");
 
+/**
+ * @brief Quantity associated with the spatial coordinate variable
+ *
+ */
+static const GlossaryQuantity Coord = GlossaryQuantity(
+    GlossaryType::System, GlossaryUnit::None, "Spatial coordinate variable (dimensionless)");
+
 }  // namespace Glossary
