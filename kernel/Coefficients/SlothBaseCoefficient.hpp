@@ -55,11 +55,8 @@ class SlothBaseCoefficient {
   void ParserCoefficientError(const std::string& expression);
 
  public:
-  SlothBaseCoefficient(GlossaryQuantity type, const std::string& expression,
-                       const std::vector<std::string>& variable_names);
-  SlothBaseCoefficient(GlossaryQuantity type, const std::string& expression,
-                       const std::vector<std::string>& variable_names,
-                       const std::vector<std::string>& constant_names);
+  template <class... Args>
+  SlothBaseCoefficient(GlossaryQuantity type, Args&&... function_variable_names);
   ~SlothBaseCoefficient();
 
   template <typename... Args>
@@ -79,9 +76,26 @@ class SlothBaseCoefficient {
  * @param variable_names List of variables in the analytical expression (string type)
  */
 template <class T>
-SlothBaseCoefficient<T>::SlothBaseCoefficient(GlossaryQuantity type, const std::string& expression,
-                                              const std::vector<std::string>& variable_names)
-    : coefficient_type_(type), variable_names_(variable_names) {
+template <class... Args>
+SlothBaseCoefficient<T>::SlothBaseCoefficient(GlossaryQuantity type,
+                                              Args&&... function_variable_names)
+    : coefficient_type_(type) {
+  MFEM_VERIFY(sizeof...(function_variable_names) != 0,
+              "Error while defining Coefficient. Please check your data");
+  std::string expression = "";
+  // Constant mathematical expression
+  if constexpr (sizeof...(function_variable_names) == 1) {
+    expression = {std::forward<Args>(function_variable_names)...};
+    this->variable_names_.clear();
+  } else {
+    // Variable mathematical expression
+    this->variable_names_ = {std::forward<Args>(function_variable_names)...};
+
+    expression = this->variable_names_[0];
+    if (!this->variable_names_.empty()) {
+      this->variable_names_.erase(this->variable_names_.begin());
+    }
+  }
   // Variables
   for (const auto& var : this->variable_names_) {
     this->reference_map_[var] = 0.0;  // initialize all to 0
@@ -90,39 +104,6 @@ SlothBaseCoefficient<T>::SlothBaseCoefficient(GlossaryQuantity type, const std::
 
   // Constant parameters
   this->symbol_table_.add_constants();
-  this->expression_parser_.register_symbol_table(this->symbol_table_);
-
-  if (!this->parser_.compile(expression, this->expression_parser_)) {
-    this->ParserCoefficientError(expression);
-  }
-}
-
-/**
- * @brief Construct a new SlothBaseCoefficient<T>::SlothBaseCoefficientobject with constants
- * @remark Constant are treated as variable for dynamic aspects
- *
- * @tparam T
- * @param expression
- * @param variable_names
- * @param constant_names
- */
-template <class T>
-SlothBaseCoefficient<T>::SlothBaseCoefficient(GlossaryQuantity type, const std::string& expression,
-                                              const std::vector<std::string>& variable_names,
-                                              const std::vector<std::string>& constant_names)
-    : coefficient_type_(type), variable_names_(variable_names), constant_names_(constant_names) {
-  // Variables
-  for (const auto& var : this->variable_names_) {
-    this->reference_map_[var] = 0.0;
-    this->symbol_table_.add_variable(var, this->reference_map_[var]);
-  }
-
-  // Constant parameters
-  for (const auto& var : this->constant_names_) {
-    this->reference_map_[var] = 0.0;
-    this->symbol_table_.add_variable(var, this->reference_map_[var]);
-  }
-  // this->symbol_table_.add_constants();
   this->expression_parser_.register_symbol_table(this->symbol_table_);
 
   if (!this->parser_.compile(expression, this->expression_parser_)) {
@@ -150,51 +131,6 @@ T SlothBaseCoefficient<T>::evaluate(Args... args) {
   }
 
   return this->expression_parser_.value();
-}
-
-/**
- * @brief Evaluation of the analytical expression with constant parameters
- *
- * @tparam T
- * @tparam Args
- * @tparam Args
- * @param args
- * @param args2
- * @return T
- */
-template <class T>
-template <typename... VarArgs, typename... ConstArgs>
-T SlothBaseCoefficient<T>::evaluate(const std::tuple<VarArgs...>& vars,
-                                    const std::tuple<ConstArgs...>& consts) {
-  // Check consistency of tuple sizes
-  if constexpr (sizeof...(VarArgs) != 0) {
-    if (sizeof...(VarArgs) != variable_names_.size()) {
-      throw std::runtime_error("Number of variables not consistent with analytical expression");
-    }
-  }
-
-  if constexpr (sizeof...(ConstArgs) != 0) {
-    if (sizeof...(ConstArgs) != constant_names_.size()) {
-      throw std::runtime_error("Number of constants not consistent with analytical expression");
-    }
-  }
-  // Variables values
-  std::apply(
-      [&](auto&&... vals) {
-        size_t i = 0;
-        ((reference_map_[variable_names_[i++]] = vals), ...);
-      },
-      vars);
-
-  // Constant values treated as variables for dynamic aspects
-  std::apply(
-      [&](auto&&... vals) {
-        size_t i = 0;
-        ((reference_map_[constant_names_[i++]] = vals), ...);
-      },
-      consts);
-
-  return expression_parser_.value();
 }
 
 /**
