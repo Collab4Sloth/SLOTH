@@ -202,12 +202,12 @@ int main(int argc, char* argv[]) {
   auto mob_liquid = VARS(lmobO, lmobU, lmobPU);
 
   // Driving forces
-  auto dgm_s = VAR(&spatial, calphad_bcs, "DGM_s", Glossary::DiffusivityrivingForce, level_of_storage, 0.);
+  auto dgm_s = VAR(&spatial, calphad_bcs, "DGM_s", Glossary::DrivingForce, level_of_storage, 0.);
   dgm_s.set_additional_information("SOLID", "dgm");
-  auto dgm_l = VAR(&spatial, calphad_bcs, "DGM_l", Glossary::DiffusivityrivingForce, level_of_storage, 0.);
+  auto dgm_l = VAR(&spatial, calphad_bcs, "DGM_l", Glossary::DrivingForce, level_of_storage, 0.);
   dgm_l.set_additional_information("LIQUID", "dgm");
 
-  auto nuc_l = VAR(&spatial, calphad_bcs, "NUC_l", Glossary::MoleNumberucleus, level_of_storage, 0.);
+  auto nuc_l = VAR(&spatial, calphad_bcs, "NUC_l", Glossary::Nucleus, level_of_storage, 0.);
   nuc_l.set_additional_information("LIQUID", "nucleus");
 
   // Diffusion chemical potential
