@@ -53,11 +53,11 @@ int main(int argc, char* argv[]) {
   const int fe_order = 1;
 
   const std::string& mesh_type = "InlineLineWithSegments";  // type of mesh
-  const int NN = 1000;
+  const int nb_elem = 100;
   const double pellet_radius = 6.07e-3;
 
   const std::tuple<int, double>& tuple_of_dimensions =
-      std::make_tuple(NN, pellet_radius);  // Number of elements and maximum length
+      std::make_tuple(nb_elem, pellet_radius);  // Number of elements and maximum length
 
   SPA spatial(mesh_type, fe_order, refinement_level, tuple_of_dimensions);
 
@@ -89,12 +89,12 @@ int main(int argc, char* argv[]) {
       HeatOperator<FECollection, DIM, TH_NLFI, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
   using TH_PB = Problem<TH_OPE, VARS, PST>;
 
-  auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::T, level_of_storage, 700.);
+  auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::Temperature, level_of_storage, 700.);
   temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
-  const auto& rho(32.e3);  // mol/m3
-  const auto& cp(60.);     // J/mol/K
-  const auto& cond(2.7);   //  W/m/K
+  const double rho(32.e3);  // mol/m3
+  const double cp(60.);     // J/mol/K
+  const double cond(2.7);   //  W/m/K
 
   auto src_func = std::function<double(const mfem::Vector&, double)>(
       [pellet_radius, rho, cp](const mfem::Vector& vcoord, double time) {
@@ -138,12 +138,12 @@ int main(int argc, char* argv[]) {
   //--- Variables
   auto xcoord = std::function<double(const mfem::Vector&, double)>(
       [](const mfem::Vector& vcoord, double time) { return vcoord[0]; });
-  auto XC = VAR(&spatial, calphad_bcs, "XCOORD", Glossary::Coord, level_of_storage,
+  auto XC = VAR(&spatial, calphad_bcs, "XCOORD", Glossary::Coordinate, level_of_storage,
                 AnalyticalFunctions<DIM>(xcoord));
   XC.set_additional_information("XCOORD");
   auto coord = VARS(XC);
   // Pressure
-  auto pres = VAR(&spatial, pressure_bcs, "pressure", Glossary::P, level_of_storage, 50.e5);
+  auto pres = VAR(&spatial, pressure_bcs, "pressure", Glossary::Pressure, level_of_storage, 50.e5);
   pres.set_additional_information("Pa", "P");
   auto p_vars = VARS(pres);
 
@@ -153,101 +153,101 @@ int main(int argc, char* argv[]) {
   const double initial_compo_u = 0.8 / Nmol;
   const double initial_compo_pu = 1. - initial_compo_o - initial_compo_u;
 
-  auto xo = VAR(&spatial, interdiffu_bcs, "O", Glossary::X, level_of_storage, initial_compo_o);
+  auto xo = VAR(&spatial, interdiffu_bcs, "O", Glossary::MoleFraction, level_of_storage, initial_compo_o);
   xo.set_additional_information("O", "x");
   auto xo_vars = VARS(xo);
 
-  auto xu = VAR(&spatial, interdiffu_bcs, "U", Glossary::X, level_of_storage, initial_compo_u);
+  auto xu = VAR(&spatial, interdiffu_bcs, "U", Glossary::MoleFraction, level_of_storage, initial_compo_u);
   xu.set_additional_information("U", "x");
   auto xu_vars = VARS(xu);
 
-  auto xpu = VAR(&spatial, interdiffu_bcs, "PU", Glossary::X, level_of_storage, initial_compo_pu);
+  auto xpu = VAR(&spatial, interdiffu_bcs, "PU", Glossary::MoleFraction, level_of_storage, initial_compo_pu);
   xpu.set_additional_information("PU", "x");
   auto xpu_vars = VARS(xpu);
 
   // Chemical potential
-  auto muo = VAR(&spatial, calphad_bcs, "muO", Glossary::Mu, level_of_storage, 0.);
+  auto muo = VAR(&spatial, calphad_bcs, "muO", Glossary::ChemicalPotential, level_of_storage, 0.);
   muo.set_additional_information("O", "mu");
   auto mu_var = VARS(muo);
 
-  auto muu = VAR(&spatial, calphad_bcs, "muU", Glossary::Mu, level_of_storage, 0.);
+  auto muu = VAR(&spatial, calphad_bcs, "muU", Glossary::ChemicalPotential, level_of_storage, 0.);
   muu.set_additional_information("U", "mu");
   auto muu_var = VARS(muu);
 
-  auto mupu = VAR(&spatial, calphad_bcs, "muPU", Glossary::Mu, level_of_storage, 0.);
+  auto mupu = VAR(&spatial, calphad_bcs, "muPU", Glossary::ChemicalPotential, level_of_storage, 0.);
   mupu.set_additional_information("PU", "mu");
   auto mupu_var = VARS(mupu);
 
   // Mobilities
-  auto mobO = VAR(&spatial, calphad_bcs, "Mo", Glossary::Mob, level_of_storage, 0.);
+  auto mobO = VAR(&spatial, calphad_bcs, "Mo", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   mobO.set_additional_information("SOLID", "O", "mob");
 
-  auto mobU = VAR(&spatial, calphad_bcs, "Mu", Glossary::Mob, level_of_storage, 0.);
+  auto mobU = VAR(&spatial, calphad_bcs, "Mu", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   mobU.set_additional_information("SOLID", "U", "mob");
 
-  auto mobPU = VAR(&spatial, calphad_bcs, "Mpu", Glossary::Mob, level_of_storage, 0.);
+  auto mobPU = VAR(&spatial, calphad_bcs, "Mpu", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   mobPU.set_additional_information("SOLID", "PU", "mob");
 
   // MOB LIQUID
 
-  auto lmobO = VAR(&spatial, calphad_bcs, "Mo", Glossary::Mob, level_of_storage, 1.e-8);
+  auto lmobO = VAR(&spatial, calphad_bcs, "Mo", Glossary::InterDiffusionMobility, level_of_storage, 1.e-8);
   lmobO.set_additional_information("LIQUID", "O", "mob");
 
-  auto lmobU = VAR(&spatial, calphad_bcs, "Mu", Glossary::Mob, level_of_storage, 1.e-9);
+  auto lmobU = VAR(&spatial, calphad_bcs, "Mu", Glossary::InterDiffusionMobility, level_of_storage, 1.e-9);
   lmobU.set_additional_information("LIQUID", "U", "mob");
 
-  auto lmobPU = VAR(&spatial, calphad_bcs, "Mpu", Glossary::Mob, level_of_storage, 1.e-15);
+  auto lmobPU = VAR(&spatial, calphad_bcs, "Mpu", Glossary::InterDiffusionMobility, level_of_storage, 1.e-15);
   lmobPU.set_additional_information("LIQUID", "PU", "mob");
 
   auto mob_liquid = VARS(lmobO, lmobU, lmobPU);
 
   // Driving forces
-  auto dgm_s = VAR(&spatial, calphad_bcs, "DGM_s", Glossary::Dgm, level_of_storage, 0.);
+  auto dgm_s = VAR(&spatial, calphad_bcs, "DGM_s", Glossary::DiffusivityrivingForce, level_of_storage, 0.);
   dgm_s.set_additional_information("SOLID", "dgm");
-  auto dgm_l = VAR(&spatial, calphad_bcs, "DGM_l", Glossary::Dgm, level_of_storage, 0.);
+  auto dgm_l = VAR(&spatial, calphad_bcs, "DGM_l", Glossary::DiffusivityrivingForce, level_of_storage, 0.);
   dgm_l.set_additional_information("LIQUID", "dgm");
 
-  auto nuc_l = VAR(&spatial, calphad_bcs, "NUC_l", Glossary::Nucleus, level_of_storage, 0.);
+  auto nuc_l = VAR(&spatial, calphad_bcs, "NUC_l", Glossary::MoleNumberucleus, level_of_storage, 0.);
   nuc_l.set_additional_information("LIQUID", "nucleus");
 
   // Diffusion chemical potential
-  auto dmu_opu = VAR(&spatial, calphad_bcs, "dmu_opu", Glossary::Mu, level_of_storage, 0.);
+  auto dmu_opu = VAR(&spatial, calphad_bcs, "dmu_opu", Glossary::ChemicalPotential, level_of_storage, 0.);
   dmu_opu.set_additional_information("O", "dmu");
-  auto dmu_upu = VAR(&spatial, calphad_bcs, "dmu_upu", Glossary::Mu, level_of_storage, 0.);
+  auto dmu_upu = VAR(&spatial, calphad_bcs, "dmu_upu", Glossary::ChemicalPotential, level_of_storage, 0.);
   dmu_upu.set_additional_information("U", "dmu");
 
   // Mole fraction of phases
-  auto xph_l = VAR(&spatial, calphad_bcs, "xph_l", Glossary::X, level_of_storage, 0.);
+  auto xph_l = VAR(&spatial, calphad_bcs, "xph_l", Glossary::MoleFraction, level_of_storage, 0.);
   xph_l.set_additional_information("LIQUID", "xph");
 
   // Element molar fraction by phase
 
-  auto xo_s = VAR(&spatial, interdiffu_bcs, "xsO", Glossary::X, level_of_storage, initial_compo_o);
+  auto xo_s = VAR(&spatial, interdiffu_bcs, "xsO", Glossary::MoleFraction, level_of_storage, initial_compo_o);
   xo_s.set_additional_information("O", "SOLID", "xp");
-  auto xu_s = VAR(&spatial, interdiffu_bcs, "xsU", Glossary::X, level_of_storage, initial_compo_u);
+  auto xu_s = VAR(&spatial, interdiffu_bcs, "xsU", Glossary::MoleFraction, level_of_storage, initial_compo_u);
   xu_s.set_additional_information("U", "SOLID", "xp");
   auto xpu_s =
-      VAR(&spatial, interdiffu_bcs, "xsPU", Glossary::X, level_of_storage, initial_compo_pu);
+      VAR(&spatial, interdiffu_bcs, "xsPU", Glossary::MoleFraction, level_of_storage, initial_compo_pu);
   xpu_s.set_additional_information("PU", "SOLID", "xp");
 
-  auto xo_l = VAR(&spatial, interdiffu_bcs, "xlO", Glossary::X, level_of_storage, initial_compo_o);
+  auto xo_l = VAR(&spatial, interdiffu_bcs, "xlO", Glossary::MoleFraction, level_of_storage, initial_compo_o);
   xo_l.set_additional_information("O", "LIQUID", "xp");
-  auto xu_l = VAR(&spatial, interdiffu_bcs, "xlU", Glossary::X, level_of_storage, initial_compo_u);
+  auto xu_l = VAR(&spatial, interdiffu_bcs, "xlU", Glossary::MoleFraction, level_of_storage, initial_compo_u);
   xu_l.set_additional_information("U", "LIQUID", "xp");
   auto xpu_l =
-      VAR(&spatial, interdiffu_bcs, "xlPU", Glossary::X, level_of_storage, initial_compo_pu);
+      VAR(&spatial, interdiffu_bcs, "xlPU", Glossary::MoleFraction, level_of_storage, initial_compo_pu);
   xpu_l.set_additional_information("PU", "LIQUID", "xp");
 
   // Gibbs energy
-  auto gl = VAR(&spatial, calphad_bcs, "g_l", Glossary::G, level_of_storage, 0.);
+  auto gl = VAR(&spatial, calphad_bcs, "g_l", Glossary::GibbsEnergy, level_of_storage, 0.);
   gl.set_additional_information("LIQUID", "g");
-  auto gs = VAR(&spatial, calphad_bcs, "g_s", Glossary::G, level_of_storage, 0.);
+  auto gs = VAR(&spatial, calphad_bcs, "g_s", Glossary::GibbsEnergy, level_of_storage, 0.);
   gs.set_additional_information("SOLID", "g");
 
   auto calphad_outputs = VARS(muo, muu, mupu, mobO, mobU, mobPU, dgm_s, dgm_l, dmu_opu, dmu_upu,
                               xph_l, xo_s, xu_s, xpu_s, xo_l, xu_l, xpu_l, nuc_l, gs, gl);
 
-  auto phi = VAR(&spatial, calphad_bcs, "phi", Glossary::Phi, level_of_storage, 1.);
+  auto phi = VAR(&spatial, calphad_bcs, "phi", Glossary::PhaseField, level_of_storage, 1.);
   phi.set_additional_information("SOLID", "phi");
   auto var_phi = VARS(phi);
   // TDB file
@@ -323,16 +323,16 @@ int main(int argc, char* argv[]) {
                  input_composition_order, input_energies_order, element_removed_from_nn_inputs) +
       KKS_parameters;
 
-  auto M11 = VAR(&spatial, calphad_bcs, "M11", Glossary::Mob, level_of_storage, 0.);
+  auto M11 = VAR(&spatial, calphad_bcs, "M11", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   M11.set_additional_information("O", "inter_mob");
-  auto M12 = VAR(&spatial, calphad_bcs, "M12", Glossary::Mob, level_of_storage, 0.);
+  auto M12 = VAR(&spatial, calphad_bcs, "M12", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   M12.set_additional_information("U", "inter_mob");
 
   auto MO = VARS(M11, M12);
 
-  auto M21 = VAR(&spatial, calphad_bcs, "M21", Glossary::Mob, level_of_storage, 0.);
+  auto M21 = VAR(&spatial, calphad_bcs, "M21", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   M21.set_additional_information("U", "inter_mob");
-  auto M22 = VAR(&spatial, calphad_bcs, "M22", Glossary::Mob, level_of_storage, 0.);
+  auto M22 = VAR(&spatial, calphad_bcs, "M22", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   M22.set_additional_information("O", "inter_mob");
 
   auto MU = VARS(M21, M22);

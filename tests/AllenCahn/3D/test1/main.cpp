@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
                                center_z, a_x, a_y, a_z, epsilon, radius);
 
   auto vars =
-      VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, initial_condition, analytical_solution));
+      VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution));
 
   // ###########################################
   // ###########################################

@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
   //==========================================
 
   auto diffu_vars =
-      VARS(VAR(&spatial, bcs, "c", Glossary::X, level_of_storage, initial_compo, analytical_compo));
+      VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, level_of_storage, initial_compo, analytical_compo));
   //--- Integrator : alias definition for the sake of clarity
   using DiffusionIntegrator =
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
@@ -115,13 +115,13 @@ int main(int argc, char* argv[]) {
                                   Parameter("ScaleCoefficientsByTemperature", false),
                                   Parameter("EnableDiffusionChemicalPotentials", true));
   //   Parameter("MO", diffusionCoeff), Parameter("MU", diffusionCoeff),
-  auto mobO = VAR(&spatial, bcs, "Mo", Glossary::Mob, 2, diffusionCoeff);
+  auto mobO = VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
   mobO.set_additional_information("SOLID", "O", "mob");
-  auto mobU = VAR(&spatial, bcs, "Mu", Glossary::Mob, 2, diffusionCoeff);
+  auto mobU = VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
   mobU.set_additional_information("SOLID", "U", "mob");
   auto mobilities = VARS(mobO, mobU);
 
-  auto inter_mob = VAR(&spatial, bcs, "MO", Glossary::Mob, 2, 0.);
+  auto inter_mob = VAR(&spatial, bcs, "MO", Glossary::InterDiffusionMobility, 2, 0.);
   inter_mob.set_additional_information("O", "inter_mob");
   auto MO = VARS(inter_mob);
 
@@ -139,21 +139,21 @@ int main(int argc, char* argv[]) {
   //==========================================
   //--- Variables
   // Temperature
-  auto temp = VAR(&spatial, bcs, "T", Glossary::T, level_of_storage, 1. / Physical::R);
+  auto temp = VAR(&spatial, bcs, "T", Glossary::Temperature, level_of_storage, 1. / Physical::R);
   temp.set_additional_information("K", "T");
   auto heat_vars = VARS(temp);
   // Pressure
-  auto pres = VAR(&spatial, bcs, "pressure", Glossary::P, level_of_storage, 1.);
+  auto pres = VAR(&spatial, bcs, "pressure", Glossary::Pressure, level_of_storage, 1.);
   pres.set_additional_information("Pa", "P");
   auto p_vars = VARS(pres);
 
   // Initial condition for composition
-  auto xo = VAR(&spatial, bcs, "O", Glossary::X, 2, initial_compo, analytical_compo);
+  auto xo = VAR(&spatial, bcs, "O", Glossary::MoleFraction, 2, initial_compo, analytical_compo);
   xo.set_additional_information("O", "x");
   auto compo_vars = VARS(xo);
 
   // Chemical potential
-  auto muo = VAR(&spatial, bcs, "dmu", Glossary::Mu, 2, 0.);
+  auto muo = VAR(&spatial, bcs, "dmu", Glossary::ChemicalPotential, 2, 0.);
   muo.set_additional_information("O", "dmu");
 
   auto mu_var = VARS(muo);

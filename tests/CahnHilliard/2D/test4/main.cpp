@@ -143,9 +143,9 @@ int main(int argc, char* argv[]) {
         auto initial_solution_mu = AnalyticalFunctions<DIM>(solution_mu);
         const std::string& var_name_1 = "phi";
         const std::string& var_name_2 = "mu";
-        auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::Phi, 2, initial_condition,
+        auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::PhaseField, 2, initial_condition,
                       analytical_solution);
-        auto v2 = VAR(&spatial, bcs_mu, var_name_2, Glossary::Mu, 2, 0.);
+        auto v2 = VAR(&spatial, bcs_mu, var_name_2, Glossary::ChemicalPotential, 2, 0.);
         auto vars = VARS(v1, v2);
 
         // ###########################################

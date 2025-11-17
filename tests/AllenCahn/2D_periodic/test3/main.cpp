@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
       auto vars =
-          VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, initial_condition, analytical_solution));
+          VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution));
 
       // ###########################################
       // ###########################################

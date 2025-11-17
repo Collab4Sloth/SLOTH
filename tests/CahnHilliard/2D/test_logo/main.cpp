@@ -116,8 +116,8 @@ int main(int argc, char* argv[]) {
   auto mu_initial_condition = 0.0;
   const std::string& var_name_1 = "phi";
   const std::string& var_name_2 = "mu";
-  auto v1 = VAR(&spatial, bcs, var_name_1, Glossary::Phi, 2, phi_initial_condition);
-  auto v2 = VAR(&spatial, bcs, var_name_2, Glossary::Phi, 2, mu_initial_condition);
+  auto v1 = VAR(&spatial, bcs, var_name_1, Glossary::PhaseField, 2, phi_initial_condition);
+  auto v2 = VAR(&spatial, bcs, var_name_2, Glossary::PhaseField, 2, mu_initial_condition);
   auto vars = VARS(v1, v2);
 
   // ###########################################

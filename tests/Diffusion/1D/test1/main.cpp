@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
     auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
     auto vars =
-        VARS(VAR(&spatial, bcs, "c", Glossary::X, 2, initial_condition, analytical_solution));
+        VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition, analytical_solution));
 
     // ###########################################
     // ###########################################

@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
       auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
 
       auto vars = VARS(
-          VAR(&spatial, bcs, "phi", Glossary::Phi, 2, analytical_solution, analytical_solution));
+          VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, analytical_solution, analytical_solution));
 
       // ###########################################
       // ###########################################

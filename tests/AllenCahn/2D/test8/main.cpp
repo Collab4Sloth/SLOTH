@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
     int ip = 0;
     for (const auto& precond : vect_precond) {
       auto vars =
-          VARS(VAR(&spatial, bcs, "phi", Glossary::Phi, 2, initial_condition, analytical_solution));
+          VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution));
       std::string calculation_path = "Problem_" + std::to_string(is) + "_" + std::to_string(ip);
       auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
                               Parameter("calculation_path", calculation_path),

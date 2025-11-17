@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
       auto vars =
-          VARS(VAR(&spatial, bcs, "c", Glossary::X, 2, initial_condition, initial_condition));
+          VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition, initial_condition));
 
       // ###########################################
       // ###########################################
@@ -135,24 +135,24 @@ int main(int argc, char* argv[]) {
       // ####################
       // Thermal diffusion Parameters
       auto td_parameters = Parameters(Parameter("last_component", "U"));
-      auto fictitious_mobO = VAR(&spatial, bcs, "Mo", Glossary::Mob, 2, diffusionCoeff);
+      auto fictitious_mobO = VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
       // Fictitious mobilities
       fictitious_mobO.set_additional_information("C1_MO2", "O", "mob");
-      auto fictitious_mobU = VAR(&spatial, bcs, "Mu", Glossary::Mob, 2, diffusionCoeff);
+      auto fictitious_mobU = VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
       fictitious_mobU.set_additional_information("C1_MO2", "U", "mob");
       auto mobo_var = VARS(fictitious_mobO);
       auto mobu_var = VARS(fictitious_mobU);
       // Fictitious chemical potentials and mobilities
-      auto fictitious_muo = VAR(&spatial, bcs, "muO", Glossary::Mu, 2, 0.);
+      auto fictitious_muo = VAR(&spatial, bcs, "muO", Glossary::ChemicalPotential, 2, 0.);
       fictitious_muo.set_additional_information("O", "mu");
       auto mu_var = VARS(fictitious_muo);
-      auto fictitious_muu = VAR(&spatial, bcs, "muU", Glossary::Mu, 2, 0.);
+      auto fictitious_muu = VAR(&spatial, bcs, "muU", Glossary::ChemicalPotential, 2, 0.);
       fictitious_muu.set_additional_information("U", "mu");
       auto muu_var = VARS(fictitious_muu);
 
-      auto fictitious_Mo = VAR(&spatial, bcs, "Mo", Glossary::Mob, 2, 1.);
+      auto fictitious_Mo = VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, 1.);
       fictitious_Mo.set_additional_information("O", "inter_mob");
-      auto fictitious_Mu = VAR(&spatial, bcs, "Mu", Glossary::Mob, 2, 1.);
+      auto fictitious_Mu = VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, 1.);
       fictitious_Mu.set_additional_information("U", "inter_mob");
 
       auto fictitious_mob = VARS(fictitious_Mo, fictitious_Mu);

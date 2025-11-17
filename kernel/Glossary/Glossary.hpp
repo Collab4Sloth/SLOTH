@@ -115,10 +115,6 @@ enum class GlossaryType {
   System
 };
 
-/**
- * @brief Structure used to define a GlossaryQuantity
- *
- */
 struct GlossaryQuantity {
   /**
    * @brief Construct a new GlossaryQuantity object
@@ -127,16 +123,14 @@ struct GlossaryQuantity {
    * @param u GloassaryUnit of the quantity
    * @param d Description of the quantity
    */
- public:
   GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d)
       : type(t), unit(u), description(d) {}
 
-  void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
-
- private:
   GlossaryType type;
   GlossaryUnit unit;
   std::string description;
+
+  void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
 };
 
 /**
@@ -148,32 +142,32 @@ namespace Glossary {
  * @brief Quantity associated with phase-field variables
  *
  */
-static const GlossaryQuantity Phi = GlossaryQuantity(GlossaryType::PhaseField, GlossaryUnit::None,
-                                                     "PhaseField variable (dimensionless)");
+static const GlossaryQuantity PhaseField = GlossaryQuantity(
+    GlossaryType::PhaseField, GlossaryUnit::None, "PhaseField variable (dimensionless)");
 /**
  * @brief Quantity associated with a number of moles
  *
  */
-static const GlossaryQuantity N =
+static const GlossaryQuantity MoleNumber =
     GlossaryQuantity(GlossaryType::Mole, GlossaryUnit::Mole, "Mole number");
 /**
  * @brief Quantity associated with molar fraction variables
  *
  */
-static const GlossaryQuantity X = GlossaryQuantity(GlossaryType::MolarFraction, GlossaryUnit::None,
-                                                   "Molar fraction variable (dimensionless)");
+static const GlossaryQuantity MoleFraction = GlossaryQuantity(
+    GlossaryType::MolarFraction, GlossaryUnit::None, "Molar fraction variable (dimensionless)");
 /**
  * @brief Quantity associated with site fraction variables
  *
  */
-static const GlossaryQuantity Y = GlossaryQuantity(GlossaryType::SiteFraction, GlossaryUnit::None,
-                                                   "Site fraction variable (dimensionless)");
+static const GlossaryQuantity SiteFraction = GlossaryQuantity(
+    GlossaryType::SiteFraction, GlossaryUnit::None, "Site fraction variable (dimensionless)");
 
 /**
  * @brief Quantity associated with phase-field mobility coefficients
  *
  */
-static GlossaryQuantity MobPhi = GlossaryQuantity(
+static GlossaryQuantity Mobility = GlossaryQuantity(
     GlossaryType::Mobility, GlossaryUnit::CubicMeterPerJoulesPerSecond,
     "Mobility coefficient in " + toString(GlossaryUnit::CubicMeterPerJoulesPerSecond));
 
@@ -181,7 +175,7 @@ static GlossaryQuantity MobPhi = GlossaryQuantity(
  * @brief Quantity associated with inter-diffusion mobility coefficients
  *
  */
-static GlossaryQuantity Mob =
+static GlossaryQuantity InterDiffusionMobility =
     GlossaryQuantity(GlossaryType::Mobility, GlossaryUnit::MolesSquareMeterPerJoulesPerSecond,
                      "Inter-diffusion mobility coefficient in " +
                          toString(GlossaryUnit::MolesSquareMeterPerJoulesPerSecond));
@@ -190,7 +184,7 @@ static GlossaryQuantity Mob =
  * @brief Quantity associated with mass diffusion coefficient
  *
  */
-static GlossaryQuantity D = GlossaryQuantity(
+static GlossaryQuantity Diffusivity = GlossaryQuantity(
     GlossaryType::Diffusivity, GlossaryUnit::SquareMeterPerSecond,
     "Mass diffusion coefficient in " + toString(GlossaryUnit::SquareMeterPerSecond));
 
@@ -198,7 +192,7 @@ static GlossaryQuantity D = GlossaryQuantity(
  * @brief Quantity associated with chemical potential variables
  *
  */
-static const GlossaryQuantity Mu =
+static const GlossaryQuantity ChemicalPotential =
     GlossaryQuantity(GlossaryType::ChemicalPotential, GlossaryUnit::JoulesPerMole,
                      "Chemical potential variable in " + toString(GlossaryUnit::JoulesPerMole));
 
@@ -206,14 +200,14 @@ static const GlossaryQuantity Mu =
  * @brief Quantity associated with concetration variables
  *
  */
-static const GlossaryQuantity C =
+static const GlossaryQuantity Concentration =
     GlossaryQuantity(GlossaryType::Concentration, GlossaryUnit::MolePerCubicMeter,
                      "Concentration variable in " + toString(GlossaryUnit::MolePerCubicMeter));
 /**
  * @brief Quantity associated with surface tension property
  *
  */
-static const GlossaryQuantity Sigma =
+static const GlossaryQuantity SurfaceTension =
     GlossaryQuantity(GlossaryType::SurfaceTension, GlossaryUnit::JoulesPerSquareMeter,
                      "Surface tension in " + toString(GlossaryUnit::JoulesPerSquareMeter));
 
@@ -221,7 +215,7 @@ static const GlossaryQuantity Sigma =
  * @brief Quantity associated with the capillary terms in phase-field equations
  *
  */
-static const GlossaryQuantity Kappa =
+static const GlossaryQuantity Capillary =
     GlossaryQuantity(GlossaryType::Capillary, GlossaryUnit::JoulesPerMeter,
                      "Capillary coefficient in " + toString(GlossaryUnit::JoulesPerMeter));
 
@@ -229,7 +223,7 @@ static const GlossaryQuantity Kappa =
  * @brief Quantity associated with temperature in Kelvin
  *
  */
-static const GlossaryQuantity T =
+static const GlossaryQuantity Temperature =
     GlossaryQuantity(GlossaryType::Temperature, GlossaryUnit::Kelvin,
                      "Temperature in " + toString(GlossaryUnit::Kelvin));
 
@@ -237,34 +231,34 @@ static const GlossaryQuantity T =
  * @brief Quantity associated with pressure in Pascal
  *
  */
-static const GlossaryQuantity P = GlossaryQuantity(GlossaryType::Pressure, GlossaryUnit::Pascal,
-                                                   "Pressure in " + toString(GlossaryUnit::Pascal));
+static const GlossaryQuantity Pressure = GlossaryQuantity(
+    GlossaryType::Pressure, GlossaryUnit::Pascal, "Pressure in " + toString(GlossaryUnit::Pascal));
 
 /**
  * @brief Quantity associated with the molar Gibbs energy
  *
  */
-static const GlossaryQuantity Gm =
+static const GlossaryQuantity MolarGibbsEnergy =
     GlossaryQuantity(GlossaryType::ThermodynamicPotential, GlossaryUnit::JoulesPerMole,
                      "Molar Gibbs free energy  in " + toString(GlossaryUnit::JoulesPerMole));
 /**
  * @brief Quantity associated with the Gibbs energy in Joules
  */
-static const GlossaryQuantity G =
+static const GlossaryQuantity GibbsEnergy =
     GlossaryQuantity(GlossaryType::ThermodynamicPotential, GlossaryUnit::Joules,
                      "Gibbs free energy in " + toString(GlossaryUnit::Joules));
 /**
  * @brief Quantity associated with the molar enthalpy
  *
  */
-static const GlossaryQuantity Hm =
+static const GlossaryQuantity MolarEnthalpy =
     GlossaryQuantity(GlossaryType::ThermodynamicPotential, GlossaryUnit::JoulesPerMole,
                      "Molar Enthalpy  in " + toString(GlossaryUnit::JoulesPerMole));
 /**
  * @brief Quantity associated with the enthalpy in Joules
  *
  */
-static const GlossaryQuantity H =
+static const GlossaryQuantity Enthalpy =
     GlossaryQuantity(GlossaryType::ThermodynamicPotential, GlossaryUnit::Joules,
                      "Enthalpy  in " + toString(GlossaryUnit::Joules));
 
@@ -272,7 +266,7 @@ static const GlossaryQuantity H =
  * @brief Quantity associated with the interpolation functions used in phase-field equations
  *
  */
-static const GlossaryQuantity Pint =
+static const GlossaryQuantity InterpolationFunction =
     GlossaryQuantity(GlossaryType::PhaseFieldPotential, GlossaryUnit::None,
                      "Interpolation function (dimensionless)");
 
@@ -287,7 +281,7 @@ static const GlossaryQuantity Nucleus =
  * @brief Quantity associated with the driving force
  *
  */
-static const GlossaryQuantity Dgm =
+static const GlossaryQuantity DrivingForce =
     GlossaryQuantity(GlossaryType::ThermodynamicPotential, GlossaryUnit::Joules,
                      "Driving force in " + toString(GlossaryUnit::Joules));
 
@@ -295,14 +289,14 @@ static const GlossaryQuantity Dgm =
  * @brief Quantity associated with the free energy used in phase-field equations
  *
  */
-static const GlossaryQuantity F = GlossaryQuantity(
+static const GlossaryQuantity FreeEnergy = GlossaryQuantity(
     GlossaryType::PhaseFieldPotential, GlossaryUnit::None, "Free energy function (dimensionless)");
 
 /**
  * @brief Quantity associated with the thermal conductivity
  *
  */
-static const GlossaryQuantity K = GlossaryQuantity(
+static const GlossaryQuantity Conductivity = GlossaryQuantity(
     GlossaryType::Conductivity, GlossaryUnit::JoulesPerMeterPerSecondPerKelvin,
     "Themal conductivity in " + toString(GlossaryUnit::JoulesPerMeterPerSecondPerKelvin));
 
@@ -332,7 +326,7 @@ static const GlossaryQuantity MPI =
  * @brief Quantity associated with the spatial coordinate variable
  *
  */
-static const GlossaryQuantity Coord = GlossaryQuantity(
+static const GlossaryQuantity Coordinate = GlossaryQuantity(
     GlossaryType::System, GlossaryUnit::None, "Spatial coordinate variable (dimensionless)");
 
 }  // namespace Glossary
