@@ -115,13 +115,7 @@ enum class GlossaryType {
   System
 };
 
-/**
- * @brief Namespace for pre-defined GlossaryQuantity
- *
- */
-namespace Glossary {
-
-struct GlossaryQuantity {
+struct Quantity {
   /**
    * @brief Construct a new GlossaryQuantity object
    *
@@ -138,6 +132,12 @@ struct GlossaryQuantity {
 
   void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
 };
+
+/**
+ * @brief Namespace for pre-defined GlossaryQuantity
+ *
+ */
+namespace Glossary {
 
 /**
  * @brief Quantity associated with phase-field variables
