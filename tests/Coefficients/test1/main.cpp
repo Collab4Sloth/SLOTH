@@ -86,7 +86,6 @@ int main(int argc, char* argv[]) {
     case 1: {
       // Wrong number of variables
       SlothInfo::print("Running test case 2: wrong number of arguments");
-      std::vector<std::string> variable_names = {"x", "y", "z"};
       SlothBaseCoefficient<double> coeff(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
         auto bad_result = coeff.evaluate(1.0, 2.0);
@@ -101,7 +100,6 @@ int main(int argc, char* argv[]) {
       // Wrong expression
       SlothInfo::print("Running test case 3: wrong expression");
 
-      std::vector<std::string> variable_names = {"x", "y", "z"};
       try {
         SlothBaseCoefficient<double> bad_coeff(Glossary::Temperature, "2*x+30*y+0.1*z*", "x", "y",
                                                "z");
@@ -116,7 +114,6 @@ int main(int argc, char* argv[]) {
       // Wrong expression
       SlothInfo::print("Running test case 4: check GlossaryType");
 
-      std::vector<std::string> variable_names = {"x", "y", "z"};
       SlothBaseCoefficient<double> coeff(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
         if (coeff.get_type() != GlossaryType::Temperature) {
