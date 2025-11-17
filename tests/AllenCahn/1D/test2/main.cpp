@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 
   auto initial_condition = AnalyticalFunctions<DIM>(user_func);
   const std::string& var_name = "phi1";
-  auto vars = VARS(VAR(&spatial, bcs, var_name, 2, initial_condition));
+  auto vars = VARS(VAR(&spatial, bcs, var_name, Glossary::PhaseField, 2, initial_condition));
   // ###########################################
   //      Post-processing                     //
   // ###########################################

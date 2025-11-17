@@ -103,7 +103,8 @@ int main(int argc, char* argv[]) {
       // ####################
       auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
 
-      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, analytical_solution, analytical_solution));
+      auto vars = VARS(
+          VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, analytical_solution, analytical_solution));
 
       // ###########################################
       // ###########################################
@@ -137,7 +138,7 @@ int main(int argc, char* argv[]) {
           [](const mfem::Vector& x, double time) { return 0.; });
 
       auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-      auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
+      auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", Glossary::MPI, 2, initial_rank));
       calculation_path = "ProblemMPI_";
       auto p_pst2 = Parameters(Parameter("main_folder_path", main_folder_path),
                                Parameter("calculation_path", calculation_path),

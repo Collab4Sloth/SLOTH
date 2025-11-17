@@ -113,6 +113,7 @@ class CalphadBase {
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
+  void clear_time_specialized();
 
   explicit CalphadBase(const Parameters& params);
   CalphadBase(const Parameters& params, bool is_KKS);
@@ -497,6 +498,17 @@ template <typename T>
 const std::multimap<IterationKey, SpecializedValue> CalphadBase<T>::get_time_specialized() const {
   return this->time_specialized_;
 }
+
+/**
+ * @brief Clear time_specialized_ container
+ *
+ * @tparam T
+ */
+template <typename T>
+void CalphadBase<T>::clear_time_specialized() {
+  this->time_specialized_.clear();
+}
+
 /**
  * @brief Destroy the Calphad Base< T>:: Calphad Base object
  *

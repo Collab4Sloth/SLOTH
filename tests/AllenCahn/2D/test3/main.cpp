@@ -115,7 +115,8 @@ int main(int argc, char* argv[]) {
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
-      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition, analytical_solution));
+      auto vars =
+          VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution));
 
       // ###########################################
       // ###########################################
@@ -144,7 +145,7 @@ int main(int argc, char* argv[]) {
       oper.overload_mobility(Parameters(Parameter("mob", mob)));
       PB problem1("Steady AllenCahn", oper, vars, pst);
 
-      auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, 0.));
+      auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", Glossary::MPI, 2, 0.));
 
       calculation_path = "ProblemMPI_";
       auto p_pst2 = Parameters(Parameter("main_folder_path", main_folder_path),

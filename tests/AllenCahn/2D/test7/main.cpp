@@ -121,9 +121,9 @@ int main(int argc, char* argv[]) {
       });
   auto exact_condition = AnalyticalFunctions<DIM>(ex_func_solution);
 
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 1, initial_condition, exact_condition));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 1, initial_condition, exact_condition));
 
-  auto vars2 = VARS(VAR(&spatial, bcs, "c", 1, initial_condition, exact_condition));
+  auto vars2 = VARS(VAR(&spatial, bcs, "c", Glossary::PhaseField, 1, initial_condition, exact_condition));
   // ###########################################
   // ###########################################
   //      Post-processing                     //

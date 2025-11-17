@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
   // ###########################
   const auto& pellet_radius = 0.00465;
   // Heat
-  auto heat_vars = VARS(VAR(&spatial, Tbcs, "T", 2, 750.));
+  auto heat_vars = VARS(VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 750.));
   auto pl = 4.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
       [pl, pellet_radius](const mfem::Vector& vcoord, double time) {

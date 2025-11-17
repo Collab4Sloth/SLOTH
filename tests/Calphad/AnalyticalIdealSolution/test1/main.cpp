@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
   const auto& pellet_radius = 0.00465;
   // Heat
 
-  auto temp = VAR(&spatial, Tbcs, "T", 2, 750.);
+  auto temp = VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 750.);
   temp.set_additional_information("K", "T");
 
   auto heat_vars = VARS(temp);
@@ -116,20 +116,20 @@ int main(int argc, char* argv[]) {
   //            Physical models               //
   // ###########################################
   // ###########################################
-  auto muo = VAR(&spatial, Calphadbcs, "muO", 2, 0.);
+  auto muo = VAR(&spatial, Calphadbcs, "muO", Glossary::ChemicalPotential, 2, 0.);
   muo.set_additional_information("O", "mu");
-  auto xso = VAR(&spatial, Calphadbcs, "xsO", 2, 0.);
+  auto xso = VAR(&spatial, Calphadbcs, "xsO", Glossary::MoleFraction, 2, 0.);
   xso.set_additional_information("O", "SOLUTION", "x");
-  auto gs = VAR(&spatial, Calphadbcs, "gs", 2, 0.);
+  auto gs = VAR(&spatial, Calphadbcs, "gs", Glossary::GibbsEnergy, 2, 0.);
   gs.set_additional_information("SOLUTION", "g");
   auto outputs = VARS(muo, xso, gs);
 
-  auto pres = VAR(&spatial, Calphadbcs, "pressure", 2, 50.e5);
+  auto pres = VAR(&spatial, Calphadbcs, "pressure", Glossary::Pressure, 2, 50.e5);
   pres.set_additional_information("Pa", "P");
 
   auto p_vars = VARS(pres);
 
-  auto xo = VAR(&spatial, Calphadbcs, "O", 2, 0.66);
+  auto xo = VAR(&spatial, Calphadbcs, "O", Glossary::MoleFraction, 2, 0.66);
   xo.set_additional_information("O", "X");
   auto compo_vars = VARS(xo);
   auto description_calphad =

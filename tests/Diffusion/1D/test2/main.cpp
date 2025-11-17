@@ -104,7 +104,8 @@ int main(int argc, char* argv[]) {
     auto initial_condition = AnalyticalFunctions<DIM>(user_func_init);
     auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
-    auto vars = VARS(VAR(&spatial, bcs, "c", 2, initial_condition, analytical_solution));
+    auto vars =
+        VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition, analytical_solution));
 
     // ###########################################
     // ###########################################

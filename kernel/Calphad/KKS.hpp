@@ -5,24 +5,24 @@
  * @brief All needed for Calphad calculation including KKS model
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
 #include <functional>
@@ -37,10 +37,10 @@
 
 #include "Calphad/CalphadUtils.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "MAToolsProfiling/MATimersAPI.hxx"
 
 #pragma once
 
@@ -68,8 +68,8 @@ class KKS {
   // Melting temperature used if the nucleation strategy is set to GivenMeltingTemperature
   double given_melting_temperature_{std::numeric_limits<double>::max()};
 
-  std::set<int> check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
-                                 const T &tp_gf_ph_1);
+  std::set<int> check_nucleation(CalphadBase<T>& CALPHAD, const std::set<int>& indices_ph_1,
+                                 const T& tp_gf_ph_1);
 
  protected:
   // Common methods for CALPHAD studies
@@ -126,16 +126,16 @@ class KKS {
   // Method used to build the blocks of the linear system resulting from linearization of KKS
   // problem
   std::unique_ptr<mfem::SparseMatrix> get_A4linearKKS(
-      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-      const std::string &phase, const int node);
+      const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+      const std::string& phase, const int node);
 
   mfem::Vector get_h4linearKKS(
-      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-      const std::string &phase, const int node);
+      const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+      const std::string& phase, const int node);
 
   mfem::Vector get_m4linearKKS(
-      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-      const std::string &phase, const int node);
+      const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+      const std::string& phase, const int node);
 
   // Specific containers used to fill blocks of the linear system resulting from linearization of
   // KKS problem
@@ -147,13 +147,13 @@ class KKS {
 
  public:
   KKS();
-  void get_parameters(const CalphadBase<T> &CALPHAD);
+  void get_parameters(const CalphadBase<T>& CALPHAD);
   void execute_linearization(
-      CalphadBase<T> &CALPHAD, const int dt, const double time_step, const std::vector<T> &tp_gf,
-      const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
-      const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-      const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
-      const std::vector<std::tuple<std::string, T>> &coord_gf);
+      CalphadBase<T>& CALPHAD, const int dt, const double time_step, const std::vector<T>& tp_gf,
+      const std::vector<T>& tp_gf_old, const std::tuple<std::string, T, T>& phasefields_gf,
+      const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+      const std::vector<std::tuple<std::string, std::string, T, T>>& x_gf,
+      const std::vector<std::tuple<std::string, T>>& coord_gf);
 
   void clear_containers();
 
@@ -178,7 +178,7 @@ KKS<T>::KKS() {
  * @tparam T
  */
 template <typename T>
-void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
+void KKS<T>::get_parameters(const CalphadBase<T>& CALPHAD) {
   this->element_removed_from_ic_ = CALPHAD.element_removed_from_ic_;
 
   this->KKS_enable_save_specialized_ = CALPHAD.params_.template get_param_value_or_default<bool>(
@@ -231,14 +231,14 @@ void KKS<T>::get_parameters(const CalphadBase<T> &CALPHAD) {
  * @return std::set<int>
  */
 template <typename T>
-std::set<int> KKS<T>::check_nucleation(CalphadBase<T> &CALPHAD, const std::set<int> &indices_ph_1,
-                                       const T &tp_gf_ph_1) {
+std::set<int> KKS<T>::check_nucleation(CalphadBase<T>& CALPHAD, const std::set<int>& indices_ph_1,
+                                       const T& tp_gf_ph_1) {
   std::set<int> indices_nucleation;
 
   switch (KKS_nucleation_strategy::from(this->KKS_nucleation_strategy_)) {
     //
     case KKS_nucleation_strategy::liquid_fraction: {
-      for (const auto &node : indices_ph_1) {
+      for (const auto& node : indices_ph_1) {
         // Check only if equilibrium is found
         if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
         // Check if secondary phase is found
@@ -251,7 +251,7 @@ std::set<int> KKS<T>::check_nucleation(CalphadBase<T> &CALPHAD, const std::set<i
     }
     //
     case KKS_nucleation_strategy::given_melting_temperature: {
-      for (const auto &node : indices_ph_1) {
+      for (const auto& node : indices_ph_1) {
         // Check if temperature at node is greater than a given limit
         if (tp_gf_ph_1(node) > this->given_melting_temperature_) {
           indices_nucleation.insert(node);
@@ -283,11 +283,11 @@ std::set<int> KKS<T>::check_nucleation(CalphadBase<T> &CALPHAD, const std::set<i
  */
 template <typename T>
 void KKS<T>::execute_linearization(
-    CalphadBase<T> &CALPHAD, const int dt, const double time_step, const std::vector<T> &tp_gf,
-    const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
-    const std::vector<std::tuple<std::string, T>> &coordinates) {
+    CalphadBase<T>& CALPHAD, const int dt, const double time_step, const std::vector<T>& tp_gf,
+    const std::vector<T>& tp_gf_old, const std::tuple<std::string, T, T>& phasefields_gf,
+    const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+    const std::vector<std::tuple<std::string, std::string, T, T>>& x_gf,
+    const std::vector<std::tuple<std::string, T>>& coordinates) {
   // Number of chemical elements
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes
@@ -302,7 +302,7 @@ void KKS<T>::execute_linearization(
   ////////////////////////////////////////////////////////
   // List of nodes by phases and within interface
   ////////////////////////////////////////////////////////
-  const auto &[phase, phi_gf, phi_gf_old] = phasefields_gf;
+  const auto& [phase, phi_gf, phi_gf_old] = phasefields_gf;
 
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
@@ -333,27 +333,27 @@ void KKS<T>::execute_linearization(
     MPI_Allreduce(&local_size, &global_size, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     CALPHAD.time_specialized_.emplace(IterationKey(dt, time_step, dt * time_step),
-                                      SpecializedValue("KKS nodes[-]", indices_inter.size()));
+                                      SpecializedValue("KKS nodes[-]", global_size));
   }
 
   // Lambda for equilibrium calculations performed in the pure phase or in the interface with a
   // temperature deviation
   auto calculate_interface =
-      [&](const std::set<int> &indices, const std::vector<T> &delta_tp_gf, const double increment,
+      [&](const std::set<int>& indices, const std::vector<T>& delta_tp_gf, const double increment,
           const int id_incr,
-          std::map<std::tuple<int, std::string, std::string>, double> &chemical_potential_interface,
+          std::map<std::tuple<int, std::string, std::string>, double>& chemical_potential_interface,
           std::vector<std::tuple<std::string, std::string, double>> given_phase,
-          const std::string &primary_phase) {
+          const std::string& primary_phase) {
         std::vector<T> delta_tp = delta_tp_gf;
         if (id_incr > -1) {
           delta_tp[id_incr] += increment;
         }
         CALPHAD.execute(dt, indices, delta_tp, chemicalsystem, given_phase);
 
-        for (const auto &in : indices) {
+        for (const auto& in : indices) {
           if (CALPHAD.error_equilibrium_[in] == CalphadDefaultConstant::error_max) continue;
-          for (const auto &elem : chemicalsystem) {
-            const auto &[elem1, unit] = elem;
+          for (const auto& elem : chemicalsystem) {
+            const auto& [elem1, unit] = elem;
             const double mu = CALPHAD.chemical_potentials_.at(std::make_tuple(in, elem1));
             chemical_potential_interface.emplace(std::make_tuple(in, elem1, primary_phase), mu);
           }
@@ -363,22 +363,22 @@ void KKS<T>::execute_linearization(
   // Lambda for equilibrium calculations performed in the pure phase with a deviation in
   // composition
   auto calculate_interface_x =
-      [&](const std::vector<T> &delta_tp_gf, const double increment, const int id_incr,
+      [&](const std::vector<T>& delta_tp_gf, const double increment, const int id_incr,
           int index_el,
-          std::map<std::tuple<int, int, std::string, std::string>, double>
-              &chemical_potential_interface,
+          std::map<std::tuple<int, int, std::string, std::string>, double>&
+              chemical_potential_interface,
           std::vector<std::tuple<std::string, std::string, double>> given_phase,
-          const std::string &primary_phase) {
+          const std::string& primary_phase) {
         std::vector<T> delta_tp = delta_tp_gf;
         if (id_incr > -1) {
           delta_tp[id_incr] += increment;
         }
 
         CALPHAD.execute(dt, indices_inter, delta_tp, chemicalsystem, given_phase);
-        for (const auto &in : indices_inter) {
+        for (const auto& in : indices_inter) {
           if (CALPHAD.error_equilibrium_[in] == CalphadDefaultConstant::error_max) continue;
-          for (const auto &elem : chemicalsystem) {
-            const auto &[elem1, unit] = elem;
+          for (const auto& elem : chemicalsystem) {
+            const auto& [elem1, unit] = elem;
             const double mu = CALPHAD.chemical_potentials_.at(std::make_tuple(in, elem1));
             chemical_potential_interface.emplace(
                 std::make_tuple(index_el, in, elem1, primary_phase), mu);
@@ -417,9 +417,9 @@ void KKS<T>::execute_linearization(
   // Composition : Xbar
   MFEM_VERIFY(x_gf.size() > 0, "Error while getting molar fraction by phase");
 
-  for (const auto &[elem, phase_elem, x_elem, x_elem_old] : x_gf) {
+  for (const auto& [elem, phase_elem, x_elem, x_elem_old] : x_gf) {
     auto it = std::ranges::find_if(chemicalsystem,
-                                   [&elem](const auto &t) { return std::get<0>(t) == elem; });
+                                   [&elem](const auto& t) { return std::get<0>(t) == elem; });
 
     std::optional<int> id;
     if (it != chemicalsystem.end()) {
@@ -456,7 +456,7 @@ void KKS<T>::execute_linearization(
       pure_bar_tp_gf_ph_2[id_value + 2] = tp_gf[id_value + 2];
 
     } else {
-      const std::string &error_msg =
+      const std::string& error_msg =
           "Error while setting molar fraction at point approximation. Unknown phase " + phase_elem;
       mfem::mfem_error(error_msg.c_str());
     }
@@ -510,16 +510,16 @@ void KKS<T>::execute_linearization(
 
     // Create circular nucleus around the node where secondary phase is detected
     // No need to check error_equilibrium because of already done when indices_nucleation is created
-    for (const auto &inuc : indices_nucleation) {
+    for (const auto& inuc : indices_nucleation) {
       SlothInfo::debug("Nucleation detected at node ", inuc, " T ", pure_bar_tp_gf_ph_1[0](inuc));
       // const double seed =
       //     CALPHAD.mole_fraction_of_phase_[std::make_tuple(inuc, this->KKS_secondary_phase_)];
       const double seed = this->KKS_seed_;
       const double nucleus_value = -seed / (time_step * this->KKS_mobility_for_seed_);
-      for (const auto &j : indices_ph_1) {
+      for (const auto& j : indices_ph_1) {
         double rr = 0;
 
-        for (const auto &[_, coord] : coordinates) {
+        for (const auto& [_, coord] : coordinates) {
           const double coord_diff = coord[inuc] - coord[j];
           rr += coord_diff * coord_diff;
         }
@@ -577,7 +577,7 @@ void KKS<T>::execute_linearization(
 
     // Loop over chemical system (except the reference element)
     int ielem = 0;
-    for (const auto &[elem, unit] : chemicalsystem) {
+    for (const auto& [elem, unit] : chemicalsystem) {
       if (elem != this->element_removed_from_ic_) {
         // x + dx
         // Equilibrium calculations in both phases at (Tbar, Xbar + delta X)
@@ -623,7 +623,7 @@ void KKS<T>::execute_linearization(
     solver->SetMaxIter(this->kks_max_iter_solver_);
     solver->SetPrintLevel(this->kks_print_level_solver_);
 
-    for (const auto &node : indices_inter) {
+    for (const auto& node : indices_inter) {
       // Solve KKS only if an equilibrium is found. Otherwise, solution at previous time-step will
       // be taken into account
       if (CALPHAD.error_equilibrium_[node] == CalphadDefaultConstant::error_max) continue;
@@ -666,7 +666,7 @@ void KKS<T>::execute_linearization(
       mfem::Vector deltaX(nb_elem - 1);
       int ielem = 0;
       int jelem = 0;
-      for (const auto &[elem, unit] : chemicalsystem) {
+      for (const auto& [elem, unit] : chemicalsystem) {
         if (elem != this->element_removed_from_ic_) {
           const double current_x = tp_gf[jelem + 2](node);
           const double old_x = tp_gf_old[jelem + 2](node);
@@ -697,14 +697,14 @@ void KKS<T>::execute_linearization(
       //
 
       // mfem::BlockVector bb(offsets);
-      mfem::Vector &b0 = bb.GetBlock(0);
+      mfem::Vector& b0 = bb.GetBlock(0);
       b0 = ml_minus_ms;
       b0 += hl_minus_hs;
 
-      mfem::Vector &b1 = bb.GetBlock(1);
+      mfem::Vector& b1 = bb.GetBlock(1);
       b1 = deltaX;
-      mfem::Vector &d0 = deltaX_phase.GetBlock(0);
-      mfem::Vector &d1 = deltaX_phase.GetBlock(1);
+      mfem::Vector& d0 = deltaX_phase.GetBlock(0);
+      mfem::Vector& d1 = deltaX_phase.GetBlock(1);
       d0 = 0.;
       d1 = 0.;
 
@@ -761,7 +761,7 @@ void KKS<T>::execute_linearization(
       int ie = 0;
       double sumS = 0.;
       double sumL = 0.;
-      for (const auto &[elem, unit] : chemicalsystem) {
+      for (const auto& [elem, unit] : chemicalsystem) {
         if (elem != this->element_removed_from_ic_) {
           CALPHAD.elem_mole_fraction_by_phase_[std::make_tuple(node, phase, elem)] =
               bar_tp_gf_ph_1[i + 2](node) + delta_XS(ie);
@@ -825,7 +825,7 @@ void KKS<T>::execute_linearization(
 
       i = 0;
       ie = 0;
-      for (const auto &[elem, unit] : chemicalsystem) {
+      for (const auto& [elem, unit] : chemicalsystem) {
         if (elem != this->element_removed_from_ic_) {
           SlothInfo::debug("Check at node ", node, " for elem ", elem);
           SlothInfo::debug("deltaX to obtain ", deltaX(ie), " deltaX predicted ",
@@ -878,8 +878,8 @@ void KKS<T>::execute_linearization(
  */
 template <typename T>
 std::unique_ptr<mfem::SparseMatrix> KKS<T>::get_A4linearKKS(
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    const std::string &phase, const int node) {
+    const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+    const std::string& phase, const int node) {
   const int nb_elem = chemicalsystem.size();
   auto AA = std::make_unique<mfem::SparseMatrix>(nb_elem - 1, nb_elem - 1);
 
@@ -888,7 +888,7 @@ std::unique_ptr<mfem::SparseMatrix> KKS<T>::get_A4linearKKS(
   // elem_id corresponds to index of variable with delta_x, index of derivative
   int elem_id = 0;
   int vid = 0;
-  for (const auto &[elem, unit] : chemicalsystem) {
+  for (const auto& [elem, unit] : chemicalsystem) {
     if (elem != this->element_removed_from_ic_) {
       double d2gd2x =
           this->chemical_potentials_right_x_[std::make_tuple(elem_id, node, elem, phase)] -
@@ -906,13 +906,13 @@ std::unique_ptr<mfem::SparseMatrix> KKS<T>::get_A4linearKKS(
   // Off-diagonal (and symmetry)
   elem_id = 0;
   vid = 0;
-  for (const auto &[ielem, unit] : chemicalsystem) {
+  for (const auto& [ielem, unit] : chemicalsystem) {
     if (ielem != this->element_removed_from_ic_) {
       int elem_jd = 0;
       int vjd = 0;
       ///////////
       // row i
-      for (const auto &[jelem, unit] : chemicalsystem) {
+      for (const auto& [jelem, unit] : chemicalsystem) {
         if (jelem != this->element_removed_from_ic_) {
           ///////////
           // col j
@@ -965,13 +965,13 @@ std::unique_ptr<mfem::SparseMatrix> KKS<T>::get_A4linearKKS(
  */
 template <typename T>
 mfem::Vector KKS<T>::get_m4linearKKS(
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    const std::string &phase, const int node) {
+    const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+    const std::string& phase, const int node) {
   const int nb_elem = chemicalsystem.size();
   mfem::Vector mm(nb_elem - 1);
   int vid = 0;
 
-  for (const auto &[ielem, unit] : chemicalsystem) {
+  for (const auto& [ielem, unit] : chemicalsystem) {
     if (ielem != this->element_removed_from_ic_) {
       mm(vid) = this->chemical_potentials_by_phase_[std::make_tuple(node, ielem, phase)] -
                 this->chemical_potentials_by_phase_[std::make_tuple(
@@ -994,12 +994,12 @@ mfem::Vector KKS<T>::get_m4linearKKS(
  */
 template <typename T>
 mfem::Vector KKS<T>::get_h4linearKKS(
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    const std::string &phase, const int node) {
+    const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
+    const std::string& phase, const int node) {
   const int nb_elem = chemicalsystem.size();
   mfem::Vector hh(nb_elem - 1);
   int vid = 0;
-  for (const auto &[ielem, unit] : chemicalsystem) {
+  for (const auto& [ielem, unit] : chemicalsystem) {
     if (ielem != this->element_removed_from_ic_) {
       hh(vid) = this->chemical_potentials_right_T_[std::make_tuple(node, ielem, phase)] -
                 this->chemical_potentials_right_T_[std::make_tuple(
