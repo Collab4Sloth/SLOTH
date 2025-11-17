@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
         // ###########################################
         // ###########################################
         const double t_initial = 0.0;
-        const double t_final = 2.e-3;
+        const double t_final = 3.e-3;
         const double dt = 1.e-3;
         auto time_params = Parameters(Parameter("initial_time", t_initial),
                                       Parameter("final_time", t_final), Parameter("time_step", dt));

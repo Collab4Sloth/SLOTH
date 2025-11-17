@@ -73,12 +73,13 @@ class Variable {
 
   void setAnalyticalSolution(const AnalyticalFunctions<DIM>& analytical_solution_name);
   void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
-  void saveBeforeUpdate();
+  // void saveBeforeUpdate();
 
   void set_attributes(SpatialDiscretization<T, DIM>* spatial,
                       const std::set<std::string>& attribute_names);
 
- public:
+ public:  void saveBeforeUpdate();
+
   /////////////////////////////
   // Without attributes names   //
   /////////////////////////////
@@ -185,8 +186,10 @@ class Variable {
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
   void update(const mfem::Vector& unk);
   mfem::Vector get_unknown() const;
+  mfem::Vector& get_ref_unknown() ;
   std::map<int, mfem::Vector> get_map_unknown();
   mfem::ParGridFunction get_gf() const;
+  mfem::ParGridFunction& get_ref_gf() ;
   mfem::ParGridFunction get_igf() const;
   // mfem::ParGridFunction get_analytical_solution();
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
@@ -872,21 +875,22 @@ mfem::Vector Variable<T, DIM>::get_last() const {
 
 template <class T, int DIM>
 void Variable<T, DIM>::UpdateAfterRefine(std::vector<mfem::ParGridFunction> vect_gf) {
-  std::vector<mfem::ParGridFunction> vect_old_gf;
 
-  for (int i = 0; i < this->map_of_unk_.size(); i++) {
-    mfem::ParGridFunction gf_old_fe(this->fespace_);
-    gf_old_fe = this->map_of_unk_[i];
-    vect_old_gf.emplace_back(gf_old_fe);
-  }
+  // std::vector<mfem::ParGridFunction> vect_old_gf;
 
-  for (auto& [i, unk] : this->map_of_unk_) {
-    vect_gf[i].Update();
-    vect_gf[i].GetTrueDofs(unk);
-    SlothInfo::print("sizes var ", vect_gf[i].Size());
-  }
-  this->uh_.Update();
-  this->uh_.GetTrueDofs(this->unk_);
+  // for (int i = 0; i < this->map_of_unk_.size(); i++) {
+  //   mfem::ParGridFunction gf_old_fe(this->fespace_);
+  //   gf_old_fe = this->map_of_unk_[i];
+  //   vect_old_gf.emplace_back(gf_old_fe);
+  // }
+
+  // for (auto& [i, unk] : this->map_of_unk_) {
+  //   vect_gf[i].Update();
+  //   vect_gf[i].GetTrueDofs(unk);
+  //   SlothInfo::print("sizes var ", vect_gf[i].Size());
+  // }
+  // this->uh_.Update();
+  // this->uh_.GetTrueDofs(this->unk_);
 }
 
 /**
@@ -930,6 +934,10 @@ template <class T, int DIM>
 mfem::Vector Variable<T, DIM>::get_unknown() const {
   return this->unk_;
 }
+template <class T, int DIM>
+mfem::Vector& Variable<T, DIM>::get_ref_unknown()  {
+  return this->unk_;
+}
 
 /**
  * @brief Return the additionnal information associated to variable
@@ -962,6 +970,10 @@ std::map<int, mfem::Vector> Variable<T, DIM>::get_map_unknown() {
  */
 template <class T, int DIM>
 mfem::ParGridFunction Variable<T, DIM>::get_gf() const {
+  return this->uh_;
+}
+template <class T, int DIM>
+mfem::ParGridFunction& Variable<T, DIM>::get_ref_gf() {
   return this->uh_;
 }
 

@@ -88,8 +88,10 @@ PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm
  * @param unk
  */
 void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector* unk) {
+
   dt_ = dt;
   unk_ = unk;
+
 }
 
 /**
@@ -99,12 +101,23 @@ void PhaseFieldReducedOperator::SetParameters(double dt, const mfem::Vector* unk
  * @param y
  */
 void PhaseFieldReducedOperator::Mult(const mfem::Vector& k, mfem::Vector& y) const {
+
+
+      std::cout<<" PhaseFieldReducedOperator::Mul Check Size "<<z.Size()<<std::endl;
+
+          std::cout<<" PhaseFieldReducedOperator::Mult Check Size "<<unk_->Size()<<std::endl;
+          std::cout<<" PhaseFieldReducedOperator::Mult Check Size "<<k.Size()<<std::endl;
+          std::cout<<" PhaseFieldReducedOperator::Mult Check Size "<<y.Size()<<std::endl;
+   std::cout<<" PhaseFieldReducedOperator::Mul Check this->RHS_->Height() "<<this->RHS_->Height()<<std::endl;
+
   add(*unk_, dt_, k, z);
   this->RHS_->Mult(z, y);
-  LHS_->AddMult(k, y);
+  this->LHS_->AddMult(k, y);
 
   // TODO(cci) simplify BCs
-  const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
+  const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();     
+   std::cout<<" PhaseFieldReducedOperator::Mul Check this->RHS_->Height() "<<this->RHS_->Height()<<std::endl;
+
   const int fes_size = offsets.Size() - 1;
   auto sc_1 = 0;
   auto sc_2 = this->RHS_->Height() / fes_size;
@@ -125,12 +138,19 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
   if (Jacobian != nullptr) {
     delete Jacobian;
   }
+  
   add(*unk_, dt_, k, z);
   const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
   const int fes_size = offsets.Size() - 1;
+        std::cout<<" PhaseFieldReducedOperator::GetGradient Check Size "<<z.Size()<<std::endl;
+
+
   // Gets gradients of RHS_ and LHS_
-  mfem::Operator& LHS_grad = LHS_->GetGradient(z);
-  mfem::Operator& RHS_grad = this->RHS_->GetGradient(z);
+  mfem::Operator& LHS_grad = this->LHS_->GetGradient(z);
+  mfem::Operator& RHS_grad = this->RHS_->GetGradient(z);   
+  
+  std::cout<<" PhaseFieldReducedOperator::GetGradient Check LHS_grad "<<LHS_grad.Height()<<std::endl;
+
   // Converts operators into BlockOperator
   mfem::BlockOperator* LHS_block_grad = dynamic_cast<mfem::BlockOperator*>(&LHS_grad);
   mfem::BlockOperator* RHS_block_grad = dynamic_cast<mfem::BlockOperator*>(&RHS_grad);

@@ -162,7 +162,7 @@ class SpatialDiscretization {
   mfem::ParMesh* mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
-  bool is_nc_simplices_ = {false};
+  bool is_nc_simplices_ = {true};
 
   void set_finite_element_space();
 

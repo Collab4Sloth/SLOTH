@@ -448,14 +448,31 @@ void ProblemBase<VAR, PST>::check_convergence(
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
   auto vars = this->get_problem_variables();
-  this->pst_.save_variables(vars, iter, current_time);
+  // this->pst_.save_variables(vars, iter, current_time);
 
   // CCI AMR
   if (iter > 0) {
-    for (auto& var : this->variables_.getVariables()) {
+    for (std::size_t i = 0; i < this->variables_.get_variables_number(); i++) {
+      auto& var = this->variables_.getIVariable(i);
+      // this->pst_.save_variables(vars, iter + 100, current_time + 100.);
       this->pst_.UpdateAndRebalance(var);
-      this->pst_.save_variables(vars, iter + 100, current_time + 100.);
+      // this->pst_.save_variables(vars, iter + 200, current_time + 200.);
+
+      std::cout << " check nDOFs in end save " << var.get_unknown().Size() << std::endl;
+      // var.get_unknown().Print();
     }
+    auto vars2 = this->get_problem_variables();
+    this->pst_.save_variables(vars2, iter , current_time);
+    // for (std::size_t i = 0; i < this->variables_.get_variables_number(); i++) {
+    //   auto& var = this->variables_.getIVariable(i);
+    //   // this->pst_.save_variables(vars, iter + 100, current_time + 100.);
+    //   this->pst_.UpdateAndRebalance(var);
+    //   // this->pst_.save_variables(vars, iter + 200, current_time + 200.);
+
+    //   std::cout << " check nDOFs in end save " << var.get_unknown().Size() << std::endl;
+    // }
+    // auto vars3 = this->get_problem_variables();
+    // this->pst_.save_variables(vars3, iter + 300, current_time + 300.);
   }
   // CCI AMR
 }

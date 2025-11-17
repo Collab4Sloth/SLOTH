@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     for (const auto& NN : vect_NN) {
       //---------------------------------------
       // Profiling start
-      Profiling::getInstance().enable();
+      // Profiling::getInstance().enable();
       //---------------------------------------
       SPA spatial("InlineSquareWithQuadrangles", order, refinement_level,
                   std::make_tuple(NN, NN, L, L));
@@ -153,7 +153,7 @@ int main(int argc, char* argv[]) {
       // ###########################################
       // ###########################################
       const auto& t_initial = 0.0;
-      const auto& t_final = 0.25;
+      const auto& t_final = 0.5;
       const auto& dt = 0.25;
       auto time_params = Parameters(Parameter("initial_time", t_initial),
                                     Parameter("final_time", t_final), Parameter("time_step", dt));
@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
       //---------------------------------------
       // Profiling stop
       //---------------------------------------
-      Profiling::getInstance().print();
+      // Profiling::getInstance().print();
     }
   }
 

@@ -313,13 +313,31 @@ template <class T, int DIM, class NLFI, class LHS_NLFI>
 void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
     const double& current_time, double current_time_step, const int iter) {
+
+ 
+
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
+  int total_size = 0;
+  for (size_t i = 0; i < unk_size; i++) {
+    total_size += this->fes_[i]->GetTrueVSize();
+    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
+  }
+    // this->block_trueOffsets_.PartialSum();
+
+this->height_=total_size;
+
+
+
+
+  std::cout << " TransientOperatorBase unk_size " << unk_size << std::endl;
 
   //// Constructing BlockVector
   mfem::BlockVector block_unk(this->block_trueOffsets_);
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
+    std::cout << " TransientOperatorBase nDOFs " << unk_i.Size() << std::endl;
+
     mfem::Vector& bb = block_unk.GetBlock(i);
     bb = unk_i;
   }
@@ -592,9 +610,15 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
   Catch_Time_Section("TransientOperatorBase::ImplicitSolve");
 
   const auto sc = this->height_;
+  std::cout<<" COUCOU.    "<<sc<<std::endl;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
   const int fes_size = this->block_trueOffsets_.Size() - 1;
+  std::cout<<" COUCOU. dv_dt   "<<dv_dt.Size()<<" BK "<<this->block_trueOffsets_[1]<<std::endl;
+
+
+
+
 
   {
     Catch_Time_Section("ImplicitSolve::SetTransientParams");

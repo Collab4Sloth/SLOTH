@@ -112,6 +112,8 @@ NLFI* PhaseFieldOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
   std::vector<mfem::ParGridFunction> vun;
   for (int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
+      std::cout<<" set_nlfi_ptr Check Size "<<un.Size()<<std::endl;
+
     un.SetFromTrueDofs(u[i]);
     vun.emplace_back(un);
   }

@@ -54,7 +54,7 @@ template <class T, class DC, int DIM>
 class PostProcessing : public DC {
  private:
   // CCI AMR
-  mfem::ParMesh* par_mesh_;
+  mfem::ParMesh& par_mesh_;
   // CCI AMR
 
   std::string main_folder_path_;
@@ -120,9 +120,9 @@ template <class T, class DC, int DIM>
 PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
                                            const Parameters& params)
     : DC(params.get_param_value<std::string>("calculation_path"), space->get_mesh()),
-      params_(params) {
+      params_(params), par_mesh_(*space->get_mesh()) {
   // CCI AMR
-  this->par_mesh_ = space->get_mesh();
+  // this->par_mesh_ = *(space->get_mesh());
   // CCI AMR
   this->get_parameters();
 
@@ -204,8 +204,30 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
     this->SetTime(time);
     std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
     for (auto& [name, gf] : map_var) {
+      // SlothInfo::print("av gf size ", gf.Size());
+      // gf.Update();
+      // SlothInfo::print("av gf size ", gf.Size());
       this->RegisterField(name, &gf);
     }
+    // for (auto& [name, gf] : map_var) {
+    //   SlothInfo::print("after gf size ", gf.Size());
+    //   auto& vv = vars.get_variable(name);
+    //   mfem::Vector& unk = vv.get_ref_unknown();
+    //   SlothInfo::print("unk  size ", unk.Size());
+    //   gf.GetTrueDofs(unk);
+    //   SlothInfo::print("av unk  size ", unk.Size());
+    // }
+    // int i = 0;
+    // for (auto& [name, gf] : map_var) {
+    //   auto& vv = vars.get_variable(name);
+    //   mfem::Vector unk = vv.get_unknown();
+    //   SlothInfo::print("after unk  size ", unk.Size());
+    //   vv.update(unk);
+    //   vv.saveBeforeUpdate();
+    //   mfem::Vector unk2 = vv.get_unknown();
+    //   SlothInfo::print("after unk2  size ", unk2.Size());
+    // }
+
     this->Save();
   }
 }
@@ -407,50 +429,73 @@ void PostProcessing<T, DC, DIM>::UpdateAndRebalance(Variable<T, DIM>& var) {
   // that will adjust any GridFunctions to the new mesh state.
   mfem::ParFiniteElementSpace* var_fespace = var.get_fespace();
   auto map_unk = var.get_map_unknown();
-  std::vector<mfem::ParGridFunction> vect_old_gf;
-  vect_old_gf.reserve(map_unk.size());
-  for (int i = 0; i < map_unk.size(); i++) {
-    mfem::ParGridFunction gf_old_fe(var_fespace);
-    gf_old_fe = map_unk[i];
-    vect_old_gf.emplace_back(gf_old_fe);
-  }
-  this->par_mesh_->UniformRefinement();
+  // std::vector<mfem::ParGridFunction> vect_old_gf;
+  // vect_old_gf.reserve(map_unk.size());
+  // for (int i = 0; i < map_unk.size(); i++) {
+  //   mfem::ParGridFunction gf_old_fe(var_fespace);
+  //   gf_old_fe = map_unk[i];
+  //   vect_old_gf.emplace_back(gf_old_fe);
+  // }
+  this->par_mesh_.UniformRefinement();
   var_fespace->Update();
-  if (this->par_mesh_) {
-    mfem::ParMesh& up_mesh = *this->par_mesh_;
-    // // Interpolate the solution on the new mesh by applying the transformation
-    // // matrix computed in the finite element space. Multiple GridFunctions could
-    // // be updated here.
-    // x.Update();
+  //  var.UpdateAfterRefine(vect_old_gf);
+  // if (this->par_mesh_) {
+  //   mfem::ParMesh& up_mesh = *this->par_mesh_;
+  //   // // Interpolate the solution on the new mesh by applying the transformation
+  //   // // matrix computed in the finite element space. Multiple GridFunctions could
+  //   // // be updated here.
+  //   // x.Update();
 
-    var.UpdateAfterRefine(vect_old_gf);
+  //   // var.UpdateAfterRefine(vect_old_gf);
 
-    /// fin de la mie à jour de toute la map
+  //   /// fin de la mie à jour de toute la map
 
-    if (up_mesh.Nonconforming()) {
-      // Load balance the mesh.
-      up_mesh.Rebalance();
+  //   if (up_mesh.Nonconforming()) {
+  //     // Load balance the mesh.
+  //     up_mesh.Rebalance();
 
-      // Update the space again, this time a GridFunction redistribution matrix
-      // is created. Apply it to the solution.
-      var_fespace->Update();
-      vect_old_gf.clear();
-      auto map_unk2 = var.get_map_unknown();
+  //     // Update the space again, this time a GridFunction redistribution matrix
+  //     // is created. Apply it to the solution.
+  //     var_fespace->Update();
+  //     vect_old_gf.clear();
+  //     auto map_unk2 = var.get_map_unknown();
 
-      for (int i = 0; i < map_unk2.size(); i++) {
-        mfem::ParGridFunction gf_old_fe(var_fespace);
-        gf_old_fe = map_unk2[i];
-        vect_old_gf.emplace_back(gf_old_fe);
-      }
+  //     for (int i = 0; i < map_unk2.size(); i++) {
+  //       mfem::ParGridFunction gf_old_fe(var_fespace);
+  //       gf_old_fe = map_unk2[i];
+  //       vect_old_gf.emplace_back(gf_old_fe);
+  //     }
 
-      var.UpdateAfterRefine(vect_old_gf);
+  //     var.UpdateAfterRefine(vect_old_gf);
 
-      // x.Update();
-    }
-    // No update for operators because rebuild at each time-step
-  }
+  //     // x.Update();
+  //   }
+  //   // No update for operators because rebuild at each time-step
+  // }
   // Free any transformation matrices to save memory.
-  var_fespace->UpdatesFinished();
+  // var_fespace->UpdatesFinished();
+
+  auto& gf = var.get_ref_gf();
+  gf.Update();
+
+  mfem::Vector& unk = var.get_ref_unknown();
+  gf.GetTrueDofs(unk);
+  var.update(unk);
+  var.saveBeforeUpdate();
+  // mfem::ParMesh& up_mesh = *this->par_mesh_;
+  // if (this->par_mesh_->Nonconforming()) {
+  //   // Load balance the mesh.
+  //   this->par_mesh_->Rebalance();
+  // var_fespace->Update();
+  //   auto& gf = var.get_ref_gf();
+  //   gf.Update();
+
+  //   mfem::Vector& unk = var.get_ref_unknown();
+  //   gf.GetTrueDofs(unk);
+  //   var.update(unk);
+  //   var.saveBeforeUpdate();
+  // }
+  // var_fespace->UpdatesFinished();
 }
 
 // CCI AMR
