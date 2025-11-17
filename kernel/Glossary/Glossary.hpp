@@ -23,8 +23,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <map>
 #include <string>
-#include <unordered_map>
 #pragma once
 
 /**
@@ -57,7 +57,7 @@ enum class GlossaryUnit {
  * @brief Map used to print litteral unit from GlossaryUnit
  *
  */
-static std::unordered_map<GlossaryUnit, std::string> GlossaryUnitMap = {
+static std::map<GlossaryUnit, std::string> GlossaryUnitMap = {
     {GlossaryUnit::Kelvin, "K"},
     {GlossaryUnit::Pascal, "Pa"},
     {GlossaryUnit::Second, "s"},
