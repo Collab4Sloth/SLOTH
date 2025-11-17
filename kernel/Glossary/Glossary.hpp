@@ -115,7 +115,7 @@ enum class GlossaryType {
   System
 };
 
-struct Quantity {
+struct GlossaryQuantity {
   /**
    * @brief Construct a new GlossaryQuantity object
    *
