@@ -418,7 +418,8 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::build_rhs_nonlinear_form(
   if (this->RHS != nullptr) {
     delete this->RHS;
   }
-  std::cout<<" build_rhs_nonlinear_form Check this->fes_ "<<this->fes_[0]->GetTrueVSize()<<std::endl;
+  std::cout << " build_rhs_nonlinear_form Check this->fes_ " << this->fes_[0]->GetTrueVSize()
+            << "u_vect " << u_vect[0].Size() << std::endl;
   this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
 
   this->nlfi_ptr_ = set_nlfi_ptr(dt, u_vect);
