@@ -325,7 +325,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
   this->height_ = total_size;
 
   std::cout << " TransientOperatorBase unk_size " << unk_size << std::endl;
-
+  for (auto i = 0; i < this->block_trueOffsets_.Size(); i++) {
+    std::cout << "block off size " << this->block_trueOffsets_[i] << std::endl;
+  }
   //// Constructing BlockVector
   mfem::BlockVector block_unk(this->block_trueOffsets_);
   for (size_t i = 0; i < unk_size; i++) {
@@ -469,11 +471,6 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
   //  Build the RHS of the PDEs
   ////////////////////////////////////////////
   this->build_rhs_nonlinear_form(dt, u_vect);
-  auto bk = this->RHS->GetBlockTrueOffsets();
-  auto bkl = this->LHS->GetBlockTrueOffsets();
-
-  std::cout << " COUCOU ERR -1 BK " << bk[0] << " " << bk[1] << std::endl;
-  std::cout << " COUCOU ERR -1 BKL " << bkl[0] << " " << bkl[1] << std::endl;
 
   ////////////////////////////////////////////
   // Build Newton Linear system
@@ -481,16 +478,13 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
   if (reduced_oper != nullptr) {
     delete reduced_oper;
   }
-  auto bbk = this->RHS->GetBlockTrueOffsets();
-  auto bbkl = this->LHS->GetBlockTrueOffsets();
-
-  std::cout << " COUCOU ERR -2 BK " << bbk[0] << " " << bbk[1] << std::endl;
-  std::cout << " COUCOU ERR -2 BKL " << bbkl[0] << " " << bbkl[1] << std::endl;
+  for (int i = 0; i < this->ess_tdof_list_.size(); i++) {
+    std::cout << " CCI ess_tdof_list_ " << this->ess_tdof_list_[i].Size() << std::endl;
+  }
   reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->RHS, this->ess_tdof_list_);
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
-  std::cout << " COUCOU reduc height " << reduced_oper->Height() << std::endl;
   this->SetNewtonAlgorithm(reduced_oper);
 }
 /**
@@ -615,12 +609,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
   Catch_Time_Section("TransientOperatorBase::ImplicitSolve");
 
   const auto sc = this->height_;
-  std::cout << " COUCOU.    " << sc << std::endl;
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
   const int fes_size = this->block_trueOffsets_.Size() - 1;
-  std::cout << " COUCOU. dv_dt   " << dv_dt.Size() << " BK " << this->block_trueOffsets_[1]
-            << std::endl;
 
   {
     Catch_Time_Section("ImplicitSolve::SetTransientParams");
@@ -635,12 +626,6 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
       v_vect.emplace_back(v_i);
     }
     this->SetTransientParameters(dt, v_vect);
-
-    auto bk = this->RHS->GetBlockTrueOffsets();
-    auto bkl = this->LHS->GetBlockTrueOffsets();
-
-    std::cout << " COUCOU ERR 1000000000000 BK " << bk[0] << " " << bk[1] << std::endl;
-    std::cout << " COUCOU ERR 1000000000000 BKL " << bkl[0] << " " << bkl[1] << std::endl;
   }
   // Apply BCs
   {
@@ -653,12 +638,6 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
       sc_1 += sc_2;
     }
     reduced_oper->SetParameters(dt, &v);
-
-    auto bbk = this->RHS->GetBlockTrueOffsets();
-    auto bbkl = this->LHS->GetBlockTrueOffsets();
-
-    std::cout << " COUCOU ERR 2000000000000 BK " << bbk[0] << " " << bbk[1] << std::endl;
-    std::cout << " COUCOU ERR 2000000000000 BKL " << bbkl[0] << " " << bbkl[1] << std::endl;
   }
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
@@ -680,12 +659,6 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
   // source_term.Print();
   {
     Catch_Time_Section("ImplicitSolve::CallMult");
-    auto bbbk = this->RHS->GetBlockTrueOffsets();
-    auto bbbkl = this->LHS->GetBlockTrueOffsets();
-
-    std::cout << " COUCOU ERR 3000000000000 BK " << bbbk[0] << " " << bbbk[1] << " sc "
-              << source_term.Size() << std::endl;
-    std::cout << " COUCOU ERR 3000000000000 BKL " << bbbkl[0] << " " << bbbkl[1] << std::endl;
     this->newton_solver_->Mult(source_term, dv_dt);
     delete this->rhs_solver_;
   }

@@ -4,24 +4,24 @@
  * @brief Class used to defined a Problem objet
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #pragma once
@@ -348,53 +348,53 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time,
                                              const double& current_time_step) {
-  const auto nvars = this->variables_.get_variables_number();
-  std::vector<mfem::Vector> u_vect;
+  // const auto nvars = this->variables_.get_variables_number();
+  // std::vector<mfem::Vector> u_vect;
 
-  // Isovalue to compute by variable
-  const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
+  // // Isovalue to compute by variable
+  // const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
 
-  // Integral value to compute by variable
-  const std::map<std::string, std::tuple<double, double>> map_integral =
-      this->pst_.get_integral_to_compute();
+  // // Integral value to compute by variable
+  // const std::map<std::string, std::tuple<double, double>> map_integral =
+  //     this->pst_.get_integral_to_compute();
 
-  for (auto iv = 0; iv < nvars; iv++) {
-    auto vv = this->variables_.getIVariable(iv);
-    auto solution = vv.get_analytical_solution();
-    auto unk = vv.get_unknown();
-    auto unk_name = vv.getVariableName();
+  // for (auto iv = 0; iv < nvars; iv++) {
+  //   auto vv = this->variables_.getIVariable(iv);
+  //   auto solution = vv.get_analytical_solution();
+  //   auto unk = vv.get_unknown();
+  //   auto unk_name = vv.getVariableName();
 
-    // Errors
-    if (solution != nullptr) {
-      auto solution_func = solution.get();
-      this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
-                               *solution_func);
-    }
+  //   // Errors
+  //   if (solution != nullptr) {
+  //     auto solution_func = solution.get();
+  //     this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
+  //                              *solution_func);
+  //   }
 
-    // Isovalues
-    if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
-      const double iso_value = map_iso_value.at(unk_name);
-      this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
-                                iso_value);
-    }
+  //   // Isovalues
+  //   if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
+  //     const double iso_value = map_iso_value.at(unk_name);
+  //     this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
+  //                               iso_value);
+  //   }
 
-    // Integral
-    if (!map_integral.empty() && map_integral.contains(unk_name)) {
-      const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
-      this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
-                                  lower_bound, upper_bound);
-    }
-    u_vect.emplace_back(std::move(unk));
-  }
-  // Energies
-  this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
+  //   // Integral
+  //   if (!map_integral.empty() && map_integral.contains(unk_name)) {
+  //     const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
+  //     this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
+  //                                 lower_bound, upper_bound);
+  //   }
+  //   u_vect.emplace_back(std::move(unk));
+  // }
+  // // Energies
+  // this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
 
-  // Save variables for visualization
+  // // Save variables for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
 
-  // Save specialized values at each time-step if required
-  bool must_be_saved = this->pst_.get_enable_save_specialized_at_iter();
-  this->save_specialized(must_be_saved);
+  // // Save specialized values at each time-step if required
+  // bool must_be_saved = this->pst_.get_enable_save_specialized_at_iter();
+  // this->save_specialized(must_be_saved);
 }
 
 /**

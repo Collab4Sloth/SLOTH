@@ -162,7 +162,7 @@ class SpatialDiscretization {
   mfem::ParMesh* mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
-  bool is_nc_simplices_ = {true};
+  bool is_nc_simplices_ = {false};
 
   void set_finite_element_space();
 
@@ -175,6 +175,7 @@ class SpatialDiscretization {
 
   mfem::ParMesh* get_mesh();
   mfem::ParFiniteElementSpace* get_finite_element_space() const;
+  mfem::ParFiniteElementSpace& get_ref_finite_element_space();
 
   std::size_t getSize() const;
   std::size_t get_max_bdr_attributes() const;
@@ -964,6 +965,10 @@ std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_bdr_attr
 template <class T, int DIM>
 mfem::ParFiniteElementSpace* SpatialDiscretization<T, DIM>::get_finite_element_space() const {
   return this->fespace_;
+}
+template <class T, int DIM>
+mfem::ParFiniteElementSpace& SpatialDiscretization<T, DIM>::get_ref_finite_element_space() {
+  return *this->fespace_;
 }
 
 /**
