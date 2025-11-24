@@ -36,7 +36,9 @@
 using param_type =
     std::variant<int, double, std::string, bool, MapStringDouble, vTuple2StringDouble,
                  Map2String2Double, MapString2Double, vString, vTupleStringInt, vTupleStringString,
-                 vDouble, vInt, std::function<double(double)>, std::vector<std::size_t>>;
+                 vDouble, vInt, std::function<double(double)>, std::vector<std::size_t>,
+                 std::vector<std::vector<std::string>>, std::map<std::string, std::vector<double>>,
+                 std::map<std::string, std::string>, std::map<std::string, std::size_t>>;
 class Parameter {
  private:
   std::string name_;
@@ -149,17 +151,18 @@ auto Parameter::get_value() const -> param_type {
                       std::is_same_v<T, MapString2Double> || std::is_same_v<T, Map2String2Double> ||
                       std::is_same_v<T, Map2String2Double> ||
                       std::is_same_v<T, std::function<double(double)>> ||
-                      std::is_same_v<T, std::vector<std::size_t>>) {
-            return arg;
-          }
-        else {
+                      std::is_same_v<T, std::vector<std::size_t>> ||
+                      std::is_same_v<T, std::vector<std::vector<std::string>>> ||
+                      std::is_same_v<T, std::map<std::string, std::vector<double>>> ||
+                      std::is_same_v<T, std::map<std::string, std::string>> ||
+                      std::is_same_v<T, std::map<std::string, std::size_t>>) {
+          return arg;
+        } else {
           mfem::mfem_error("Unsupported type");
         }
       },
       this->value_);
 }
-
-
 
 /**
  * @brief Return the name of the parameter
@@ -174,4 +177,3 @@ std::string Parameter::get_name() const { return this->name_; }
  * @return std::string
  */
 std::string Parameter::get_description() const { return this->description_; }
-
