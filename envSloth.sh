@@ -247,6 +247,7 @@ else
         export HYPRE_DIR=$(spack location -i hypre)
         export MPI_DIR=$(spack location -i mpi)
         export METIS_DIR=$(spack location -i metis)
+        export ExprTk_DIR=$(spack location -i exprtk)
         #=============================================
         #  Mac and Homebrew
         #=============================================
