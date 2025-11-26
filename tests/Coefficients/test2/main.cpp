@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
     case 2: {
       // Check Coefficients
       SlothInfo::print("Running test case 0: gradient/hessian evaluation");
-      Coefficient coeffA(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
+      Coefficient coeffA(Glossary::Temperature, FunctionA());
       Coefficient coeffB(Glossary::Temperature, FunctionB());
       Coefficient coeffC(Glossary::Temperature, FunctionB());
       std::vector<double> gradient_solution{98.3, 60.2, 0.6};
@@ -150,12 +150,6 @@ int main(int argc, char* argv[]) {
         }
         std::cout << "Successfull gradient and hessian evaluation " << std::endl;
 
-        auto coeff2 = coeffAB.getCoefficients()[0];
-        auto result = coeff2.compute(2, 3, 1);
-        if (std::abs(result - 94.1) > epsilon) {
-          throw std::runtime_error("Wrong variable evaluation");
-        }
-        std::cout << "Successfull variable evaluation: " << result << " " << std::endl;
       } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;

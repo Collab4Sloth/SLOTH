@@ -23,6 +23,7 @@ built_code="Release"
 use_external="OFF"
 use_auto_external="OFF"
 use_libtorch="OFF"
+use_exprtk="OFF"
 local_mfem_version="No"
 ADDITIONAL_OPTION=""
 
@@ -72,6 +73,24 @@ for argument; do
     --relwithdebinfo)
         built_code="RelWithDebInfo"
         Print "Sloth built with RelWithDebInfo compiler options "
+        ;;
+    --exprtk)
+        # export ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk
+
+        export ExprTk_INCLUDE_DIR=$(to_absolute_path "$value")
+        if [[ ! -d "$ExprTk_INCLUDE_DIR" ]]; then
+            Print "\nError: "$ExprTk_INCLUDE_DIR" directory does not exist. Please check the path of the local ExprTk version!"
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1
+            else
+                exit 1
+            fi
+        else
+            Print "Sloth built with ExprTk "
+            # Set libtorch flag
+            use_exprtk='ON'
+        fi
+
         ;;
     --libtorch)
         export LIBTORCH=$(to_absolute_path "$value")
@@ -247,7 +266,6 @@ else
         export HYPRE_DIR=$(spack location -i hypre)
         export MPI_DIR=$(spack location -i mpi)
         export METIS_DIR=$(spack location -i metis)
-        export ExprTk_DIR=$(spack location -i exprtk)
         #=============================================
         #  Mac and Homebrew
         #=============================================
@@ -268,5 +286,5 @@ Print "Create a new build..."
 
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
-cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_AUTO_EXTERNAL=$use_auto_external -DSLOTH_USE_LIBTORCH=$use_libtorch
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION} -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_AUTO_EXTERNAL=$use_auto_external -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk 
 Print "Done!"

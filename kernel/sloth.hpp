@@ -7,7 +7,7 @@
  *
  * Copyright CEA (c) 2024
  *
-*/
+ */
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
@@ -24,7 +24,9 @@
 #include "Coefficients/DiffusionCoefficient.hpp"
 #include "Coefficients/DiffusionFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
+#ifdef SLOTH_USE_EXPRTK
 #include "Coefficients/ExprTkSloth.hpp"
+#endif
 #include "Coefficients/FunctionCoefficient.hpp"
 #include "Coefficients/HeatCapacityCoefficient.hpp"
 #include "Coefficients/HeatCapacityFunctions.hpp"

@@ -54,7 +54,7 @@ include(MFEM4SLOTH)
 include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
 
-include(HEADER4SLOTH)
+#include(HEADER4SLOTH)
 
 
 # ########################

@@ -33,11 +33,13 @@
 #include <utility>
 #include <vector>
 
-#include "ExprTkSloth.hpp"
 #include "FunctionCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
 #include "SlothBaseCoefficient.hpp"
-#include "exprtk.hpp"
+
+#ifdef SLOTH_USE_EXPRTK
+#include "ExprTkSloth.hpp"
+#endif
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
@@ -63,6 +65,7 @@ class Coefficient : public SlothBaseCoefficient {
 
   Coefficient(GlossaryQuantity type, std::shared_ptr<FunctionCoefficient> coef);
 
+#ifdef SLOTH_USE_EXPRTK
   template <class... Args>
     requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
   explicit Coefficient(GlossaryQuantity type, Args&&... function_variable_names);
@@ -76,6 +79,7 @@ class Coefficient : public SlothBaseCoefficient {
     requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
   Coefficient(GlossaryQuantity type, std::vector<std::string> hess_functions,
               std::vector<std::string> grad_functions, Args&&... function_variable_names);
+#endif
 };
 /**
  * @brief Construct a new Coefficient::Coefficient object
@@ -87,6 +91,7 @@ class Coefficient : public SlothBaseCoefficient {
 inline Coefficient::Coefficient(GlossaryQuantity type, std::shared_ptr<FunctionCoefficient> coef)
     : SlothBaseCoefficient(type, std::move(coef)) {}
 
+#ifdef SLOTH_USE_EXPRTK
 /**
  * @brief Construct a new Coefficient::Coefficient object from strings
  * @remark The first string is mandatory and corresponds to the function. If not constant, th other
@@ -131,3 +136,4 @@ inline Coefficient::Coefficient(GlossaryQuantity type, std::vector<std::string> 
     : SlothBaseCoefficient(type,
                            std::make_shared<ExprTkCoefficient>(
                                grad_functions, std::forward<Args>(function_variable_names)...)) {}
+#endif
