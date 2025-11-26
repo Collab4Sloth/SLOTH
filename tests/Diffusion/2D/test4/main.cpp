@@ -94,8 +94,8 @@ int main(int argc, char* argv[]) {
   //======      Fickian diffusion       ======
   //==========================================
 
-  auto diffu_vars =
-      VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, level_of_storage, initial_compo, analytical_compo));
+  auto diffu_vars = VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, level_of_storage,
+                             initial_compo, analytical_compo));
   //--- Integrator : alias definition for the sake of clarity
   using DiffusionIntegrator =
       DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
