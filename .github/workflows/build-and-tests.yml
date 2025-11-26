@@ -49,6 +49,8 @@ jobs:
           echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
           spack install hypre@2.33.0 +shared %gcc
           spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
+          spack install exprtk
+          echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
     - name: Download and extract libtorch
       run: |
@@ -70,7 +72,7 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR
+        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR --exprtk=$ExprTk_INCLUDE_DIR
         make -j${{ env.CORES }}
         
 
