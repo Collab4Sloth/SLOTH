@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
     case 2: {
       // Check Coefficients
       SlothInfo::print("Running test case 0: gradient/hessian evaluation");
-      Coefficient coeffA(Glossary::Temperature, FunctionA());
+      Coefficient coeffA(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
       Coefficient coeffB(Glossary::Temperature, FunctionB());
       Coefficient coeffC(Glossary::Temperature, FunctionB());
       std::vector<double> gradient_solution{98.3, 60.2, 0.6};
