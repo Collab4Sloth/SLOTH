@@ -13,6 +13,9 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/CalphadBase.hpp"
+#ifdef SLOTH_USE_LIBTORCH
+#include "Calphad/CalphadInformedNeuralNetwork.hpp"
+#endif
 #include "Calphad/CalphadUtils.hpp"
 #include "Calphad/KKS.hpp"
 #include "Coefficients/Coefficient.hpp"

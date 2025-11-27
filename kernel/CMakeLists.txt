@@ -63,6 +63,7 @@ if(SLOTH_USE_LIBTORCH)
     MESSAGE(STATUS "Sloth use libTorch API ")
     target_include_directories(Sloth INTERFACE ${TORCH_INCLUDE_DIRS} )
     target_link_libraries(Sloth INTERFACE ${TORCH_LIBRARIES})
+    target_compile_definitions(Sloth INTERFACE SLOTH_USE_LIBTORCH=1)
 endif(SLOTH_USE_LIBTORCH)
 
 
