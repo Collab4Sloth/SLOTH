@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
         auto CVG = Convergence(phi_cvg);
         auto pst = PST(&spatial, p_pst);
 
-        PB problem1(oper, vars, pst, CVG);
+        PB problem1(oper, vars, CVG, pst);
 
         // Coupling 1
         auto cc = Coupling("AllenCahn Coupling", problem1);

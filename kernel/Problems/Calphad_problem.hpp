@@ -72,34 +72,35 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   std::vector<std::string> sorted_KKS_phases_;
 
  public:
-  template <class... Args>
-  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, Convergence& convergence,
-                  std::list<int> pop_elem, Args&&... auxvariable);
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                  Convergence& convergence, PST& pst, Args&&... auxvariable);
 
-  template <class... Args>
-  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                  Convergence& convergence, std::list<int> pop_elem, Args&&... auxvariable);
-
-  template <class... Args>
-  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, Convergence& convergence,
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
+                  const std::vector<Coefficients>& Coeff, Convergence& convergence, PST& pst,
                   Args&&... auxvariable);
 
-  template <class... Args>
-  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                  Convergence& convergence, Args&&... auxvariable);
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                  PST& pst, Args&&... auxvariable);
 
-  template <class... Args>
-  Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, std::list<int> pop_elem,
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
+                  const std::vector<Coefficients>& Coeff, PST& pst, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, Convergence& convergence, PST& pst,
                   Args&&... auxvariable);
 
-  template <class... Args>
-  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                  std::list<int> pop_elem, Args&&... auxvariable);
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
+                  Convergence& convergence, PST& pst, Args&&... auxvariable);
 
-  template <class... Args>
+  template <PbVar<VAR>... Args>
   Calphad_Problem(const Parameters& params, VAR& variables, PST& pst, Args&&... auxvariable);
 
-  template <class... Args>
+  template <PbVar<VAR>... Args>
   Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
                   Args&&... auxvariable);
 
@@ -127,10 +128,8 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
 ////////////////////////////////
 
 /**
- * @brief Construct a new  Calphad_Problem object (with auxiliary variables)
- * @warning At least two auxiliary variable. The first auxiliary variable is the temperature and the
- * seccond is the pressure.
-
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
  * @tparam CALPHAD
  * @tparam VAR
  * @tparam PST
@@ -139,43 +138,21 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
  * @param variables
  * @param pst
  * @param convergence
- * @param pop_elem
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
-                                                    PST& pst, Convergence& convergence,
-                                                    std::list<int> pop_elem, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, pop_elem,
-                            auxvariables...),
-      params_(params) {
-  // Mandatory to be placed before CALPHAD pointer creation
-  this->get_parameters();
-  this->check_variables_consistency();
-
-  this->CC_ = new CALPHAD(params, this->is_KKS_);
-
-  this->sorted_chemical_system_ = this->get_chemical_system();
-  if (this->is_KKS_) {
-    this->check_phasefield();
-    this->check_molar_fractions();
-  }
-}
-
-template <class CALPHAD, class VAR, class PST>
-template <class... Args>
-Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
-                                                    PST& pst, std::list<int> pop_elem,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    Convergence& convergence, PST& pst,
                                                     Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, pop_elem, auxvariables...),
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, Coeff, convergence, pst, auxvariables...),
       params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
 
   this->CC_ = new CALPHAD(params, this->is_KKS_);
-
   this->sorted_chemical_system_ = this->get_chemical_system();
   if (this->is_KKS_) {
     this->check_phasefield();
@@ -190,21 +167,17 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
  * @tparam VAR
  * @tparam PST
  * @tparam Args
- * @param name
  * @param params
  * @param variables
  * @param pst
- * @param convergence
- * @param pop_elem
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
-Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
-                                                    const Parameters& params, VAR& variables,
-                                                    PST& pst, Convergence& convergence,
-                                                    std::list<int> pop_elem, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, convergence, pop_elem, auxvariables...),
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, Coeff, pst, auxvariables...),
       params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
@@ -229,20 +202,52 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
  * @param params
  * @param variables
  * @param pst
- * @param pop_elem
+ * @param convergence
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const Parameters& params, VAR& variables,
-                                                    PST& pst, std::list<int> pop_elem,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    Convergence& convergence, PST& pst,
                                                     Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, pop_elem, auxvariables...), params_(params) {
+    : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, pst, auxvariables...),
+      params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
 
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param params
+ * @param variables
+ * @param pst
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
+                                                    const Parameters& params, VAR& variables,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
   this->CC_ = new CALPHAD(params, this->is_KKS_);
   this->sorted_chemical_system_ = this->get_chemical_system();
   if (this->is_KKS_) {
@@ -265,11 +270,11 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
-                                                    PST& pst, Convergence& convergence,
+                                                    Convergence& convergence, PST& pst,
                                                     Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, convergence, auxvariables...),
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, convergence, pst, auxvariables...),
       params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
@@ -296,7 +301,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
                                                     PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, auxvariables...), params_(params) {
@@ -327,12 +332,12 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const Parameters& params, VAR& variables,
-                                                    PST& pst, Convergence& convergence,
+                                                    Convergence& convergence, PST& pst,
                                                     Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...), params_(params) {
+    : ProblemBase<VAR, PST>(name, variables, convergence, pst, auxvariables...), params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
@@ -358,7 +363,7 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
  * @param auxvariables
  */
 template <class CALPHAD, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const Parameters& params, VAR& variables,
                                                     PST& pst, Args&&... auxvariables)

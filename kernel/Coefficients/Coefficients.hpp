@@ -38,6 +38,9 @@
 #include "Coefficients/Coefficient.hpp"
 #pragma once
 
+template <class T, class Coefficient>
+concept CoeffVar = std::same_as<std::remove_cvref_t<T>, Coefficient>;
+
 /**
  * @brief Class used to manage a collection of Coefficient
  *
@@ -47,8 +50,8 @@ class Coefficients {
   std::vector<Coefficient> vect_coefficients_;
 
  public:
-  template <class... Args>
-    requires((sizeof...(Args) > 0) && (std::same_as<Args, Coefficient> && ...))
+  template <CoeffVar<Coefficient>... Args>
+    requires((sizeof...(Args) > 0))
   explicit Coefficients(const Args&... args);
 
   Coefficients() = default;
@@ -65,8 +68,8 @@ class Coefficients {
  * @tparam Args
  * @param args
  */
-template <class... Args>
-  requires((sizeof...(Args) > 0) && (std::same_as<Args, Coefficient> && ...))
+template <CoeffVar<Coefficient>... Args>
+  requires((sizeof...(Args) > 0))
 Coefficients::Coefficients(const Args&... args) : vect_coefficients_{args...} {}
 
 /**

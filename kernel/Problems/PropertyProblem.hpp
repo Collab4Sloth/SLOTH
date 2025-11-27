@@ -4,24 +4,24 @@
  * @brief  Class used to compute primary variables as a function of auxialiary variables
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
 #include <functional>
@@ -51,18 +51,36 @@ class Property_problem : public ProblemBase<VAR, PST> {
   std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> get_input_system();
 
  public:
-  template <class... Args>
-  Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
-                   Convergence& convergence, Args&&... auxvariable);
-  template <class... Args>
-  Property_problem(const Parameters& params, VAR& variables, PST& pst, Convergence& convergence,
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   const std::vector<Coefficients>& Coeff, Convergence& convergence, PST& pst,
                    Args&&... auxvariable);
 
-  template <class... Args>
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                   Convergence& convergence, PST& pst, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   const std::vector<Coefficients>& Coeff, PST& pst, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                   PST& pst, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   Convergence& convergence, PST& pst, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, Convergence& convergence, PST& pst,
+                   Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
   Property_problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
                    Args&&... auxvariable);
 
-  template <class... Args>
+  template <PbVar<VAR>... Args>
   Property_problem(const Parameters& params, VAR& variables, PST& pst, Args&&... auxvariable);
 
   void initialize(const double& initial_time) override;
@@ -91,11 +109,13 @@ class Property_problem : public ProblemBase<VAR, PST> {
  * @param auxvariables Auxiliary variables of the problem
  */
 template <class PROPERTY, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
-                                                       PST& pst, Convergence& convergence,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       Convergence& convergence, PST& pst,
                                                        Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("PropertyProblem", variables, pst, convergence, auxvariables...) {
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, Coeff, convergence, pst,
+                            auxvariables...) {
   this->PP_ = new PROPERTY(params);
 }
 
@@ -112,7 +132,98 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params,
  * @param auxvariables Auxiliary variables of the problem
  */
 template <class PROPERTY, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, Coeff, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name User-defined name of the property problem
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param convergence Convergence object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       Convergence& convergence, PST& pst,
+                                                       Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name User-defined name of the property problem
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param convergence Convergence object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       Convergence& convergence, PST& pst,
+                                                       Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, convergence, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
                                                        PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("PropertyProblem", variables, pst, auxvariables...) {
@@ -134,12 +245,12 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params,
  * @param auxvariables Auxiliary variables of the problem
  */
 template <class PROPERTY, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
                                                        const Parameters& params, VAR& variables,
-                                                       PST& pst, Convergence& convergence,
+                                                       Convergence& convergence, PST& pst,
                                                        Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, convergence, auxvariables...) {
+    : ProblemBase<VAR, PST>(name, variables, convergence, pst, auxvariables...) {
   this->PP_ = new PROPERTY(params);
 }
 
@@ -157,7 +268,7 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
  * @param auxvariables Auxiliary variables of the problem
  */
 template <class PROPERTY, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
                                                        const Parameters& params, VAR& variables,
                                                        PST& pst, Args&&... auxvariables)
