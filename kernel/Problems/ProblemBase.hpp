@@ -297,7 +297,7 @@ void ProblemBase<VAR, PST>::update() {
               "Error while updating the variables: the number of variables must be equal to the "
               "size of the unknown vector");
   for (std::size_t i = 0; i < this->variables_.get_variables_number(); i++) {
-    auto& var = this->variables_.getIVariable(i);
+    auto& var = this->variables_[i];
     var.update(this->unknown_[i]);
   }
   this->unknown_.clear();

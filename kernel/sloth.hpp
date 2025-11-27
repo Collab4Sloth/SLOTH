@@ -7,14 +7,19 @@
  *
  * Copyright CEA (c) 2024
  *
-*/
+ */
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/CalphadBase.hpp"
+#ifdef SLOTH_USE_LIBTORCH
+#include "Calphad/CalphadInformedNeuralNetwork.hpp"
+#endif
 #include "Calphad/CalphadUtils.hpp"
 #include "Calphad/KKS.hpp"
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/Coefficients.hpp"
 #include "Coefficients/ConductivityCoefficient.hpp"
 #include "Coefficients/ConductivityFunctions.hpp"
 #include "Coefficients/DensityCoefficient.hpp"
@@ -22,6 +27,10 @@
 #include "Coefficients/DiffusionCoefficient.hpp"
 #include "Coefficients/DiffusionFunctions.hpp"
 #include "Coefficients/EnergyCoefficient.hpp"
+#ifdef SLOTH_USE_EXPRTK
+#include "Coefficients/ExprTkSloth.hpp"
+#endif
+#include "Coefficients/FunctionCoefficient.hpp"
 #include "Coefficients/HeatCapacityCoefficient.hpp"
 #include "Coefficients/HeatCapacityFunctions.hpp"
 #include "Coefficients/LambdaCoefficient.hpp"
@@ -32,6 +41,7 @@
 #include "Coefficients/OmegaFunctions.hpp"
 #include "Coefficients/PhaseChangeFunction.hpp"
 #include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Couplings/Coupling.hpp"

@@ -1,4 +1,3 @@
-
 /**
  * @file CalphadBase.hpp
  * @author Clément Introïni (clement.introini@cea.fr)

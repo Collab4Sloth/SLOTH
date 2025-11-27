@@ -4,24 +4,24 @@
  * @brief Class used to defined a Problem objet
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #pragma once
@@ -359,7 +359,7 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
       this->pst_.get_integral_to_compute();
 
   for (auto iv = 0; iv < nvars; iv++) {
-    auto vv = this->variables_.getIVariable(iv);
+    auto vv = this->variables_[iv];
     auto solution = vv.get_analytical_solution();
     auto unk = vv.get_unknown();
     auto unk_name = vv.getVariableName();

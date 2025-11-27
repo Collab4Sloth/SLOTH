@@ -113,8 +113,8 @@ int main(int argc, char* argv[]) {
       auto initial_condition = AnalyticalFunctions<DIM>(user_func);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
-      auto vars =
-          VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition, initial_condition));
+      auto vars = VARS(
+          VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition, initial_condition));
 
       // ###########################################
       // ###########################################
@@ -135,10 +135,12 @@ int main(int argc, char* argv[]) {
       // ####################
       // Thermal diffusion Parameters
       auto td_parameters = Parameters(Parameter("last_component", "U"));
-      auto fictitious_mobO = VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
+      auto fictitious_mobO =
+          VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
       // Fictitious mobilities
       fictitious_mobO.set_additional_information("C1_MO2", "O", "mob");
-      auto fictitious_mobU = VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
+      auto fictitious_mobU =
+          VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
       fictitious_mobU.set_additional_information("C1_MO2", "U", "mob");
       auto mobo_var = VARS(fictitious_mobO);
       auto mobu_var = VARS(fictitious_mobU);

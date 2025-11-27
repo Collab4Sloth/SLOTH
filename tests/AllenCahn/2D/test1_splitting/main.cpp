@@ -112,7 +112,8 @@ int main(int argc, char* argv[]) {
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
   auto v2 = VAR(&spatial, bcs_eta, "eta", Glossary::PhaseField, 2, 0.);
-  auto v1 = VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution);
+  auto v1 =
+      VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution);
   auto vars = VARS(v1, v2);
 
   // ###########################################

@@ -104,8 +104,8 @@ int main(int argc, char* argv[]) {
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
 
-  auto vars =
-      VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution));
+  auto vars = VARS(
+      VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition, analytical_solution));
 
   // ###########################################
   // ###########################################

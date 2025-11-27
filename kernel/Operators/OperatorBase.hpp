@@ -386,7 +386,7 @@ void OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(const double& initial_time
   std::vector<mfem::Vector> u_vect;
   u_vect.reserve(nvars);
   for (auto iv = 0; iv < nvars; iv++) {
-    auto& vv = vars.getIVariable(iv);
+    auto& vv = vars[iv];
     auto u = vv.get_unknown();
 
     this->bcs_.emplace_back(vv.get_boundary_conditions());
