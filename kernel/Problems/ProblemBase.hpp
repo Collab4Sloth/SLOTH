@@ -157,13 +157,6 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
   } else {
     this->auxvariables_ = {&auxvariables...};
   }
-  // if constexpr (sizeof...(Coeff) == 0) {
-  //   this->coefficients_.clear();
-  // } else {
-  //   this->coefficients_.resize(sizeof...(Coeff));
-  //   std::size_t i = 0;
-  //   ((this->coefficients_[i++] = std::forward<CArgs>(Coeff)), ...);
-  // }
 }
 
 /**
@@ -191,13 +184,6 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
   } else {
     this->auxvariables_ = {&auxvariables...};
   }
-  // if constexpr (sizeof...(Coeff) == 0) {
-  //   this->coefficients_.clear();
-  // } else {
-  //   this->coefficients_.resize(sizeof...(Coeff));
-  //   std::size_t i = 0;
-  //   ((this->coefficients_[i++] = std::forward<CArgs>(Coeff)), ...);
-  // }
 }
 
 /**
@@ -225,13 +211,6 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
   } else {
     this->auxvariables_ = {&auxvariables...};
   }
-  // if constexpr (sizeof...(Coeff) == 0) {
-  //   this->coefficients_.clear();
-  // } else {
-  //   this->coefficients_.resize(sizeof...(Coeff));
-  //   std::size_t i = 0;
-  //   ((this->coefficients_[i++] = std::forward<CArgs>(Coeff)), ...);
-  // }
 }
 
 /**
@@ -258,13 +237,6 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST&
   } else {
     this->auxvariables_ = {&auxvariables...};
   }
-  // if constexpr (sizeof...(Coeff) == 0) {
-  //   this->coefficients_.clear();
-  // } else {
-  //   this->coefficients_.resize(sizeof...(Coeff));
-  //   std::size_t i = 0;
-  //   ((this->coefficients_[i++] = std::forward<CArgs>(Coeff)), ...);
-  // }
 }
 
 /**
