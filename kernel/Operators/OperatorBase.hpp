@@ -35,6 +35,7 @@
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
+#include "Coefficients/Coefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
@@ -69,6 +70,7 @@ class OperatorBase : public mfem::Operator {
   void set_default_solver();
 
  protected:
+  std::vector<Coefficients> coefficients_;
   std::vector<Variables<T, DIM>*> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
   const Parameter default_p_ = Parameter("default parameter", false);
@@ -114,6 +116,8 @@ class OperatorBase : public mfem::Operator {
 
   OperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
                const std::vector<AnalyticalFunctions<DIM>>& source_term_name);
+
+  void set_coefficients(const std::vector<Coefficients>& coefficients);
 
   void ComputeError(const int& it, const double& t, const double& dt, const int id_var,
                     const std::string& name, const mfem::Vector& u,
@@ -206,6 +210,21 @@ int OperatorBase<T, DIM, NLFI, LHS_NLFI>::compute_total_width(
     total_size += s->getSize();
   }
   return total_size;
+}
+
+/**
+ * @brief Set the Coefficients associated with the current Operator
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam NLFI
+ * @tparam LHS_NLFI
+ * @param coefficients
+ */
+template <class T, int DIM, class NLFI, class LHS_NLFI>
+void OperatorBase<T, DIM, NLFI, LHS_NLFI>::set_coefficients(
+    const std::vector<Coefficients>& coefficients) {
+  this->coefficients_ = coefficients;
 }
 
 /**

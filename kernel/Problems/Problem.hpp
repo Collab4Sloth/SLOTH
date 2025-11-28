@@ -122,7 +122,9 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
                                 PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, convergence, pst,
                             auxvariables...),
-      oper_(oper) {}
+      oper_(oper) {
+  this->oper_.set_coefficients(Coeff);
+}
 
 /**
  * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
@@ -142,7 +144,9 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
                                 const std::vector<Coefficients>& Coeff, PST& pst,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, pst, auxvariables...),
-      oper_(oper) {}
+      oper_(oper) {
+  this->oper_.set_coefficients(Coeff);
+}
 
 /**
  * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
@@ -164,7 +168,9 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
                                 const std::vector<Coefficients>& Coeff, Convergence& convergence,
                                 PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, pst, auxvariables...),
-      oper_(oper) {}
+      oper_(oper) {
+  this->oper_.set_coefficients(Coeff);
+}
 
 /**
  * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
@@ -184,7 +190,9 @@ template <PbVar<VAR>... Args>
 Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables,
                                 const std::vector<Coefficients>& Coeff, PST& pst,
                                 Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...), oper_(oper) {}
+    : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...), oper_(oper) {
+  this->oper_.set_coefficients(Coeff);
+}
 
 /**
  * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
