@@ -109,12 +109,10 @@ template <typename T>
 std::size_t FlattenedTensor<T>::flattened_index(std::vector<std::size_t> indices) const {
   std::size_t flat_index = 0;
   std::size_t stride = 1;
-
   for (std::size_t i = this->dim; i-- > 0;) {
     flat_index += indices[i] * stride;
     stride *= this->shape[i];
   }
-
   return flat_index;
 }
 

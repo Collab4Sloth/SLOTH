@@ -176,6 +176,7 @@ template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, cla
 void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
     std::vector<mfem::Vector>& vect_unk, const std::vector<std::vector<std::string>>& unks_info) {
+  Catch_Time_Section("ExternalLoadingProblem::do_time_step");
   next_time = current_time + current_time_step;
   std::vector<std::tuple<std::string, mfem::Vector>> coordinates_gf = this->get_coordinates();
 

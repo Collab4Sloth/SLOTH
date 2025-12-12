@@ -20,9 +20,9 @@
 
 #pragma once
 /**
- * @brief 
- * 
- * @tparam T 
+ * @brief
+ *
+ * @tparam T
  */
 template <typename T>
 class MultiLinearInterpolator {
@@ -43,14 +43,14 @@ template <typename T>
 MultiLinearInterpolator<T>::MultiLinearInterpolator() {}
 
 /**
- * @brief 
- * 
- * @tparam T 
- * @param N 
- * @param lower_indices 
- * @param alpha 
- * @param array 
- * @return double 
+ * @brief
+ *
+ * @tparam T
+ * @param N
+ * @param lower_indices
+ * @param alpha
+ * @param array
+ * @return double
  */
 template <typename T>
 double MultiLinearInterpolator<T>::computeInterpolation(
@@ -77,14 +77,14 @@ double MultiLinearInterpolator<T>::computeInterpolation(
 }
 
 /**
- * @brief 
- * 
- * @tparam T 
- * @param N 
- * @param point_to_interpolate 
- * @param lower_indices 
- * @param grid_values 
- * @return std::vector<double> 
+ * @brief
+ *
+ * @tparam T
+ * @param N
+ * @param point_to_interpolate
+ * @param lower_indices
+ * @param grid_values
+ * @return std::vector<double>
  */
 template <typename T>
 std::vector<double> MultiLinearInterpolator<T>::computeInterpolationCoefficients(
@@ -97,15 +97,21 @@ std::vector<double> MultiLinearInterpolator<T>::computeInterpolationCoefficients
   for (std::size_t i = 0; i < N; ++i) {
     double x0 = grid_values[i][lower_indices[i]];
     double x1 = grid_values[i][lower_indices[i] + 1];
-    alpha[i] = (point_to_interpolate[i] - x0) / (x1 - x0);
+    double dx = x1 - x0;
+    if (dx < 1e-10) {
+      alpha[i] = 0.;
+    } else {
+      alpha[i] = (point_to_interpolate[i] - x0) / dx;
+    }
+    alpha[i] = std::clamp(alpha[i], 0.0, 1.0);
   }
   return alpha;
 }
 
 /**
  * @brief Destroy the Multi Linear Interpolator< T>:: Multi Linear Interpolator object
- * 
- * @tparam T 
+ *
+ * @tparam T
  */
 template <typename T>
 MultiLinearInterpolator<T>::~MultiLinearInterpolator() {}
