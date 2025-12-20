@@ -35,6 +35,7 @@
 
 #include "FunctionCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
+#include "Options/TimeOptions.hpp"
 #include "SlothBaseCoefficient.hpp"
 
 #ifdef SLOTH_USE_EXPRTK
@@ -60,26 +61,29 @@ class Coefficient : public SlothBaseCoefficient {
    */
   template <class T>
     requires std::derived_from<T, FunctionCoefficient>
-  Coefficient(GlossaryQuantity type, T&& coef)
-      : Coefficient(type, std::make_shared<std::decay_t<T>>(std::forward<T>(coef))) {}
+  Coefficient(GlossaryQuantity type, Scheme scheme, T&& coef)
+      : Coefficient(type, scheme, std::make_shared<std::decay_t<T>>(std::forward<T>(coef))) {}
 
-  Coefficient(GlossaryQuantity type, std::shared_ptr<FunctionCoefficient> coef);
+  Coefficient(GlossaryQuantity type, Scheme scheme, std::shared_ptr<FunctionCoefficient> coef);
+  Coefficient(GlossaryQuantity type, double coef);
 
 #ifdef SLOTH_USE_EXPRTK
   template <class... Args>
     requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
-  explicit Coefficient(GlossaryQuantity type, Args&&... function_variable_names);
+  explicit Coefficient(GlossaryQuantity type, Scheme scheme, Args&&... function_variable_names);
 
   template <class... Args>
     requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
-  Coefficient(GlossaryQuantity type, std::vector<std::string> grad_functions,
+  Coefficient(GlossaryQuantity type, Scheme scheme, std::vector<std::string> grad_functions,
               Args&&... function_variable_names);
 
   template <class... Args>
     requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
-  Coefficient(GlossaryQuantity type, std::vector<std::string> hess_functions,
+  Coefficient(GlossaryQuantity type, Scheme scheme, std::vector<std::string> hess_functions,
               std::vector<std::string> grad_functions, Args&&... function_variable_names);
 #endif
+
+  virtual ~Coefficient() = default;
 };
 /**
  * @brief Construct a new Coefficient::Coefficient object
@@ -88,7 +92,11 @@ class Coefficient : public SlothBaseCoefficient {
  * @param type
  * @param coef
  */
-inline Coefficient::Coefficient(GlossaryQuantity type, std::shared_ptr<FunctionCoefficient> coef)
+inline Coefficient::Coefficient(GlossaryQuantity type, Scheme scheme,
+                                std::shared_ptr<FunctionCoefficient> coef)
+    : SlothBaseCoefficient(type, scheme, std::move(coef)) {}
+
+inline Coefficient::Coefficient(GlossaryQuantity type, double coef)
     : SlothBaseCoefficient(type, std::move(coef)) {}
 
 #ifdef SLOTH_USE_EXPRTK
@@ -101,9 +109,11 @@ inline Coefficient::Coefficient(GlossaryQuantity type, std::shared_ptr<FunctionC
  */
 template <class... Args>
   requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
-inline Coefficient::Coefficient(GlossaryQuantity type, Args&&... function_variable_names)
-    : SlothBaseCoefficient(type, std::make_shared<ExprTkCoefficient>(
-                                     std::forward<Args>(function_variable_names)...)) {}
+inline Coefficient::Coefficient(GlossaryQuantity type, Scheme scheme,
+                                Args&&... function_variable_names)
+    : SlothBaseCoefficient(
+          type, scheme,
+          std::make_shared<ExprTkCoefficient>(std::forward<Args>(function_variable_names)...)) {}
 
 /**
  * @brief Construct a new Coefficient::Coefficient object with its gradient and hessian
@@ -114,13 +124,14 @@ inline Coefficient::Coefficient(GlossaryQuantity type, Args&&... function_variab
  */
 template <class... Args>
   requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
-inline Coefficient::Coefficient(GlossaryQuantity type, std::vector<std::string> hess_functions,
-
+inline Coefficient::Coefficient(GlossaryQuantity type, Scheme scheme,
+                                std::vector<std::string> hess_functions,
                                 std::vector<std::string> grad_functions,
                                 Args&&... function_variable_names)
-    : SlothBaseCoefficient(type, std::make_shared<ExprTkCoefficient>(
-                                     hess_functions, grad_functions,
-                                     std::forward<Args>(function_variable_names)...)) {}
+    : SlothBaseCoefficient(
+          type, scheme,
+          std::make_shared<ExprTkCoefficient>(hess_functions, grad_functions,
+                                              std::forward<Args>(function_variable_names)...)) {}
 
 /**
  * @brief Construct a new Coefficient::Coefficient object with its gradient
@@ -131,9 +142,10 @@ inline Coefficient::Coefficient(GlossaryQuantity type, std::vector<std::string> 
  */
 template <class... Args>
   requires((sizeof...(Args) > 0) && (std::convertible_to<Args, std::string_view> && ...))
-inline Coefficient::Coefficient(GlossaryQuantity type, std::vector<std::string> grad_functions,
+inline Coefficient::Coefficient(GlossaryQuantity type, Scheme scheme,
+                                std::vector<std::string> grad_functions,
                                 Args&&... function_variable_names)
-    : SlothBaseCoefficient(type,
+    : SlothBaseCoefficient(type, scheme,
                            std::make_shared<ExprTkCoefficient>(
                                grad_functions, std::forward<Args>(function_variable_names)...)) {}
 #endif

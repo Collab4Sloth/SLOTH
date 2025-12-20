@@ -20,34 +20,62 @@
  */
 #include <cmath>
 #include <functional>
+#include <optional>
 #include <vector>
 #pragma once
+
 class FunctionCoefficient {
  protected:
-  virtual std::function<double(const std::vector<double>&)> F() = 0;
-  virtual std::function<std::vector<double>(const std::vector<double>&)> GradientF() = 0;
-  virtual std::function<std::vector<double>(const std::vector<double>&)> HessianF() = 0;
+  // With auxiliary variables
+  virtual std::function<double(const std::vector<double>&, const std::vector<double>&,
+                               const int dimension)>
+  F() = 0;
+  virtual std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+                                            const int dimension)>
+  GradientF() = 0;
+  virtual std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+                                            const int dimension)>
+  HessianF() = 0;
 
  public:
   FunctionCoefficient();
-  ~FunctionCoefficient();
+  virtual ~FunctionCoefficient() = default;
 
-  double eval_f(const std::vector<double>& input_vector);
-  double eval_gradient(const int i, const std::vector<double>& input_vector);
-  double eval_hessian(const int i, const int j, const std::vector<double>& input_vector);
+  double eval_f(const std::vector<double>& input_vector,
+                std::optional<int> dimension = std::nullopt);
+  double eval_gradient(const int i, const std::vector<double>& input_vector,
+                       std::optional<int> dimension = std::nullopt);
+  double eval_hessian(const int i, const int j, const std::vector<double>& input_vector,
+                      std::optional<int> dimension = std::nullopt);
+
+  double eval_f(const std::vector<double>& input_vector,
+                const std::vector<double>& auxiliary_vector,
+                std::optional<int> dimension = std::nullopt);
+  double eval_gradient(const int i, const std::vector<double>& input_vector,
+                       const std::vector<double>& auxiliary_vector,
+                       std::optional<int> dimension = std::nullopt);
+  double eval_hessian(const int i, const int j, const std::vector<double>& input_vector,
+                      const std::vector<double>& auxiliary_vector,
+                      std::optional<int> dimension = std::nullopt);
 };
 
 FunctionCoefficient::FunctionCoefficient() {}
 
-FunctionCoefficient::~FunctionCoefficient() {}
 /**
  * @brief Compute function
  *
  * @param input_vector
  * @return double
  */
-double FunctionCoefficient::eval_f(const std::vector<double>& input_vector) {
-  return F()(input_vector);
+double FunctionCoefficient::eval_f(const std::vector<double>& input_vector,
+                                   std::optional<int> dimension) {
+  static const std::vector<double> empty_aux{};
+  return F()(input_vector, empty_aux, dimension.value_or(-1));
+}
+double FunctionCoefficient::eval_f(const std::vector<double>& input_vector,
+                                   const std::vector<double>& auxiliary_vector,
+                                   std::optional<int> dimension) {
+  return F()(input_vector, auxiliary_vector, dimension.value_or(-1));
 }
 /**
  * @brief Compute gradient at index i
@@ -56,8 +84,16 @@ double FunctionCoefficient::eval_f(const std::vector<double>& input_vector) {
  * @param input_vector
  * @return double
  */
-double FunctionCoefficient::eval_gradient(const int i, const std::vector<double>& input_vector) {
-  return GradientF()(input_vector)[i];
+double FunctionCoefficient::eval_gradient(const int i, const std::vector<double>& input_vector,
+                                          std::optional<int> dimension) {
+  static const std::vector<double> empty_aux{};
+
+  return GradientF()(input_vector, empty_aux, dimension.value_or(-1))[i];
+}
+double FunctionCoefficient::eval_gradient(const int i, const std::vector<double>& input_vector,
+                                          const std::vector<double>& auxiliary_vector,
+                                          std::optional<int> dimension) {
+  return GradientF()(input_vector, auxiliary_vector, dimension.value_or(-1))[i];
 }
 /**
  * @brief Compute the Hessian at position (i,j)
@@ -68,7 +104,16 @@ double FunctionCoefficient::eval_gradient(const int i, const std::vector<double>
  * @return double
  */
 double FunctionCoefficient::eval_hessian(const int i, const int j,
-                                         const std::vector<double>& input_vector) {
+                                         const std::vector<double>& input_vector,
+                                         std::optional<int> dimension) {
+  static const std::vector<double> empty_aux{};
   const int size = input_vector.size();
-  return HessianF()(input_vector)[i * size + j];
+  return HessianF()(input_vector, empty_aux, dimension.value_or(-1))[i * size + j];
+}
+double FunctionCoefficient::eval_hessian(const int i, const int j,
+                                         const std::vector<double>& input_vector,
+                                         const std::vector<double>& auxiliary_vector,
+                                         std::optional<int> dimension) {
+  const int size = input_vector.size();
+  return HessianF()(input_vector, auxiliary_vector, dimension.value_or(-1))[i * size + j];
 }

@@ -68,9 +68,14 @@ class ExprTkCoefficient : public FunctionCoefficient {
   void build_hessian();
 
  protected:
-  std::function<double(const std::vector<double>&)> F() final;
-  std::function<std::vector<double>(const std::vector<double>&)> GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&)> HessianF() final;
+  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  F() final;
+  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+                                    const int dimension)>
+  GradientF() final;
+  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+                                    const int dimension)>
+  HessianF() final;
 
  public:
   template <class... Args>
@@ -165,13 +170,17 @@ ExprTkCoefficient::ExprTkCoefficient(std::vector<std::string> hess_functions,
  * @param args
  * @return T
  */
-std::function<double(const std::vector<double>&)> ExprTkCoefficient::F() {
-  auto func = [&](const std::vector<double>& values) {
-    if (values.size() != this->variable_names_.size()) {
-      throw std::runtime_error("Number of variables not consistent with analytical expression");
-    }
-    for (size_t i = 0; i < values.size(); ++i) {
-      this->reference_map_[this->variable_names_[i]] = values[i];
+std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+ExprTkCoefficient::F() {
+  auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
+                  [[maybe_unused]] const int dimension) {
+    if (this->variable_names_.size() > 0) {
+      if (values.size() != this->variable_names_.size()) {
+        throw std::runtime_error("Number of variables not consistent with analytical expression");
+      }
+      for (size_t i = 0; i < values.size(); ++i) {
+        this->reference_map_[this->variable_names_[i]] = values[i];
+      }
     }
     return this->expression_parser_.value();
   };
@@ -183,14 +192,17 @@ std::function<double(const std::vector<double>&)> ExprTkCoefficient::F() {
  *
  * @return std::function<std::vector<double>(const std::vector<double>&)>
  */
-std::function<std::vector<double>(const std::vector<double>&)> ExprTkCoefficient::GradientF() {
-  auto func = [&](const std::vector<double>& values) {
-    if (values.size() != this->variable_names_.size()) {
-      throw std::runtime_error("Number of variables not consistent with analytical expression");
-    }
+std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+                                  const int dimension)>
+ExprTkCoefficient::GradientF() {
+  auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
+                  [[maybe_unused]] const int dimension) {
     const auto n = values.size();
     std::vector<double> gradient(n, 0.0);
     if (this->gradient_expression_parser_.size() > 0) {
+      if (values.size() != this->variable_names_.size()) {
+        throw std::runtime_error("Number of variables not consistent with analytical expression");
+      }
       for (size_t i = 0; i < values.size(); ++i) {
         this->reference_map_[this->variable_names_[i]] = values[i];
       }
@@ -208,14 +220,17 @@ std::function<std::vector<double>(const std::vector<double>&)> ExprTkCoefficient
  *
  * @return std::function<std::vector<double>(const std::vector<double>&)>
  */
-std::function<std::vector<double>(const std::vector<double>&)> ExprTkCoefficient::HessianF() {
-  auto func = [&](const std::vector<double>& values) {
+std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+                                  const int dimension)>
+ExprTkCoefficient::HessianF() {
+  auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
+                  [[maybe_unused]] const int dimension) {
     const auto n = values.size();
-    if (n != this->variable_names_.size()) {
-      throw std::runtime_error("Number of variables not consistent with analytical expression");
-    }
     std::vector<double> hessian(n * n, 0.0);
     if (this->hessian_expression_parser_.size() > 0) {
+      if (n != this->variable_names_.size()) {
+        throw std::runtime_error("Number of variables not consistent with analytical expression");
+      }
       for (size_t i = 0; i < n; ++i) {
         this->reference_map_[this->variable_names_[i]] = values[i];
       }

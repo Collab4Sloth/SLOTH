@@ -27,12 +27,15 @@
 
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "ConstantCoefficient.hpp"
 #include "FunctionCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
+#include "Options/TimeOptions.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
@@ -42,23 +45,41 @@
  */
 class SlothBaseCoefficient {
  private:
-  GlossaryQuantity coefficient_type_;
+  GlossaryQuantity coefficient_quantity_;
   std::shared_ptr<FunctionCoefficient> coefficient_;
 
+  Scheme scheme_;
+
  public:
-  SlothBaseCoefficient(GlossaryQuantity type, std::shared_ptr<FunctionCoefficient> coef);
+  SlothBaseCoefficient(GlossaryQuantity type, Scheme scheme,
+                       std::shared_ptr<FunctionCoefficient> coef);
+  SlothBaseCoefficient(GlossaryQuantity type, double coef);
+
   ~SlothBaseCoefficient();
 
-  template <typename... Args>
-  double compute(Args... args);
+  double compute();
+  double compute(const std::vector<double>& values, std::optional<int> dimension = std::nullopt);
+  double compute(const std::vector<double>& values, const std::vector<double>& auxiliary_values,
+                 std::optional<int> dimension = std::nullopt);
 
-  template <typename... Args>
-  double compute_gradient(const int i, Args... args);
+  double compute_gradient(const int i, const std::vector<double>& values,
+                          std::optional<int> dimension = std::nullopt);
+  double compute_gradient(const int i, const std::vector<double>& values,
+                          const std::vector<double>& auxiliary_values,
+                          std::optional<int> dimension = std::nullopt);
 
-  template <typename... Args>
-  double compute_hessian(const int i, const int j, Args... args);
+  double compute_hessian(const int i, const int j, const std::vector<double>& values,
+                         std::optional<int> dimension = std::nullopt);
+  double compute_hessian(const int i, const int j, const std::vector<double>& values,
+                         const std::vector<double>& auxiliary_values,
+                         std::optional<int> dimension = std::nullopt);
 
   GlossaryType get_type() const;
+  const GlossaryQuantity get_quantity();
+  unsigned int get_id();
+  bool is_implicit() const;
+  bool is_explicit() const;
+  bool is_semi_implicit() const;
 };
 /**
  * @brief Construct a new SlothBaseCoefficient::SlothBaseCoefficient object
@@ -67,9 +88,14 @@ class SlothBaseCoefficient {
  * @param type
  * @param coef
  */
-SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity type,
+SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity qty, Scheme scheme,
                                            std::shared_ptr<FunctionCoefficient> coef)
-    : coefficient_type_(type), coefficient_(coef) {}
+    : coefficient_quantity_(qty), coefficient_(coef), scheme_(scheme) {}
+
+SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity qty, double coef)
+    : coefficient_quantity_(qty),
+      coefficient_(std::make_shared<ConstantCoefficient>(coef)),
+      scheme_(Scheme::Scalar) {}
 
 /**
  * @brief Compute  analytical expression
@@ -78,13 +104,27 @@ SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity type,
  * @param args
  * @return double
  */
-template <typename... Args>
-double SlothBaseCoefficient::compute(Args... args) {
-  std::vector<double> values = {static_cast<double>(args)...};
-  // if (values.size() != this->variable_names_.size()) {
-  //   throw std::runtime_error("Number of variables not consistent with analytical expression");
-  // }
+double SlothBaseCoefficient::compute() {
+  static const std::vector<double> values{};
   return this->coefficient_->eval_f(values);
+}
+double SlothBaseCoefficient::compute(const std::vector<double>& values,
+                                     std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_f(values, dimension);
+  } else {
+    return this->coefficient_->eval_f(values);
+  }
+}
+
+double SlothBaseCoefficient::compute(const std::vector<double>& values,
+                                     const std::vector<double>& auxiliary_values,
+                                     std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_f(values, auxiliary_values, dimension);
+  } else {
+    return this->coefficient_->eval_f(values, auxiliary_values);
+  }
 }
 
 /**
@@ -95,31 +135,53 @@ double SlothBaseCoefficient::compute(Args... args) {
  * @param args
  * @return double
  */
-template <typename... Args>
-double SlothBaseCoefficient::compute_gradient(const int id, Args... args) {
-  std::vector<double> values = {static_cast<double>(args)...};
-  // if (values.size() != this->variable_names_.size()) {
-  //   throw std::runtime_error("Number of variables not consistent with analytical expression");
-  // }
-  return this->coefficient_->eval_gradient(id, values);
+
+double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<double>& values,
+                                              std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_gradient(id, values, dimension);
+  } else {
+    return this->coefficient_->eval_gradient(id, values);
+  }
+}
+double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<double>& values,
+                                              const std::vector<double>& auxiliary_values,
+                                              std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_gradient(id, values, auxiliary_values, dimension);
+  } else {
+    return this->coefficient_->eval_gradient(id, values, auxiliary_values);
+  }
 }
 
 /**
  * @brief Compute the (i,j)-th element of the hessian of analytical expression
  *
- * @tparam Args
  * @param id
  * @param jd
  * @param args
  * @return double
  */
-template <typename... Args>
-double SlothBaseCoefficient::compute_hessian(const int id, const int jd, Args... args) {
-  std::vector<double> values = {static_cast<double>(args)...};
-  // if (values.size() != this->variable_names_.size()) {
-  //   throw std::runtime_error("Number of variables not consistent with analytical expression");
-  // }
-  return this->coefficient_->eval_hessian(id, jd, values);
+
+double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
+                                             const std::vector<double>& values,
+                                             std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_hessian(id, jd, values, dimension);
+  } else {
+    return this->coefficient_->eval_hessian(id, jd, values);
+  }
+}
+
+double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
+                                             const std::vector<double>& values,
+                                             const std::vector<double>& auxiliary_values,
+                                             std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_hessian(id, jd, values, auxiliary_values, dimension);
+  } else {
+    return this->coefficient_->eval_hessian(id, jd, values, auxiliary_values);
+  }
 }
 
 /**
@@ -127,7 +189,23 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd, Args...
  *
  * @return GlossaryType
  */
-GlossaryType SlothBaseCoefficient::get_type() const { return this->coefficient_type_.type; }
+inline GlossaryType SlothBaseCoefficient::get_type() const {
+  return this->coefficient_quantity_.type;
+}
+
+inline const GlossaryQuantity SlothBaseCoefficient::get_quantity() {
+  return this->coefficient_quantity_;
+}
+
+inline unsigned int SlothBaseCoefficient::get_id() { return this->coefficient_quantity_.id; }
+
+inline bool SlothBaseCoefficient::is_implicit() const { return this->scheme_ == Scheme::Implicit; }
+
+inline bool SlothBaseCoefficient::is_explicit() const { return this->scheme_ == Scheme::Explicit; }
+
+inline bool SlothBaseCoefficient::is_semi_implicit() const {
+  return this->scheme_ == Scheme::SemiImplicit;
+}
 
 /**
  * @brief Destroy the SlothBaseCoefficient::SlothBaseCoefficient object

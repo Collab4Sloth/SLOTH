@@ -36,6 +36,7 @@
 
 #include "Coefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
+#include "Glossary/Glossary.hpp"
 #pragma once
 
 template <class T, class Coefficient>
@@ -48,6 +49,7 @@ concept CoeffVar = std::same_as<std::remove_cvref_t<T>, Coefficient>;
 class Coefficients {
  private:
   std::vector<Coefficient> vect_coefficients_;
+  std::vector<GlossaryType> vect_coefficient_types_;
 
  public:
   template <CoeffVar<Coefficient>... Args>
@@ -55,11 +57,14 @@ class Coefficients {
   explicit Coefficients(const Args&... args);
 
   Coefficients() = default;
+  virtual ~Coefficients() = default;
 
   void add(Coefficient coef);
   std::vector<Coefficient> getCoefficients() const;
   size_t size() noexcept;
-  const Coefficient& operator[](size_t i);
+  Coefficient operator[](size_t i);
+
+  std::vector<GlossaryType> get_types();
 };
 
 /**
@@ -70,7 +75,8 @@ class Coefficients {
  */
 template <CoeffVar<Coefficient>... Args>
   requires((sizeof...(Args) > 0))
-Coefficients::Coefficients(const Args&... args) : vect_coefficients_{args...} {}
+Coefficients::Coefficients(const Args&... args)
+    : vect_coefficients_{args...}, vect_coefficient_types_{args.get_type()...} {}
 
 /**
  * @brief Add a new coefficient
@@ -98,11 +104,14 @@ size_t Coefficients::size() noexcept { return this->vect_coefficients_.size(); }
  * @param i
  * @return Coefficient&
  */
-const Coefficient& Coefficients::operator[](size_t i) {
+Coefficient Coefficients::operator[](size_t i) {
   if (i >= vect_coefficients_.size()) throw std::out_of_range("Index out of range");
   return this->vect_coefficients_[i];
 }
-// const Coefficient& Coefficients::operator+=(Coefficients coeff) {
 
-//   return vect_coefficients_[i];
-// }
+/**
+ * @brief Return the vector of GlossaryQuantity associated with the Coefficients
+ *
+ * @return std::vector<GlossaryQuantity>
+ */
+std::vector<GlossaryType> Coefficients::get_types() { return this->vect_coefficient_types_; }
