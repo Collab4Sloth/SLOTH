@@ -66,21 +66,6 @@ class Problem : public ProblemBase<VAR, PST> {
   Problem(const std::string& name, const OPE& oper, VAR& variables,
           const std::vector<Coefficients>& Coeff, PST& pst, Args&&... auxvariable);
 
-  template <PbVar<VAR>... Args>
-  Problem(const OPE& oper, VAR& variables, Convergence& convergence, PST& pst,
-          Args&&... auxvariable);
-
-  template <PbVar<VAR>... Args>
-  Problem(const OPE& oper, VAR& variables, PST& pst, Args&&... auxvariable);
-
-  template <PbVar<VAR>... Args>
-  Problem(const std::string& name, const OPE& oper, VAR& variables, Convergence& convergence,
-          PST& pst, Args&&... auxvariable);
-
-  template <PbVar<VAR>... Args>
-  Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-          Args&&... auxvariable);
-
   /////////////////////////////////////////////////////
   void initialize(const double& initial_time) override;
 
@@ -123,7 +108,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, convergence, pst,
                             auxvariables...),
       oper_(oper) {
-  this->oper_.set_coefficients(Coeff);
+  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
 /**
@@ -145,7 +130,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, pst, auxvariables...),
       oper_(oper) {
-  this->oper_.set_coefficients(Coeff);
+  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
 /**
@@ -169,7 +154,7 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
                                 PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, pst, auxvariables...),
       oper_(oper) {
-  this->oper_.set_coefficients(Coeff);
+  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
 /**
@@ -191,86 +176,8 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
                                 const std::vector<Coefficients>& Coeff, PST& pst,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...), oper_(oper) {
-  this->oper_.set_coefficients(Coeff);
+  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
-
-/**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param oper
- * @param variables
- * @param pst
- * @param convergence
- * @param auxvariables
- */
-template <class OPE, class VAR, class PST>
-template <PbVar<VAR>... Args>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, Convergence& convergence, PST& pst,
-                                Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, convergence, pst,
-                            auxvariables...),
-      oper_(oper) {}
-
-/**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param oper
- * @param variables
- * @param pst
- * @param auxvariables
- */
-template <class OPE, class VAR, class PST>
-template <PbVar<VAR>... Args>
-Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables, PST& pst, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, pst, auxvariables...),
-      oper_(oper) {}
-
-/**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param oper
- * @param variables
- * @param pst
- * @param convergence
- * @param auxvariables
- */
-template <class OPE, class VAR, class PST>
-template <PbVar<VAR>... Args>
-Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables,
-                                Convergence& convergence, PST& pst, Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, convergence, pst, auxvariables...), oper_(oper) {}
-
-/**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @tparam Args
- * @param name
- * @param oper
- * @param variables
- * @param pst
- * @param auxvariables
- */
-template <class OPE, class VAR, class PST>
-template <PbVar<VAR>... Args>
-Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables, PST& pst,
-                                Args&&... auxvariables)
-    : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...), oper_(oper) {}
 
 /**
  * @brief Initialize the calculation : operator + ODE
@@ -366,7 +273,7 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
   const std::map<std::string, std::tuple<double, double>> map_integral =
       this->pst_.get_integral_to_compute();
 
-  for (auto iv = 0; iv < nvars; iv++) {
+  for (unsigned int iv = 0; iv < nvars; iv++) {
     auto vv = this->variables_[iv];
     auto solution = vv.get_analytical_solution();
     auto unk = vv.get_unknown();
@@ -394,9 +301,10 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
     }
     u_vect.emplace_back(std::move(unk));
   }
-  // Energies
-  this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
-
+  // Compute Energies is required (True by default)
+  if (this->pst_.get_enable_compute_energies()) {
+    this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
+  }
   // Save variables for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
 
