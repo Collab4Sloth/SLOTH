@@ -80,6 +80,7 @@ class SlothBaseCoefficient {
   bool is_implicit() const;
   bool is_explicit() const;
   bool is_semi_implicit() const;
+  bool is_scalar() const;
 };
 /**
  * @brief Construct a new SlothBaseCoefficient::SlothBaseCoefficient object
@@ -206,6 +207,7 @@ inline bool SlothBaseCoefficient::is_explicit() const { return this->scheme_ == 
 inline bool SlothBaseCoefficient::is_semi_implicit() const {
   return this->scheme_ == Scheme::SemiImplicit;
 }
+inline bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Scalar; }
 
 /**
  * @brief Destroy the SlothBaseCoefficient::SlothBaseCoefficient object
