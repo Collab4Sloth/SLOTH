@@ -120,7 +120,7 @@ W::HessianF() {
  * @brief Coefficient based on expression: 0.25 * (x * x - 1.0) * (x * x - 1.0)
  *
  */
-class F : public FunctionCoefficient {
+class Fw : public FunctionCoefficient {
  private:
   double prefactor_;
 
@@ -135,9 +135,9 @@ class F : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  F() { this->prefactor_ = 1.0; };
-  F(const double prefactor) { this->prefactor_ = prefactor; };
-  ~F() {};
+  Fw() { this->prefactor_ = 1.0; };
+  Fw(const double prefactor) { this->prefactor_ = prefactor; };
+  ~Fw() {};
 };
 
 /**
@@ -147,7 +147,7 @@ class F : public FunctionCoefficient {
  * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
  */
 std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
-F::F() {
+Fw::F() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
                   [[maybe_unused]] const int dimension) {
@@ -167,7 +167,7 @@ F::F() {
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
                                   const int dimension)>
-F::GradientF() {
+Fw::GradientF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
                   [[maybe_unused]] const int dimension) {
@@ -190,7 +190,7 @@ F::GradientF() {
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
                                   const int dimension)>
-F::HessianF() {
+Fw::HessianF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
                   [[maybe_unused]] const int dimension) {

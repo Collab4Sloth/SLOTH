@@ -1,0 +1,33 @@
+[
+    {
+    "expression":"x*x*(1.0-x) * (1.0-x)",
+    "variables":"x",
+    "class_name":"W",
+    "outputfile":"CommonCoefficients"
+    },
+    {
+    "expression":"0.25 * (x * x - 1.0) * (x * x - 1.0)",
+    "variables":"x",
+    "class_name":"Fw",
+    "outputfile":"CommonCoefficients"
+    },
+    {
+    "expression":"x * x * x * (6.0 * x * x - 15.0 * x + 10.0)",
+    "variables":"x",
+    "class_name":"H",
+    "outputfile":"CommonCoefficients"
+    },
+    {
+    "expression":"x * log(x) + (1.0 - x)*log(1.0 - x)",
+    "variables":"x",
+    "class_name":"Log",
+    "outputfile":"CommonCoefficients"
+    },
+    {
+    "expression":"0.5*dot(x,x)",
+    "variables":"x",
+    "class_name":"GradientEnergy",
+    "outputfile":"CommonCoefficients",
+    "gradient":true
+    }
+]
