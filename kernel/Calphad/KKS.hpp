@@ -36,7 +36,9 @@
 #include <vector>
 
 #include "Calphad/CalphadUtils.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/CommonCoefficients.hpp"
+#include "Glossary/Glossary.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
@@ -119,9 +121,7 @@ class KKS {
   bool KKS_freeze_nucleation_{true};
 
   // Interpolation function. It must be consistent with the choice made in AC equation.
-  PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
-                     ThermodynamicsPotentials::H>
-      interpolation_func_;
+  std::shared_ptr<Coefficient> interpolation_func_;
 
   // Method used to build the blocks of the linear system resulting from linearization of KKS
   // problem
@@ -170,6 +170,8 @@ class KKS {
 template <typename T>
 KKS<T>::KKS() {
   this->CU_ = std::make_shared<CalphadUtils<T>>();
+  this->interpolation_func_ =
+      std::make_shared<Coefficient>(Glossary::FreeEnergy, Scheme::Implicit, H());
 }
 
 /**
@@ -321,9 +323,8 @@ void KKS<T>::execute_linearization(
     }
 
     // Interpolation function at node
-    FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(i));
-    Hphi(i) = H(phi);
-    Hphi_old(i) = H(phi_gf_old(i));
+    Hphi(i) = this->interpolation_func_->compute({phi});
+    Hphi_old(i) = this->interpolation_func_->compute({phi_gf_old(i)});
   }
 
   // Save the number of two-phase nodes where KKS problem must be solved

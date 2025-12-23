@@ -39,7 +39,7 @@
 #include <vector>
 
 #include "Calphad/CalphadUtils.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Coefficients/CommonCoefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
