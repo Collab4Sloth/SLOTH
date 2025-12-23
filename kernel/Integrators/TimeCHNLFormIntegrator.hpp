@@ -44,8 +44,7 @@
  * @tparam MOBI
  */
 template <class VARS>
-class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                               public SlothNLFormIntegrator<VARS> {
+class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
@@ -53,16 +52,16 @@ class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
   void check_variables_consistency();
 
  protected:
-  std::vector<mfem::ParGridFunction> u_old_;
-  std::vector<mfem::ParGridFunction> aux_gf_;
-  std::vector<mfem::Vector> aux_old_gf_;
-  std::vector<std::vector<std::string>> aux_gf_infos_;
   std::vector<mfem::ParGridFunction> temp_gf_;
+  std::list<GlossaryType> expected_list_;
+  Coefficients coefficient_A;
+  void get_coefficients() override;
+  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
 
  public:
+  void init() override;
   TimeCHNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-                         std::vector<VARS*> auxvars);
-  ~TimeCHNLFormIntegrator();
+                         std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
 
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
@@ -93,9 +92,19 @@ class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
 template <class VARS>
 TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
   this->check_variables_consistency();
+}
+
+template <class VARS>
+void TimeCHNLFormIntegrator<VARS>::init() {
+  if (this->expected_list_.empty()) {
+    this->get_coefficients();
+  } else {
+    this->check_coefficient_types(this->expected_list_);
+    this->get_coefficients();
+  }
 }
 
 /**
@@ -108,14 +117,10 @@ TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
  */
 template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
-  this->aux_gf_ = this->get_aux_gf();
-  this->aux_old_gf_ = this->get_aux_old_gf();
-  this->aux_gf_infos_ = this->get_aux_infos();
-
   // Temperature scaling for mobility
   bool temperature_found = false;
-  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_gf_infos_[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
 
@@ -129,6 +134,19 @@ void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
       temperature_found = true;
       break;
     }
+  }
+}
+
+/**
+ * @brief Get default coefficients
+ * @remark Could be overridden by child classes
+ *
+ * @tparam VARS
+ */
+template <class VARS>
+void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
+  for (unsigned int i = 0; i < this->nb_blk_; i++) {
+    this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
   }
 }
 
@@ -182,8 +200,10 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
       Tr.SetIntPoint(&ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
+      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
-      const double ww = phi * ip.weight * Tr.Weight();
+      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
+      const double ww = coef_a * phi * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -259,7 +279,12 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       Tr.SetIntPoint(&ip);
       el[blk]->CalcPhysShape(Tr, Psi);
-      double w = Tr.Weight() * ip.weight;
+
+      const auto& phi = *elfun[blk] * Psi;
+      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+
+      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
+      double w = coef_a * Tr.Weight() * ip.weight;
       AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }
   }
@@ -280,11 +305,29 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief Destroy the TimeCHNLFormIntegrator  object
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @brief  Return the value of a coefficient
+ * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
+ * class variable aux_gf_
+ * @tparam VARS
+ * @param coef
+ * @param values
+ * @return double
  */
 template <class VARS>
-TimeCHNLFormIntegrator<VARS>::~TimeCHNLFormIntegrator() {}
+double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                         const std::vector<double>& values) {
+  const double u = values[0];
+  const double un = values[1];
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    // coef_value = coef.compute({u});
+    MFEM_VERIFY(false,
+                "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
+                "check your data.");
+  } else if (coef.is_explicit()) {
+    coef_value = coef.compute({un});
+  } else if (coef.is_scalar()) {
+    coef_value = coef.compute();
+  }
+  return coef_value;
+}

@@ -48,7 +48,8 @@ class AllenCahnConstantMeltingNLFormIntegrator final
 
  public:
   AllenCahnConstantMeltingNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                           const Parameters& params, std::vector<VARS*> auxvars);
+                                           const Parameters& params, std::vector<VARS*> auxvars,
+                                           const std::vector<Coefficients>& coefficients);
   ~AllenCahnConstantMeltingNLFormIntegrator();
 };
 
@@ -73,9 +74,10 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 AllenCahnConstantMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     AllenCahnConstantMeltingNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                             const Parameters& params, std::vector<VARS*> auxvars)
-    : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
-                                                                                      auxvars) {
+                                             const Parameters& params, std::vector<VARS*> auxvars,
+                                             const std::vector<Coefficients>& coefficients)
+    : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(
+          u_old, params, auxvars, coefficients) {
   this->get_parameters();
 }
 

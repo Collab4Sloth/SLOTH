@@ -57,7 +57,8 @@ class AllenCahnCalphadMeltingNLFormIntegrator final
 
  public:
   AllenCahnCalphadMeltingNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                          const Parameters& params, std::vector<VARS*> auxvars);
+                                          const Parameters& params, std::vector<VARS*> auxvars,
+                                          const std::vector<Coefficients>& coefficients);
   ~AllenCahnCalphadMeltingNLFormIntegrator();
 };
 
@@ -82,9 +83,10 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
 AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
     AllenCahnCalphadMeltingNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                            const Parameters& params, std::vector<VARS*> auxvars)
-    : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(u_old, params,
-                                                                                      auxvars) {
+                                            const Parameters& params, std::vector<VARS*> auxvars,
+                                            const std::vector<Coefficients>& coefficients)
+    : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(
+          u_old, params, auxvars, coefficients) {
   this->get_parameters();
 
   this->check_driving_forces();

@@ -4,24 +4,24 @@
  * @brief inter-diffusion integrator
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include <memory>
@@ -43,8 +43,7 @@
  * @tparam DIFFU_NAME
  */
 template <class VARS>
-class DiffusionFluxNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                                      public SlothNLFormIntegrator<VARS> {
+class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
   double coeff_stab_;
 
@@ -52,8 +51,6 @@ class DiffusionFluxNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                           const mfem::IntegrationPoint& ip, const int dim);
 
  protected:
-  std::vector<SlothGridFunction> u_old_;
-
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, Flux_;
 
@@ -65,11 +62,14 @@ class DiffusionFluxNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                                       const int dim) = 0;
   virtual std::vector<double> get_flux_coefficient(const int nElement,
                                                    const mfem::IntegrationPoint& ip) = 0;
+  // CCI coder
+  void get_coefficients() {}
+  void init() {}
 
  public:
   DiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                const Parameters& params, std::vector<VARS*> auxvars);
-  ~DiffusionFluxNLFormIntegrator();
+                                const Parameters& params, std::vector<VARS*> auxvars,
+                                const std::vector<Coefficients>& coefficients);
 
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
@@ -80,9 +80,6 @@ class DiffusionFluxNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
                                    mfem::ElementTransformation& Tr,
                                    const mfem::Array<const mfem::Vector*>& elfun,
                                    const mfem::Array2D<mfem::DenseMatrix*>& elmat);
-
-  std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
-      std::vector<mfem::ParGridFunction*> gfu, const double diffu);
 };
 
 ////////////////////////////////////////////////////////
@@ -112,8 +109,9 @@ void DiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
 template <class VARS>
 DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars) {
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  // CCI à généraliser?
   for (const auto& u : u_old) {
     this->u_old_.emplace_back(std::move(SlothGridFunction(u)));
   }
@@ -238,27 +236,3 @@ void DiffusionFluxNLFormIntegrator<VARS>::add_diffusion_flux(mfem::ElementTransf
     this->Flux_.Add(coef[i], gradient[i]);
   }
 }
-
-/**
- * @brief
- *
- * @tparam VARS
- * @param gfu
- * @param diffu
- * @return std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
- */
-template <class VARS>
-std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-DiffusionFluxNLFormIntegrator<VARS>::get_energy(std::vector<mfem::ParGridFunction*> gfu,
-                                                const double diffu) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu[0],
-                                                                                       diffu);
-}
-
-/**
- * @brief Destroy the DiffusionFluxNLFormIntegrator< VARS>::DiffusionFluxNLFormIntegrator object
- *
- * @tparam VARS
- */
-template <class VARS>
-DiffusionFluxNLFormIntegrator<VARS>::~DiffusionFluxNLFormIntegrator() {}
