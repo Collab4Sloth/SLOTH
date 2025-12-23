@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-
+  setVerbosity(Verbosity::Debug);
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
   //
@@ -42,15 +42,9 @@ int main(int argc, char* argv[]) {
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  // Heat
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using NLFI2 =
-      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 =
-      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
-  using PB2 = Problem<OPE2, VARS, PST>;
+  //
+  using OPE = DiffusionOperator<FECollection, DIM>;
+  using PB = Problem<OPE, VARS, PST>;
 
   // ###########################################
   // ###########################################
@@ -79,9 +73,12 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   // Heat
-  const auto& rho(1.);
-  const auto& cp(1.);
+  const auto& rho(1.e3);
+  const auto& cp(10.);
   const auto& cond(2.);
+  Coefficient density(Glossary::Concentration, rho);
+  Coefficient heat_capacity(Glossary::Cp, cp);
+  Coefficient conductivity(Glossary::Conductivity, cond);
 
   // ############################
   //     variables IC + SRC    //
@@ -92,7 +89,7 @@ int main(int argc, char* argv[]) {
   auto pl = 4.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
       [pl, pellet_radius](const mfem::Vector& vcoord, double time) {
-        const auto func = pl / (M_PI * 2. * pellet_radius * pellet_radius);
+        const auto func = pl / (M_PI * pellet_radius * pellet_radius);
 
         return func;
       });
@@ -107,29 +104,27 @@ int main(int argc, char* argv[]) {
   const auto& frequency = 1;
   // Heat
   const std::string& calculation_path = "Heat";
-  auto p_pst2 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
-  auto pst2 = PST(&spatial, p_pst2);
+  auto p_pst = Parameters(
+      Parameter("main_folder_path", main_folder_path),
+      Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+      Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
+  auto pst = PST(&spatial, p_pst);
 
   // ####################
   //     Problems      //
   // ####################
 
   // Heat:
+  Coefficients coef_pb(density, heat_capacity, conductivity);
   std::vector<AnalyticalFunctions<DIM> > src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
   std::vector<SPA*> spatials{&spatial};
-  OPE2 oper2(spatials, TimeScheme::EulerImplicit, src_term);
-  oper2.overload_density(Parameters(Parameter("rho", rho)));
-  oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
-  oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));
+  OPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative", src_term);
 
-  oper2.overload_nl_solver(NLSolverType::NEWTON,
-                           Parameters(Parameter("description", "Newton solver "),
-                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-6)));
-  PB2 Heat_pb("Heat", oper2, heat_vars, pst2);
+  oper.overload_nl_solver(NLSolverType::NEWTON,
+                          Parameters(Parameter("description", "Newton solver "),
+                                     Parameter("print_level", 1), Parameter("abs_tol", 1.e-10)));
+  PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
 
   // Coupling 1
   auto cc = Coupling("Heat transfer", Heat_pb);
@@ -140,12 +135,11 @@ int main(int argc, char* argv[]) {
   // ###########################################
   const auto& t_initial = 0.0;
   const auto& t_final = 1.;
-  const auto& dt = 0.25;
+  const auto& dt = 0.1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time = TimeDiscretization(time_params, cc);
 
-  // time.get_tree();
   time.solve();
   //---------------------------------------
   // Profiling stop

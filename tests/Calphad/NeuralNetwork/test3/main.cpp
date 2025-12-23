@@ -82,11 +82,7 @@ int main(int argc, char* argv[]) {
   //==========================================
   //======      HEAT TRANSFER           ======
   //==========================================
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using TH_NLFI =
-      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using TH_OPE =
-      HeatOperator<FECollection, DIM, TH_NLFI, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
+  using TH_OPE = DiffusionOperator<FECollection, DIM>;
   using TH_PB = Problem<TH_OPE, VARS, PST>;
 
   auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::Temperature, level_of_storage, 700.);

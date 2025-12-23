@@ -47,11 +47,7 @@ int main(int argc, char* argv[]) {
   using PB = Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST>;
 
   // Heat
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using NLFI2 =
-      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 =
-      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
+  using OPE2 = DiffusionOperator<FECollection, DIM>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################

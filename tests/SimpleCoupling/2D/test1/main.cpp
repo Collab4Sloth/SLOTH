@@ -1,7 +1,7 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief 2D coupling problem
+ * @brief 2D coupling problem Thermal-AC
  * @version 0.1
  * @date 2024-09-3
  *
@@ -23,6 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  setVerbosity(Verbosity::Debug);
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -46,21 +47,12 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   // ALLEN-CAHN
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-
-  using NLFI = AllenCahnTemperatureMeltingNLFormIntegrator<
-      VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
-      Mobility::Constant, ThermodynamicsPotentials::H>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
-  using PB = Problem<OPE, VARS, PST>;
+  using AC_OPE = PhaseFieldOperator<FECollection, DIM>;
+  using AC_PB = Problem<AC_OPE, VARS, PST>;
 
   // Heat
-  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
-  using NLFI2 =
-      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 =
-      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI_2, Density::Constant, HeatCapacity::Constant>;
-  using PB2 = Problem<OPE2, VARS, PST>;
+  using HEAT_OPE = DiffusionOperator<FECollection, DIM>;
+  using HEAT_PB = Problem<HEAT_OPE, VARS, PST>;
 
   // ###########################################
   // ###########################################
@@ -151,6 +143,20 @@ int main(int argc, char* argv[]) {
         return func;
       });
 
+  // ####################
+  //     coefficients  //
+  // ####################
+
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+
+  Coefficient density(Glossary::Concentration, rho);
+  Coefficient heat_capacity(Glossary::Cp, cp);
+  Coefficient conductivity(Glossary::Conductivity, cond);
+  Coefficient interpolation(Glossary::InterpolationFunction, Scheme::Implicit, H(omega));
+
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -168,38 +174,38 @@ int main(int argc, char* argv[]) {
   auto pst = PST(&spatial, p_pst1);
   // Heat
   calculation_path = "Heat";
-  auto p_pst2 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
+  auto p_pst2 = Parameters(
+      Parameter("main_folder_path", main_folder_path),
+      Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+      Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
   auto pst2 = PST(&spatial, p_pst2);
 
   // ####################
   //     Probelms      //
   // ####################
   // AllenCahn:
+  Coefficients ac_coef(double_well, capillary, mobility, interpolation, grad_energy);
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, ac_params, TimeScheme::EulerImplicit);
+  AC_OPE oper(spatials, {"AllenCahn", "MeltingTemperature"}, ac_params, TimeScheme::EulerImplicit,
+              "TimeDerivative");
   oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
-  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, heat_vars);
+  AC_PB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
 
   // Heat:
+  Coefficients heat_coef(density, heat_capacity, conductivity);
   std::vector<AnalyticalFunctions<DIM> > src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
-  OPE2 oper2(spatials, TimeScheme::EulerImplicit, src_term);
-  oper2.overload_density(Parameters(Parameter("rho", rho)));
-  oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
-  oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));
+  HEAT_OPE oper_heat(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                     src_term);
+  oper_heat.overload_nl_solver(
+      NLSolverType::NEWTON,
+      Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-9)));
 
-  oper2.overload_nl_solver(NLSolverType::NEWTON,
-                           Parameters(Parameter("description", "Newton solver "),
-                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-9)));
-
-  PB2 Heat_pb("Heat", oper2, heat_vars, pst2);
+  HEAT_PB heat_pb("Heat", oper_heat, heat_vars, {heat_coef}, pst2);
 
   // Coupling 1
-  auto cc = Coupling("AC-Heat coupling", allencahn_pb, Heat_pb);
+  auto cc = Coupling("AC-Heat coupling", allencahn_pb, heat_pb);
 
   // ###########################################
   // ###########################################
@@ -207,7 +213,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.5;  // 100.;
+  const auto& t_final = 100.;
   const auto& dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));

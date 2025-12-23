@@ -22,6 +22,7 @@
 #include <tuple>
 #include <vector>
 
+#include "CahnHilliardCoefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -53,11 +54,7 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::F, Mobility::Constant>;
-
-  using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -115,6 +112,14 @@ int main(int argc, char* argv[]) {
         const double omega = 1.;
         auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
                                  Parameter("lambda", lambda), Parameter("omega", omega));
+        // ####################
+        //     coefficients  //
+        // ####################
+
+        Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+        Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, DoubleWell(omega));
+        Coefficient capillary(Glossary::Capillary, lambda);
+        Coefficient mobility(Glossary::Mobility, mob);
         // ####################
         //     variables     //
         // ####################
@@ -192,13 +197,17 @@ int main(int argc, char* argv[]) {
         //     operators     //
         // ####################
 
+        // Problem 1:
+        Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
         std::vector<SPA*> spatials{&spatial, &spatial};
         std::vector<AnalyticalFunctions<DIM>> src_term;
         src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term2));
         src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
         // OPE oper(spatials, params, src_term);
-        OPE oper(spatials, params, TimeScheme::EulerImplicit, src_term);
-        oper.overload_mobility(Parameters(Parameter("mob", mob)));
+
+        OPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                 "SplitTimeDerivative", src_term);
+
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
@@ -209,7 +218,7 @@ int main(int argc, char* argv[]) {
         oper.overload_preconditioner(precond, Parameters(Parameter("type", 1)));
 
         auto pst = PST(&spatial, p_pst);
-        PB problem1(oper, vars, pst);
+        PB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);
