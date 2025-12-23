@@ -64,7 +64,10 @@ std::function<double(const std::vector<double>&, const std::vector<double>&, con
 ConstantCoefficient::F() {
   auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) { return this->value_; };
+                  [[maybe_unused]] const int dimension) {
+    // CCI
+    return this->value_;
+  };
   return func;
 }
 
