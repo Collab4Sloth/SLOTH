@@ -46,9 +46,8 @@
  * @brief TransientOperatorBase class
  *
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
-                              public mfem::TimeDependentOperator {
+template <class T, int DIM>
+class TransientOperatorBase : public OperatorBase<T, DIM>, public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver* ode_solver_;
   void set_ODE_solver(const TimeScheme::value& ode_solver);
@@ -59,6 +58,10 @@ class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
   Parameters mass_precond_params_;
 
   void set_default_mass_solver();
+  SlothNLFormIntegrator<Variables<T, DIM>>* get_lhs_integrator(
+      const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+      const Parameters& all_params);
+  std::string lhs_integrator_;
 
  protected:
   /// Mass operator
@@ -68,8 +71,6 @@ class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
   mfem::ProductCoefficient* MassCoeff_;  // mass coefficient
   std::shared_ptr<LSolver> mass_matrix_solver_;
   std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix )M
-  LHS_NLFI* lhs_nlfi_ptr_;
-
   /// Left-Hand-Side
   mfem::ParBlockNonlinearForm* LHS;
 
@@ -86,22 +87,27 @@ class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
 
  public:
   TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                        TimeScheme::value ode);
+                        const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
+                        const std::string lhs_integrator);
 
-  TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials, TimeScheme::value ode,
+  TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                        const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
+                        const std::string lhs_integrator,
                         std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                        const Parameters& params, TimeScheme::value ode);
+                        const std::vector<std::string>& rhs_integrators, const Parameters& params,
+                        TimeScheme::value ode, const std::string lhs_integrator);
 
   TransientOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                        const Parameters& params, TimeScheme::value ode,
+                        const std::vector<std::string>& rhs_integrators, const Parameters& params,
+                        TimeScheme::value ode, const std::string lhs_integrator,
                         std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult(const mfem::Vector& u, mfem::Vector& du_dt) const override;
   void ImplicitSolve(const double dt, const mfem::Vector& u, mfem::Vector& k) override;
 
-  virtual ~TransientOperatorBase();
+  virtual ~TransientOperatorBase() = default;
 
   // User-defined Solvers
   void overload_mass_solver(VSolverType SOLVER);
@@ -124,12 +130,12 @@ class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
   void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
              const double& current_time, double current_time_step, const int iter) override;
-  NLFI* set_nlfi_ptr(const double dt, const std::vector<mfem::Vector>& u) override = 0;
-  LHS_NLFI* set_lhs_nlfi_ptr(const double dt, const std::vector<mfem::Vector>& u);
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
+      const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) override = 0;
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_lhs_nlfi_ptr(const double dt,
+                                                             const std::vector<mfem::Vector>& u);
 
   void get_parameters() override = 0;
-  void ComputeEnergies(const int& it, const double& t, const double& dt,
-                       const std::vector<mfem::Vector>& u) override = 0;
 };
 
 ////////////////////////////////////////////////////////
@@ -140,22 +146,24 @@ class TransientOperatorBase : public OperatorBase<T, DIM, NLFI, LHS_NLFI>,
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param spatial
  * @param ode
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials, TimeScheme::value ode)
-    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials),
+template <class T, int DIM>
+TransientOperatorBase<T, DIM>::TransientOperatorBase(
+
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
+    const std::string lhs_integrator)
+    : OperatorBase<T, DIM>(rhs_integrators, spatials),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       LHS(NULL),
-      lhs_nlfi_ptr_(nullptr),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_integrator_(lhs_integrator) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -166,25 +174,25 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
- * @tparam LHS_NLFI
  * @param spatials
  * @param ode
  * @param source_term_name
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials, TimeScheme::value ode,
-    std::vector<AnalyticalFunctions<DIM>> source_term_name)
-    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, source_term_name),
+template <class T, int DIM>
+TransientOperatorBase<T, DIM>::TransientOperatorBase(
+
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
+    const std::string lhs_integrator, std::vector<AnalyticalFunctions<DIM>> source_term_name)
+    : OperatorBase<T, DIM>(rhs_integrators, spatials, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       LHS(NULL),
-      lhs_nlfi_ptr_(nullptr),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_integrator_(lhs_integrator) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -194,24 +202,24 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param spatial
  * @param params
  * @param ode
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
-    TimeScheme::value ode)
-    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params),
+template <class T, int DIM>
+TransientOperatorBase<T, DIM>::TransientOperatorBase(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<std::string>& rhs_integrators, const Parameters& params,
+    TimeScheme::value ode, const std::string lhs_integrator)
+    : OperatorBase<T, DIM>(rhs_integrators, spatials, params),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
       M(NULL),
       MassCoeff_(NULL),
       LHS(NULL),
-      lhs_nlfi_ptr_(nullptr),
-      reduced_oper(NULL) {
+      reduced_oper(NULL),
+      lhs_integrator_(lhs_integrator) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -220,7 +228,6 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
  * @brief Construct a new TransientOperatorBase object
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param spatial
  * @param params
  * @param vars
@@ -228,11 +235,13 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
  * @param auxvars
  * @param source_term_name
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
-    TimeScheme::value ode, std::vector<AnalyticalFunctions<DIM>> source_term_name)
-    : OperatorBase<T, DIM, NLFI, LHS_NLFI>(spatials, params, source_term_name),
+template <class T, int DIM>
+TransientOperatorBase<T, DIM>::TransientOperatorBase(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<std::string>& rhs_integrators, const Parameters& params,
+    TimeScheme::value ode, const std::string lhs_integrator,
+    std::vector<AnalyticalFunctions<DIM>> source_term_name)
+    : OperatorBase<T, DIM>(rhs_integrators, spatials, params, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
       mass_gf_(nullptr),
@@ -240,7 +249,7 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
       LHS(NULL),
       MassCoeff_(NULL),
       reduced_oper(NULL),
-      lhs_nlfi_ptr_(nullptr) {
+      lhs_integrator_(lhs_integrator) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -250,12 +259,10 @@ TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::TransientOperatorBase(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param ode_solver
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_ODE_solver(
-    const TimeScheme::value& ode_solver) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solver) {
   // TODO(cci) faire un template?
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
@@ -283,18 +290,17 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_ODE_solver(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param initial_time
  * @param vars
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
-    const double& initial_time, Variables<T, DIM>& vars, std::vector<Variables<T, DIM>*> auxvars) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::initialize(const double& initial_time, Variables<T, DIM>& vars,
+                                               std::vector<Variables<T, DIM>*> auxvars) {
   Catch_Time_Section("TransientOperatorBase::initialize");
 
   this->SetTime(initial_time);
 
-  OperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(initial_time, vars, auxvars);
+  OperatorBase<T, DIM>::initialize(initial_time, vars, auxvars);
 
   this->ode_solver_->Init(*this);
 }
@@ -304,15 +310,14 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::initialize(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param unk
  * @param current_time
  * @param current_time_step
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
-    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
-    const double& current_time, double current_time_step, const int iter) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+                                          double& next_time, const double& current_time,
+                                          double current_time_step, const int iter) {
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
 
@@ -339,8 +344,8 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::solve(
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const mfem::Vector& u) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::get_mass_coefficient(const mfem::Vector& u) {
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
@@ -353,11 +358,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::get_mass_coefficient(const m
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
-    const std::vector<mfem::Vector>& u_vect) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
   this->M_solver_.clear();
   for (int i = 0; i < u_vect.size(); i++) {
     if (M != nullptr) {
@@ -390,22 +393,18 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_mass_matrix(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param dt
  * @param u
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::build_lhs_nonlinear_form(
     const double dt, const std::vector<mfem::Vector>& u_vect) {
   if (LHS != nullptr) {
     delete LHS;
   }
-
   LHS = new mfem::ParBlockNonlinearForm(this->fes_);
-
-  this->lhs_nlfi_ptr_ = set_lhs_nlfi_ptr(dt, u_vect);
-
-  LHS->AddDomainIntegrator(this->lhs_nlfi_ptr_);
+  auto integrator_ptr = this->set_lhs_nlfi_ptr(dt, u_vect);
+  this->LHS->AddDomainIntegrator(integrator_ptr);
 }
 
 /**
@@ -413,28 +412,25 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::build_lhs_nonlinear_form(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param dt
  * @param u_vect
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-LHS_NLFI* TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
+template <class T, int DIM>
+SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperatorBase<T, DIM>::set_lhs_nlfi_ptr(
     const double dt, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("TransientOperatorBase::set_lhs_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
-  for (int i = 0; i < u.size(); i++) {
+  for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
-
     un.SetFromTrueDofs(u[i]);
-
     vun.emplace_back(un);
   }
   const Parameters& all_params = this->params_ - this->default_p_;
 
-  LHS_NLFI* lhs_nlfi_ptr = new LHS_NLFI(vun, all_params, this->auxvariables_);
-
-  return lhs_nlfi_ptr;
+  auto lhs = this->get_lhs_integrator(this->lhs_integrator_, vun, all_params);
+  lhs->init();
+  return lhs;
 }
 
 /**
@@ -443,8 +439,8 @@ LHS_NLFI* TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_lhs_nlfi_ptr(
  * @param dt time-step
  * @param u unknown vector
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::SetTransientParameters(
     const double dt, const std::vector<mfem::Vector>& u_vect) {
   Catch_Time_Section("TransientOperatorBase::SetTransientParameters");
 
@@ -476,10 +472,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetTransientParameters(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParameters(
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::SetExplicitTransientParameters(
     const std::vector<mfem::Vector>& un_vect) {
   Catch_Time_Section("TransientOperatorBase::SetExplicitTransientParameters");
   ////////////////////////////////////////////
@@ -500,9 +495,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetExplicitTransientParamete
  * @param u unknown vector
  * @param ess_tdof_list array of dofs
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
-    const double dt, const std::vector<mfem::Vector>& u_vect) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::SetConstantParameters(const double dt,
+                                                          const std::vector<mfem::Vector>& u_vect) {
   Catch_Time_Section("TransientOperatorBase::SetConstantParameters");
 }
 
@@ -515,9 +510,8 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::SetConstantParameters(
  * @param u unknown vector
  * @param du_dt unkwon time derivative vector
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector& u,
-                                                         mfem::Vector& du_dt) const {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt) const {
   Catch_Time_Section("TransientOperatorBase::Mult");
 
   const auto sc = this->height_;
@@ -529,8 +523,7 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector& u,
   v_vect.emplace_back(v);
 
   // Todo(cci) : try to do different because of not satisfying
-  const_cast<TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>*>(this)->SetExplicitTransientParameters(
-      v_vect);
+  const_cast<TransientOperatorBase<T, DIM>*>(this)->SetExplicitTransientParameters(v_vect);
 
   // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
   const int fes_size = this->block_trueOffsets_.Size() - 1;
@@ -585,10 +578,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::Mult(const mfem::Vector& u,
  * @param u unknown vector
  * @param du_dt unkwon time derivative vector
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double dt,
-                                                                  const mfem::Vector& u,
-                                                                  mfem::Vector& du_dt) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::ImplicitSolve(const double dt, const mfem::Vector& u,
+                                                  mfem::Vector& du_dt) {
   Catch_Time_Section("TransientOperatorBase::ImplicitSolve");
 
   const auto sc = this->height_;
@@ -652,11 +644,10 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param SOLVER
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(VSolverType SOLVER) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::overload_mass_solver(VSolverType SOLVER) {
   this->mass_solver_ = SOLVER;
 }
 
@@ -665,13 +656,12 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(VSolver
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param SOLVER
  * @param s_params
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(
-    VSolverType SOLVER, const Parameters& s_params) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::overload_mass_solver(VSolverType SOLVER,
+                                                         const Parameters& s_params) {
   this->mass_solver_ = SOLVER;
   this->mass_solver_params_ = s_params;
 }
@@ -681,12 +671,10 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_solver(
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param PRECOND
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
-    VSolverType PRECOND) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::overload_mass_preconditioner(VSolverType PRECOND) {
   this->mass_precond_ = PRECOND;
 }
 
@@ -696,13 +684,12 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  * @param PRECOND
  * @param p_params
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner(
-    VSolverType PRECOND, const Parameters& p_params) {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::overload_mass_preconditioner(VSolverType PRECOND,
+                                                                 const Parameters& p_params) {
   this->mass_precond_ = PRECOND;
   this->mass_precond_params_ = p_params;
 }
@@ -712,10 +699,9 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::overload_mass_preconditioner
  *
  * @tparam T
  * @tparam DIM
- * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
+template <class T, int DIM>
+void TransientOperatorBase<T, DIM>::set_default_mass_solver() {
   auto s_params = Parameters(Parameter("description", "Default Mass Solver"));
   auto p_params = Parameters(Parameter("description", "Default Mass preconditioner"));
 
@@ -724,9 +710,29 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::set_default_mass_solver() {
   this->mass_precond_ = HyprePreconditionerType::HYPRE_ILU;
   this->mass_precond_params_ = p_params;
 }
-/**
- * @brief Destroy the Phase Field Operator:: Phase Field Operator object
- *
- */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::~TransientOperatorBase() {}
+
+template <class T, int DIM>
+SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperatorBase<T, DIM>::get_lhs_integrator(
+    const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+    const Parameters& all_params) {
+  switch (Integrators::from(integrator)) {
+    case Integrators::TimeDerivative: {
+      return new TimeNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
+                                                         this->coefficients_);
+      break;
+    }
+    case Integrators::HeatTimeDerivative: {
+      return new HeatTimeNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
+                                                             this->coefficients_);
+      break;
+    }
+    case Integrators::SplitTimeDerivative: {
+      return new TimeCHNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
+                                                           this->coefficients_);
+      break;
+    }
+    default:
+      mfem::mfem_error("LHS Integrators not found. Please check your data.");
+      return nullptr;
+  }
+}

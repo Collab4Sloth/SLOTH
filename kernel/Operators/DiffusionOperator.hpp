@@ -4,31 +4,31 @@
  * @brief Diffusion operator (Base, Steady and TimeDependent)
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "Coefficients/DensityCoefficient.hpp"
 #include "Operators/SteadyOperatorBase.hpp"
 #include "Operators/TransientOperatorBase.hpp"
 #include "Options/Options.hpp"
@@ -36,7 +36,6 @@
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-
 #pragma once
 
 /**
@@ -47,31 +46,30 @@
  * @tparam NLFI
  * @tparam OPEBASE
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI,
-          template <class, int, class, class> class OPEBASE>
-class DiffusionOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
+template <class T, int DIM, template <class, int> class OPEBASE>
+class DiffusionOperatorBase : public OPEBASE<T, DIM> {
  protected:
   Parameters diffusion_params_;
 
  public:
   template <typename... Args>
-  explicit DiffusionOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                 Args&&... args)
-      : OPEBASE<T, DIM, NLFI, LHS_NLFI>(spatials, std::forward<Args>(args)...) {}
+  DiffusionOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                        const std::vector<std::string>& integrators, Args&&... args)
+      : OPEBASE<T, DIM>(spatials, integrators, std::forward<Args>(args)...) {}
 
   template <typename... Args>
   DiffusionOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                        const Parameters& params, Args&&... args)
-      : OPEBASE<T, DIM, NLFI, LHS_NLFI>(spatials, params, std::forward<Args>(args)...) {
+                        const std::vector<std::string>& integrators, const Parameters& params,
+                        Args&&... args)
+      : OPEBASE<T, DIM>(spatials, integrators, params, std::forward<Args>(args)...) {
     this->get_parameters();
   }
 
   void set_default_properties() override = 0;
 
-  NLFI* set_nlfi_ptr(const double dt, const std::vector<mfem::Vector>& u) override;
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
+      const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) override;
   void get_parameters() override;
-  void ComputeEnergies(const int& it, const double& t, const double& dt,
-                       const std::vector<mfem::Vector>& u) override;
 
   ~DiffusionOperatorBase();
 };
@@ -84,9 +82,8 @@ class DiffusionOperatorBase : public OPEBASE<T, DIM, NLFI, LHS_NLFI> {
  * @tparam NLFI
  * @tparam OPEBASE
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI,
-          template <class, int, class, class> class OPEBASE>
-DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::~DiffusionOperatorBase() {}
+template <class T, int DIM, template <class, int> class OPEBASE>
+DiffusionOperatorBase<T, DIM, OPEBASE>::~DiffusionOperatorBase() {}
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -103,22 +100,23 @@ DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::~DiffusionOperatorBase()
  * @param u
  * @return NLFI*
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI,
-          template <class, int, class, class> class OPEBASE>
-NLFI* DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
-    const double dt, const std::vector<mfem::Vector>& u) {
+template <class T, int DIM, template <class, int> class OPEBASE>
+SlothNLFormIntegrator<Variables<T, DIM>>* DiffusionOperatorBase<T, DIM, OPEBASE>::set_nlfi_ptr(
+    const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("DiffusionOperatorBase::set_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
-  for (int i = 0; i < u.size(); i++) {
+  for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u[i]);
     vun.emplace_back(un);
   }
 
   const Parameters& all_params = this->diffusion_params_ + this->params_ - this->default_p_;
-  NLFI* nlfi_ptr = new NLFI(vun, all_params, this->auxvariables_);
-  return nlfi_ptr;
+
+  auto rhs_nlfi = this->get_rhs_integrator(nlfi, vun, all_params);
+  rhs_nlfi->init();
+  return rhs_nlfi;
 }
 
 /**
@@ -130,55 +128,10 @@ NLFI* DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::set_nlfi_ptr(
  * @tparam OPEBASE
  * @param params
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI,
-          template <class, int, class, class> class OPEBASE>
-void DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::get_parameters() {
+template <class T, int DIM, template <class, int> class OPEBASE>
+void DiffusionOperatorBase<T, DIM, OPEBASE>::get_parameters() {
   this->description_ = this->params_.template get_param_value_or_default<std::string>(
       "description", "Diffusion operator");
-}
-
-/**
- * @brief  Compute Energy contribution at the end of time step
- *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
- * @tparam OPEBASE
- * @param it
- * @param dt
- * @param t
- * @param u
- */
-template <class T, int DIM, class NLFI, class LHS_NLFI,
-          template <class, int, class, class> class OPEBASE>
-void DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
-    const int& it, const double& t, const double& dt, const std::vector<mfem::Vector>& u) {
-  Catch_Time_Section("DiffusionOperatorBase::ComputeEnergies");
-
-  std::vector<mfem::ParGridFunction> vun;
-  vun.reserve(u.size());
-  for (size_t i = 0; i < u.size(); ++i) {
-    mfem::ParGridFunction un(this->fes_[i]);
-    un.SetFromTrueDofs(u[i]);
-    vun.emplace_back(std::move(un));
-  }
-
-  std::vector<mfem::ParGridFunction*> vun_ptr;
-  for (auto& un : vun) {
-    vun_ptr.push_back(&un);
-  }
-
-  auto gphi = this->nlfi_ptr_->get_energy(vun_ptr, 1.0);
-  auto energy_coeff = gphi.get();
-  mfem::ParGridFunction gf(this->fes_[0]);
-
-  gf.ProjectCoefficient(*energy_coeff);
-
-  // Calcul de l'intégrale de l'objet FunctionCoefficient sur le domaine
-  mfem::ConstantCoefficient zero(0.);
-  const auto energy = gf.ComputeLpError(1, zero);
-  this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                  SpecializedValue("Density[J.m-3]", energy));
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -192,24 +145,25 @@ void DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, OPEBASE>::ComputeEnergies(
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI = mfem::BlockNonlinearFormIntegrator>
-class SteadyDiffusionOperator final
-    : public DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase> {
+template <class T, int DIM>
+class SteadyDiffusionOperator final : public DiffusionOperatorBase<T, DIM, SteadyOperatorBase> {
  protected:
   void set_default_properties() override;
 
  public:
   template <typename... Args>
   SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                          const Parameters& params, Args&&... args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
-            spatials, params, std::forward<Args>(args)...) {
+                          const std::vector<std::string>& integrators, const Parameters& params,
+                          Args&&... args)
+      : DiffusionOperatorBase<T, DIM, SteadyOperatorBase>(spatials, integrators, params,
+                                                          std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials, Args&&... args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, SteadyOperatorBase>(
-            spatials, std::forward<Args>(args)...) {
+  SteadyDiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                          const std::vector<std::string>& integrators, Args&&... args)
+      : DiffusionOperatorBase<T, DIM, SteadyOperatorBase>(spatials, integrators,
+                                                          std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   void overload_diffusion(const Parameters& p_params);
@@ -223,8 +177,8 @@ class SteadyDiffusionOperator final
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyDiffusionOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
+template <class T, int DIM>
+void SteadyDiffusionOperator<T, DIM>::set_default_properties() {
   this->diffusion_params_ = Parameters(Parameter("D", 1.0), Parameter("D_stab", 0.0));
 }
 
@@ -237,9 +191,8 @@ void SteadyDiffusionOperator<T, DIM, NLFI, LHS_NLFI>::set_default_properties() {
  * @param DIFFU
  * @param p_params
  */
-template <class T, int DIM, class NLFI, class LHS_NLFI>
-void SteadyDiffusionOperator<T, DIM, NLFI, LHS_NLFI>::overload_diffusion(
-    const Parameters& p_params) {
+template <class T, int DIM>
+void SteadyDiffusionOperator<T, DIM>::overload_diffusion(const Parameters& p_params) {
   this->diffusion_params_ = p_params;
 }
 
@@ -254,9 +207,8 @@ void SteadyDiffusionOperator<T, DIM, NLFI, LHS_NLFI>::overload_diffusion(
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, Density DENS, class LHS_NLFI>
-class DiffusionOperator final
-    : public DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase> {
+template <class T, int DIM>
+class DiffusionOperator final : public DiffusionOperatorBase<T, DIM, TransientOperatorBase> {
  protected:
   Parameters density_params_;
   void set_default_properties() override;
@@ -264,16 +216,18 @@ class DiffusionOperator final
 
  public:
   template <typename... Args>
-  DiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
+  DiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                    const std::vector<std::string>& integrators, const Parameters& params,
                     Args&&... args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
-            spatials, params, std::forward<Args>(args)...) {
+      : DiffusionOperatorBase<T, DIM, TransientOperatorBase>(spatials, integrators, params,
+                                                             std::forward<Args>(args)...) {
     this->set_default_properties();
   }
   template <typename... Args>
-  DiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials, Args&&... args)
-      : DiffusionOperatorBase<T, DIM, NLFI, LHS_NLFI, TransientOperatorBase>(
-            spatials, std::forward<Args>(args)...) {
+  DiffusionOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                    const std::vector<std::string>& integrators, Args&&... args)
+      : DiffusionOperatorBase<T, DIM, TransientOperatorBase>(spatials, integrators,
+                                                             std::forward<Args>(args)...) {
     this->set_default_properties();
   }
 
@@ -292,8 +246,8 @@ class DiffusionOperator final
  * @tparam OPEBASE
  * @param u
  */
-template <class T, int DIM, class NLFI, Density DENS, class LHS_NLFI>
-void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::get_mass_coefficient(const mfem::Vector& u) {
+template <class T, int DIM>
+void DiffusionOperator<T, DIM>::get_mass_coefficient(const mfem::Vector& u) {
   if (this->MassCoeff_ != nullptr) {
     delete this->MassCoeff_;
   }
@@ -302,9 +256,11 @@ void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::get_mass_coefficient(const
   }
   this->mass_gf_ = new mfem::ParGridFunction(this->fes_[0]);
   this->mass_gf_->SetFromTrueDofs(u);
-  auto density_coefficient = new DensityCoefficient<0, DENS>(this->mass_gf_, this->density_params_);
+  // auto density_coefficient = new DensityCoefficient<0, DENS>(this->mass_gf_,
+  // this->density_params_);
   auto one = new mfem::ConstantCoefficient(1.0);
-  this->MassCoeff_ = new mfem::ProductCoefficient(*density_coefficient, *one);
+  // this->MassCoeff_ = new mfem::ProductCoefficient(*density_coefficient, *one);
+  this->MassCoeff_ = new mfem::ProductCoefficient(*one, *one);
 }
 
 /**
@@ -314,8 +270,8 @@ void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::get_mass_coefficient(const
  * @tparam DIM
  * @tparam NLFI
  */
-template <class T, int DIM, class NLFI, Density DENS, class LHS_NLFI>
-void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::set_default_properties() {
+template <class T, int DIM>
+void DiffusionOperator<T, DIM>::set_default_properties() {
   this->density_params_ = Parameters(Parameter("rho", 1.0));
 
   this->diffusion_params_ = Parameters(Parameter("D", 1.0));
@@ -328,8 +284,8 @@ void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::set_default_properties() {
  * @tparam NLFI
  * @param p_params
  */
-template <class T, int DIM, class NLFI, Density DENS, class LHS_NLFI>
-void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::overload_density(const Parameters& p_params) {
+template <class T, int DIM>
+void DiffusionOperator<T, DIM>::overload_density(const Parameters& p_params) {
   this->density_params_ = p_params;
 }
 
@@ -341,8 +297,7 @@ void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::overload_density(const Par
  * @tparam NLFI
  * @param p_params
  */
-template <class T, int DIM, class NLFI, Density DENS, class LHS_NLFI>
-void DiffusionOperator<T, DIM, NLFI, DENS, LHS_NLFI>::overload_diffusion(
-    const Parameters& p_params) {
+template <class T, int DIM>
+void DiffusionOperator<T, DIM>::overload_diffusion(const Parameters& p_params) {
   this->diffusion_params_ = p_params;
 }
