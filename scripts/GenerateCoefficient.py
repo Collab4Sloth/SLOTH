@@ -5,6 +5,7 @@ import json
 from argparse import ArgumentParser, ArgumentTypeError, Namespace, RawTextHelpFormatter
 from pathlib import Path
 import os
+import re
 import sympy as sp
 import shutil
 import logging
@@ -17,7 +18,10 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-def prepare_output_file(output_file):
+    
+
+
+def prepare_output_file(output_file, is_gradient_coefficient):
 
     filename = Path(output_file).resolve()
 
@@ -43,33 +47,66 @@ def prepare_output_file(output_file):
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */\n
+#include <cmath>
+#include <functional>
+#include <numeric>
+#include <vector>\n
+#include "kernel/Coefficients/FunctionCoefficient.hpp"\n  
+#pragma once\n
 """)
 
+def dot_to_inner_product(code: str) -> str:
+    """
+    Replace Sum(a[i]*b[i], (i, 0, n)) by std::inner_product(a.begin(), a.end(), b.begin(), 0)
+    """
+    pattern = re.compile(
+        r"dot\(\s*"        # dot(
+        r"(\w+)\s*,\s*"    # première variable
+        r"(\w+)\s*\)"      # deuxième variable
+    )
 
-def generate_class_with_functions(expr_str, var_names, class_name, output_file):
+    def repl(match):
+        var1 = match.group(1)
+        var2 = match.group(2)
+        return f"std::inner_product({var1}.begin(), {var1}.end(), {var2}.begin(), 0.0)"
+
+    return pattern.sub(repl, code)
+
+def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, class_name, output_file, is_gradient_coefficient):
+    var_names+=","
     vars = sp.symbols(var_names)
     n = len(vars)
-    expr = sp.sympify(expr_str, rational=True)
+    has_auxiliary_variables = False
+    if(len(auxiliary_var_names)>0):
+        has_auxiliary_variables = True
+        auxiliary_var_names+=","
+        auxiliary_vars = sp.symbols(auxiliary_var_names)
+        print(auxiliary_vars)
 
+    locals_dict={}
+    if(is_gradient_coefficient):
+        dot = sp.Function('dot')
+        locals_dict["dot"]=dot
+
+    expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
+
+
+    # Int to float
+    expr = expr_tmp
+    # expr = sp.N(expr_tmp)
     # Gradient
-    gradient = [sp.diff(expr, v) for v in vars]
+    gradient = [ sp.diff(expr, v) for v in vars]
     # Hessian (n x n)
     hessian = sp.hessian(expr, vars)
 
     cpp_file = f"{output_file}.hpp"
     path = Path(cpp_file).resolve()
-    if not path.is_file():
-        prepare_output_file(cpp_file)
+    if not path.exists():
+        prepare_output_file(cpp_file,is_gradient_coefficient)
 
     with open(cpp_file, "a") as f:
 
         f.write(f"""
-#include <cmath>
-#include <functional>
-#include <vector>\n
-#include "FunctionCoefficient.hpp"\n  
-#pragma once\n
-
 /**
  *
  * @brief Coefficient based on expression: {expr_str}
@@ -78,12 +115,15 @@ def generate_class_with_functions(expr_str, var_names, class_name, output_file):
 """)
         # Class
         f.write(f"class {class_name} : public FunctionCoefficient {{\n")
+        f.write(" private:\n")
+        f.write("  double prefactor_;\n")
         f.write(" protected:\n")
-        f.write("  std::function<double(const std::vector<double>&)> F() final;\n")
-        f.write("  std::function<std::vector<double>(const std::vector<double>&)> GradientF() final;\n")
-        f.write("  std::function<std::vector<double>(const std::vector<double>&)> HessianF() final;\n\n")
+        f.write("  std::function<double(const std::vector<double>&,const std::vector<double>&, const int dimension)> F() final;\n")
+        f.write("  std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const int dimension)> GradientF() final;\n")
+        f.write("  std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const int dimension)> HessianF() final;\n\n")
         f.write(" public:\n")
-        f.write(f"  {class_name}(){{}};\n")
+        f.write(f"  {class_name}() {{this->prefactor_ = 1.0; }};\n")
+        f.write(f"  {class_name}(const double prefactor) {{this->prefactor_ = prefactor; }};\n")
         f.write(f"  ~{class_name}(){{}};\n")
         f.write("};\n\n")
 
@@ -92,16 +132,44 @@ def generate_class_with_functions(expr_str, var_names, class_name, output_file):
  *
  * @brief C++ function of the expression: {expr_str}
  * 
- * @return std::function<double(const std::vector<double>&)> 
+ * @return std::function<double(const std::vector<double>&,const std::vector<double>&)> 
  */
 """)
         # Fonction F()
-        f.write(f"std::function<double(const std::vector<double>&)> {class_name}::F() {{\n")
-        f.write("  auto func = [](const std::vector<double>& input_vector) {\n")
-        for i, v in enumerate(vars):
-            f.write(f"    double {v} = input_vector[{i}];\n")
-        f.write(f"    double F = {sp.cxxcode(expr)};\n")
-        f.write("    return F;\n")
+        f.write(f"std::function<double(const std::vector<double>&,const std::vector<double>&, const int dimension)> {class_name}::F() {{\n")
+
+        if(not is_gradient_coefficient):        
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, [[maybe_unused]] const int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const int dimension) {\n")
+
+            for i, v in enumerate(vars):
+                f.write(f"    double {v} = input_vector[{i}];\n")
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+            f.write(f"    double F = {sp.cxxcode(expr)};\n")
+        else:
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, const int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, const int dimension) {\n")
+
+            for i, v in enumerate(vars):
+                f.write(f"    std::vector<double> {v};\n")
+                f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(input_vector[{i}*dimension+i]);\n")
+
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    std::vector<double> {v};\n")
+                    f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(auxiliary_vector[{i}*dimension+i]);\n")
+
+
+            f.write(f"    double F = {dot_to_inner_product(str(sp.N(expr)))};\n")
+
+   
+        f.write("    return this->prefactor_ * F;\n")
         f.write("  };\n")
         f.write("  return func;\n")
         f.write("}\n\n")
@@ -110,17 +178,32 @@ def generate_class_with_functions(expr_str, var_names, class_name, output_file):
  *
  * @brief Gradient
  * 
- * @return std::function<std::vector<double>(const std::vector<double>&)> 
+ * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const int dimension)> 
  */
 """)
         # Gradient
-        f.write(f"std::function<std::vector<double>(const std::vector<double>&)> {class_name}::GradientF() {{\n")
-        f.write("  auto func = [](const std::vector<double>& input_vector) {\n")
-        for i, v in enumerate(vars):
-            f.write(f"    double {v} = input_vector[{i}];\n")
-        f.write(f"    std::vector<double> gradient({n});\n")
-        for i in range(n):
-            f.write(f"    gradient[{i}] = {sp.cxxcode(gradient[i])};\n")
+        f.write(f"std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const int dimension)> {class_name}::GradientF() {{\n")
+
+
+        if(not is_gradient_coefficient):   
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, [[maybe_unused]] const int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const int dimension) {\n")
+
+            for i, v in enumerate(vars):
+                f.write(f"    double {v} = input_vector[{i}];\n")
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+            f.write(f"    std::vector<double> gradient({n});\n")
+            for i in range(n):
+                f.write(f"    gradient[{i}] = this->prefactor_ * ({sp.cxxcode(gradient[i])});\n")
+        else: 
+            f.write("  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const int dimension) {\n")
+            f.write(f"    std::vector<double> gradient({n},0.0);\n")
+
+
         f.write("    return gradient;\n")
         f.write("  };\n")
         f.write("  return func;\n")
@@ -132,18 +215,31 @@ def generate_class_with_functions(expr_str, var_names, class_name, output_file):
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  * 
- * @return std::function<std::vector<double>(const std::vector<double>&)> 
+ * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const int dimension)> 
  */
 """)
         # HessianF()
-        f.write(f"std::function<std::vector<double>(const std::vector<double>&)> {class_name}::HessianF() {{\n")
-        f.write("  auto func = [](const std::vector<double>& input_vector) {\n")
-        for i, v in enumerate(vars):
-            f.write(f"    double {v} = input_vector[{i}];\n")
-        f.write(f"    std::vector<double> hessian({n*n});\n")
-        for i in range(n):
-            for j in range(n):
-                f.write(f"    hessian[{i*n + j}] = {sp.cxxcode(hessian[i,j])};\n")
+        f.write(f"std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const int dimension)> {class_name}::HessianF() {{\n")
+        if(not is_gradient_coefficient): 
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, [[maybe_unused]] const int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const int dimension) {\n")
+            for i, v in enumerate(vars):
+                f.write(f"    double {v} = input_vector[{i}];\n")
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+                
+            f.write(f"    std::vector<double> hessian({n*n});\n")
+            for i in range(n):
+                for j in range(n):
+                    f.write(f"    hessian[{i*n + j}] = this->prefactor_ * ({sp.cxxcode(hessian[i,j])});\n")
+        else:
+            f.write("  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const int dimension) {\n")
+            f.write(f"    std::vector<double> hessian({n*n},0.0);\n")
+
+
         f.write("    return hessian;\n")
         f.write("  };\n")
         f.write("  return func;\n")
@@ -255,7 +351,19 @@ if __name__ == "__main__":
         try:
             with open(args.input_file, 'r') as file:
                 data = json.load(file)
-            coefficients  = [(item["expression"], item["variables"], item["class_name"], item["outputfile"]) for item in data]
+            for item in data:
+                if "gradient" in item and item["gradient"]:
+                    gradient=True
+                else:
+                    gradient=False
+                if "auxiliary_variables" in item:
+                    auxiliaries = item["auxiliary_variables"]
+                else:
+                    auxiliaries = ""
+                
+                coefficients.append((item["expression"], item["variables"], auxiliaries, item["class_name"], item["outputfile"], gradient))
+            
+
 
         except json.JSONDecodeError:
             print("Error: Failed to decode JSON from the file.")           
@@ -269,7 +377,7 @@ if __name__ == "__main__":
     # Remove existing Cpp files
     if args.remove:
         for coef in coefficients:
-            output_cpp_file = coef[-1]        
+            output_cpp_file = coef[-2]        
             cpp_file = f"{output_cpp_file}.hpp"
             path = Path(cpp_file).resolve()
             if path.is_file():
@@ -277,6 +385,6 @@ if __name__ == "__main__":
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, class_name, output_cpp_file] = coef
-        generate_class_with_functions(expr_str, var_names, class_name, output_cpp_file)
+        [expr_str, var_names, auxiliary_var_names, class_name, output_cpp_file, is_gradient_coefficient] = coef
+        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, class_name, output_cpp_file, is_gradient_coefficient)
     
