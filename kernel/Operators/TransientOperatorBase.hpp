@@ -596,6 +596,7 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
   mfem::Vector dv_dt(du_dt.GetData(), sc);
   const int fes_size = this->block_trueOffsets_.Size() - 1;
 
+  MATools::MATrace::start();
   {
     Catch_Time_Section("ImplicitSolve::SetTransientParams");
     std::vector<mfem::Vector> v_vect;
@@ -608,7 +609,10 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
     }
     this->SetTransientParameters(dt, v_vect);
   }
+  MATools::MATrace::stop("SetTransientParams");
+
   // Apply BCs
+  MATools::MATrace::start();
   {
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
     auto sc_1 = 0;
@@ -620,9 +624,12 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
     }
     reduced_oper->SetParameters(dt, &v);
   }
+  MATools::MATrace::stop("ApplyBCs");
+
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
+  MATools::MATrace::start();
   {
     Catch_Time_Section("ImplicitSolve::SourceTerm");
     if (!this->src_func_.empty()) {
@@ -636,6 +643,7 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
       }
     }
   }
+  MATools::MATrace::stop("SourceTerm");
 
   // source_term.Print();
   {

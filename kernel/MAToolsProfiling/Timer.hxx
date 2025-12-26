@@ -29,6 +29,7 @@
 #include <string>
 
 #include "MAToolsProfiling/MATimerNode.hxx"
+#include <MAToolsProfiling/MATrace.hxx>
 namespace MATools {
 namespace MATimer {
 using duration = std::chrono::duration<double>;

@@ -25,6 +25,7 @@
  */
 #pragma once
 #include <MAToolsProfiling/MATimers.hxx>
+#include <MAToolsProfiling/MATrace.hxx>
 #include <MAToolsProfiling/MATimersVerbosity.hxx>
 #include <string>
 // One level of macro indirection is required in order to resolve __COUNTER__,
@@ -81,7 +82,7 @@ double chrono_section(Lambda&& lambda_function) {
 template <typename Lambda>
 void add_capture_chrono_section(std::string a_name, Lambda&& a_lambda_function) {
   Catch_Time_Section(a_name);
-  a_lambda_function();
+  a_lambda_function(); 
 }
 
 /** Create an object MATimersManager:
@@ -126,7 +127,9 @@ class MATimersManager {
     MATools::MATimer::initialize();
   }
 
-  void print() { MATools::MATimer::print(); }
+  void active_trace() { MATools::MATrace::Optional::active_MATrace_mode(); } 
+
+  void print() { MATools::MATimer::print(); MATools::MATrace::write_trace(); }
 
   /**
    * @brief Destructor for MATimersManager.

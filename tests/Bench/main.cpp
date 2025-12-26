@@ -111,6 +111,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Profiling start
   Profiling::getInstance().enable();
+  Profiling::getInstance().active_trace();
   //---------------------------------------
   /////////////////////////
   const int DIM = 3;
