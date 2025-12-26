@@ -983,7 +983,7 @@ void Variable<T, DIM>::setVariableDepth(const int& depth) {
   this->depth_ = std::max(2, depth);
 
   for (auto id = 0; id < this->depth_; id++) {
-    std::cout << " id " << id << " s " << this->unk_.Size() << std::endl;
+    // std::cout << " id " << id << " s " << this->unk_.Size() << std::endl;
     this->map_of_unk_.insert(std::pair<int, mfem::Vector>(id, this->unk_));
   }
 }
