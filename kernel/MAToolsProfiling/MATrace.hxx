@@ -15,12 +15,15 @@ namespace MATools
 	{
 		void start()
 		{
+      if(!Optional::is_MATrace_mode()) { return; }
+
 			auto& start = get_MATrace_point();
 			start = MATrace_point();
 		}
 
 		void stop(std::string a_name)
 		{
+      if(!Optional::is_MATrace_mode()) { return; }
 			auto end = MATrace_point();
 			auto& start = get_MATrace_point();
 			auto& ref = get_ref_MATrace_point();
