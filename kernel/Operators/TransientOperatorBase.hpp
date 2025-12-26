@@ -612,8 +612,8 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
   MATools::MATrace::stop("SetTransientParams");
 
   // Apply BCs
-  MATools::MATrace::start();
   {
+    MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
     auto sc_1 = 0;
     auto sc_2 = sc / fes_size;
@@ -623,14 +623,14 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
       sc_1 += sc_2;
     }
     reduced_oper->SetParameters(dt, &v);
+    MATools::MATrace::stop("ApplyBCs");
   }
-  MATools::MATrace::stop("ApplyBCs");
 
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
-  MATools::MATrace::start();
   {
+    MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::SourceTerm");
     if (!this->src_func_.empty()) {
       for (int i = 0; i < fes_size; ++i) {
@@ -642,14 +642,16 @@ void TransientOperatorBase<T, DIM, NLFI, LHS_NLFI>::ImplicitSolve(const double d
         }
       }
     }
+    MATools::MATrace::stop("SourceTerm");
   }
-  MATools::MATrace::stop("SourceTerm");
 
   // source_term.Print();
   {
+    MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
     this->newton_solver_->Mult(source_term, dv_dt);
     delete this->rhs_solver_;
+    MATools::MATrace::stop("Solve");
   }
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");

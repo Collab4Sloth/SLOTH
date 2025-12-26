@@ -27,13 +27,9 @@ namespace MATools
 
 		void MATrace_point::set_proc()
 		{
-#ifdef __MPI
 			int rank;
 			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 			m_proc = rank;
-#else /* __MPI */ 
-			m_proc = 0;
-#endif /* __MPI */
 		}
 
 		void MATrace_point::set_proc(int a_rank)

@@ -107,14 +107,10 @@ namespace MATools
 			out << "50 V_Sem Semaphore CT_Thread" << std::endl;
 			out << "7 0.000000 C_Prog CT_Prog 0 'Programme'" << std::endl;
 			int mpi_size = -1;
-#ifdef __MPI
-				MPI_Comm_size(MPI_COMM_WORLD,&mpi_size);
-#else
-				mpi_size=1;
-#endif
+			MPI_Comm_size(MPI_COMM_WORLD,&mpi_size);
 			for(int i = 0 ; i < mpi_size ; i++)
 			{
-				out << "7  0.000000 C_Thread" << i <<" CT_Thread C_Prog 'Thread " << i <<"'" << std::endl;
+				out << "7 0.000000 C_Thread" << i <<" CT_Thread C_Prog 'Thread " << i <<"'" << std::endl;
 				out << "51 0.000000 V_Sem C_Thread" << i << " 0.0" << std::endl;
 			}
 		}
@@ -122,11 +118,7 @@ namespace MATools
 		void ending(std::ofstream& out, double last)
 		{
 			int mpi_size = -1;
-#ifdef __MPI
-				MPI_Comm_size(MPI_COMM_WORLD,&mpi_size);
-#else
-				mpi_size=1;
-#endif
+		  MPI_Comm_size(MPI_COMM_WORLD,&mpi_size);
 			for(int i = 0 ; i < mpi_size ; i++)
 			{
 				out << "8 " << last << " C_Thread" << i << " CT_Thread" << std::endl;
@@ -145,7 +137,6 @@ namespace MATools
 			}
 
 			auto& local_MATrace = get_local_MATrace();
-#ifdef __MPI
 			const int local_size = local_MATrace.size();
 			int local_byte_size = sizeof(MATrace_section) * local_size;
 
@@ -187,15 +178,12 @@ namespace MATools
 
 
 			MATrace_section * ptr = (MATrace_section*)recv.data() ;
-#else /* __MPI */ 
-			MATrace_section * ptr = local_MATrace.data();
-			int total_size = local_MATrace.size();
-#endif /* __MPI */
 
 			// write trace header -> trace core -> end
 			if(is_master())
 			{
-				std::ofstream out ("MATrace.txt", std::ofstream::out);
+        std::string filename = "MATrace." + std::to_string(mpi_size) + ".paje";
+				std::ofstream out(filename, std::ofstream::out);
 				vite_event event;
 				for(int it = 0 ; it < total_size ; it++)
 					event.add(ptr[it].m_name);
