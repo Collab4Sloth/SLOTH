@@ -23,13 +23,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 #pragma once
 
+#include <string>
 #include <random>
 #include <iostream>
 #include <vector>
-#include <string>
 #include <algorithm>
 
 #include <MAToolsProfiling/MATrace.hxx>
@@ -163,7 +162,7 @@ void write_trace() {
   int local_byte_size = sizeof(MATrace_section) * local_size;
 
   // update proc id
-  const auto my_rank = get_rank();
+  const auto my_rank = MATools::MPI::get_rank();
   for (auto& it : local_MATrace) {
     it.set_proc(my_rank);
   }
@@ -198,7 +197,7 @@ void write_trace() {
   MATrace_section * ptr = reinterpret_cast<MATrace_section*>(recv.data());
 
   // write trace header -> trace core -> end
-  if (is_master()) {
+  if (MATools::MPI::is_master()) {
     std::string filename = "MATrace." + std::to_string(mpi_size) + ".paje";
     std::ofstream out(filename, std::ofstream::out);
     vite_event event;

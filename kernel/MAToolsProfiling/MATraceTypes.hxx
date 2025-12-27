@@ -25,11 +25,11 @@
  */
 #pragma once
 
+#include <string>
 #include <fstream>
 #include <vector>
 #include <cassert>
 #include <map>
-#include <string>
 
 #include <MAToolsProfiling/MATrace.hxx>
 #include <MAToolsProfiling/MAToolsMPI.hxx>
@@ -39,6 +39,7 @@ namespace MATools {
 namespace MATrace {
 using high_resolution_clock = std::chrono::high_resolution_clock;
 using time_point = std::chrono::time_point<high_resolution_clock>;
+
 struct MATrace_point {
   time_point m_time;
   int m_proc;

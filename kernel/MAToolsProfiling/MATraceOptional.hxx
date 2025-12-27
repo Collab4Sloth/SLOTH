@@ -32,24 +32,24 @@
 namespace MATools {
 namespace MATrace {
 namespace Optional {
-  // define default mode values
-  constexpr bool MATrace_default_mode = false;
+// define default mode values
+constexpr bool MATrace_default_mode = false;
 
-  extern bool& get_MATrace_mode() {
-    static bool _ftm = MATrace_default_mode;
-    return _ftm;
-  }
+extern bool& get_MATrace_mode() {
+  static bool _ftm = MATrace_default_mode;
+  return _ftm;
+}
 
-  void active_MATrace_mode() {
-    bool& mode = get_MATrace_mode();
-    mode = true;
-    MATools::MAOutput::printMessage("MATrace_LOG: MATrace is activated");
-  }
+void active_MATrace_mode() {
+  bool& mode = get_MATrace_mode();
+  mode = true;
+  MATools::MAOutput::printMessage("MATrace_LOG: MATrace is activated");
+}
 
-  bool is_MATrace_mode() {
-    bool ret = get_MATrace_mode();
-    return ret;
-  }
+bool is_MATrace_mode() {
+  bool ret = get_MATrace_mode();
+  return ret;
+}
 }  // namespace Optional
 }  // namespace MATrace
 }  // namespace MATools

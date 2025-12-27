@@ -24,10 +24,10 @@
  *
  */
 #pragma once
+#include <string>
 #include <MAToolsProfiling/MATimers.hxx>
 #include <MAToolsProfiling/MATrace.hxx>
 #include <MAToolsProfiling/MATimersVerbosity.hxx>
-#include <string>
 // One level of macro indirection is required in order to resolve __COUNTER__,
 // and get varname1 instead of varname__COUNTER__.
 #define CONCAT(a, b) CONCAT_INNER(a, b)
@@ -63,9 +63,8 @@ inline std::chrono::duration<double>* get_duration(std::string a_name) {
  */
 template <typename Lambda>
 double chrono_section(Lambda&& lambda_function) {
-  using namespace MATools::MATimer;
   double ret;
-  BasicTimer timer;
+  MATools::MATimer::BasicTimer timer;
   timer.start();
   lambda_function();
   timer.end();
@@ -82,7 +81,7 @@ double chrono_section(Lambda&& lambda_function) {
 template <typename Lambda>
 void add_capture_chrono_section(std::string a_name, Lambda&& a_lambda_function) {
   Catch_Time_Section(a_name);
-  a_lambda_function(); 
+  a_lambda_function();
 }
 
 /** Create an object MATimersManager:
@@ -127,7 +126,7 @@ class MATimersManager {
     MATools::MATimer::initialize();
   }
 
-  void active_trace() { MATools::MATrace::Optional::active_MATrace_mode(); } 
+  void active_trace() { MATools::MATrace::Optional::active_MATrace_mode(); }
 
   void print() { MATools::MATimer::print(); MATools::MATrace::write_trace(); }
 

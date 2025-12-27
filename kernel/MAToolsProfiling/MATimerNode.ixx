@@ -23,9 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <MAToolsProfiling/MATimerNode.hxx>
+#include <string>
 #include <algorithm>
 #include <iomanip>
+#include <MAToolsProfiling/MATimerNode.hxx>
 
 namespace MATools {
 /**

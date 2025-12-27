@@ -25,9 +25,9 @@
  */
 
 #pragma once
-#include <MAToolsProfiling/MAToolsMPI.hxx>
 #include <iostream>
 #include <mfem.hpp>
+#include <MAToolsProfiling/MAToolsMPI.hxx>
 
 namespace MATools {
 namespace MAOutput {
