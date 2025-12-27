@@ -326,7 +326,8 @@ Log::F() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
                   [[maybe_unused]] const int dimension) {
-    double x = input_vector[0];
+    double epsilon = 1.e-10;
+    double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
     double F = x * std::log(x) + (1 - x) * std::log(1 - x);
     return this->prefactor_ * F;
   };
@@ -346,7 +347,8 @@ Log::GradientF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
                   [[maybe_unused]] const int dimension) {
-    double x = input_vector[0];
+    double epsilon = 1.e-10;
+    double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
     std::vector<double> gradient(1);
     gradient[0] = this->prefactor_ * (std::log(x) - std::log(1 - x));
     return gradient;
@@ -368,7 +370,8 @@ Log::HessianF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
                   [[maybe_unused]] const int dimension) {
-    double x = input_vector[0];
+    double epsilon = 1.e-10;
+    double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
     std::vector<double> hessian(1);
     hessian[0] = this->prefactor_ * (1.0 / (1 - x) + 1.0 / x);
     return hessian;
