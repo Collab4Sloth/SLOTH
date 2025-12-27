@@ -128,7 +128,8 @@ void InterDiffusionCoefficient::check_variables_consistency(
                 "variables.");
     const int vsize =
         aux_infos.size() - 1;  // -1 because the first info is the name of the variable
-    const std::string_view symbol(toLowerCase(aux_infos.back()));
+    const std::string lower = toLowerCase(aux_infos.back());
+    const std::string_view symbol(lower);
 
     if (symbol == "inter_mob") {
       MFEM_VERIFY(vsize == 2,
@@ -151,7 +152,8 @@ void InterDiffusionCoefficient::check_variables_consistency(
                 "getting auxiliary variables. Additional informations must be given for each "
                 "auxiliary variables.");
     const int vsize = aux_infos.size();
-    const std::string_view symbol(toLowerCase(aux_infos.back()));
+    const std::string lower = toLowerCase(aux_infos.back());
+    const std::string_view symbol(lower);
 
     if (symbol == "x") {
       has_x = true;
