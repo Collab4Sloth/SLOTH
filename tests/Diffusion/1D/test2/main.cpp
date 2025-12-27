@@ -46,11 +46,7 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI =
-      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
-
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant, LHS_NLFI>;
+  using OPE = DiffusionOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -62,7 +58,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   auto refinement_level = 0;
   double L = 1e-3;
-  std::vector<int> vect_NN{10, 20, 40};
+  std::vector<int> vect_NN{10};
 
   for (const auto& NN : vect_NN) {
     SPA spatial("InlineLineWithSegments", 1, refinement_level, std::make_tuple(NN, L));
@@ -123,16 +119,18 @@ int main(int argc, char* argv[]) {
     // ####################
     //     operators     //
     // ####################
+    Coefficient D(Glossary::Diffusivity, diffusionCoeff);
+    Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
+    Coefficients CoeffDiffusion(D, FW);
 
     // Problem 1:
     const auto crit_cvg_1 = 1.e-12;
     std::vector<SPA*> spatials{&spatial};
-    OPE oper(spatials, TimeScheme::EulerImplicit);
-    oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
+    OPE oper(spatials, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
     auto pst = PST(&spatial, p_pst);
 
-    PB problem1("Problem 1", oper, vars, pst);
+    PB problem1("Problem 1", oper, vars, {CoeffDiffusion}, pst);
 
     // Coupling 1
     auto cc = Coupling("coupling 1 ", problem1);
