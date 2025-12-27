@@ -29,6 +29,7 @@
 #include <vector>
 #include <cassert>
 #include <map>
+#include <string>
 
 #include <MAToolsProfiling/MATrace.hxx>
 #include <MAToolsProfiling/MAToolsMPI.hxx>
