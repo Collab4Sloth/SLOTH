@@ -96,7 +96,7 @@ SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity qty, Scheme scheme,
 SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity qty, double coef)
     : coefficient_quantity_(qty),
       coefficient_(std::make_shared<ConstantCoefficient>(coef)),
-      scheme_(Scheme::Scalar) {}
+      scheme_(Scheme::Constant) {}
 
 /**
  * @brief Compute  analytical expression
@@ -207,7 +207,7 @@ inline bool SlothBaseCoefficient::is_explicit() const { return this->scheme_ == 
 inline bool SlothBaseCoefficient::is_semi_implicit() const {
   return this->scheme_ == Scheme::SemiImplicit;
 }
-inline bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Scalar; }
+inline bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Constant; }
 
 /**
  * @brief Destroy the SlothBaseCoefficient::SlothBaseCoefficient object

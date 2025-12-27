@@ -36,7 +36,7 @@
 ///////////////////////////////////////////////////
 //////// Coefficient
 ///////////////////////////////////////////////////
-enum Scheme { Implicit, Explicit, SemiImplicit, Scalar };
+enum Scheme { Implicit, Explicit, SemiImplicit, Constant };
 // struct CoefficientScheme {
 //   enum value { Implicit, Explicit, SemiImplicit };
 //   static value from(const std::string&);
