@@ -52,9 +52,8 @@
 /**
  * @brief Base class for building Steady and TimeDependent PhaseFieldOperators
  *
- * @tparam T
- * @tparam DIM
- * @tparam NLFI
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 class OperatorBase : public mfem::Operator {
@@ -189,9 +188,9 @@ class OperatorBase : public mfem::Operator {
 /**
  * @brief Return the total height (output=rows of Operator) of the PDE system
  *
- * @tparam T
- * @tparam DIM
- * @param spatials
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param spatials 
  * @return int
  */
 template <class T, int DIM>
@@ -207,8 +206,8 @@ int OperatorBase<T, DIM>::compute_total_height(
 /**
  * @brief Return the total width (input=column of Operator) of the PDE system
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param spatials
  * @return int
  */
@@ -225,8 +224,8 @@ int OperatorBase<T, DIM>::compute_total_width(
 /**
  * @brief Set the Coefficients associated with the current Operator
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param coefficients
  */
 template <class T, int DIM>
@@ -254,8 +253,8 @@ void OperatorBase<T, DIM>::set_coefficients(const std::vector<Coefficients>& coe
 /**
  * @brief Construct a new OperatorBase object
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param spatial
  */
 template <class T, int DIM>
@@ -288,8 +287,8 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
 /**
  * @brief Construct a new OperatorBase object
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param spatial
  * @param source_term_name
  */
@@ -328,8 +327,8 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
 /**
  * @brief Construct a new OperatorBase object
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param spatial
  * @param params
  */
@@ -365,8 +364,8 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
 /**
  * @brief  Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
  * Base object
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param spatial
  * @param params
  * @param vars
@@ -410,8 +409,8 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
 /**
  * @brief  Initialization stage (call by imeDiscretization<PST, OPE, VAR>::initialize())
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param initial_time
  * @param vars
  */
@@ -445,8 +444,8 @@ void OperatorBase<T, DIM>::initialize(const double& initial_time, Variables<T, D
 /**
  * @brief Build the NonLinear Form Integrator associated with the RHS of the PDEs
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt
  * @param u
  */
@@ -466,8 +465,8 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
 /**
  * @brief Configure the Newton solver
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param oper
  */
 template <class T, int DIM>
@@ -486,8 +485,8 @@ void OperatorBase<T, DIM>::SetNewtonAlgorithm(mfem::Operator* oper) {
 /**
  * @brief Compute L2 error
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param it
  * @param t
  * @param dt
@@ -527,8 +526,8 @@ void OperatorBase<T, DIM>::ComputeError(
 /**
  * @brief Compute integrals of a variable over the domain
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param it
  * @param t
  * @param dt
@@ -600,7 +599,16 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
   this->time_specialized_.emplace(IterationKey(it, dt, t),
                                   SpecializedValue(name + "_average[-]", average));
 }
-
+/**
+ * @brief Compute energy density
+ * 
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param it 
+ * @param t 
+ * @param dt 
+ * @param u 
+ */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const double& dt,
                                            const std::vector<mfem::Vector>& u) {
@@ -803,8 +811,8 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
 /**
  * @brief Get the source term by equation of the PDEs
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::get_source_term(
@@ -826,8 +834,8 @@ void OperatorBase<T, DIM>::get_source_term(
  * @brief Get a of a multimap of integral values calculated at a given iteration (see
  * computeEnergies and computeError)
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @return const std::map<std::tuple<int, double, double>, double>
  */
 template <class T, int DIM>
@@ -839,7 +847,8 @@ OperatorBase<T, DIM>::get_time_iso_specialized() const {
 /**
  * @brief Clear time_iso_specialized_ container
  *
- * @tparam T
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::clear_iso_time_specialized() {
@@ -850,8 +859,8 @@ void OperatorBase<T, DIM>::clear_iso_time_specialized() {
  * @brief Get a of a multimap of integral values calculated at a given iteration (see
  * computeEnergies and computeError)
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @return const std::map<std::tuple<int, double, double>, double>
  */
 template <class T, int DIM>
@@ -863,7 +872,8 @@ const std::multimap<IterationKey, SpecializedValue> OperatorBase<T, DIM>::get_ti
 /**
  * @brief Clear time_specialized_ container
  *
- * @tparam T
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::clear_time_specialized() {
@@ -873,8 +883,8 @@ void OperatorBase<T, DIM>::clear_time_specialized() {
 /**
  * @brief Set the default options for the nonlinear algorithm and associated solvers
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::set_default_solver() {
@@ -891,7 +901,16 @@ void OperatorBase<T, DIM>::set_default_solver() {
   this->precond_ = HyprePreconditionerType::HYPRE_ILU;
   this->precond_params_ = p_params;
 }
-
+/**
+ * @brief 
+ * 
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param integrator 
+ * @param vun 
+ * @param all_params 
+ * @return SlothNLFormIntegrator<Variables<T, DIM>>* 
+ */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrator(
     const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
@@ -929,8 +948,8 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
  * @brief Overload the nonlinear algorithm
  * @remark NewtonSolver is the only one implemented
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param NLSOLVER
  */
 template <class T, int DIM>
@@ -941,8 +960,8 @@ void OperatorBase<T, DIM>::overload_nl_solver(NLSolverType NLSOLVER) {
 /**
  * @brief Overload Parameters associated with nonlinear algorithm
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param NLSOLVER
  * @param nl_params
  */
@@ -956,8 +975,8 @@ void OperatorBase<T, DIM>::overload_nl_solver(NLSolverType NLSOLVER, const Param
  * @brief  Overload the default linear solver used for the LHS
  * @remark only used for explicit time-scheme
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param SOLVER
  * @param s_params
  */
@@ -970,8 +989,8 @@ void OperatorBase<T, DIM>::overload_solver(VSolverType SOLVER) {
  * @brief  Overload the parameter for the linear solver used for the LHS
  * @remark only used for explicit time-scheme
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param SOLVER
  * @param s_params
  */
@@ -984,8 +1003,8 @@ void OperatorBase<T, DIM>::overload_solver(VSolverType SOLVER, const Parameters&
 /**
  * @brief Overload the preconditioner used by the solver in the NL algorithm.
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param PRECOND
  */
 template <class T, int DIM>
@@ -996,8 +1015,8 @@ void OperatorBase<T, DIM>::overload_preconditioner(VSolverType PRECOND) {
 /**
  * @brief  Overload the parameters of the preconditioner used by the solver in the NL algorithm.
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param PRECOND
  * @param p_params
  */

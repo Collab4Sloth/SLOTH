@@ -74,15 +74,15 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                               const Parameters& params, std::vector<VARS*> auxvars,
                               const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
                                      const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec);
+                                     const mfem::Array<mfem::Vector*>& elvec) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+   void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
                                    mfem::ElementTransformation& Tr,
                                    const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats);
+                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
   void init() override;
 };
 ////////////////////////////////////////////////////////

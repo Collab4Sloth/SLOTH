@@ -63,15 +63,15 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   TimeCHNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
                          std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
                                      const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec);
+                                     const mfem::Array<mfem::Vector*>& elvec) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+   void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
                                    mfem::ElementTransformation& Tr,
                                    const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats);
+                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////

@@ -149,4 +149,5 @@ double MeltingTemperatureNLFormIntegrator<VARS>::get_phase_change_at_ip(
   if (temperature_at_ip > this->melting_temperature_) {
     phase_change_at_ip = this->melting_enthalpy_;
   }
+  return phase_change_at_ip;
 }
