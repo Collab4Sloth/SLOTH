@@ -155,7 +155,7 @@ int main(int argc, char* argv[]) {
   Coefficient density(Glossary::Concentration, rho);
   Coefficient heat_capacity(Glossary::Cp, cp);
   Coefficient conductivity(Glossary::Conductivity, cond);
-  Coefficient interpolation(Glossary::InterpolationFunction, Scheme::Implicit, H(omega));
+  Coefficient interpolation(Glossary::InterpolationFunction, Scheme::Implicit, H());
 
   // ###########################################
   // ###########################################
@@ -183,6 +183,7 @@ int main(int argc, char* argv[]) {
   // ####################
   //     Probelms      //
   // ####################
+
   // AllenCahn:
   Coefficients ac_coef(double_well, capillary, mobility, interpolation, grad_energy);
   std::vector<SPA*> spatials{&spatial};
@@ -199,8 +200,9 @@ int main(int argc, char* argv[]) {
   HEAT_OPE oper_heat(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
                      src_term);
   oper_heat.overload_nl_solver(
-      NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-9)));
+      NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
+                                       Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),
+                                       Parameter("abs_tol", 1.e-11), Parameter("iter_max", 1000)));
 
   HEAT_PB heat_pb("Heat", oper_heat, heat_vars, {heat_coef}, pst2);
 
@@ -213,7 +215,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 100.;
+  const auto& t_final = 20.;
   const auto& dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
