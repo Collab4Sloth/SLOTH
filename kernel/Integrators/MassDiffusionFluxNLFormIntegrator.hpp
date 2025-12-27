@@ -127,7 +127,6 @@ MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator(
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : DiffusionFluxNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
   this->get_parameters();
-
   this->check_variables_consistency();
 }
 
@@ -138,16 +137,14 @@ MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator(
  */
 template <class VARS>
 void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
-  std::vector<mfem::ParGridFunction> aux_gf = this->get_aux_gf();
-  std::vector<std::vector<std::string>> aux_infos = this->get_aux_infos();
 
   //==========================================================
   // Get chemical potentials and mobilities (aux. variables)
   //==========================================================
   bool temperature_found = false;
   std::set<std::string> set_mob, set_pot, set_dpot;
-  for (std::size_t i = 0; i < aux_infos.size(); ++i) {
-    const auto& variable_info = aux_infos[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
 
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
@@ -165,7 +162,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
           "getting chemical potentials. Expected [element, 'mu']");
 
       const std::string& elem_name = variable_info[0];
-      this->mu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->mu_gf_.emplace(toUpperCase(elem_name), std::move(this->aux_gf_[i]));
       this->mu_found_ = true;
       set_pot.insert(elem_name);
     } else if (symbol == "dmu" && this->enable_diffusion_chemical_potentials_) {
@@ -175,7 +172,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
           "getting diffusion chemical potentials. Expected [element, 'dmu']");
 
       const std::string& elem_name = variable_info[0];
-      this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(this->aux_gf_[i]));
       this->dmu_found_ = true;
       set_dpot.insert(elem_name);
     } else if (symbol == "inter_mob") {
@@ -188,13 +185,13 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 
       const std::string& elem_name = toUpperCase(variable_info[vsize - 2]);
 
-      this->mob_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->mob_gf_.emplace(toUpperCase(elem_name), std::move(this->aux_gf_[i]));
       this->mobilities_found_ = true;
       set_mob.insert(elem_name);
     } else if (toUpperCase(variable_info.back()) == "T") {
       // this->temp_gf_ = std::move(aux_gf[i]);
       // const std::string& elem_name = toUpperCase(variable_info[vsize - 2]);
-      this->temp_gf_.emplace_back(std::move(aux_gf[i]));
+      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
       temperature_found = true;
     }
   }

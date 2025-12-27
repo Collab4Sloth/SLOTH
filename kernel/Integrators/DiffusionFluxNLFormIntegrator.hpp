@@ -45,8 +45,6 @@
 template <class VARS>
 class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
-  double coeff_stab_;
-
   void add_diffusion_flux(mfem::ElementTransformation& Tr, const int nElement,
                           const mfem::IntegrationPoint& ip, const int dim);
 
@@ -54,6 +52,12 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, Flux_;
 
+  std::list<GlossaryType> expected_list_;
+  Coefficients stab_diffusion;
+
+  double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+
+  std::vector<SlothGridFunction> sloth_u_old_;
   virtual void get_parameters();
 
   virtual std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr,
@@ -62,24 +66,23 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                                                       const int dim) = 0;
   virtual std::vector<double> get_flux_coefficient(const int nElement,
                                                    const mfem::IntegrationPoint& ip) = 0;
-  // CCI coder
-  void get_coefficients() {}
-  void init() {}
+  void get_coefficients() override;
+  void init() override;
 
  public:
   DiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
                                 const Parameters& params, std::vector<VARS*> auxvars,
                                 const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvect);
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvect) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmat);
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmat) override;
 };
 
 ////////////////////////////////////////////////////////
@@ -88,6 +91,44 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
+ * @brief Return the value of the diffusion coefficient
+ * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
+ * class variable aux_gf_
+ * @tparam VARS
+ * @param coef
+ * @param values
+ * @return double
+ */
+template <class VARS>
+double DiffusionFluxNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                                const std::vector<double>& values) {
+  const double u = values[0];
+  const double un = values[1];
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    coef_value = coef.compute({u});
+  } else if (coef.is_explicit()) {
+    coef_value = coef.compute({un});
+  } else if (coef.is_scalar()) {
+    coef_value = coef.compute();
+  }
+  return coef_value;
+}
+/**
+ * @brief Get diffusion coefficients
+ * @remark Could be overridden by child classes
+ *
+ * @tparam VARS
+ */
+template <class VARS>
+void DiffusionFluxNLFormIntegrator<VARS>::get_coefficients() {
+  for (unsigned int i = 0; i < this->nb_blk_; i++) {
+    if (this->get_coefficient(i, GlossaryType::Diffusivity, 0).has_value()) {
+      this->stab_diffusion.add(*(this->get_coefficient(i, GlossaryType::Diffusivity, 0)));
+    }
+  }
+}
+/**
  * @brief Return parameters required by these integrators
  *
  * @tparam VARS
@@ -95,7 +136,7 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
   // Get stabilization coefficient
-  this->coeff_stab_ = this->params_.template get_param_value<double>("D");
+  // this->coeff_stab_ = this->params_.template get_param_value<double>("D");
 }
 
 /**
@@ -111,11 +152,17 @@ DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
-  // CCI à généraliser?
-  for (const auto& u : u_old) {
-    this->u_old_.emplace_back(std::move(SlothGridFunction(u)));
+  this->expected_list_.push_back(GlossaryType::Diffusivity);
+}
+
+template <class VARS>
+void DiffusionFluxNLFormIntegrator<VARS>::init() {
+  for (const auto& u : this->u_old_) {
+    this->sloth_u_old_.emplace_back(std::move(SlothGridFunction(u)));
   }
   this->get_parameters();
+  this->check_coefficient_types(this->expected_list_);
+  this->get_coefficients();
 }
 
 /**
@@ -157,13 +204,15 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     Tr.SetIntPoint(&ip);
 
     const auto& u = *elfun[blk] * Psi;
+    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+
     // Stabilization contribution : D_stab * (Grad u - Grad un)
     el[blk]->CalcPhysDShape(Tr, this->gradPsi);
     this->gradPsi.MultTranspose(*elfun[blk], this->Flux_);
-    this->u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
+    this->sloth_u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
-    this->Flux_ *= this->coeff_stab_;
+    this->Flux_ *= this->compute_coefficient(stab_diffusion[blk], {u, un});
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
@@ -207,9 +256,11 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
     const auto& u = *elfun[blk] * Psi;
+    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
 
     Tr.SetIntPoint(&ip);
-    const double coeff_diffu = this->coeff_stab_ * ip.weight * Tr.Weight();
+    const double coeff_diffu =
+        this->compute_coefficient(stab_diffusion[blk], {u, un}) * ip.weight * Tr.Weight();
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
   }

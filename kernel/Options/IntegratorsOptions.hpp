@@ -42,7 +42,7 @@ struct Integrators {
     TimeDerivative,
     HeatTimeDerivative,
     SplitTimeDerivative,
-    MeltingTemperature
+    MeltingTemperature,MassFlux
   };
   static value from(const std::string&);
 };
@@ -55,6 +55,7 @@ Integrators::value Integrators::from(const std::string& v) {
       {"Fourier", Integrators::Fourier},
       {"CahnHilliard", Integrators::CahnHilliard},
       {"AllenCahn", Integrators::AllenCahn},
-      {"MeltingTemperature", Integrators::MeltingTemperature}};
+      {"MeltingTemperature", Integrators::MeltingTemperature},
+      {"MassFlux", Integrators::MassFlux}};
   return m.find("Integrators", v);
 }

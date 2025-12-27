@@ -916,6 +916,11 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
     const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
+    case Integrators::MassFlux: {
+      return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
+                                                         this->coefficients_);
+      break;
+    }
     case Integrators::Fick: {
       return new FickNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
                                                          this->coefficients_);

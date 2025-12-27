@@ -57,6 +57,7 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   void get_coefficients() override = 0;
   void init() override;
 
+
  public:
   DiffusionNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
                             const Parameters& params, std::vector<VARS*> auxvars,
