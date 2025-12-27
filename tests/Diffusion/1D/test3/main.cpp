@@ -126,7 +126,8 @@ int main(int argc, char* argv[]) {
       auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
                               Parameter("calculation_path", calculation_path),
                               Parameter("frequency", frequency),
-                              Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
+                              Parameter("level_of_detail", level_of_detail),
+                              Parameter("enable_compute_energies", false));
       // ####################
       //     operators     //
       // ####################
