@@ -16,6 +16,7 @@
 #include <tuple>
 #include <vector>
 
+#include "CahnHilliardCoefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -90,8 +91,8 @@ int main(int argc, char* argv[]) {
   //     coefficients  //
   // ####################
 
-  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy());
-  Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W());
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradEnergy());
+  Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, DoubleWell());
   Coefficient capillary(Glossary::Capillary, lambda);
   Coefficient mobility(Glossary::Mobility, mob);
   // ####################
@@ -157,6 +158,7 @@ int main(int argc, char* argv[]) {
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   oper.overload_solver(solver);
   oper.overload_preconditioner(precond);
+
   auto pst = PST(&spatial, p_pst);
   PB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
 

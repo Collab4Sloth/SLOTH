@@ -16,7 +16,6 @@
 #include <tuple>
 #include <vector>
 
-#include "CahnHilliardCoefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -112,7 +111,7 @@ int main(int argc, char* argv[]) {
         // ####################
 
         Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
-        Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, DoubleWell(omega));
+        Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
         Coefficient capillary(Glossary::Capillary, lambda);
         Coefficient mobility(Glossary::Mobility, mob);
         // ####################

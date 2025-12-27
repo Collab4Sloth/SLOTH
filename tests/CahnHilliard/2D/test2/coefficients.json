@@ -8,7 +8,7 @@
     {
     "expression":"dot(x,x)",
     "variables":"x",
-    "class_name":"GradientEnergy",
+    "class_name":"GradEnergy",
     "outputfile":"CahnHilliardCoefficients",
     "gradient":true
     }
