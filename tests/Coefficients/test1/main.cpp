@@ -73,9 +73,9 @@ int main(int argc, char* argv[]) {
     case 0: {
       // Evaluation of variables
       SlothInfo::print("Running test case 0: variable evaluation");
-      Coefficient coeff(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
+      Coefficient coeff(Glossary::Temperature, Scheme::Implicit, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
-        auto result = coeff.compute(2, 3, 1);
+        auto result = coeff.compute({2, 3, 1});
         if (std::abs(result - 94.1) > epsilon) {
           throw std::runtime_error("Wrong variable evaluation");
         }
@@ -89,9 +89,9 @@ int main(int argc, char* argv[]) {
     case 1: {
       // Wrong number of variables
       SlothInfo::print("Running test case 2: wrong number of arguments");
-      Coefficient coeff(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
+      Coefficient coeff(Glossary::Temperature, Scheme::Implicit, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
-        const double bad_result = coeff.compute(1.0, 2.0);
+        const double bad_result = coeff.compute({1.0, 2.0});
       } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
@@ -104,7 +104,8 @@ int main(int argc, char* argv[]) {
       SlothInfo::print("Running test case 3: wrong expression");
 
       try {
-        Coefficient coeff(Glossary::Temperature, "2*x+30*y+0.1*z*", "x", "y", "z");
+        Coefficient coeff(Glossary::Temperature, Scheme::Implicit, "2*x+30*y+0.1*z*", "x", "y",
+                          "z");
       } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
@@ -116,7 +117,7 @@ int main(int argc, char* argv[]) {
       // Wrong expression
       SlothInfo::print("Running test case 4: check GlossaryType");
 
-      Coefficient coeff(Glossary::Temperature, "2*x+30*y+0.1*z", "x", "y", "z");
+      Coefficient coeff(Glossary::Temperature, Scheme::Implicit, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
         if (coeff.get_type() != GlossaryType::Temperature) {
           throw std::runtime_error("Wrong GlossaryType");
@@ -131,7 +132,7 @@ int main(int argc, char* argv[]) {
     case 4: {
       // Evaluation of a constant
       SlothInfo::print("Running test case 4: constant evaluation");
-      Coefficient coeff(Glossary::Temperature, "1");
+      Coefficient coeff(Glossary::Temperature, 1);
       try {
         const double result = coeff.compute();
         if (std::abs(result - 1) > epsilon) {
@@ -164,20 +165,20 @@ int main(int argc, char* argv[]) {
       std::string gzz = "0.0";
       std::vector<std::string> hess_functions{gxx, gxy, gxz, gyx, gyy, gyz, gzx, gyz, gzz};
 
-      Coefficient coeff(Glossary::Temperature, hess_functions, grad_functions, function, "x", "y",
-                        "z");
+      Coefficient coeff(Glossary::Temperature, Scheme::Implicit, hess_functions, grad_functions,
+                        function, "x", "y", "z");
       std::vector<double> gradient_solution{98.3, 60.2, 0.6};
       std::vector<double> hessian_solution{4.0, 30.1, 0.3, 30.1, 0.0, 0.2, 0.3, 0.2, 0.0};
       try {
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, 2, 3, 1);
+          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, 2, 3, 1);
+            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");
