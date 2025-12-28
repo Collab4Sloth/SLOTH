@@ -98,37 +98,49 @@ class MATimersManager {
    * @brief Constructor for MATimersManager.
    * Initializes the MATimersManager by initializing the timer.
    */
-  MATimersManager() { MATools::MATimer::initialize(); }
-
-  /**
-   * @brief Constructor for MATimersManager.
-   * Initializes the MATimersManager by initializing the timer.
-   */
-  MATimersManager([[maybe_unused]] int* argc, [[maybe_unused]] char*** argv) {
-    // MATools::MPI::mpi_initialize(argc,argv);
-    MATools::MATimer::initialize();
+  MATimersManager() { 
+    MATools::MATimer::initialize(); 
   }
 
   /**
    * @brief Disables printing of the timetable.
    * This function disables the printing of the timetable during profiling.
    */
-  void disable_timetable() { MATools::MATimer::Optional::disable_print_timetable(); }
+  void disable_timetable() {
+    MATools::MATimer::Optional::disable_print_timetable();
+  }
 
   /**
    * @brief Disables writing data to a file.
    * This function disables writing profiling data to a file.
    */
-  void disable_write_file() { MATools::MATimer::Optional::disable_write_file(); }
+  void disable_write_file() {
+    MATools::MATimer::Optional::disable_write_file();
+  }
 
-  void enable() {
+  void reset() {
     MATools::MATimer::finalize();  // reset if necessary
     MATools::MATimer::initialize();
   }
 
-  void active_trace() { MATools::MATrace::Optional::active_MATrace_mode(); }
+  void disable() {
+    MATools::MATimer::Optional::disable_print_timetable();
+    MATools::MATimer::Optional::disable_write_file();
+  }
 
-  void print() { MATools::MATimer::print(); MATools::MATrace::write_trace(); }
+  void enable() {
+    MATools::MATimer::Optional::enable_print_timetable();
+    MATools::MATimer::Optional::enable_write_file();
+  }
+
+  void active_trace() {
+    MATools::MATrace::Optional::active_MATrace_mode(); 
+  }
+
+  void print() {
+    MATools::MATimer::print();
+    MATools::MATrace::write_trace();
+  }
 
   /**
    * @brief Destructor for MATimersManager.

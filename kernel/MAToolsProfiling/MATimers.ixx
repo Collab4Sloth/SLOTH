@@ -34,8 +34,10 @@ namespace MATimer {
  * not call this function twice.
  */
 void initialize() {
+  if (!is_enable()) {
+    MATools::MAOutput::printMessage("MATimers_LOG: MATimers initialization ");
+  }
   active();
-  MATools::MAOutput::printMessage("MATimers_LOG: MATimers initialization ");
   MATimerNode*& root_timer_ptr = MATools::MATimer::get_MATimer_node<ROOT>();
   MATimerNode*& current = MATools::MATimer::get_MATimer_node<CURRENT>();
   assert((root_timer_ptr == nullptr || root_timer_ptr == current) &&
@@ -93,8 +95,9 @@ void finalize() {
     MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>();
     root_ptr = nullptr;
     current_ptr = nullptr;
+    // MATools::MAOutput::printMessage("MATimers_LOG: MATimers finalize() ");
   }
   disactive();
 }
-};  // namespace MATimer
-};  // namespace MATools
+}  // namespace MATimer
+}  // namespace MATools
