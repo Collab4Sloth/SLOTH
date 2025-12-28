@@ -44,6 +44,7 @@ jobs:
           spack load gcc
           spack compiler find
           spack compilers
+          spack external find openmpi mpich openblas perl
           echo "FC=$(which gfortran)" >> $GITHUB_ENV
           echo "F77=$(which gfortran)" >> $GITHUB_ENV
           echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
