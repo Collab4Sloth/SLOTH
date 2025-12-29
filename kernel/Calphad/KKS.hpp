@@ -171,7 +171,7 @@ template <typename T>
 KKS<T>::KKS() {
   this->CU_ = std::make_shared<CalphadUtils<T>>();
   this->interpolation_func_ =
-      std::make_shared<Coefficient>(Glossary::FreeEnergy, Scheme::Implicit, H());
+      std::make_shared<Coefficient>(Glossary::InterpolationFunction, Scheme::Implicit, H());
 }
 
 /**
@@ -310,7 +310,8 @@ void KKS<T>::execute_linearization(
   std::set<int> indices_ph_2;
   std::set<int> indices_inter;
   for (int i = 0; i < nb_nodes; ++i) {
-    const double phi = phi_gf[i];
+    const double phi = std::clamp(phi_gf[i], 0.0, 1.0);
+    const double phi_old = std::clamp(phi_gf_old(i), 0.0, 1.0);
     if (phi > 1 - this->KKS_threshold_) {
       indices_ph_1.insert(i);
     } else if (phi < this->KKS_threshold_) {
@@ -324,7 +325,7 @@ void KKS<T>::execute_linearization(
 
     // Interpolation function at node
     Hphi(i) = this->interpolation_func_->compute({phi});
-    Hphi_old(i) = this->interpolation_func_->compute({phi_gf_old(i)});
+    Hphi_old(i) = this->interpolation_func_->compute({phi_old});
   }
 
   // Save the number of two-phase nodes where KKS problem must be solved

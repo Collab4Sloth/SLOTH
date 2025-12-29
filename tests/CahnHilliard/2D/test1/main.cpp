@@ -41,7 +41,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -145,7 +144,6 @@ int main(int argc, char* argv[]) {
   const std::vector<double> times_list = {0.35, 0.45};
 
   std::string calculation_path = "CahnHilliard";
-  const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
       {var_name_1, {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;

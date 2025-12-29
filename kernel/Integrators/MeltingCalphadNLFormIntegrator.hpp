@@ -1,8 +1,7 @@
 /**
- * @file AllenCahnCalphadMeltingNLFormIntegrator.hpp
+ * @file MeltingCalphadNLFormIntegrator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief  Compute the enthalpy of phase change based on two driving forces defined as auxiliary
- * variables
+ * @brief NonlinearFormIntegrator for ad-hoc melting term based on temperature
  * @version 0.1
  * @date 2025-09-05
  *
@@ -24,26 +23,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <algorithm>
+#include <memory>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
-#include "Integrators/AllenCahnMeltingBaseNLFormIntegrator.hpp"
+#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
+#include "MeltingBaseNLFormIntegrator.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 #pragma once
 
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-class AllenCahnCalphadMeltingNLFormIntegrator final
-    : public AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION> {
+/**
+ * @brief NonlinearFormIntegrator for ad-hoc melting term based on temperature
+ *
+ * @tparam VARS
+ */
+template <class VARS>
+class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> {
  private:
   double alpha_;
   std::string primary_phase_;
   std::string secondary_phase_;
   std::vector<mfem::ParGridFunction> dgm_;
   std::vector<mfem::ParGridFunction> nucleus_;
+
+  double melting_temperature_;
+  double melting_enthalpy_;
   void get_parameters();
 
   void check_driving_forces();
@@ -51,62 +63,53 @@ class AllenCahnCalphadMeltingNLFormIntegrator final
   void check_nucleus();
 
  protected:
-  double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
-                                const mfem::IntegrationPoint& ir) override;
-  double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) override;
+  double get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
+                                unsigned int blk, const double u, const double un) override;
+
+  double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
+                        unsigned int blk, const double u, const double un) override;
 
  public:
-  AllenCahnCalphadMeltingNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                          const Parameters& params, std::vector<VARS*> auxvars,
-                                          const std::vector<Coefficients>& coefficients);
-  ~AllenCahnCalphadMeltingNLFormIntegrator();
-};
+  MeltingCalphadNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                 const Parameters& params, std::vector<VARS*> auxvars,
+                                 const std::vector<Coefficients>& coefficients);
 
+  virtual ~MeltingCalphadNLFormIntegrator() = default;
+};
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct AllenCahnCalphadMeltingNLFormIntegrator object
+ * @brief Construct a new Melting Temperature N L Form Integrator< V A R S>:: Melting Temperature N
+ * L Form Integrator object
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
+ * @tparam VARS
  * @param u_old
  * @param params
- * @param aux_gf
- * @return AllenCahnCalphadMeltingNLFormIntegrator<VARS,SCHEME, ENERGY, MOBI, INTERPOLATION>::
+ * @param auxvars
+ * @param coefficients
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
-    AllenCahnCalphadMeltingNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                            const Parameters& params, std::vector<VARS*> auxvars,
-                                            const std::vector<Coefficients>& coefficients)
-    : AllenCahnMeltingBaseNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>(
-          u_old, params, auxvars, coefficients) {
+template <class VARS>
+MeltingCalphadNLFormIntegrator<VARS>::MeltingCalphadNLFormIntegrator(
+    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : MeltingBaseNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "MeltingCalphad";
+
   this->get_parameters();
-
   this->check_driving_forces();
-
   this->check_nucleus();
 }
 
 /**
  * @brief Get parameters
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
- * @param params
+ * @tparam VARS
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
-                                             INTERPOLATION>::get_parameters() {
+template <class VARS>
+void MeltingCalphadNLFormIntegrator<VARS>::get_parameters() {
   this->alpha_ = this->params_.template get_param_value_or_default<double>("melting_factor", 1.);
   //
   this->primary_phase_ = this->params_.template get_param_value<std::string>("primary_phase");
@@ -122,20 +125,18 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
  * @tparam MOBI
  * @tparam INTERPOLATION
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
-                                             INTERPOLATION>::check_driving_forces() {
+template <class VARS>
+void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
   bool primary_phase_found = false;
   bool secondary_phase_found = false;
 
-  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_gf_infos_[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
 
     size_t vsize = variable_info.size();
     MFEM_VERIFY(vsize > 0,
-                "AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, "
+                "MeltingCalphadNLFormIntegrator<VARS, SCHEME, ENERGY, "
                 "MOBI,INTERPOLATION>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
                 "this integrator");
@@ -157,7 +158,6 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
   MFEM_VERIFY(primary_phase_found && secondary_phase_found,
               "Both primary and secondary driving forces must be set.");
 }
-
 /**
  * @brief Check presence of nucleus
  *
@@ -167,19 +167,17 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
  * @tparam MOBI
  * @tparam INTERPOLATION
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
-                                             INTERPOLATION>::check_nucleus() {
+template <class VARS>
+void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
   bool nucleus_found = false;
 
-  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_gf_infos_[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
 
     size_t vsize = variable_info.size();
     MFEM_VERIFY(vsize > 0,
-                "AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, "
+                "MeltingCalphadNLFormIntegrator<VARS, SCHEME, ENERGY, "
                 "MOBI,INTERPOLATION>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
                 "this integrator");
@@ -210,10 +208,10 @@ void AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
  * @param ir
  * @return double
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-double AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::
-    get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
+template <class VARS>
+double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir, unsigned int blk,
+    const double u, const double un) {
   double primary_dgm = -1.;
   double secondary_dgm = -1.;
   if (this->dgm_.size() == 2) {
@@ -226,27 +224,13 @@ double AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTER
              : 0.;
 }
 
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-double
-AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI, INTERPOLATION>::get_seed_at_ip(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
+template <class VARS>
+double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(mfem::ElementTransformation& Tr,
+                                                            const mfem::IntegrationPoint& ir,
+                                                            unsigned int blk, const double u,
+                                                            const double un) {
   // Nucleus must be equal to zero except when phase transition starts
   const double seed = -this->nucleus_[0].GetValue(Tr, ir);
 
   return seed;
-}
-
-/**
- * @brief Destroy the AAllenCahnCalphadMeltingNLFormIntegrator object
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI, ThermodynamicsPotentials INTERPOLATION>
-AllenCahnCalphadMeltingNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI,
-                                        INTERPOLATION>::~AllenCahnCalphadMeltingNLFormIntegrator() {
 }

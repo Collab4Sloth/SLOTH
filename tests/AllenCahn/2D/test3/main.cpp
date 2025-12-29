@@ -43,10 +43,8 @@ int main(int argc, char* argv[]) {
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
 
-  using OPE = SteadyPhaseFieldOperator<FECollection, DIM, NLFI>;
+  using OPE = SteadyPhaseFieldOperator<FECollection, DIM>;
 
   using PB = Problem<OPE, VARS, PST>;
   using PB1 = MPI_Problem<VARS, PST>;
@@ -92,8 +90,13 @@ int main(int argc, char* argv[]) {
       const auto& mob(1.);
       const auto& lambda(1.);
       const auto& omega(1.);
-      auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                               Parameter("lambda", lambda), Parameter("omega", omega));
+
+      Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+      Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+      Coefficient capillary(Glossary::Capillary, lambda);
+      Coefficient mobility(Glossary::Mobility, mob);
+      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
+
       // ####################
       //     variables     //
       // ####################
@@ -141,9 +144,8 @@ int main(int argc, char* argv[]) {
       std::vector<AnalyticalFunctions<DIM>> src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, params, src_term);
-      oper.overload_mobility(Parameters(Parameter("mob", mob)));
-      PB problem1("Steady AllenCahn", oper, vars, pst);
+      OPE oper(spatials, {"AllenCahn"}, src_term);
+      PB problem1("Steady AllenCahn", oper, vars, {coef_ac}, pst);
 
       auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", Glossary::MPI, 2, 0.));
 

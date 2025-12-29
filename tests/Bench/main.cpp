@@ -123,11 +123,7 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::F, Mobility::Constant>;
-
-  using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   using PB1 = MPI_Problem<VARS, PST>;
 
@@ -192,8 +188,11 @@ int main(int argc, char* argv[]) {
   const double mob(1.);
   const double lambda = (epsilon * epsilon);
   const double omega = 1.;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega));
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficients coef_ch(double_well_imp, capillary, mobility, grad_energy);
   // ####################
   //     variables     //
   // ####################
@@ -273,8 +272,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial, &spatial};
-  OPE oper(spatials, params, TimeScheme::EulerImplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE oper(spatials, {"CahnHilliard"}, TimeScheme::EulerImplicit, "SplitTimeDerivative");
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", p.verbosity),
@@ -298,7 +296,7 @@ int main(int argc, char* argv[]) {
   }
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst);
+  PB problem1(oper, vars, {coef_ch, coef_ch}, pst);
 
   // Coupling 1
   auto cc = Coupling("CahnHilliard Coupling", problem1);

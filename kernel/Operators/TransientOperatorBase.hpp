@@ -362,7 +362,7 @@ void TransientOperatorBase<T, DIM>::get_mass_coefficient(const mfem::Vector& u) 
 template <class T, int DIM>
 void TransientOperatorBase<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
   this->M_solver_.clear();
-  for (int i = 0; i < u_vect.size(); i++) {
+  for (unsigned int i = 0; i < u_vect.size(); i++) {
     if (M != nullptr) {
       delete M;
     }

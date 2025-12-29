@@ -210,26 +210,20 @@ int main(int argc, char* argv[]) {
 
   auto td_parameters = Parameters(Parameter("last_component", "PU"),
                                   Parameter("ScaleCoefficientsByTemperature", true));
-  //--- Integrator : alias definition for the sake of clarity
-
-  using MD = MassDiffusionFluxNLFormIntegrator<VARS>;
 
   //--- Operator definition
   // Operator for InterDiffusion equation on O
-
-  using LHS_NLFI_O = TimeNLFormIntegrator<VARS>;
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_O> interdiffu_oper_o(
-      spatials, td_parameters, TimeScheme::EulerImplicit);
-  interdiffu_oper_o.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
+  Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
+  Coefficients coef_pb(Dstab);
+  DiffusionOperator<FECollection, DIM> interdiffu_oper_o(
+      spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_o.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-20)));
 
   // Operator for InterDiffusion equation on U
-  using LHS_NLFI_U = TimeNLFormIntegrator<VARS>;
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant, LHS_NLFI_U> interdiffu_oper_u(
-      spatials, td_parameters, TimeScheme::EulerImplicit);
-  interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
+  DiffusionOperator<FECollection, DIM> interdiffu_oper_u(
+      spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_u.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
                                        Parameter("rel_tol", 1.e-20), Parameter("abs_tol", 1.e-20)));
@@ -252,9 +246,10 @@ int main(int argc, char* argv[]) {
   auto mob_pst_u = PST(&spatial, pst_parameters_mob_u);
 
   calculation_path = "InterDiffusion";
-  auto pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
-                                   Parameter("calculation_path", calculation_path),
-                                   Parameter("frequency", frequency));
+  auto pst_parameters =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("enable_compute_energies", false));
   auto interdiffu_pst = PST(&spatial, pst_parameters);
   calculation_path = "Calphad";
   auto cc_pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
@@ -263,9 +258,10 @@ int main(int argc, char* argv[]) {
   auto cc_pst = PST(&spatial, cc_pst_parameters);
 
   calculation_path = "InterDiffusion_u";
-  auto diffu_pst_parameters = Parameters(Parameter("main_folder_path", main_folder_path),
-                                         Parameter("calculation_path", calculation_path),
-                                         Parameter("frequency", frequency));
+  auto diffu_pst_parameters =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+                 Parameter("enable_compute_energies", false));
   auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
   //-----------------------
@@ -286,10 +282,9 @@ int main(int argc, char* argv[]) {
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, xo_vars, xu_vars,
       heat_vars, calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>,
-          VARS, PST>
-      interdiffu_problem_o("Interdiffusion O", interdiffu_oper_o, xo_vars, interdiffu_pst,
-                           calphad_outputs, MO, heat_vars);
+  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_o(
+      "Interdiffusion O", interdiffu_oper_o, xo_vars, {coef_pb}, interdiffu_pst, calphad_outputs,
+      MO, heat_vars);
 
   //======================
   // Uranium
@@ -302,10 +297,9 @@ int main(int argc, char* argv[]) {
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, xo_vars, xu_vars,
       heat_vars, calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>,
-          VARS, PST>
-      interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, xu_vars, interdiffu_pst_u,
-                           calphad_outputs, MU, heat_vars);
+  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_u(
+      "Interdiffusion U", interdiffu_oper_u, xu_vars, {coef_pb}, interdiffu_pst_u, calphad_outputs,
+      MU, heat_vars);
 
   //-----------------------
   // Coupling

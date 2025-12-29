@@ -190,7 +190,7 @@ class OperatorBase : public mfem::Operator {
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
- * @param spatials 
+ * @param spatials
  * @return int
  */
 template <class T, int DIM>
@@ -261,8 +261,8 @@ template <class T, int DIM>
 OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
                                    std::vector<SpatialDiscretization<T, DIM>*> spatials)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
-      rhs_integrators_(integrators),
       params_(default_params_),
+      rhs_integrators_(integrators),
       RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
@@ -601,13 +601,13 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
 }
 /**
  * @brief Compute energy density
- * 
+ *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
- * @param it 
- * @param t 
- * @param dt 
- * @param u 
+ * @param it
+ * @param t
+ * @param dt
+ * @param u
  */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const double& dt,
@@ -692,11 +692,11 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
 
       // CCI Grad contrib
       if (this->grad_energy_coefficient_.has_value()) {
-        for (int k = 0; k < vgf.size(); ++k) {
+        for (unsigned int k = 0; k < vgf.size(); ++k) {
           vgf[k].GetGradient(*Tr, grad_tmp);
           for (unsigned int ii = 0; ii < dim; ii++) grad_vun_ip[k * dim + ii] = grad_tmp[ii];
         }
-        for (int k = 0; k < vgf_aux.size(); ++k) {
+        for (unsigned int k = 0; k < vgf_aux.size(); ++k) {
           vgf_aux[k].GetGradient(*Tr, grad_tmp);
           for (unsigned int ii = 0; ii < dim; ii++) grad_vaux_ip[k * dim + ii] = grad_tmp[ii];
         }
@@ -902,14 +902,14 @@ void OperatorBase<T, DIM>::set_default_solver() {
   this->precond_params_ = p_params;
 }
 /**
- * @brief 
- * 
+ * @brief
+ *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
- * @param integrator 
- * @param vun 
- * @param all_params 
- * @return SlothNLFormIntegrator<Variables<T, DIM>>* 
+ * @param integrator
+ * @param vun
+ * @param all_params
+ * @return SlothNLFormIntegrator<Variables<T, DIM>>*
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrator(
@@ -917,8 +917,8 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
     case Integrators::MassFlux: {
-      return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                         this->coefficients_);
+      return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(
+          vun, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::Fick: {
@@ -941,6 +941,14 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     }
     case Integrators::MeltingTemperature: {
       return new MeltingTemperatureNLFormIntegrator<Variables<T, DIM>>(
+          vun, all_params, this->auxvariables_, this->coefficients_);
+    }
+    case Integrators::MeltingCalphad: {
+      return new MeltingCalphadNLFormIntegrator<Variables<T, DIM>>(
+          vun, all_params, this->auxvariables_, this->coefficients_);
+    }
+    case Integrators::MeltingConstant: {
+      return new MeltingConstantNLFormIntegrator<Variables<T, DIM>>(
           vun, all_params, this->auxvariables_, this->coefficients_);
     }
     default:

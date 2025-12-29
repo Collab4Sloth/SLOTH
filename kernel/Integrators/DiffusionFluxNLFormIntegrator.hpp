@@ -283,7 +283,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::add_diffusion_flux(mfem::ElementTransf
                                                              const int dim) {
   std::vector<mfem::Vector> gradient = this->get_flux_gradient(Tr, nElement, ip, dim);
   std::vector<double> coef = this->get_flux_coefficient(nElement, ip);
-  for (int i = 0; i < gradient.size(); i++) {
+  for (unsigned int i = 0; i < gradient.size(); i++) {
     this->Flux_.Add(coef[i], gradient[i]);
   }
 }

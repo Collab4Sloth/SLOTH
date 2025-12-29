@@ -37,11 +37,6 @@ class SteadyPhaseFieldReducedOperator : public mfem::Operator {
   // Jacobian matrix
   mutable mfem::HypreParMatrix* Jacobian;
 
-  // Time step
-  double dt_;
-  // Unknown
-  const mfem::Vector* unk_;
-
   const std::vector<mfem::Array<int>>& ess_tdof_list;
 
  public:
@@ -65,12 +60,7 @@ class SteadyPhaseFieldReducedOperator : public mfem::Operator {
  */
 SteadyPhaseFieldReducedOperator::SteadyPhaseFieldReducedOperator(
     mfem::ParBlockNonlinearForm* RHS, const std::vector<mfem::Array<int>>& ess_tdof)
-    : Operator(RHS->Height()),
-      RHS_(RHS),
-      Jacobian(NULL),
-      dt_(0.0),
-      unk_(NULL),
-      ess_tdof_list(ess_tdof) {}
+    : Operator(RHS->Height()), RHS_(RHS), Jacobian(NULL), ess_tdof_list(ess_tdof) {}
 
 /**
  * @brief  Compute y = N(unk + dt*k) + M k

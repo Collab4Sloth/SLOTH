@@ -105,7 +105,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* PhaseFieldOperatorBase<T, DIM, OPEBASE
     const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("PhaseFieldOperatorBase::set_nlfi_ptr");
   std::vector<mfem::ParGridFunction> vun;
-  for (int i = 0; i < u.size(); i++) {
+  for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u[i]);
     vun.emplace_back(un);

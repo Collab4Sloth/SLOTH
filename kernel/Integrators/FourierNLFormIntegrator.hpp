@@ -76,6 +76,7 @@ FourierNLFormIntegrator<VARS>::FourierNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : DiffusionNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "Fourier";
   this->expected_list_.push_back(GlossaryType::Conductivity);
 }
 

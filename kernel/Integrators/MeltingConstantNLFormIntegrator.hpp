@@ -1,7 +1,7 @@
 /**
- * @file MeltingTemperatureNLFormIntegrator.hpp
+ * @file MeltingConstantNLFormIntegrator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief NonlinearFormIntegrator for ad-hoc melting term based on temperature
+ * @brief NonlinearFormIntegrator for ad-hoc constant melting term
  * @version 0.1
  * @date 2025-09-05
  *
@@ -46,25 +46,22 @@
  * @tparam VARS
  */
 template <class VARS>
-class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> {
+class MeltingConstantNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> {
  private:
-  std::vector<mfem::ParGridFunction> temp_gf_;
+  double alpha_;
 
-  double melting_temperature_;
-  double melting_enthalpy_;
   void get_parameters();
-  void check_variables_consistency();
 
  protected:
   double get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
                                 unsigned int blk, const double u, const double un) override;
 
  public:
-  MeltingTemperatureNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                     const Parameters& params, std::vector<VARS*> auxvars,
-                                     const std::vector<Coefficients>& coefficients);
+  MeltingConstantNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                  const Parameters& params, std::vector<VARS*> auxvars,
+                                  const std::vector<Coefficients>& coefficients);
 
-  virtual ~MeltingTemperatureNLFormIntegrator() = default;
+  virtual ~MeltingConstantNLFormIntegrator() = default;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -82,40 +79,13 @@ class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VA
  * @param coefficients
  */
 template <class VARS>
-MeltingTemperatureNLFormIntegrator<VARS>::MeltingTemperatureNLFormIntegrator(
+MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : MeltingBaseNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
-  this->integrator_name_ = "MeltingTemperature";
+  this->integrator_name_ = "MeltingConstant";
+
   this->get_parameters();
-  this->check_variables_consistency();
-}
-
-/**
- * @brief Check variables consistency
- *
- * @tparam VARS
- */
-template <class VARS>
-void MeltingTemperatureNLFormIntegrator<VARS>::check_variables_consistency() {
-  // Temperature scaling for mobility
-  bool temperature_found = false;
-  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_infos_[i];
-    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    size_t vsize = variable_info.size();
-
-    MFEM_VERIFY(vsize >= 1,
-                "MeltingTemperatureNLFormIntegrator<VARS>: at least "
-                "one additionnal information is expected for auxiliary variables associated with "
-                "this integrator");
-    const std::string& symbol = toUpperCase(variable_info.back());
-    if (symbol == "T") {
-      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      temperature_found = true;
-      break;
-    }
-  }
 }
 
 /**
@@ -124,31 +94,24 @@ void MeltingTemperatureNLFormIntegrator<VARS>::check_variables_consistency() {
  * @tparam VARS
  */
 template <class VARS>
-void MeltingTemperatureNLFormIntegrator<VARS>::get_parameters() {
-  this->melting_temperature_ =
-      this->params_.template get_param_value<double>("melting_temperature");
-  this->melting_enthalpy_ = this->params_.template get_param_value<double>("melting_enthalpy");
+void MeltingConstantNLFormIntegrator<VARS>::get_parameters() {
+  this->alpha_ = this->params_.template get_param_value_or_default<double>("melting_factor", 1.);
 }
 
 /**
- * @brief Compute phase change at integration point
+ * @brief Get the value of the phae change at integration point
  *
- * @tparam VARS
+ * @tparam SCHEME
+ * @tparam ENERGY
+ * @tparam MOBI
+ * @tparam INTERPOLATION
  * @param Tr
  * @param ir
- * @param blk
- * @param u
- * @param un
  * @return double
  */
 template <class VARS>
-double MeltingTemperatureNLFormIntegrator<VARS>::get_phase_change_at_ip(
+double MeltingConstantNLFormIntegrator<VARS>::get_phase_change_at_ip(
     mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir, unsigned int blk,
     const double u, const double un) {
-  const double temperature_at_ip = this->temp_gf_[0].GetValue(Tr, ir);
-  double phase_change_at_ip = 0.;
-  if (temperature_at_ip > this->melting_temperature_) {
-    phase_change_at_ip = this->melting_enthalpy_;
-  }
-  return phase_change_at_ip;
+  return this->alpha_;
 }

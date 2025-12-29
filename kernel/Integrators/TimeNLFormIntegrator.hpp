@@ -96,6 +96,8 @@ TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGrid
                                                  std::vector<VARS*> auxvars,
                                                  const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "TimeDerivative";
+
   this->check_variables_consistency();
 }
 template <class VARS>

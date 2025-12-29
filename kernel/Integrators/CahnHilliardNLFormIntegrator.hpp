@@ -39,8 +39,8 @@
 
 /**
  * @brief Class dedicated to the FV of the Cahn-Hilliard equation (splitted form)
- * 
- * @tparam VARS 
+ *
+ * @tparam VARS
  */
 template <class VARS>
 class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
@@ -72,15 +72,15 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                                const Parameters& params, std::vector<VARS*> auxvars,
                                const std::vector<Coefficients>& coefficients);
 
-   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec) override;
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvec) override;
 
-   void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats)override;
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -89,11 +89,11 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
 /**
  * @brief Construct a new CahnHilliardNLFormIntegrator object
- * 
- * @tparam VARS 
+ *
+ * @tparam VARS
  * @param u_old Variables at the previous time-step
  * @param params Parameters associated with the integrator
- * @param auxvars Auxiliary variables 
+ * @param auxvars Auxiliary variables
  * @param coefficients Coefficients associated with the integrator
  */
 template <class VARS>
@@ -101,13 +101,15 @@ CahnHilliardNLFormIntegrator<VARS>::CahnHilliardNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "CahnHilliard";
+
   this->check_variables_consistency();
 }
 
 /**
  * @brief Initialization of the integrator
- * 
- * @tparam VARS 
+ *
+ * @tparam VARS
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::init() {
@@ -117,8 +119,8 @@ void CahnHilliardNLFormIntegrator<VARS>::init() {
 
 /**
  * @brief  Check variables consistency
- * 
- * @tparam VARS 
+ *
+ * @tparam VARS
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::check_variables_consistency() {
@@ -175,12 +177,12 @@ void CahnHilliardNLFormIntegrator<VARS>::get_coefficients() {
 
 /**
  * @brief Residual part of the non linear problem
- * 
- * @tparam VARS 
- * @param el 
- * @param Tr 
- * @param elfun 
- * @param elvect 
+ *
+ * @tparam VARS
+ * @param el
+ * @param Tr
+ * @param elfun
+ * @param elvect
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
@@ -252,7 +254,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
       const auto& mu = *elfun[blk] * Psi;
       const auto& phi = *elfun[off_blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      // const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
@@ -264,12 +266,12 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
 /**
  * @brief Jacobian part of the non linear problem
- * 
- * @param el 
- * @param Tr 
- * @param elfun 
- * @param elmats 
- * @return * ram 
+ *
+ * @param el
+ * @param Tr
+ * @param elfun
+ * @param elmats
+ * @return * ram
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
@@ -415,12 +417,12 @@ double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
 
 /**
  * @brief Return the value of the component iblk, jblk of the hessian of the coefficient
- * @tparam VARS 
- * @param coef 
- * @param iblk 
- * @param jblk 
- * @param values 
- * @return double 
+ * @tparam VARS
+ * @param coef
+ * @param iblk
+ * @param jblk
+ * @param values
+ * @return double
  */
 template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_hessian_coefficient(

@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
   const double cond(2.7);   //  W/m/K
 
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pellet_radius, rho, cp](const mfem::Vector& vcoord, double time) {
+      [pellet_radius](const mfem::Vector& vcoord, double time) {
         const double pl = 10.e4;
 
         const double radius = std::sqrt(vcoord[0] * vcoord[0]);
@@ -105,16 +105,18 @@ int main(int argc, char* argv[]) {
         const auto bess = chia * I0_chir / (2. * I1_chia);
         const auto func = pl * bess / (M_PI * 2. * pellet_radius * pellet_radius);
 
-        return func / (rho * cp);
+        return func;
       });
 
   std::vector<AnalyticalFunctions<DIM>> source_term;
   source_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
-  TH_OPE th_operator(spatials, TimeScheme::EulerImplicit, source_term);
-  th_operator.overload_density(Parameters(Parameter("rho", rho)));
-  th_operator.overload_heat_capacity(Parameters(Parameter("cp", cp)));
-  th_operator.overload_conductivity(Parameters(Parameter("lambda", cond / (rho * cp))));
+  Coefficient density(Glossary::Concentration, rho);
+  Coefficient heat_capacity(Glossary::Cp, cp);
+  Coefficient conductivity(Glossary::Conductivity, cond);
+  Coefficients coef_heat(density, heat_capacity, conductivity);
 
+  TH_OPE th_operator(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                     source_term);
   th_operator.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
@@ -123,11 +125,11 @@ int main(int argc, char* argv[]) {
   th_operator.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU);
 
   // Interface thickness
-  const auto& epsilon(1.e-5);
+  const auto& epsilon(5.e-4);
   // Interfacial energy
   const auto& sigma(6.e-2);
   // Two-phase mobility
-  const auto& mob(1.e-3);
+  const auto& mob(1.e-4);
   //==========================================
   //======      CALPHAD from TDB        ======
   //==========================================
@@ -271,9 +273,9 @@ int main(int argc, char* argv[]) {
   auto KKS_secondary_phase = Parameter("KKS_secondary_phase", "LIQUID");
   auto KKS_temperature_increment = Parameter("KKS_temperature_increment", 1.);
   auto KKS_composition_increment = Parameter("KKS_composition_increment", 1.e-7);
-  auto KKS_seed = Parameter("KKS_seed", 0.9);
-  auto KKS_seed_radius = Parameter("KKS_seed_radius", 5.e-4);
-  auto KKS_threshold = Parameter("KKS_threshold", 5.e-3);
+  auto KKS_seed = Parameter("KKS_seed", 0.5);
+  auto KKS_seed_radius = Parameter("KKS_seed_radius", 1.e-4);
+  auto KKS_threshold = Parameter("KKS_threshold", 5.e-2);
   auto KKS_temperature_threshold = Parameter("KKS_temperature_threshold", 2500.);
   auto KKS_freeze_nucleation = Parameter("KKS_freeze_nucleation", true);
   auto KKS_nucleation_started = Parameter("KKS_nucleation_started", false);
@@ -354,11 +356,7 @@ int main(int argc, char* argv[]) {
   //==========================================
   //======      Melting                 ======
   //==========================================
-  using AC_NLFI =
-      AllenCahnCalphadMeltingNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                              ThermodynamicsPotentials::W, Mobility::Constant,
-                                              ThermodynamicsPotentials::H>;
-  using AC_OPE = PhaseFieldOperator<FECollection, DIM, AC_NLFI, LHS_NLFI>;
+  using AC_OPE = PhaseFieldOperator<FECollection, DIM>;
   using AC_PB = Problem<AC_OPE, VARS, PST>;
 
   const auto& lambda = 3. * sigma * epsilon / 2.;
@@ -370,17 +368,16 @@ int main(int argc, char* argv[]) {
                               Parameter("lambda", lambda), Parameter("omega", omega)) +
                    nuc_parameters;
 
-  AC_OPE ac_oper(spatials, ac_params, TimeScheme::EulerImplicit);
-  ac_oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  AC_OPE ac_oper(spatials, {"AllenCahn", "MeltingCalphad"}, ac_params, TimeScheme::EulerImplicit,
+                 "TimeDerivative");
   ac_oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                 Parameter("rel_tol", 1.e-16), Parameter("abs_tol", 1.e-16)));
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
+                 Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-16)));
 
   //==========================================
   //======      Inter-diffusion         ======
   //==========================================
-  using MD = MassDiffusionFluxNLFormIntegrator<VARS>;
   //--- Variables
   const double& stabCoeff(1.e-4);
 
@@ -389,21 +386,21 @@ int main(int argc, char* argv[]) {
 
   //--- Operator definition
   // Operator for InterDiffusion equation on O
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>
-      interdiffu_oper_o(spatials, td_parameters, TimeScheme::EulerImplicit);
-  interdiffu_oper_o.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
+  Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
+  Coefficients coef_pb(Dstab);
+  DiffusionOperator<FECollection, DIM> interdiffu_oper_o(
+      spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_o.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
-                 Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 1.e-13)));
+                 Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 5.e-14)));
   // Operator for InterDiffusion equation on U
-  DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>
-      interdiffu_oper_u(spatials, td_parameters, TimeScheme::EulerImplicit);
-  interdiffu_oper_u.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
+  DiffusionOperator<FECollection, DIM> interdiffu_oper_u(
+      spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_u.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
-                 Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 1.e-13)));
+                 Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 5.e-14)));
 
   //==========================================
   //==========================================
@@ -422,14 +419,16 @@ int main(int argc, char* argv[]) {
   auto pst_parameters_heat =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter),
+                 Parameter("enable_compute_energies", false));
   auto heat_pst = PST(&spatial, pst_parameters_heat);
 
   calculation_path = "Melting";
   auto pst_parameters_ac =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter),
+                 Parameter("enable_compute_energies", false));
   auto ac_pst = PST(&spatial, pst_parameters_ac);
 
   calculation_path = "MobilitiesU";
@@ -443,7 +442,8 @@ int main(int argc, char* argv[]) {
   auto pst_parameters =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter),
+                 Parameter("enable_compute_energies", false));
   auto interdiffu_pst = PST(&spatial, pst_parameters);
   calculation_path = "Calphad";
   auto cc_pst_parameters =
@@ -456,7 +456,8 @@ int main(int argc, char* argv[]) {
   auto diffu_pst_parameters =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter),
+                 Parameter("enable_compute_energies", false));
   auto interdiffu_pst_u = PST(&spatial, diffu_pst_parameters);
 
   //-----------------------
@@ -465,7 +466,7 @@ int main(int argc, char* argv[]) {
   //==========================================
   //======      HEAT TRANSFER           ======
   //==========================================
-  TH_PB th_problem("Heat tranfer", th_operator, heat_vars, heat_pst);
+  TH_PB th_problem("Heat tranfer", th_operator, heat_vars, {coef_heat}, heat_pst);
 
   //==========================================
   //======      CALPHAD                 ======
@@ -477,7 +478,16 @@ int main(int argc, char* argv[]) {
   //==========================================
   //======      Melting                 ======
   //==========================================
-  AC_PB ac_problem("AllenCahn", ac_oper, var_phi, ac_pst, calphad_outputs);
+
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficient interpolation(Glossary::InterpolationFunction, Scheme::Implicit, H());
+
+  Coefficients coef_ac(double_well, capillary, mobility, interpolation, grad_energy);
+
+  AC_PB ac_problem("AllenCahn", ac_oper, var_phi, {coef_ac}, ac_pst, calphad_outputs);
   //======================
   // Oxygen
   //======================
@@ -490,10 +500,9 @@ int main(int argc, char* argv[]) {
       "Oxygen inter-diffusion mobilities", ppo_parameters, MO, mob_pst_o, xo_vars, xu_vars,
       heat_vars, calphad_outputs, var_phi, mob_liquid);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>,
-          VARS, PST>
-      interdiffu_problem_o("Interdiffusion O", interdiffu_oper_o, xo_vars, interdiffu_pst,
-                           calphad_outputs, MO, heat_vars);
+  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_o(
+      "Interdiffusion O", interdiffu_oper_o, xo_vars, {coef_pb}, interdiffu_pst, calphad_outputs,
+      MO, heat_vars);
 
   //======================
   // Uranium
@@ -507,10 +516,9 @@ int main(int argc, char* argv[]) {
       "Uranium inter-diffusion mobilities", ppu_parameters, MU, mob_pst_u, xo_vars, xu_vars,
       heat_vars, calphad_outputs, var_phi, mob_liquid);
 
-  Problem<DiffusionOperator<FECollection, DIM, MD, Density::Constant, TimeNLFormIntegrator<VARS>>,
-          VARS, PST>
-      interdiffu_problem_u("Interdiffusion U", interdiffu_oper_u, xu_vars, interdiffu_pst_u,
-                           calphad_outputs, MU, heat_vars);
+  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_u(
+      "Interdiffusion U", interdiffu_oper_u, xu_vars, {coef_pb}, interdiffu_pst_u, calphad_outputs,
+      MU, heat_vars);
 
   //-----------------------
   // Coupling

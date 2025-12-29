@@ -41,6 +41,8 @@
 #include "Integrators/HeatTimeNLFormIntegrator.hpp"
 #include "Integrators/MassDiffusionFluxNLFormIntegrator.hpp"
 #include "Integrators/MeltingBaseNLFormIntegrator.hpp"
+#include "Integrators/MeltingCalphadNLFormIntegrator.hpp"
+#include "Integrators/MeltingConstantNLFormIntegrator.hpp"
 #include "Integrators/MeltingTemperatureNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"

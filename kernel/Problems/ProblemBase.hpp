@@ -178,7 +178,7 @@ template <PbVar<VAR>... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
                                    const std::vector<Coefficients>& Coeff, PST& pst,
                                    Args&&... auxvariables)
-    : name_(name), variables_(variables), pst_(pst), coefficients_(Coeff), convergence_(nullptr) {
+    : name_(name), variables_(variables), coefficients_(Coeff), pst_(pst), convergence_(nullptr) {
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.clear();
   } else {

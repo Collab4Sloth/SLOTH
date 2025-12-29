@@ -55,6 +55,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::vector<std::vector<std::string>> vect_aux_infos_;
 
  protected:
+  std::string integrator_name_ = "";
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
                                      const mfem::Array<const mfem::Vector*>& elfun,
@@ -197,8 +198,9 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
     bool expected_types_found = std::ranges::includes(TestedGlossaryType, expected_types);
 
     MFEM_VERIFY(expected_types_found,
-                "Error at least one coefficient does not match with the expected list of "
-                "GlossaryType for the current SLOTH-based Integrator. Please check your data.");
+                "Error in " + this->integrator_name_ +
+                    " at least one coefficient does not match with the expected list of "
+                    "GlossaryType for the current SLOTH-based Integrator. Please check your data.");
   }
 }
 

@@ -59,6 +59,9 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                                         const mfem::IntegrationPoint& ir, unsigned int blk,
                                         const double u, const double un) = 0;
 
+  virtual double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
+                                unsigned int blk, const double u, const double un);
+
   virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
 
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
@@ -155,9 +158,10 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
 
       const double coef_mobi = mobility[blk].compute() * ip.weight * Tr.Weight();
       const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
-      const double ww =
-          coef_mobi * alpha *
-          this->compute_gradient_coefficient(interpolation_potential[blk], blk, {u, un});
+      const double seed = this->get_seed_at_ip(Tr, ip, blk, u, un);
+      const double ww = coef_mobi * (alpha * this->compute_gradient_coefficient(
+                                                 interpolation_potential[blk], blk, {u, un}) +
+                                     seed);
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -206,6 +210,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
           coef_mobi * alpha *
           this->compute_hessian_coefficient(interpolation_potential[blk], blk, blk,
                                             {u, un});  // this->energy_derivatives(2, Tr, ip)(u);
+
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
   }
@@ -291,4 +296,14 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
     coef_value = coef.compute_hessian(iblk, jblk, {u});
   }
   return coef_value;
+}
+template <class VARS>
+double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(mfem::ElementTransformation& Tr,
+                                                         const mfem::IntegrationPoint& ir,
+                                                         unsigned int blk, const double u,
+                                                         const double un) {
+  // Nucleus must be equal to zero except when phase transition starts
+  const double seed = 0.0;
+
+  return seed;
 }

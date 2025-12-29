@@ -82,21 +82,19 @@ int main(int argc, char* argv[]) {
   //     parameters    //
   // ####################
   //  Interface thickness
-  const auto& epsilon(2.e-4);
+  const auto& epsilon(5.e-4);
   // Interfacial energy
   const auto& sigma(6.e-2);
   // Two-phase mobility
   const auto& mob(1.e-5);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
   const auto& center_x = 0.;
   const auto& a_x = 1.;
-  const auto& thickness = 1.e-5;
+  const auto& thickness = 5.e-5;
   const auto& radius = 5.e-4;
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
@@ -144,7 +142,7 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
 
   // Problem 1:
-  OPE oper({&spatial}, {"AllenCahn"}, params, TimeScheme::EulerImplicit, "TimeDerivative");
+  OPE oper({&spatial}, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   Coefficients coef_pb1(double_well_imp, capillary, mobility, grad_energy);
   auto pst = PST(&spatial, p_pst1);
   PB problem1(oper, vars, {coef_pb1}, pst);
@@ -155,7 +153,7 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE2 oper2({&spatial}, {"AllenCahn"}, params, TimeScheme::EulerExplicit, "TimeDerivative");
+  OPE2 oper2({&spatial}, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
   Coefficients coef_pb2(double_well_exp, capillary, mobility, grad_energy);
   auto pst2 = PST(&spatial, p_pst2);
   PB2 problem2(oper2, vars2, {coef_pb2}, pst2);
@@ -166,7 +164,7 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE3 oper3({&spatial}, {"AllenCahn"}, params, TimeScheme::RungeKutta4, "TimeDerivative");
+  OPE3 oper3({&spatial}, {"AllenCahn"}, TimeScheme::RungeKutta4, "TimeDerivative");
   auto pst3 = PST(&spatial, p_pst3);
   PB3 problem3(oper3, vars3, {coef_pb1}, pst3);
 

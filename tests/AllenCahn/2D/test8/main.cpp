@@ -44,13 +44,8 @@ int main(int argc, char* argv[]) {
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
-
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = PhaseFieldOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -85,9 +80,11 @@ int main(int argc, char* argv[]) {
   const auto& mob(1.e-4);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params =
-      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                 Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
   // ####################
   //     variables     //
   // ####################
@@ -136,13 +133,12 @@ int main(int argc, char* argv[]) {
 
       // Problem 1:
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, params, TimeScheme::EulerImplicit);
-      oper.overload_mobility(Parameters(Parameter("mob", mob)));
+      OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
       oper.overload_solver(solver);
       oper.overload_preconditioner(precond);
 
       auto pst = PST(&spatial, p_pst);
-      PB problem1(oper, vars, pst);
+      PB problem1(oper, vars, {coef_ac}, pst);
 
       // Coupling
       auto cc = Coupling("AllenCahn with ", problem1);

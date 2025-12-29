@@ -63,15 +63,15 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   TimeCHNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
                          std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
 
-   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec) override;
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvec) override;
 
-   void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -94,6 +94,8 @@ TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "SplitTimeDerivative";
+
   this->check_variables_consistency();
 }
 
