@@ -70,9 +70,7 @@ find_path(MFEM_INCLUDE_DIRS mfem.hpp)
 
 set(DISCOVER_EXTRA_INC_DIRS ${MFEM_TPLFLAGS})
 string(REPLACE " " ";" MFEM_EXTRA_INC_DIRS ${DISCOVER_EXTRA_INC_DIRS})
-foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
-  add_compile_options(${FLAG})
-endforeach(FLAG)
+
 
 
 # Find the library
@@ -94,9 +92,6 @@ set_property(TARGET MFEM::mfem
 set_property(TARGET MFEM::mfem APPEND
   PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${MFEM_INCLUDE_DIRS})
 
-# Set external libraries (lapack, hypre, metis ...)
-set_property(TARGET MFEM::mfem APPEND
-    PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
 
 
 # Set MPI library
@@ -131,6 +126,22 @@ set(MFEM_LIBRARY ${MFEM_LIBRARY} CACHE PATH
 mark_as_advanced(FORCE MFEM_LIBRARY)
 mark_as_advanced(FORCE MFEM_CONFIG_FILE)
 
+
+# Set external libraries (lapack, hypre, metis ...)
+# Set system for focusing on warning coming from sloth
+set_property(TARGET MFEM::mfem APPEND
+    PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
+
+    foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
+  
+  if(FLAG MATCHES "^-I(.+)")
+    target_include_directories(MFEM::mfem SYSTEM INTERFACE
+        "${CMAKE_MATCH_1}"
+    )
+  else()
+    target_compile_options(MFEM::mfem INTERFACE ${FLAG})
+  endif()
+endforeach(FLAG)
 
 # This handles "REQUIRED" etc keywords
 include(FindPackageHandleStandardArgs)
