@@ -126,14 +126,10 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
   this->auxvariables_ = auxvars;
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
-      // GF
       this->vect_aux_gf_.emplace_back(std::move(auxvar.get_gf()));
-      // GF at previous time-step
       this->vect_aux_old_gf_.emplace_back(std::move(auxvar.get_second_to_last()));
 
-      // Information
       std::vector<std::string> var_info = auxvar.get_additional_variable_info();
-      // var_info.push_back(auxvar.getVariableName());
 
       this->vect_aux_infos_.emplace_back(std::move(var_info));
     }
@@ -180,11 +176,16 @@ std::vector<std::vector<std::string>> SlothNLFormIntegrator<VARS>::get_aux_infos
 }
 
 /**
- * @brief Check if the Coefficients passed to the SLOTH-based Integrator are consistent with its
- * expected list of GlossaryType
+ * @brief Verify that the coefficients associated with the integrator match the expected glossary
+ *        types.
  *
- * @tparam VARS
- * @param expected_types
+ * The check is order-independent and ignores duplicates. If any required glossary type is missing,
+ * the function aborts execution via MFEM_VERIFY.
+ *
+ * @tparam VARS Template parameter defining the variable set handled by the integrator.
+ *
+ * @param expected_types List of glossary types required by the current SLOTH-based integrator.
+ *
  */
 template <class VARS>
 void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType> expected_types) {
@@ -204,6 +205,22 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
   }
 }
 
+/**
+ * @brief Retrieve a coefficient by type and identifier.
+ *
+ * This function searches the list of coefficients associated with the
+ * specified block (blk) and returns the first coefficient that matches both
+ * the given glossary type and identifier.
+ *
+ * @tparam VARS Template parameter defining the variables.
+ *
+ * @param blk  Index of the block.
+ * @param type type of coefficient.
+ * @param id   Identifier of the coefficient.
+ *
+ * @return An std::optional containing the matching Coefficient if found;
+ *         std::nullopt otherwise.
+ */
 template <class VARS>
 std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const int blk,
                                                                         GlossaryType type,

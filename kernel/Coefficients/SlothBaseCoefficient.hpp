@@ -40,8 +40,7 @@
 #pragma once
 
 /**
- * @brief Base class definining a coefficient from an analytical formula
- *
+ * @brief Base class defining a coefficient from an analytical formula.
  */
 class SlothBaseCoefficient {
  private:
@@ -55,7 +54,7 @@ class SlothBaseCoefficient {
                        std::shared_ptr<FunctionCoefficient> coef);
   SlothBaseCoefficient(GlossaryQuantity type, double coef);
 
-  ~SlothBaseCoefficient();
+  virtual ~SlothBaseCoefficient() = default;
 
   double compute();
   double compute(const std::vector<double>& values, std::optional<int> dimension = std::nullopt);
@@ -76,39 +75,55 @@ class SlothBaseCoefficient {
 
   GlossaryType get_type() const;
   const GlossaryQuantity get_quantity();
-  unsigned int get_id();
+  unsigned int get_id() const;
   bool is_implicit() const;
   bool is_explicit() const;
   bool is_semi_implicit() const;
   bool is_scalar() const;
 };
+
 /**
- * @brief Construct a new SlothBaseCoefficient::SlothBaseCoefficient object
+ * @brief Constructs a SlothBaseCoefficient with a user-defined coefficient.
  *
- * @tparam Args
- * @param type
- * @param coef
+ * @param qty Quantity associated with the coefficient.
+ * @param scheme Discretization scheme used by the coefficient.
+ * @param coef Coefficient implementation (function-based).
  */
 SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity qty, Scheme scheme,
                                            std::shared_ptr<FunctionCoefficient> coef)
     : coefficient_quantity_(qty), coefficient_(coef), scheme_(scheme) {}
 
+/**
+ * @brief Constructs a SlothBaseCoefficient with a constant value.
+ *
+ * @param qty Quantity associated with the coefficient.
+ * @param coef Constant coefficient value.
+ */
 SlothBaseCoefficient::SlothBaseCoefficient(GlossaryQuantity qty, double coef)
     : coefficient_quantity_(qty),
       coefficient_(std::make_shared<ConstantCoefficient>(coef)),
       scheme_(Scheme::Constant) {}
 
 /**
- * @brief Compute  analytical expression
+ * @brief Computes the value of the Coefficient.
  *
- * @tparam Args
- * @param args
- * @return double
+ * @return Value of the coefficient.
  */
 double SlothBaseCoefficient::compute() {
   static const std::vector<double> values{};
   return this->coefficient_->eval_f(values);
 }
+
+/**
+ * @brief Computes the value of the Coefficient.
+ *
+ * The coefficient is evaluated as a function of the current variable values.
+ *
+ * @param values Values of the current variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the coefficient.
+ */
 double SlothBaseCoefficient::compute(const std::vector<double>& values,
                                      std::optional<int> dimension) {
   if (dimension.has_value()) {
@@ -118,6 +133,18 @@ double SlothBaseCoefficient::compute(const std::vector<double>& values,
   }
 }
 
+/**
+ * @brief Computes the value of the Coefficient.
+ *
+ * The coefficient is evaluated as a function of the current variable values
+ * and auxiliary variables.
+ *
+ * @param values Values of the current variables.
+ * @param auxiliary_values Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the coefficient.
+ */
 double SlothBaseCoefficient::compute(const std::vector<double>& values,
                                      const std::vector<double>& auxiliary_values,
                                      std::optional<int> dimension) {
@@ -129,14 +156,16 @@ double SlothBaseCoefficient::compute(const std::vector<double>& values,
 }
 
 /**
- * @brief Compute the i-th element of the gradient of analytical expression
+ * @brief Computes the component id of the gradient.
  *
- * @tparam Args
- * @param id
- * @param args
- * @return double
+ * The component is evaluated as a function of the current variable values.
+ *
+ * @param id  index of the gradient matrix.
+ * @param values Values of the current variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the gradient component id.
  */
-
 double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<double>& values,
                                               std::optional<int> dimension) {
   if (dimension.has_value()) {
@@ -145,6 +174,20 @@ double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<do
     return this->coefficient_->eval_gradient(id, values);
   }
 }
+
+/**
+ * @brief Computes the component id of the gradient.
+ *
+ * The component is evaluated as a function of the current variable values
+ * and auxiliary variables.
+ *
+ * @param id  index of the gradient matrix.
+ * @param values Values of the current variables.
+ * @param auxiliary_values Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the gradient component id.
+ */
 double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<double>& values,
                                               const std::vector<double>& auxiliary_values,
                                               std::optional<int> dimension) {
@@ -156,14 +199,17 @@ double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<do
 }
 
 /**
- * @brief Compute the (i,j)-th element of the hessian of analytical expression
+ * @brief Computes the (i,j) component of the Hessian matrix.
  *
- * @param id
- * @param jd
- * @param args
- * @return double
+ * The component is evaluated as a function of the current variable values.
+ *
+ * @param id Row index of the Hessian matrix.
+ * @param jd Column index of the Hessian matrix.
+ * @param values Values of the current variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the Hessian component (id, jd).
  */
-
 double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
                                              const std::vector<double>& values,
                                              std::optional<int> dimension) {
@@ -174,6 +220,20 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
   }
 }
 
+/**
+ * @brief Computes the (i,j) component of the Hessian matrix.
+ *
+ * The component is evaluated as a function of the current variable values
+ * and auxiliary variables.
+ *
+ * @param id Row index of the Hessian matrix.
+ * @param jd Column index of the Hessian matrix.
+ * @param values Values of the current variables.
+ * @param auxiliary_values Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the Hessian component (id, jd).
+ */
 double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
                                              const std::vector<double>& values,
                                              const std::vector<double>& auxiliary_values,
@@ -186,31 +246,59 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
 }
 
 /**
- * @brief  Return the GlobalQuantity associated with the coefficient
+ * @brief  Return the type of the quantity associated with the coefficient
  *
- * @return GlossaryType
+ * @return the type of the quantity.
  */
 inline GlossaryType SlothBaseCoefficient::get_type() const {
   return this->coefficient_quantity_.type;
 }
-
+/**
+ * @brief Returns the quantity associated with the coefficient.
+ *
+ * @return the quantity.
+ */
 inline const GlossaryQuantity SlothBaseCoefficient::get_quantity() {
   return this->coefficient_quantity_;
 }
 
-inline unsigned int SlothBaseCoefficient::get_id() { return this->coefficient_quantity_.id; }
+/**
+ * @brief Returns the ID of the quantity associated with the coefficient.
+ *
+ * @return ID of the associated quantity.
+ */
+inline unsigned int SlothBaseCoefficient::get_id() const { return this->coefficient_quantity_.id; }
 
+/**
+ * @brief Indicates whether the coefficient is discretized with an implicit scheme.
+ *
+ * @return true if the associated scheme is Scheme::Implicit,
+ *         false otherwise.
+ */
 inline bool SlothBaseCoefficient::is_implicit() const { return this->scheme_ == Scheme::Implicit; }
 
+/**
+ * @brief Indicates whether the coefficient is discretized with an explicit scheme.
+ *
+ * @return true if the associated scheme is Scheme::Explicit,
+ *         false otherwise.
+ */
 inline bool SlothBaseCoefficient::is_explicit() const { return this->scheme_ == Scheme::Explicit; }
 
+/**
+ * @brief Indicates whether the coefficient is discretized with a semi-implicit scheme.
+ *
+ * @return true if the associated scheme is Scheme::SemiImplicit,
+ *         false otherwise.
+ */
 inline bool SlothBaseCoefficient::is_semi_implicit() const {
   return this->scheme_ == Scheme::SemiImplicit;
 }
-inline bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Constant; }
 
 /**
- * @brief Destroy the SlothBaseCoefficient::SlothBaseCoefficient object
+ * @brief Indicates whether the coefficient is scalar.
  *
+ * @return true if the associated scheme is Scheme::Constant,
+ *         false otherwise.
  */
-SlothBaseCoefficient::~SlothBaseCoefficient() {}
+inline bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Constant; }

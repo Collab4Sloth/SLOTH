@@ -33,9 +33,13 @@
 #pragma once
 
 /**
+ * @class ConstantCoefficient
+ * @brief Constant-valued coefficient implementation.
  *
- * @brief Constant Coefficient
+ * This class represents a constant scalar-valued coefficient.
  *
+ * The class derives from FunctionCoefficient and overrides the
+ * function, gradient, and Hessian evaluators.
  */
 class ConstantCoefficient : public FunctionCoefficient {
  protected:
@@ -56,28 +60,36 @@ class ConstantCoefficient : public FunctionCoefficient {
 };
 
 /**
+ * @brief Constant-valued function evaluator.
  *
- * @brief C++ function of the expression: constant
+ * The returned function ignores all input arguments and always
+ * returns the stored constant value.
  *
- * @return std::function<double(const std::vector<double>&)>
+ * @param input_vector Spatial or state variables (unused).
+ * @param parameters   Additional parameters (unused).
+ * @param dimension    Spatial dimension (unused).
+ *
+ * @return Constant scalar value.
  */
 std::function<double(const std::vector<double>&, const std::vector<double>&,
                      const unsigned int dimension)>
 ConstantCoefficient::F() {
   auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const unsigned int dimension) {
-    // CCI
-    return this->value_;
-  };
+                  [[maybe_unused]] const unsigned int dimension) { return this->value_; };
   return func;
 }
 
 /**
+ * @brief Gradient evaluator of the constant function.
  *
- * @brief Gradient
+ * The gradient of a constant function is zero everywhere.
  *
- * @return std::function<std::vector<double>(const std::vector<double>&)>
+ * @param input_vector Spatial or state variables.
+ * @param parameters   Additional parameters (unused).
+ * @param dimension    Spatial dimension (unused).
+ *
+ * @return Zero vector of size input_vector.size().
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
                                   const unsigned int dimension)>
@@ -93,11 +105,19 @@ ConstantCoefficient::GradientF() {
 }
 
 /**
+ * @brief Hessian evaluator of the constant function.
  *
- * @brief Hessian
- * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ * The Hessian of a constant function is zero everywhere.
  *
- * @return std::function<std::vector<double>(const std::vector<double>&)>
+ * @remark The Hessian is stored in a flattened vector format:
+ *         H(i,j) is stored at index i * n + j, where n is the
+ *         number of variables.
+ *
+ * @param input_vector Spatial or state variables.
+ * @param parameters   Additional parameters (unused).
+ * @param dimension    Spatial dimension (unused).
+ *
+ * @return Zero-valued Hessian vector.
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
                                   const unsigned int dimension)>

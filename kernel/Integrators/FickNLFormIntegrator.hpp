@@ -39,10 +39,17 @@
 #pragma once
 
 /**
- * @brief  Class dedicated to the FV of the mass diffusion equation
+ * @class FickNLFormIntegrator
+ * @brief Nonlinear form integrator for the right-hand side of the mass diffusion equation
+ *        (Fick's law).
  *
- * @tparam SCHEME
- * @tparam DIFFU_NAME
+ * This integrator assembles the nonlinear form corresponding to the
+ * diffusive mass flux governed by Fick's law. It extends the
+ * DiffusionNLFormIntegrator by providing the appropriate coefficients
+ * required for mass diffusion problems.
+ *
+ * @tparam VARS Template parameter defining the variables used by the
+ *              integrator.
  */
 template <class VARS>
 class FickNLFormIntegrator : public DiffusionNLFormIntegrator<VARS> {
@@ -61,14 +68,23 @@ class FickNLFormIntegrator : public DiffusionNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new FickNLFormIntegrator<SCHEME, COEFFICIENT>::FickNLFormIntegrator
- * object
+ * @brief Construct a new FickNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam COEFFICIENT
- * @param u_old
- * @param alpha
- * @param kappa
+ * This constructor initializes a nonlinear form integrator for the
+ * mass diffusion equation (Fick's law).
+ *
+ * It also sets the internal integrator name to "Fick" and defines
+ * the expected list of glossary types required for this integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Parameters that can be used by the integrator.
+ * @param auxvars      Auxiliary variables required for the integrator.
+ * @param coefficients List of coefficients defining material
+ *                     properties.
+ *
  */
 template <class VARS>
 FickNLFormIntegrator<VARS>::FickNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
@@ -82,10 +98,17 @@ FickNLFormIntegrator<VARS>::FickNLFormIntegrator(const std::vector<mfem::ParGrid
 }
 
 /**
- * @brief Get diffusion coefficients
- * @remark Could be overridden by child classes
+ * @brief Retrieve and store the diffusion coefficients for the integrator.
  *
- * @tparam VARS
+ * This method collects the coefficients of type `GlossaryType::Diffusivity`
+ * from each coefficients and adds them to the internal diffusion
+ * storage. Only the coefficient with ID 0 is considered for each block.
+ *
+ * @remark This method can be overridden by derived classes to provide
+ *         custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void FickNLFormIntegrator<VARS>::get_coefficients() {

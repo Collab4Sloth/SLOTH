@@ -64,14 +64,14 @@ class Coefficients {
   size_t size() noexcept;
   Coefficient operator[](size_t i);
 
-  std::vector<GlossaryType> get_types();
+  std::vector<GlossaryType> get_types() const;
 };
 
 /**
- * @brief Construct a new Coefficients::Coefficients object from a list of Coefficient
+ * @brief Constructs a Coefficients object from a list of Coefficient objects.
  *
- * @tparam Args
- * @param args
+ * @tparam Args Variadic template parameters constrained to Coefficient-compatible types.
+ * @param args List of coefficients used to initialize the container.
  */
 template <CoeffVar<Coefficient>... Args>
   requires((sizeof...(Args) > 0))
@@ -79,30 +79,33 @@ Coefficients::Coefficients(const Args&... args)
     : vect_coefficients_{args...}, vect_coefficient_types_{args.get_type()...} {}
 
 /**
- * @brief Add a new coefficient
+ * @brief Adds a new coefficient to the container.
  *
- * @param coef coefficient to add
+ * @param coef Coefficient to be added.
  */
 void Coefficients::add(Coefficient coef) { this->vect_coefficients_.push_back(std::move(coef)); }
 
 /**
- * @brief get vector of coefficients
+ * @brief Returns the vector of coefficients.
  *
- * @return std::vector<Coefficient>
+ * @return Vector containing all coefficients.
  */
 std::vector<Coefficient> Coefficients::getCoefficients() const { return this->vect_coefficients_; }
 
 /**
- * @brief Return the number of coefficients
+ * @brief Returns the number of coefficients.
  *
- * @return size_t
+ * @return Number of stored coefficients.
  */
 size_t Coefficients::size() noexcept { return this->vect_coefficients_.size(); }
+
 /**
- * @brief Return the i-th coefficient
+ * @brief Returns the i-th coefficient.
  *
- * @param i
- * @return Coefficient&
+ * @param i Index of the coefficient.
+ * @return Reference to the i-th coefficient.
+ *
+ * @throws std::out_of_range if i is out of bounds.
  */
 Coefficient Coefficients::operator[](size_t i) {
   if (i >= vect_coefficients_.size()) throw std::out_of_range("Index out of range");
@@ -110,8 +113,8 @@ Coefficient Coefficients::operator[](size_t i) {
 }
 
 /**
- * @brief Return the vector of GlossaryQuantity associated with the Coefficients
+ * @brief Returns a copy of the glossary types associated with the coefficients.
  *
- * @return std::vector<GlossaryQuantity>
+ * @return Vector of glossary types.
  */
-std::vector<GlossaryType> Coefficients::get_types() { return this->vect_coefficient_types_; }
+std::vector<GlossaryType> Coefficients::get_types() const { return this->vect_coefficient_types_; }
