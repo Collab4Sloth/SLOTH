@@ -28,13 +28,13 @@ class FunctionCoefficient {
  protected:
   // With auxiliary variables
   virtual std::function<double(const std::vector<double>&, const std::vector<double>&,
-                               const int dimension)>
+                               const unsigned int dimension)>
   F() = 0;
   virtual std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                            const int dimension)>
+                                            const unsigned int dimension)>
   GradientF() = 0;
   virtual std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                            const int dimension)>
+                                            const unsigned int dimension)>
   HessianF() = 0;
 
  public:

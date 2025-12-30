@@ -189,7 +189,6 @@ int main(int argc, char* argv[]) {
   std::vector<SPA*> spatials{&spatial};
   AC_OPE oper(spatials, {"AllenCahn", "MeltingTemperature"}, ac_params, TimeScheme::EulerImplicit,
               "TimeDerivative");
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
 
   AC_PB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
 

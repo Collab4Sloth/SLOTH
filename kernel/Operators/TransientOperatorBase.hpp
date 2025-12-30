@@ -66,9 +66,7 @@ class TransientOperatorBase : public OperatorBase<T, DIM>, public mfem::TimeDepe
  protected:
   /// Mass operator
 
-  mfem::ParGridFunction* mass_gf_;
-  mfem::ParBilinearForm* M;              // mass operator
-  mfem::ProductCoefficient* MassCoeff_;  // mass coefficient
+  mfem::ParBilinearForm* M;  // mass operator
   std::shared_ptr<LSolver> mass_matrix_solver_;
   std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix )M
   /// Left-Hand-Side
@@ -79,7 +77,7 @@ class TransientOperatorBase : public OperatorBase<T, DIM>, public mfem::TimeDepe
   mfem::HypreParMatrix* Mmat;
   // CCI
   void build_mass_matrix(const std::vector<mfem::Vector>& u_vect);
-  void build_lhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
+  void build_lhs_nonlinear_form(const std::vector<mfem::Vector>& u);
   bool constant_mass_matrix_{true};
 
   // Reduced Operator
@@ -107,8 +105,6 @@ class TransientOperatorBase : public OperatorBase<T, DIM>, public mfem::TimeDepe
   void Mult(const mfem::Vector& u, mfem::Vector& du_dt) const override;
   void ImplicitSolve(const double dt, const mfem::Vector& u, mfem::Vector& k) override;
 
-  virtual ~TransientOperatorBase() = default;
-
   // User-defined Solvers
   void overload_mass_solver(VSolverType SOLVER);
   void overload_mass_solver(VSolverType SOLVER, const Parameters& s_params);
@@ -118,22 +114,17 @@ class TransientOperatorBase : public OperatorBase<T, DIM>, public mfem::TimeDepe
   void SetExplicitTransientParameters(const std::vector<mfem::Vector>& un_vect);
 
   // Virtual methods
-  void set_default_properties() override = 0;
-
-  virtual void get_mass_coefficient(const mfem::Vector& u);
 
   // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
   void initialize(const double& initial_time, Variables<T, DIM>& vars,
                   std::vector<Variables<T, DIM>*> auxvars) override;
   // Pure virtual methods
-  void SetConstantParameters(const double dt, const std::vector<mfem::Vector>& u_vect) override;
-  void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) override;
+  void SetTransientParameters(const std::vector<mfem::Vector>& u_vect) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
              const double& current_time, double current_time_step, const int iter) override;
   SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
-      const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) override = 0;
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_lhs_nlfi_ptr(const double dt,
-                                                             const std::vector<mfem::Vector>& u);
+      const std::string nlfi, const std::vector<mfem::Vector>& u) override = 0;
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_lhs_nlfi_ptr(const std::vector<mfem::Vector>& u);
 
   void get_parameters() override = 0;
 };
@@ -158,12 +149,10 @@ TransientOperatorBase<T, DIM>::TransientOperatorBase(
     : OperatorBase<T, DIM>(rhs_integrators, spatials),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
-      mass_gf_(nullptr),
+      lhs_integrator_(lhs_integrator),
       M(NULL),
-      MassCoeff_(NULL),
       LHS(NULL),
-      reduced_oper(NULL),
-      lhs_integrator_(lhs_integrator) {
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -187,12 +176,10 @@ TransientOperatorBase<T, DIM>::TransientOperatorBase(
     : OperatorBase<T, DIM>(rhs_integrators, spatials, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
-      mass_gf_(nullptr),
+      lhs_integrator_(lhs_integrator),
       M(NULL),
-      MassCoeff_(NULL),
       LHS(NULL),
-      reduced_oper(NULL),
-      lhs_integrator_(lhs_integrator) {
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -214,12 +201,10 @@ TransientOperatorBase<T, DIM>::TransientOperatorBase(
     : OperatorBase<T, DIM>(rhs_integrators, spatials, params),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
-      mass_gf_(nullptr),
+      lhs_integrator_(lhs_integrator),
       M(NULL),
-      MassCoeff_(NULL),
       LHS(NULL),
-      reduced_oper(NULL),
-      lhs_integrator_(lhs_integrator) {
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -244,12 +229,10 @@ TransientOperatorBase<T, DIM>::TransientOperatorBase(
     : OperatorBase<T, DIM>(rhs_integrators, spatials, params, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
-      mass_gf_(nullptr),
+      lhs_integrator_(lhs_integrator),
       M(NULL),
       LHS(NULL),
-      MassCoeff_(NULL),
-      reduced_oper(NULL),
-      lhs_integrator_(lhs_integrator) {
+      reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
 }
@@ -317,7 +300,8 @@ void TransientOperatorBase<T, DIM>::initialize(const double& initial_time, Varia
 template <class T, int DIM>
 void TransientOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                           double& next_time, const double& current_time,
-                                          double current_time_step, const int iter) {
+                                          double current_time_step,
+                                          [[maybe_unused]] const int iter) {
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
 
@@ -344,15 +328,6 @@ void TransientOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vect
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-template <class T, int DIM>
-void TransientOperatorBase<T, DIM>::get_mass_coefficient(const mfem::Vector& u) {
-  if (this->MassCoeff_ != nullptr) {
-    delete this->MassCoeff_;
-  }
-  auto mass_coefficient = new mfem::ConstantCoefficient(1.0);
-  this->MassCoeff_ = new mfem::ProductCoefficient(*mass_coefficient, *mass_coefficient);
-}
-
 /**
  * @brief build the mass matrix
  *
@@ -370,7 +345,7 @@ void TransientOperatorBase<T, DIM>::build_mass_matrix(const std::vector<mfem::Ve
     // Mass matrix (constant)
     ////////////////
     M = new mfem::ParBilinearForm(this->fes_[i]);
-
+    // TODO(cci) : improve for a*b prefactor
     auto mass_coefficient = mfem::ConstantCoefficient(1.0);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
@@ -398,12 +373,12 @@ void TransientOperatorBase<T, DIM>::build_mass_matrix(const std::vector<mfem::Ve
  */
 template <class T, int DIM>
 void TransientOperatorBase<T, DIM>::build_lhs_nonlinear_form(
-    const double dt, const std::vector<mfem::Vector>& u_vect) {
+    const std::vector<mfem::Vector>& u_vect) {
   if (LHS != nullptr) {
     delete LHS;
   }
   LHS = new mfem::ParBlockNonlinearForm(this->fes_);
-  auto integrator_ptr = this->set_lhs_nlfi_ptr(dt, u_vect);
+  auto integrator_ptr = this->set_lhs_nlfi_ptr(u_vect);
   this->LHS->AddDomainIntegrator(integrator_ptr);
 }
 
@@ -417,7 +392,7 @@ void TransientOperatorBase<T, DIM>::build_lhs_nonlinear_form(
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperatorBase<T, DIM>::set_lhs_nlfi_ptr(
-    const double dt, const std::vector<mfem::Vector>& u) {
+    const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("TransientOperatorBase::set_lhs_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
@@ -441,18 +416,18 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperatorBase<T, DIM>::set_lhs
  */
 template <class T, int DIM>
 void TransientOperatorBase<T, DIM>::SetTransientParameters(
-    const double dt, const std::vector<mfem::Vector>& u_vect) {
+    const std::vector<mfem::Vector>& u_vect) {
   Catch_Time_Section("TransientOperatorBase::SetTransientParameters");
 
   ////////////////////////////////////////////
   // Build the LHS of the PDEs
   ////////////////////////////////////////////
-  this->build_lhs_nonlinear_form(dt, u_vect);
+  this->build_lhs_nonlinear_form(u_vect);
 
   ////////////////////////////////////////////
   //  Build the RHS of the PDEs
   ////////////////////////////////////////////
-  this->build_rhs_nonlinear_form(dt, u_vect);
+  this->build_rhs_nonlinear_form(u_vect);
 
   ////////////////////////////////////////////
   // Build Newton Linear system
@@ -485,20 +460,7 @@ void TransientOperatorBase<T, DIM>::SetExplicitTransientParameters(
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
-  this->build_rhs_nonlinear_form(0., un_vect);
-}
-
-/**
- * @brief Set current dt, unk values - needed to compute action and Jacobian.
- *
- * @param dt time-step
- * @param u unknown vector
- * @param ess_tdof_list array of dofs
- */
-template <class T, int DIM>
-void TransientOperatorBase<T, DIM>::SetConstantParameters(const double dt,
-                                                          const std::vector<mfem::Vector>& u_vect) {
-  Catch_Time_Section("TransientOperatorBase::SetConstantParameters");
+  this->build_rhs_nonlinear_form(un_vect);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -598,7 +560,7 @@ void TransientOperatorBase<T, DIM>::ImplicitSolve(const double dt, const mfem::V
       sc_1 += sc_2;
       v_vect.emplace_back(v_i);
     }
-    this->SetTransientParameters(dt, v_vect);
+    this->SetTransientParameters(v_vect);
   }
   // Apply BCs
   {

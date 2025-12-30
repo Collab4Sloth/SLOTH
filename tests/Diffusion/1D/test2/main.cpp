@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -81,8 +80,8 @@ int main(int argc, char* argv[]) {
     //     variables     //
     // ####################
 
-    auto user_func_init =
-        std::function<double(const mfem::Vector&, double)>([L](const mfem::Vector& x, double time) {
+    auto user_func_init = std::function<double(const mfem::Vector&, double)>(
+        [L](const mfem::Vector& x, [[maybe_unused]] double time) {
           const auto xx = x[0];
           const auto epsilon = 1e-10;
           auto func = 0.5 * (1 + std::tanh((xx - L / 2) / epsilon));
@@ -124,7 +123,6 @@ int main(int argc, char* argv[]) {
     Coefficients CoeffDiffusion(D, FW);
 
     // Problem 1:
-    const auto crit_cvg_1 = 1.e-12;
     std::vector<SPA*> spatials{&spatial};
     OPE oper(spatials, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
 

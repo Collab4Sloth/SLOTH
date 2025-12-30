@@ -115,8 +115,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
 
   /////////////////////////////////////////////////////
 
-  void post_processing(const int& iter, const double& current_time,
-                       const double& current_time_step) override;
+  void post_processing(const int& iter, const double& current_time) override;
   /////////////////////////////////////////////////////
   void finalize() override;
   /////////////////////////////////////////////////////
@@ -508,7 +507,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
  * @param initial_time
  */
 template <class CALPHAD, class VAR, class PST>
-void Calphad_Problem<CALPHAD, VAR, PST>::initialize(const double& initial_time) {
+void Calphad_Problem<CALPHAD, VAR, PST>::initialize([[maybe_unused]] const double& initial_time) {
   this->CC_->initialize(this->sorted_chemical_system_);
 }
 
@@ -617,8 +616,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
  */
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::post_processing(const int& iter,
-                                                         const double& current_time,
-                                                         const double& current_time_step) {
+                                                         const double& current_time) {
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
     if (this->pst_.get_enable_save_specialized_at_iter()) {
@@ -633,7 +631,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::post_processing(const int& iter,
     this->CC_->clear_time_specialized();
   }
   // Save for visualization
-  ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
+  ProblemBase<VAR, PST>::post_processing(iter, current_time);
 }
 
 /**
@@ -709,7 +707,6 @@ Calphad_Problem<CALPHAD, VAR, PST>::get_coordinates() {
 template <class CALPHAD, class VAR, class PST>
 std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>>
 Calphad_Problem<CALPHAD, VAR, PST>::get_molar_fractions() {
-  const auto size_v = this->sorted_chemical_system_.size();
   std::vector<std::tuple<std::string, std::string, mfem::Vector, mfem::Vector>> aux_gf;
   for (const auto& var : this->variables_.getVariables()) {
     const std::string& symbol = toLowerCase(var.get_additional_variable_info().back());
@@ -884,8 +881,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_phasefield() {
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::check_molar_fractions() {
   // Molar fractions by phase for KKS problem
-  const auto size_v = this->sorted_chemical_system_.size();
-  int check_counter = 0;
+  unsigned int size_v = this->sorted_chemical_system_.size();
+  unsigned int check_counter = 0;
   for (const auto& var : this->variables_.getVariables()) {
     const std::string& symbol = toLowerCase(var.get_additional_variable_info().back());
     if (var.get_additional_variable_info().size() == 3 &&

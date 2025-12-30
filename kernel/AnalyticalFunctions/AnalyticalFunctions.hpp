@@ -42,10 +42,9 @@ struct multidimension_function {};
 template <int DIM>
 class AnalyticalFunctions {
  private:
-  template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getHeaviside(Args... args) {
+  std::function<double(const mfem::Vector&, double)> getHeaviside() {
     multidimension_function<DIM> func;
-    return func.getHeaviside(args...);
+    return func.getHeaviside();
   }
 
   template <typename... Args>
@@ -100,23 +99,26 @@ template <>
 struct multidimension_function<1> {
   // Heaviside
   template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getHeaviside(Args... args) {
-    return std::function<double(const mfem::Vector&, double)>([](mfem::Vector x, double time) {
-      if (x[0] < 0.5) {
-        return 0.0;
-      } else {
-        return 1.0;
-      }
-    });
+  std::function<double(const mfem::Vector&, double)> getHeaviside() {
+    return std::function<double(const mfem::Vector&, double)>(
+        [](mfem::Vector x, [[maybe_unused]] double time) {
+          if (x[0] < 0.5) {
+            return 0.0;
+          } else {
+            return 1.0;
+          }
+        });
   }
   // Sinusoide
   template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getSinusoide(Args... args) {
+  [[noreturn]] std::function<double(const mfem::Vector&, double)> getSinusoide(
+      [[maybe_unused]] Args... args) {
     mfem::mfem_error("Not implemented");
   }
   // Sinusoide2
   template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getSinusoide2(Args... args) {
+  [[noreturn]] std::function<double(const mfem::Vector&, double)> getSinusoide2(
+      [[maybe_unused]] Args... args) {
     mfem::mfem_error("Not implemented");
   }
 
@@ -131,7 +133,7 @@ struct multidimension_function<1> {
       const auto radius = v[3];
 
       return std::function<double(const mfem::Vector&, double)>(
-          [center_x, a_x, radius, thickness](const mfem::Vector& x, double time) {
+          [center_x, a_x, radius, thickness](const mfem::Vector& x, [[maybe_unused]] double time) {
             const auto r = a_x * (x[0] - center_x);
             const auto func = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);
             return func;
@@ -154,7 +156,7 @@ struct multidimension_function<1> {
       const auto cond = v[3];
 
       return std::function<double(const mfem::Vector&, double)>(
-          [rmax, fo, cond, lin_pow](const mfem::Vector& x, double time) {
+          [rmax, fo, cond, lin_pow](const mfem::Vector& x, [[maybe_unused]] double time) {
             const auto r2 = x[0] * x[0];
             const auto rmax2 = rmax * rmax;
 
@@ -176,7 +178,9 @@ struct multidimension_function<1> {
     if (v.size() == 1) {
       const auto value = v[0];
       return std::function<double(const mfem::Vector&, double)>(
-          [value](const mfem::Vector& x, double time) { return value; });
+          [value]([[maybe_unused]] const mfem::Vector& x, [[maybe_unused]] double time) {
+            return value;
+          });
     } else {
       mfem::mfem_error("multidimension_function::getUniform: only one argument is expected");
     }
@@ -188,10 +192,9 @@ struct multidimension_function<1> {
 template <>
 struct multidimension_function<2> {
   // Heaviside
-  template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getHeaviside(Args... args) {
+  std::function<double(const mfem::Vector&, double)> getHeaviside() {
     return std::function<double(const mfem::Vector&, double)>(
-        [](const mfem::Vector& x, double time) {
+        [](const mfem::Vector& x, [[maybe_unused]] double time) {
           if (x[0] < 0.5) {
             return 0.0;
           } else {
@@ -250,7 +253,8 @@ struct multidimension_function<2> {
       const auto radius = v[5];
 
       return std::function<double(const mfem::Vector&, double)>(
-          [center_x, center_y, a_x, a_y, radius, thickness](const mfem::Vector& x, double time) {
+          [center_x, center_y, a_x, a_y, radius, thickness](const mfem::Vector& x,
+                                                            [[maybe_unused]] double time) {
             const auto xx = a_x * (x[0] - center_x);
             const auto yy = a_y * (x[1] - center_y);
             const auto r = std::sqrt(xx * xx + yy * yy);
@@ -275,7 +279,7 @@ struct multidimension_function<2> {
       const auto cond = v[3];
 
       return std::function<double(const mfem::Vector&, double)>(
-          [rmax, fo, cond, lin_pow](const mfem::Vector& x, double time) {
+          [rmax, fo, cond, lin_pow](const mfem::Vector& x, [[maybe_unused]] double time) {
             const auto r2 = x[0] * x[0];
             const auto rmax2 = rmax * rmax;
 
@@ -297,7 +301,9 @@ struct multidimension_function<2> {
     if (v.size() == 1) {
       const auto value = v[0];
       return std::function<double(const mfem::Vector&, double)>(
-          [value](const mfem::Vector& x, double time) { return value; });
+          [value]([[maybe_unused]] const mfem::Vector& x, [[maybe_unused]] double time) {
+            return value;
+          });
     } else {
       mfem::mfem_error("multidimension_function::getUniform: only one argument is expected");
     }
@@ -309,10 +315,9 @@ struct multidimension_function<2> {
 template <>
 struct multidimension_function<3> {
   // Heaviside
-  template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getHeaviside(Args... args) {
+  std::function<double(const mfem::Vector&, double)> getHeaviside() {
     return std::function<double(const mfem::Vector&, double)>(
-        [](const mfem::Vector& x, double time) {
+        [](const mfem::Vector& x, [[maybe_unused]] double time) {
           if (x[0] < 0.5) {
             return 0.0;
           } else {
@@ -322,13 +327,15 @@ struct multidimension_function<3> {
   }
   // Sinusoide
   template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getSinusoide(Args... args) {
+  [[noreturn]] std::function<double(const mfem::Vector&, double)> getSinusoide(
+      [[maybe_unused]] Args... args) {
     mfem::mfem_error("Not implemented");
   }
 
   // Sinusoide2
   template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getSinusoide2(Args... args) {
+  [[noreturn]] std::function<double(const mfem::Vector&, double)> getSinusoide2(
+      [[maybe_unused]] Args... args) {
     mfem::mfem_error("Not implemented");
   }
 
@@ -348,8 +355,8 @@ struct multidimension_function<3> {
       const auto radius = v[7];
 
       return std::function<double(const mfem::Vector&, double)>(
-          [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](const mfem::Vector& x,
-                                                                           double time) {
+          [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](
+              const mfem::Vector& x, [[maybe_unused]] double time) {
             const auto xx = a_x * (x[0] - center_x);
             const auto yy = a_y * (x[1] - center_y);
             const auto zz = a_z * (x[2] - center_z);
@@ -366,7 +373,8 @@ struct multidimension_function<3> {
   }
   // PARABOLIC
   template <typename... Args>
-  std::function<double(const mfem::Vector&, double)> getParabolic(Args... args) {
+  [[noreturn]] std::function<double(const mfem::Vector&, double)> getParabolic(
+      [[maybe_unused]] Args... args) {
     mfem::mfem_error("Not implemented");
   }
   // Uniform
@@ -377,7 +385,9 @@ struct multidimension_function<3> {
     if (v.size() == 1) {
       const auto value = v[0];
       return std::function<double(const mfem::Vector&, double)>(
-          [value](const mfem::Vector& x, double time) { return value; });
+          [value]([[maybe_unused]] const mfem::Vector& x, [[maybe_unused]] double time) {
+            return value;
+          });
     } else {
       mfem::mfem_error("multidimension_function::getUniform: only one argument is expected");
     }
@@ -436,7 +446,7 @@ std::function<double(const mfem::Vector&, double)> AnalyticalFunctions<DIM>::get
     AnalyticalFunctionsType::value function_name, Args... args) {
   switch (function_name) {
     case AnalyticalFunctionsType::Heaviside:
-      return this->getHeaviside(args...);
+      return this->getHeaviside();
     case AnalyticalFunctionsType::Sinusoide:
       return this->getSinusoide(args...);
     case AnalyticalFunctionsType::Sinusoide2:

@@ -344,7 +344,7 @@ template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {
   const double u = values[0];
-  const double un = values[1];
+  // const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     coef_value = coef.compute_hessian(iblk, jblk, {u});

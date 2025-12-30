@@ -309,7 +309,7 @@ void KKS<T>::execute_linearization(
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
   std::set<int> indices_inter;
-  for (int i = 0; i < nb_nodes; ++i) {
+  for (unsigned int i = 0; i < nb_nodes; ++i) {
     const double phi = std::clamp(phi_gf[i], 0.0, 1.0);
     const double phi_old = std::clamp(phi_gf_old(i), 0.0, 1.0);
     if (phi > 1 - this->KKS_threshold_) {
@@ -491,7 +491,7 @@ void KKS<T>::execute_linearization(
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
 
   // Cancel before checking nucleation state
-  for (int i = 0; i < nb_nodes; ++i) {
+  for (unsigned int i = 0; i < nb_nodes; ++i) {
     // Must be zero except for nodes detected as  nucleus  in solid
     CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
     // Must be zero except for nodes in interface.

@@ -120,7 +120,6 @@ void TimeCHNLFormIntegrator<VARS>::init() {
 template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
   // Temperature scaling for mobility
-  bool temperature_found = false;
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
@@ -133,7 +132,6 @@ void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
     const std::string& symbol = toUpperCase(variable_info.back());
     if (symbol == "T") {
       this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      temperature_found = true;
       break;
     }
   }
@@ -167,14 +165,12 @@ template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  int num_blocks = el.Size();
   //////////////////////
   // Block 0 R(phi) on mu term
   {
     int blk = 0;
 
     int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
   }
@@ -229,7 +225,6 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
   // loop over diagonal entries
-  int num_blocks = el.Size();
   // block 0 0  dR(phi)dphi
   {
     int blk = 0;
@@ -318,7 +313,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
 template <class VARS>
 double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                                                          const std::vector<double>& values) {
-  const double u = values[0];
+  // const double u = values[0];
   const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {

@@ -38,13 +38,14 @@ class W : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -59,11 +60,12 @@ class W : public FunctionCoefficient {
  *
  * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 W::F() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     double F = std::pow(x, 2) * std::pow(1 - x, 2);
     return this->prefactor_ * F;
@@ -76,14 +78,14 @@ W::F() {
  * @brief Gradient
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 W::GradientF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> gradient(1);
     gradient[0] = this->prefactor_ * (std::pow(x, 2) * (2 * x - 2) + 2 * x * std::pow(1 - x, 2));
@@ -98,14 +100,14 @@ W::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 W::HessianF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> hessian(1);
     hessian[0] =
@@ -125,13 +127,14 @@ class Fw : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -146,11 +149,12 @@ class Fw : public FunctionCoefficient {
  *
  * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 Fw::F() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     double F = ((1.0 / 4.0) * std::pow(x, 2) - 1.0 / 4.0) * (std::pow(x, 2) - 1);
     return this->prefactor_ * F;
@@ -163,14 +167,14 @@ Fw::F() {
  * @brief Gradient
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 Fw::GradientF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> gradient(1);
     gradient[0] = this->prefactor_ * (2 * x * ((1.0 / 4.0) * std::pow(x, 2) - 1.0 / 4.0) +
@@ -186,14 +190,14 @@ Fw::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 Fw::HessianF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> hessian(1);
     hessian[0] = this->prefactor_ * (3 * std::pow(x, 2) - 1);
@@ -212,13 +216,14 @@ class H : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -233,11 +238,12 @@ class H : public FunctionCoefficient {
  *
  * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 H::F() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     double F = std::pow(x, 3) * (6 * std::pow(x, 2) - 15 * x + 10);
     return this->prefactor_ * F;
@@ -250,14 +256,14 @@ H::F() {
  * @brief Gradient
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 H::GradientF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> gradient(1);
     gradient[0] = this->prefactor_ * (std::pow(x, 3) * (12 * x - 15) +
@@ -273,14 +279,14 @@ H::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 H::HessianF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> hessian(1);
     hessian[0] = this->prefactor_ * (12 * std::pow(x, 3) + 6 * std::pow(x, 2) * (12 * x - 15) +
@@ -300,13 +306,14 @@ class Log : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -321,11 +328,12 @@ class Log : public FunctionCoefficient {
  *
  * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 Log::F() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
     double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
     double F = x * std::log(x) + (1 - x) * std::log(1 - x);
@@ -339,14 +347,14 @@ Log::F() {
  * @brief Gradient
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 Log::GradientF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
     double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
     std::vector<double> gradient(1);
@@ -362,14 +370,14 @@ Log::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 Log::HessianF() {
   auto func = [&](const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
     double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
     std::vector<double> hessian(1);
@@ -389,13 +397,14 @@ class GradientEnergy : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -410,10 +419,11 @@ class GradientEnergy : public FunctionCoefficient {
  *
  * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 GradientEnergy::F() {
   auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&, const int dimension) {
+                  [[maybe_unused]] const std::vector<double>&, const unsigned int dimension) {
     std::vector<double> x;
     for (unsigned int i = 0; i < dimension; i++) x.push_back(input_vector[0 * dimension + i]);
     double F = 0.5 * std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
@@ -427,14 +437,14 @@ GradientEnergy::F() {
  * @brief Gradient
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 GradientEnergy::GradientF() {
   auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> gradient(1, 0.0);
     return gradient;
   };
@@ -447,14 +457,14 @@ GradientEnergy::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const int dimension)>
+ * const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 GradientEnergy::HessianF() {
   auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> hessian(1, 0.0);
     return hessian;
   };

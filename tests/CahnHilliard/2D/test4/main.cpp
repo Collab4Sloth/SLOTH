@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -62,7 +61,7 @@ int main(int argc, char* argv[]) {
   // std::vector<int> vect_order{1, 2};
   std::vector<int> vect_order{1};
   std::vector<int> vect_NN{30, 60, 90, 120};
-  for (const auto elem_type : vect_elem) {
+  for (const auto& elem_type : vect_elem) {
     for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {
         const int order_fe = order;      // finite element order

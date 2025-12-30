@@ -25,7 +25,6 @@
 #include "Coefficients/ExprTkSloth.hpp"
 #endif
 #include "Coefficients/FunctionCoefficient.hpp"
-#include "Coefficients/PhaseChangeFunction.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"

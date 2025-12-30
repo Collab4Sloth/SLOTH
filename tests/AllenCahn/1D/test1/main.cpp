@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -98,7 +97,7 @@ int main(int argc, char* argv[]) {
   const auto& radius = 5.e-4;
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [center_x, a_x, radius, thickness](const mfem::Vector& x, double time) {
+      [center_x, a_x, radius, thickness](const mfem::Vector& x, [[maybe_unused]] double time) {
         const auto xx = a_x * (x[0] - center_x);
         const auto r = xx;
         const auto func = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);

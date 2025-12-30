@@ -66,24 +66,22 @@ class SteadyOperatorBase : public OperatorBase<T, DIM> {
                      const std::vector<std::string>& integrators, const Parameters& params,
                      std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
-  void Mult(const mfem::Vector& k, mfem::Vector& y) const override;
+  void Mult([[maybe_unused]] const mfem::Vector& k, [[maybe_unused]] mfem::Vector& y)
+      const override {  // Nothing to be done because of manage by steadyreducedoperator
+  }
   // mfem::Operator &GetGradient(const mfem::Vector &k) const override;
 
-  virtual ~SteadyOperatorBase();
-
   // Virtual methods
-  void set_default_properties() override = 0;
 
   // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
   void initialize(const double& initial_time, Variables<T, DIM>& vars,
                   std::vector<Variables<T, DIM>*> auxvars) override;
   // Pure virtual methods
-  void SetConstantParameters(const double dt, const std::vector<mfem::Vector>& u_vect) override;
-  void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vet) override;
+  void SetTransientParameters(const std::vector<mfem::Vector>& u_vet) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
              const double& current_time, double dt, const int iter) override;
   SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
-      const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) override = 0;
+      const std::string nlfi, const std::vector<mfem::Vector>& u) override = 0;
   void get_parameters() override = 0;
 };
 
@@ -209,7 +207,7 @@ void SteadyOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>
     u_vect.emplace_back(unk_i);
   }
 
-  this->SetTransientParameters(dt, u_vect);
+  this->SetTransientParameters(u_vect);
 
   /// Apply BCs: check if need to be uncomment
   // for (size_t i = 0; i < unk_size; i++) {
@@ -249,33 +247,18 @@ void SteadyOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>
 
 /**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
- *
- * @tparam T
- * @tparam DIM
- * @param dt
- * @param u
- */
-template <class T, int DIM>
-void SteadyOperatorBase<T, DIM>::SetConstantParameters(const double dt,
-                                                       const std::vector<mfem::Vector>& u_vect) {
-  // Catch_Time_Section("OperatorBase::SetConstantParameters");
-  // Nothing to be done
-}
-/**
- * @brief Set current dt, unk values - needed to compute action and Jacobian.
  *solution_coef
  * @param dt time-step
  * @param u unknown vector
  */
 template <class T, int DIM>
-void SteadyOperatorBase<T, DIM>::SetTransientParameters(const double dt,
-                                                        const std::vector<mfem::Vector>& u_vect) {
+void SteadyOperatorBase<T, DIM>::SetTransientParameters(const std::vector<mfem::Vector>& u_vect) {
   Catch_Time_Section("SteadyOperatorBase::SetTransientParameters");
 
   ////////////////////////////////////////////
   //  Build the RHS of the PDEs
   ////////////////////////////////////////////
-  this->build_rhs_nonlinear_form(dt, u_vect);
+  this->build_rhs_nonlinear_form(u_vect);
 
   ////////////////////////////////////////////
   // Build Newton Linear system
@@ -294,26 +277,3 @@ void SteadyOperatorBase<T, DIM>::SetTransientParameters(const double dt,
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-
-/**
- * @brief Compute RHS
- *
- * @tparam T
- * @tparam DIM
- * @param k
- * @param y
- */
-template <class T, int DIM>
-void SteadyOperatorBase<T, DIM>::Mult(const mfem::Vector& k, mfem::Vector& y) const {
-  // Nothing to be done because of manage by steadyreducedoperator
-}
-
-/**
- * @brief Destroy the Steady Phase Field Operator Base< T,  DIM,  NLFI>:: Steady Phase Field
- * Operator Base object
- *
- * @tparam T
- * @tparam DIM
- */
-template <class T, int DIM>
-SteadyOperatorBase<T, DIM>::~SteadyOperatorBase() {}

@@ -47,7 +47,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -69,7 +68,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles"};
   std::vector<int> vect_order{2, 1};
   std::vector<int> vect_NN{160, 80, 40, 20};
-  for (const auto elem_type : vect_elem) {
+  for (const auto& elem_type : vect_elem) {
     for (const auto order_fe : vect_order) {
       for (const auto NN : vect_NN) {
         const int nx = NN;
@@ -157,7 +156,9 @@ int main(int argc, char* argv[]) {
               return func;
             });
         auto user_func_source_term2 = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& v, double time) { return 0.; });
+            []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
+              return 0.;
+            });
 
         auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
         auto phi_analytical_condition = AnalyticalFunctions<DIM>(user_func_solution);
@@ -182,7 +183,6 @@ int main(int argc, char* argv[]) {
         const int level_of_detail = 1;
         const int frequency = 1;
         std::string calculation_path = "Problem1";
-        const double threshold = 10.;
         std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
             {var_name_1, {-10.1, 10.1}}};
         bool enable_save_specialized_at_iter = true;

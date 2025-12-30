@@ -12,11 +12,11 @@
 //---------------------------------------
 // Headers
 //---------------------------------------
+#include <cmath>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "boost/math/special_functions/bessel.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -99,9 +99,9 @@ int main(int argc, char* argv[]) {
         const double radius = std::sqrt(vcoord[0] * vcoord[0]);
         auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
         auto chia = chi * pellet_radius;
-        auto I1_chia = boost::math::cyl_bessel_i(1, chia);
+        auto I1_chia = std::cyl_bessel_i(1, chia);
         auto chir = chi * radius;  //  (pellet_radius - radius);
-        auto I0_chir = boost::math::cyl_bessel_i(0, chir);
+        auto I0_chir = std::cyl_bessel_i(0, chir);
         const auto bess = chia * I0_chir / (2. * I1_chia);
         const auto func = pl * bess / (M_PI * 2. * pellet_radius * pellet_radius);
 

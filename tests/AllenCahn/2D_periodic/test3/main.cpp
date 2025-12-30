@@ -36,7 +36,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -84,10 +83,6 @@ int main(int argc, char* argv[]) {
       // ####################
       //     parameters    //
       // ####################
-      //  Interface thickness
-      const auto& epsilon(1.);
-      // Interfacial energy
-      const auto& sigma(1.);
       // Two-phase mobility
       const auto& mob(1.);
       const auto& lambda = 1.;
@@ -102,14 +97,14 @@ int main(int argc, char* argv[]) {
       // ####################
 
       auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& v, double time) {
+          [](const mfem::Vector& v, [[maybe_unused]] double time) {
             const double x = v[0];
             const double y = v[1];
             const auto func = std::pow(std::sin(2 * x), 2) * std::pow(std::cos(3 * y), 2);
             return func;
           });
       auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& v, double time) {
+          [](const mfem::Vector& v, [[maybe_unused]] double time) {
             const double x = v[0];
             const double y = v[1];
             const double H = 1.;

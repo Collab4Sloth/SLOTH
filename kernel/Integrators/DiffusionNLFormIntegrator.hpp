@@ -57,7 +57,6 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   void get_coefficients() override = 0;
   void init() override;
 
-
  public:
   DiffusionNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
                             const Parameters& params, std::vector<VARS*> auxvars,
@@ -242,7 +241,6 @@ template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
     Coefficient coef, const int blk, const std::vector<double>& values) {
   const double u = values[0];
-  const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     coef_value = coef.compute_gradient(blk, {u});

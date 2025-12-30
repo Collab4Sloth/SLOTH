@@ -129,7 +129,7 @@ struct GlossaryQuantity {
    */
   GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d) : GlossaryQuantity(t, u, d, 0) {}
   GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d, unsigned int id_qty)
-      : type(t), unit(u), description(d), id(id_qty) {}
+      : type(t), unit(u), id(id_qty), description(d) {}
 
   GlossaryType type;
   GlossaryUnit unit;

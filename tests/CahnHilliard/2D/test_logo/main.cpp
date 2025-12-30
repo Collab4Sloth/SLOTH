@@ -94,8 +94,8 @@ int main(int argc, char* argv[]) {
   //     variables     //
   // ####################
 
-  auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         double co = 0.5;
         double epsilon = 0.01;
         double xx = x[0];

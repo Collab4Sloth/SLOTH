@@ -39,7 +39,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -82,8 +81,6 @@ int main(int argc, char* argv[]) {
       // ####################
       //     parameters    //
       // ####################
-      const auto& epsilon(1.);
-      const auto& sigma(1.);
       const auto& mob(1.);
       const auto& lambda(0.0004);
       const auto& omega(1.);

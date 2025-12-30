@@ -210,8 +210,9 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
  */
 template <class VARS>
 double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir, unsigned int blk,
-    const double u, const double un) {
+    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const double u,
+    [[maybe_unused]] const double un) {
   double primary_dgm = -1.;
   double secondary_dgm = -1.;
   if (this->dgm_.size() == 2) {
@@ -227,8 +228,9 @@ double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
 template <class VARS>
 double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(mfem::ElementTransformation& Tr,
                                                             const mfem::IntegrationPoint& ir,
-                                                            unsigned int blk, const double u,
-                                                            const double un) {
+                                                            [[maybe_unused]] unsigned int blk,
+                                                            [[maybe_unused]] const double u,
+                                                            [[maybe_unused]] const double un) {
   // Nucleus must be equal to zero except when phase transition starts
   const double seed = -this->nucleus_[0].GetValue(Tr, ir);
 

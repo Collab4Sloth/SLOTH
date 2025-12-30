@@ -121,7 +121,6 @@ void TimeNLFormIntegrator<VARS>::init() {
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
   // Temperature scaling for mobility
-  bool temperature_found = false;
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
@@ -134,7 +133,6 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
     const std::string& symbol = toUpperCase(variable_info.back());
     if (symbol == "T") {
       this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      temperature_found = true;
       break;
     }
   }
@@ -276,7 +274,7 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
 template <class VARS>
 double TimeNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                                                        const std::vector<double>& values) {
-  const double u = values[0];
+  // const double u = values[0];
   const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {

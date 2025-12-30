@@ -290,7 +290,7 @@ template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {
   const double u = values[0];
-  const double un = values[1];
+  // const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     coef_value = coef.compute_hessian(iblk, jblk, {u});
@@ -298,10 +298,10 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
   return coef_value;
 }
 template <class VARS>
-double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(mfem::ElementTransformation& Tr,
-                                                         const mfem::IntegrationPoint& ir,
-                                                         unsigned int blk, const double u,
-                                                         const double un) {
+double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(
+    [[maybe_unused]] mfem::ElementTransformation& Tr,
+    [[maybe_unused]] const mfem::IntegrationPoint& ir, [[maybe_unused]] unsigned int blk,
+    [[maybe_unused]] const double u, [[maybe_unused]] const double un) {
   // Nucleus must be equal to zero except when phase transition starts
   const double seed = 0.0;
 

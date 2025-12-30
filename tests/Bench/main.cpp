@@ -117,7 +117,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -125,7 +124,6 @@ int main(int argc, char* argv[]) {
 
   using OPE = PhaseFieldOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
 
   // ################ //
   // ################ //
@@ -155,7 +153,7 @@ int main(int argc, char* argv[]) {
   const double ly = 2. * M_PI;
   const double lz = 2. * M_PI;
   const std::tuple<int, int, int, double, double, double>& tuple_of_dimensions = std::make_tuple(
-      nx, ny, nz, lx, ly, ly);  // Number of elements and maximum length in each direction
+      nx, ny, nz, lx, ly, lz);  // Number of elements and maximum length in each direction
 
   SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   print_mesh_information(*(spatial.get_mesh()), *(spatial.get_finite_element_space()));
@@ -182,8 +180,6 @@ int main(int argc, char* argv[]) {
   // ####################
   //  Interface thickness
   const double epsilon(0.02);
-  // Interfacial energy
-  const double sigma(1.);
   // Two-phase mobility
   const double mob(1.);
   const double lambda = (epsilon * epsilon);
@@ -217,8 +213,8 @@ int main(int argc, char* argv[]) {
         return sol;
       });
 
-  auto mu_user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto mu_user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         const double xx = x[0];
         const double yy = x[1];
         const double zz = x[2];
@@ -253,7 +249,6 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
   std::string calculation_path = "CahnHilliard";
-  const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
       {var_name_1, {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;

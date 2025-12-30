@@ -39,13 +39,14 @@
  */
 class ConstantCoefficient : public FunctionCoefficient {
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -60,11 +61,12 @@ class ConstantCoefficient : public FunctionCoefficient {
  *
  * @return std::function<double(const std::vector<double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 ConstantCoefficient::F() {
   auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
                   [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     // CCI
     return this->value_;
   };
@@ -78,11 +80,11 @@ ConstantCoefficient::F() {
  * @return std::function<std::vector<double>(const std::vector<double>&)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 ConstantCoefficient::GradientF() {
   auto func = [](const std::vector<double>& input_vector,
                  [[maybe_unused]] const std::vector<double>&,
-                 [[maybe_unused]] const int dimension) {
+                 [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
     std::vector<double> gradient(size, 0.0);
     return gradient;
@@ -98,11 +100,11 @@ ConstantCoefficient::GradientF() {
  * @return std::function<std::vector<double>(const std::vector<double>&)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 ConstantCoefficient::HessianF() {
   auto func = [](const std::vector<double>& input_vector,
                  [[maybe_unused]] const std::vector<double>&,
-                 [[maybe_unused]] const int dimension) {
+                 [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
     std::vector<double> hessian(size, 0.0);
     return hessian;

@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -81,18 +80,15 @@ int main(int argc, char* argv[]) {
     //     variables     //
     // ####################
 
-    auto user_func_init = std::function<double(const mfem::Vector&, double)>(
-        [](const mfem::Vector& x, double time) { return 0.; });
-
     auto user_func_analytical = std::function<double(const mfem::Vector&, double)>(
-        [L, diffusionCoeff](const mfem::Vector& x, double time) {
+        [diffusionCoeff](const mfem::Vector& x, double time) {
           const auto xx = x[0];
           const auto L_c = std::sqrt(4 * diffusionCoeff * time);
           const auto func = (1 - std::erf((xx) / L_c));
           return func;
         });
 
-    auto initial_condition = AnalyticalFunctions<DIM>(user_func_init);
+    auto initial_condition = 0.;
     auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
     auto vars = VARS(
@@ -119,7 +115,6 @@ int main(int argc, char* argv[]) {
     Coefficients CoeffDiffusion(D, FW);
 
     // Problem 1:
-    const auto crit_cvg_1 = 1.e-12;
     std::vector<SPA*> spatials{&spatial};
     OPE oper(spatials, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
 

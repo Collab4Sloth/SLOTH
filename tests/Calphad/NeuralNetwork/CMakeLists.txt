@@ -1,3 +1,7 @@
 add_subdirectory(test1)
 add_subdirectory(test2)
-add_subdirectory(test3)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_subdirectory(test3)
+else()
+    message(STATUS "Skipping Calphad/NeuralNetwork/test3 (Linux only)")
+endif()

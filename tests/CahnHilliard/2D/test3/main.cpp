@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -108,8 +107,8 @@ int main(int argc, char* argv[]) {
   //     variables     //
   // ####################
 
-  auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         const double xx = x[0];
         const double yy = x[1];
         double sol = 0.;
@@ -139,7 +138,6 @@ int main(int argc, char* argv[]) {
   const int level_of_detail = 1;
   const int frequency = 1;
   std::string calculation_path = "CahnHilliard";
-  const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
       {var_name_1, {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;

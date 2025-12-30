@@ -68,13 +68,14 @@ class ExprTkCoefficient : public FunctionCoefficient {
   void build_hessian();
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+  std::function<double(const std::vector<double>&, const std::vector<double>&,
+                       const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                    const int dimension)>
+                                    const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -170,10 +171,11 @@ ExprTkCoefficient::ExprTkCoefficient(std::vector<std::string> hess_functions,
  * @param args
  * @return T
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&, const int dimension)>
+std::function<double(const std::vector<double>&, const std::vector<double>&,
+                     const unsigned int dimension)>
 ExprTkCoefficient::F() {
   auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     if (this->variable_names_.size() > 0) {
       if (values.size() != this->variable_names_.size()) {
         throw std::runtime_error("Number of variables not consistent with analytical expression");
@@ -193,10 +195,10 @@ ExprTkCoefficient::F() {
  * @return std::function<std::vector<double>(const std::vector<double>&)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 ExprTkCoefficient::GradientF() {
   auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     const auto n = values.size();
     std::vector<double> gradient(n, 0.0);
     if (this->gradient_expression_parser_.size() > 0) {
@@ -221,10 +223,10 @@ ExprTkCoefficient::GradientF() {
  * @return std::function<std::vector<double>(const std::vector<double>&)>
  */
 std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
-                                  const int dimension)>
+                                  const unsigned int dimension)>
 ExprTkCoefficient::HessianF() {
   auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
-                  [[maybe_unused]] const int dimension) {
+                  [[maybe_unused]] const unsigned int dimension) {
     const auto n = values.size();
     std::vector<double> hessian(n * n, 0.0);
     if (this->hessian_expression_parser_.size() > 0) {

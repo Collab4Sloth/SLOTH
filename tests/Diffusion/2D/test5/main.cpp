@@ -39,7 +39,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -47,7 +46,6 @@ int main(int argc, char* argv[]) {
   // Meshing & Boundary Conditions
   //---------------------------------------
   const int refinement_level = 0;
-  const int fe_order = 1;
   auto length = 1.e-3;
   auto nb_fe = 30;
 
@@ -71,7 +69,7 @@ int main(int argc, char* argv[]) {
   const auto& dt = 0.05;
 
   auto user_func_init = std::function<double(const mfem::Vector&, double)>(
-      [length, diffusionCoeff, dt](const mfem::Vector& x, double time) {
+      [length, diffusionCoeff, dt](const mfem::Vector& x, [[maybe_unused]] double time) {
         const auto xx = x[0];
         auto func =
             0.5 * (1 + 0.5 * std::erf((xx - length / 2) / std::sqrt(4 * diffusionCoeff * 5. * dt)));
@@ -80,8 +78,7 @@ int main(int argc, char* argv[]) {
       });
 
   auto user_func_init_b = std::function<double(const mfem::Vector&, double)>(
-      [length, diffusionCoeff, dt](const mfem::Vector& x, double time) {
-        const auto xx = x[0];
+      []([[maybe_unused]] const mfem::Vector& x, [[maybe_unused]] double time) {
         auto func = 0.1;
 
         return func;

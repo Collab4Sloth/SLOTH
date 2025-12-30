@@ -209,7 +209,6 @@ std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const in
                                                                         GlossaryType type,
                                                                         unsigned int id) {
   Coefficients coefficients = this->coefficients_[blk];
-  bool coefficient_found = false;
 
   for (unsigned int i = 0; i < coefficients.size(); i++) {
     auto coef = coefficients[i];

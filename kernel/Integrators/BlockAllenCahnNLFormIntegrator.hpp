@@ -234,7 +234,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
   //
   {
     int blk = 1;
-    int off_blk = 0;
+    // int off_blk = 0;
     mfem::DenseMatrix gradPsi;
     mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
@@ -253,7 +253,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       Tr.SetIntPoint(&ip);
 
       const auto& eta = *elfun[blk] * Psi;
-      const auto& phi = *elfun[off_blk] * Psi;
+      // const auto& phi = *elfun[off_blk] * Psi;
       const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
       const double coef_mob = mobility[blk].compute() * ip.weight * Tr.Weight();
@@ -281,9 +281,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // loop over diagonal entries
-  int num_blocks = el.Size();
-
   // Block 0  0 dR(phi)dphi = d(eta psi + w'psi + lambda grad phi grad psi)/dphi
 
   {
@@ -365,7 +362,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
   // Block 1 1  dR(eta)deta=dR(eta)dphi=d(M eta)/deta
   {
     int blk = 1;
-    int off_blk = 0;
+    // int off_blk = 0;
     mfem::DenseMatrix gradPsi;
     mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
@@ -384,7 +381,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& phi = *elfun[off_blk] * Psi;
+      // const auto& phi = *elfun[off_blk] * Psi;
       const double coef_mob = -mobility[blk].compute() * ip.weight * Tr.Weight();
 
       AddMult_a_VVt(coef_mob, Psi, *elmats(blk, blk));
@@ -421,7 +418,6 @@ template <class VARS>
 double BlockAllenCahnNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {
   const double u = values[0];
-  const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     coef_value = coef.compute_hessian(iblk, jblk, {u});

@@ -25,6 +25,7 @@
  */
 #include <algorithm>
 #include <any>
+#include <concepts>
 #include <limits>
 #include <map>
 #include <optional>
@@ -37,14 +38,18 @@
 #include "Parameters/Parameter.hpp"
 #pragma once
 
+template <typename T>
+concept ParameterType = std::same_as<std::remove_cvref_t<T>, Parameter>;
 class Parameters {
  private:
   std::vector<Parameter> vect_params_;
 
  public:
   template <typename... Args>
+    requires(ParameterType<Args> && ...)
   explicit Parameters(Args&&... args);
   explicit Parameters(const std::vector<Parameter>& vect_params);
+  virtual ~Parameters() = default;
 
   std::optional<Parameter> get_parameter(const std::string& name) const;
   template <typename T>
@@ -117,8 +122,6 @@ class Parameters {
 
     return Parameters(initial_vect);
   }
-
-  virtual ~Parameters() = default;
 };
 
 /**
@@ -128,9 +131,8 @@ class Parameters {
  * @param args
  */
 template <typename... Args>
-Parameters::Parameters(Args&&... args) {
-  this->vect_params_ = std::vector<Parameter>{std::forward<Args>(args)...};
-}
+  requires(ParameterType<Args> && ...)
+Parameters::Parameters(Args&&... args) : vect_params_{std::forward<Args>(args)...} {}
 
 /**
  * @brief Construct a new Parameters:: Parameters object

@@ -83,8 +83,6 @@ class Property_problem : public ProblemBase<VAR, PST> {
   template <PbVar<VAR>... Args>
   Property_problem(const Parameters& params, VAR& variables, PST& pst, Args&&... auxvariable);
 
-  void initialize(const double& initial_time) override;
-
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
                     const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info) override;
@@ -277,17 +275,6 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
 }
 
 /**
- * @brief Initialization of the problem
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @param initial_time
- */
-template <class PROPERTY, class VAR, class PST>
-void Property_problem<PROPERTY, VAR, PST>::initialize(const double& initial_time) {}
-
-/**
  * @brief  Do a time-step by calling the compute method of the property
 
  *
@@ -304,8 +291,8 @@ void Property_problem<PROPERTY, VAR, PST>::initialize(const double& initial_time
  */
 template <class PROPERTY, class VAR, class PST>
 void Property_problem<PROPERTY, VAR, PST>::do_time_step(
-    double& next_time, const double& current_time, double current_time_step, const int iter,
-    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+    double& next_time, const double& current_time, double current_time_step,
+    [[maybe_unused]] const int iter, std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
     const std::vector<std::vector<std::string>>& unks_info) {
   // Get outputs (primary variables)
   std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>

@@ -18,7 +18,6 @@
 
 #include "kernel/Coefficients/Coefficient.hpp"
 #include "kernel/Coefficients/Coefficients.hpp"
-#include "kernel/Coefficients/EnergyCoefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -43,7 +42,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -79,7 +77,7 @@ int main(int argc, char* argv[]) {
   // ####################
   std::vector<Coefficients> coeffs;
   Coefficient D(Glossary::Diffusivity, Scheme::Implicit, "-1");
-  Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, energylog());
+  Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
   Coefficients CoeffDiffusion(D, FW);
   coeffs.emplace_back(CoeffDiffusion);
   // ####################
@@ -106,8 +104,8 @@ int main(int argc, char* argv[]) {
   //     operators     //
   // ####################
 
-  auto user_func_source_term =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& v, double time) {
+  auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
+      []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
         const auto func = 1.;
         return func;
       });

@@ -213,8 +213,6 @@ int main(int argc, char* argv[]) {
                           Parameters(Parameter("description", "Newton solver "),
                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-20)));
 
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
-
   AC_PB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
 
   // Heat:

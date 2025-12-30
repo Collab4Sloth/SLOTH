@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -77,10 +76,6 @@ int main(int argc, char* argv[]) {
   // ####################
   //     parameters    //
   // ####################
-  //  Interface thickness
-  const auto& epsilon(1.);
-  // Interfacial energy
-  const auto& sigma(6.e-2);
   // Two-phase mobility
   const auto& mob(1.e-2);
   const auto& lambda = 1.;
@@ -93,14 +88,8 @@ int main(int argc, char* argv[]) {
   // ####################
   //     variables     //
   // ####################
-  const auto& center_x = 0.;
-  const auto& center_y = 0.;
-  const auto& a_x = 1.;
-  const auto& a_y = 0.;
-  const auto& thickness = 1.e-1;
-  const auto& radius = 5.e-1;
-  auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         if (x[0] > 0.5) {
           return 1.0;
         } else {

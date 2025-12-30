@@ -104,7 +104,7 @@ class OperatorBase : public mfem::Operator {
   std::vector<std::string> rhs_integrators_;
   std::vector<SlothNLFormIntegrator<Variables<T, DIM>>*> nlfi_ptr_;
 
-  void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
+  void build_rhs_nonlinear_form(const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
 
   int compute_total_height(const std::vector<SpatialDiscretization<T, DIM>*>& spatials);
@@ -129,6 +129,8 @@ class OperatorBase : public mfem::Operator {
 
   void set_coefficients(const std::vector<Coefficients>& coefficients,
                         bool enable_compute_energies);
+
+  inline double get_current_time_step() const { return current_dt_; }
 
   void ComputeError(const int& it, const double& t, const double& dt, const int id_var,
                     const std::string& name, const mfem::Vector& u,
@@ -172,13 +174,11 @@ class OperatorBase : public mfem::Operator {
                           std::vector<Variables<T, DIM>*> auxvars);
 
   // Pure virtual methods
-  virtual void set_default_properties() = 0;
-  virtual void SetConstantParameters(const double dt, const std::vector<mfem::Vector>& u_vect) = 0;
-  virtual void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) = 0;
+  virtual void SetTransientParameters(const std::vector<mfem::Vector>& u_vect) = 0;
   virtual void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
                      const double& current_time, double current_time_step, const int iter) = 0;
   virtual SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
-      const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) = 0;
+      const std::string nlfi, const std::vector<mfem::Vector>& u) = 0;
   virtual void get_parameters() = 0;
 };
 
@@ -262,12 +262,12 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
                                    std::vector<SpatialDiscretization<T, DIM>*> spatials)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
       params_(default_params_),
-      rhs_integrators_(integrators),
       RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      rhs_integrators_(integrators) {
   this->fes_.SetSize(spatials.size());
   this->bcs_.reserve(spatials.size());
   this->ess_tdof_list_.reserve(spatials.size());
@@ -297,13 +297,13 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
                                    std::vector<SpatialDiscretization<T, DIM>*> spatials,
                                    const std::vector<AnalyticalFunctions<DIM>>& source_term_name)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
-      rhs_integrators_(integrators),
       params_(default_params_),
       RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      rhs_integrators_(integrators) {
   this->fes_.SetSize(spatials.size());
   this->bcs_.reserve(spatials.size());
   this->ess_tdof_list_.reserve(spatials.size());
@@ -337,13 +337,13 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
                                    std::vector<SpatialDiscretization<T, DIM>*> spatials,
                                    const Parameters& params)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
-      rhs_integrators_(integrators),
       params_(params),
       RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      rhs_integrators_(integrators) {
   this->fes_.SetSize(spatials.size());
   this->bcs_.reserve(spatials.size());
   this->ess_tdof_list_.reserve(spatials.size());
@@ -378,13 +378,13 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
                                    const Parameters& params,
                                    const std::vector<AnalyticalFunctions<DIM>>& source_term_name)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
-      rhs_integrators_(integrators),
       params_(params),
       RHS(NULL),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
-      z(height) {
+      z(height),
+      rhs_integrators_(integrators) {
   this->fes_.SetSize(spatials.size());
   this->bcs_.reserve(spatials.size());
   this->ess_tdof_list_.reserve(spatials.size());
@@ -415,7 +415,8 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
  * @param vars
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::initialize(const double& initial_time, Variables<T, DIM>& vars,
+void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_time,
+                                      Variables<T, DIM>& vars,
                                       std::vector<Variables<T, DIM>*> auxvars) {
   Catch_Time_Section("OperatorBase::initialize");
 
@@ -433,8 +434,7 @@ void OperatorBase<T, DIM>::initialize(const double& initial_time, Variables<T, D
     vv.update(u);
     u_vect.emplace_back(u);
   }
-  this->SetConstantParameters(this->current_dt_, u_vect);
-  this->SetTransientParameters(this->current_dt_, u_vect);
+  this->SetTransientParameters(u_vect);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -450,14 +450,13 @@ void OperatorBase<T, DIM>::initialize(const double& initial_time, Variables<T, D
  * @param u
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
-                                                    const std::vector<mfem::Vector>& u_vect) {
+void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vector>& u_vect) {
   if (this->RHS != nullptr) {
     delete this->RHS;
   }
   this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
   for (const std::string s_integrator : this->rhs_integrators_) {
-    auto integrator_ptr = this->set_nlfi_ptr(s_integrator, dt, u_vect);
+    auto integrator_ptr = this->set_nlfi_ptr(s_integrator, u_vect);
     this->RHS->AddDomainIntegrator(integrator_ptr);
   }
 }
@@ -629,7 +628,6 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
   }
   const int m = vun.size();
   const int l = vaux.size();
-  const int nodes = vun[0].Size();
   std::vector<mfem::real_t> v1(m);
   std::vector<mfem::real_t> v2(l);
 
@@ -668,7 +666,6 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
   for (int i = 0; i < this->fes_[0]->GetNE(); i++) {
     fe = this->fes_[0]->GetFE(i);
 
-    int nd = fe->GetDof();
     unsigned int dim = fe->GetDim();
     std::vector<mfem::real_t> grad_vun_ip(m * dim);
     std::vector<mfem::real_t> grad_vaux_ip(l * dim);

@@ -243,7 +243,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_name);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_name);
@@ -402,7 +401,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_name);

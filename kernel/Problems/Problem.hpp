@@ -73,18 +73,9 @@ class Problem : public ProblemBase<VAR, PST> {
                     const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info) override;
 
-  void post_execute(const int& iter, const double& current_time,
-                    const double& current_time_step) override;
-  /////////////////////////////////////////////////////
-
-  void post_processing(const int& iter, const double& current_time,
-                       const double& current_time_step) override;
+  void post_processing(const int& iter, const double& current_time) override;
 
   void finalize() override;
-
-  /////////////////////////////////////////////////////
-
-  ~Problem();
 };
 
 /**
@@ -193,20 +184,6 @@ void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
 }
 
 /**
- * @brief Compute Error and Energies associated with the problem if required
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
- */
-template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::post_execute(const int& iter, const double& current_time,
-                                          const double& current_time_step) {}
-
-/**
  * @brief Finalization stage
  *
  * @tparam OPE
@@ -250,8 +227,7 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
   }
 }
 /**
- * @brief  Call the post_execute method of the given problem and saves variables according with
- * PST
+ * @brief  Saves variables according with PST
  *
  * @tparam OPE
  * @tparam VAR
@@ -261,10 +237,10 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
  * @param current_time_step
  */
 template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time,
-                                             const double& current_time_step) {
+void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time) {
   const auto nvars = this->variables_.get_variables_number();
   std::vector<mfem::Vector> u_vect;
+  const double current_time_step = this->oper_.get_current_time_step();
 
   // Isovalue to compute by variable
   const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
@@ -306,7 +282,7 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
     this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
   }
   // Save variables for visualization
-  ProblemBase<VAR, PST>::post_processing(iter, current_time, current_time_step);
+  ProblemBase<VAR, PST>::post_processing(iter, current_time);
 
   // Save specialized values at each time-step if required
   bool must_be_saved = this->pst_.get_enable_save_specialized_at_iter();
@@ -326,10 +302,10 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
  * @param vect_unk
  */
 template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& current_time,
-                                          double current_time_step, const int iter,
-                                          std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
-                                          const std::vector<std::vector<std::string>>& unks_info) {
+void Problem<OPE, VAR, PST>::do_time_step(
+    double& next_time, const double& current_time, double current_time_step, const int iter,
+    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+    [[maybe_unused]] const std::vector<std::vector<std::string>>& unks_info) {
   // auto& unk = *(vect_unk[0]);
 
   const size_t unk_size = vect_unk.size();
@@ -346,12 +322,3 @@ void Problem<OPE, VAR, PST>::do_time_step(double& next_time, const double& curre
     this->unknown_.emplace_back(unk_i);
   }
 }
-
-/**
- * @brief Destroy the Problem object
- *
- * @tparam OPE
- * @tparam SOLVER
- */
-template <class OPE, class VAR, class PST>
-Problem<OPE, VAR, PST>::~Problem() {}

@@ -41,7 +41,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -95,8 +94,8 @@ int main(int argc, char* argv[]) {
   //     variables     //
   // ####################
 
-  auto user_func =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& v, double time) {
+  auto user_func = std::function<double(const mfem::Vector&, double)>(
+      []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
         std::random_device rd;   // Seed for the random number generator
         std::mt19937 gen(rd());  // Mersenne Twister random number generator
         std::uniform_real_distribution<> dis(-1.0, 1.0);

@@ -41,7 +41,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -85,7 +84,7 @@ int main(int argc, char* argv[]) {
       //  ####################
 
       auto user_func = std::function<double(const mfem::Vector&, double)>(
-          [L](const mfem::Vector& x, double time) {
+          [L](const mfem::Vector& x, [[maybe_unused]] double time) {
             const auto xx = x[0];
             const auto epsilon = 1e-4;
             auto func = (0.5 + 0.3 * std::tanh((xx - L / 2) / epsilon));
@@ -101,7 +100,6 @@ int main(int argc, char* argv[]) {
       auto user_func_analytical = std::function<double(const mfem::Vector&, double)>(
           [L, diffusionCoeff](const mfem::Vector& x, double time) {
             const auto xx = x[0];
-            const auto epsilon = 1e-3;
             auto func = 0.5 * (1 + std::erf((xx - L / 2) / std::sqrt(4 * diffusionCoeff * time)));
 
             return func;
@@ -159,7 +157,6 @@ int main(int argc, char* argv[]) {
       // Problem 1:
       Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
       Coefficients coef_pb(Dstab);
-      const auto crit_cvg_1 = 1.e-12;
       std::vector<SPA*> spatials{&spatial};
       OPE oper(spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
 

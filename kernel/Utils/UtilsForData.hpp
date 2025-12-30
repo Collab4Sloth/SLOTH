@@ -4,24 +4,24 @@
  * @brief Usefull methods for data
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <unistd.h>
 
@@ -65,7 +65,7 @@ using vtriplet = std::vector<triplet>;
  * @brief Search string in a vector of string
  *
  */
-static auto stringfindInVectorOfString = [](const std::vector<std::string> v, const std::string w) {
+inline auto stringfindInVectorOfString = [](const std::vector<std::string> v, const std::string w) {
   return find(v.begin(), v.end(), w) != v.end();
 };
 
@@ -75,7 +75,7 @@ static auto stringfindInVectorOfString = [](const std::vector<std::string> v, co
  * @param str
  * @return std::string
  */
-static std::string toUpperCase(const std::string& str) {
+inline std::string toUpperCase(const std::string& str) {
   std::string result = str;
   std::transform(result.begin(), result.end(), result.begin(), ::toupper);
   return result;
@@ -87,7 +87,7 @@ static std::string toUpperCase(const std::string& str) {
  * @param str
  * @return std::string
  */
-static std::string toLowerCase(const std::string& str) {
+inline std::string toLowerCase(const std::string& str) {
   std::string result = str;
   std::transform(result.begin(), result.end(), result.begin(), ::tolower);
   return result;
@@ -99,7 +99,7 @@ static std::string toLowerCase(const std::string& str) {
  * @param str
  * @return std::string
  */
-static std::string trim(const std::string& str) {
+inline std::string trim(const std::string& str) {
   auto start = std::ranges::find_if(
       str, [](char c) { return !std::isspace(static_cast<unsigned char>(c)); });
   auto end = std::ranges::find_if(str.rbegin(), str.rend(), [](char c) {
@@ -123,38 +123,14 @@ enum class Verbosity { Quiet, Normal, Verbose, Debug, Error };
  * @brief The current level of verbosity
  *
  */
-static Verbosity verbosityLevel = Verbosity::Quiet;
+inline Verbosity verbosityLevel = Verbosity::Quiet;
 
 /**
  * @brief Set the level of verbosity
  *
  * @param verbosity
  */
-static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
-
-// /**
-//  * @brief PRint Verbosity level
-//  *
-//  */
-// static void printVerbosityLevel() {
-//   switch (verbosityLevel) {
-//     case Verbosity::Quiet:
-//       std::cout << "Verbosity Level: Quiet" << std::endl;
-//       break;
-//     case Verbosity::Normal:
-//       std::cout << "Verbosity Level: Normal" << std::endl;
-//       break;
-//     case Verbosity::Verbose:
-//       std::cout << "Verbosity Level: Verbose" << std::endl;
-//       break;
-//     case Verbosity::Debug:
-//       std::cout << "Verbosity Level: Debug" << std::endl;
-//       break;
-//     case Verbosity::Error:
-//       std::cout << "Verbosity Level: Error" << std::endl;
-//       break;
-//   }
-// }
+inline void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
 
 /**
  * @brief Method used to capture the flux coming from an external method and print it depending on
@@ -167,7 +143,7 @@ static void setVerbosity(Verbosity verbosity) { verbosityLevel = verbosity; }
  * @param args
  */
 template <typename Func, typename... Args>
-static void external_call(Verbosity verbosity, Func func, Args&&... args) {
+inline void external_call(Verbosity verbosity, Func func, Args&&... args) {
   if (verbosity <= Verbosity::Verbose) {
     // Save fluxes
     int stdout_backup = dup(fileno(stdout));
@@ -215,7 +191,7 @@ static void external_call(Verbosity verbosity, Func func, Args&&... args) {
  *
  * @param file
  */
-static void check_file_existence(const std::string& file) {
+inline void check_file_existence(const std::string& file) {
   std::filesystem::path filePath = file;
   // Check if the file exists
   if (!std::filesystem::exists(filePath)) {

@@ -49,7 +49,6 @@
 template <class T, int DIM, template <class, int> class OPEBASE>
 class PhaseFieldOperatorBase : public OPEBASE<T, DIM> {
  protected:
-  Parameters mobility_params_;
   double omega_, lambda_;
 
  public:
@@ -67,28 +66,15 @@ class PhaseFieldOperatorBase : public OPEBASE<T, DIM> {
     this->get_parameters();
   }
 
-  void set_default_properties() override = 0;
   SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
-      const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) override;
+      const std::string nlfi, const std::vector<mfem::Vector>& u) override;
   void get_parameters() override;
-
-  ~PhaseFieldOperatorBase();
 };
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-
-/**
- * @brief Destroy the PhaseFieldOperatorBase< T, DIM, NLFI>:: Phase Field Operator object
- *
- * @tparam T
- * @tparam DIM
- * @tparam OPEBASE
- */
-template <class T, int DIM, template <class, int> class OPEBASE>
-PhaseFieldOperatorBase<T, DIM, OPEBASE>::~PhaseFieldOperatorBase() {}
 
 /**
  * @brief Set the NonLinearFormIntegrator dedicated to AllenCahn
@@ -102,7 +88,7 @@ PhaseFieldOperatorBase<T, DIM, OPEBASE>::~PhaseFieldOperatorBase() {}
  */
 template <class T, int DIM, template <class, int> class OPEBASE>
 SlothNLFormIntegrator<Variables<T, DIM>>* PhaseFieldOperatorBase<T, DIM, OPEBASE>::set_nlfi_ptr(
-    const std::string nlfi, const double dt, const std::vector<mfem::Vector>& u) {
+    const std::string nlfi, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("PhaseFieldOperatorBase::set_nlfi_ptr");
   std::vector<mfem::ParGridFunction> vun;
   for (unsigned int i = 0; i < u.size(); i++) {
@@ -111,7 +97,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* PhaseFieldOperatorBase<T, DIM, OPEBASE
     vun.emplace_back(un);
   }
 
-  const Parameters& all_params = this->mobility_params_ + this->params_ - this->default_p_;
+  const Parameters& all_params = this->params_ - this->default_p_;
   auto rhs_nlfi = this->get_rhs_integrator(nlfi, vun, all_params);
   rhs_nlfi->init();
   return rhs_nlfi;
@@ -143,51 +129,19 @@ void PhaseFieldOperatorBase<T, DIM, OPEBASE>::get_parameters() {
  */
 template <class T, int DIM>
 class SteadyPhaseFieldOperator final : public PhaseFieldOperatorBase<T, DIM, SteadyOperatorBase> {
- protected:
-  void set_default_properties() override;
-
  public:
   template <typename... Args>
   SteadyPhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                            const std::vector<std::string>& integrators, Args&&... args)
       : PhaseFieldOperatorBase<T, DIM, SteadyOperatorBase>(spatials, integrators,
-                                                           std::forward<Args>(args)...) {
-    this->set_default_properties();
-  }
+                                                           std::forward<Args>(args)...) {}
   template <typename... Args>
   SteadyPhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                            const std::vector<std::string>& integrators, const Parameters& params,
                            Args&&... args)
       : PhaseFieldOperatorBase<T, DIM, SteadyOperatorBase>(spatials, integrators, params,
-                                                           std::forward<Args>(args)...) {
-    this->set_default_properties();
-  }
-  void overload_mobility(const Parameters& p_params);
-
-  ~SteadyPhaseFieldOperator() {}
+                                                           std::forward<Args>(args)...) {}
 };
-
-/**
- * @brief Set the default options for properties
-
- * @tparam T
- * @tparam DIM
- */
-template <class T, int DIM>
-void SteadyPhaseFieldOperator<T, DIM>::set_default_properties() {
-  this->mobility_params_ = Parameters(Parameter("mob", 1.0));
-}
-/**
- * @brief Overload the default options for mobility
- *
- * @tparam T
- * @tparam DIM
- * @param p_params
- */
-template <class T, int DIM>
-void SteadyPhaseFieldOperator<T, DIM>::overload_mobility(const Parameters& p_params) {
-  this->mobility_params_ = p_params;
-}
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -201,62 +155,16 @@ void SteadyPhaseFieldOperator<T, DIM>::overload_mobility(const Parameters& p_par
  */
 template <class T, int DIM>
 class PhaseFieldOperator final : public PhaseFieldOperatorBase<T, DIM, TransientOperatorBase> {
- protected:
-  void set_default_properties() override;
-
  public:
   template <typename... Args>
   PhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                      const std::vector<std::string>& integrators, Args&&... args)
       : PhaseFieldOperatorBase<T, DIM, TransientOperatorBase>(spatials, integrators,
-                                                              std::forward<Args>(args)...) {
-    this->set_default_properties();
-  }
+                                                              std::forward<Args>(args)...) {}
   template <typename... Args>
   PhaseFieldOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                      const std::vector<std::string>& integrators, const Parameters& params,
                      Args&&... args)
       : PhaseFieldOperatorBase<T, DIM, TransientOperatorBase>(spatials, integrators, params,
-                                                              std::forward<Args>(args)...) {
-    this->set_default_properties();
-  }
-
-  void overload_mobility(const Parameters& p_params);
-  void get_mass_coefficient(const mfem::Vector& u) override;
-
-  ~PhaseFieldOperator() {}
+                                                              std::forward<Args>(args)...) {}
 };
-/**
- * @brief Overload the MassMatrix coefficient definition
- *
- * @tparam T
- * @tparam DIM
- * @tparam OPEBASE
- * @param u
- */
-template <class T, int DIM>
-void PhaseFieldOperator<T, DIM>::get_mass_coefficient(const mfem::Vector& u) {
-  TransientOperatorBase<T, DIM>::get_mass_coefficient(u);
-}
-
-/**
- * @brief Set the default options for properties
-
- * @tparam T
- * @tparam DIM
- */
-template <class T, int DIM>
-void PhaseFieldOperator<T, DIM>::set_default_properties() {
-  this->mobility_params_ = Parameters(Parameter("mob", 1.0));
-}
-/**
- * @brief Overload the default options for mobility
- *
- * @tparam T
- * @tparam DIM
- * @param p_params
- */
-template <class T, int DIM>
-void PhaseFieldOperator<T, DIM>::overload_mobility(const Parameters& p_params) {
-  this->mobility_params_ = p_params;
-}
