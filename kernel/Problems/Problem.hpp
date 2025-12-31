@@ -1,7 +1,7 @@
 /**
  * @file Problem.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Class used to defined a Problem objet
+ * @brief Class used to defined a PDE Problem
  * @version 0.1
  * @date 2025-09-05
  *
@@ -41,6 +41,17 @@
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+/**
+ * @brief Define a PDE Problem
+ *
+ * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
+ * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *   PostProcessing.
+ *
+ */
 template <class OPE, class VAR, class PST>
 class Problem : public ProblemBase<VAR, PST> {
  private:
