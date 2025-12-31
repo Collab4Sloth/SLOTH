@@ -41,9 +41,11 @@
 #pragma once
 
 /**
- * @brief NonlinearFormIntegrator for ad-hoc melting term based on temperature
+ * @brief Class dedicated to the VF of an ad-hoc constant melting contribution found in
+ * Allen-Cahn-type equations.
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class MeltingConstantNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> {
@@ -69,14 +71,20 @@ class MeltingConstantNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS>
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new Melting Temperature N L Form Integrator< V A R S>:: Melting Temperature N
- * L Form Integrator object
+ * @brief Construct a new MeltingConstantNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old
- * @param params
- * @param auxvars
- * @param coefficients
+ * This constructor initializes the nonlinear form integrator. It forwards the provided previous
+ * solution fields, simulation parameters, auxiliary variables, and coefficients to the base melting
+ * nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
@@ -89,9 +97,19 @@ MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
 }
 
 /**
- * @brief Get parameters
+ * @brief Retrieve and initialize model parameters from the parameter set.
  *
- * @tparam VARS
+ * This function reads the parameters required by the integrator from `params_` and stores them
+ * in the corresponding member variables.
+ *
+ * The following parameters are queried:
+ * - `melting_factor` (double, optional):  Scaling factor applied to the melting contribution.
+ * Defaults to `1.0` if not provided.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre `params_` must be initialized and contain the required entries.
  */
 template <class VARS>
 void MeltingConstantNLFormIntegrator<VARS>::get_parameters() {
@@ -99,15 +117,19 @@ void MeltingConstantNLFormIntegrator<VARS>::get_parameters() {
 }
 
 /**
- * @brief Get the value of the phae change at integration point
+ * @brief Compute the value of the phase change at integration point
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
- * @param Tr
- * @param ir
- * @return double
+ * @remark Written for two phase
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk   Index of the block.
+ * @param u value of the current solution at ip
+ * @param un value of the previous solution at ip
+ *
+ * @return The computed phase change at integration point
  */
 template <class VARS>
 double MeltingConstantNLFormIntegrator<VARS>::get_phase_change_at_ip(

@@ -437,7 +437,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::get_coefficients() {
  * @brief Compute the value of a specific component of the gradient of a coefficient.
  *
  * This method evaluates the gradient of the given coefficient with respect to the
- * variable corresponding to the specified block. By default, the 'values' vector
+ * variable corresponding to the specified index. By default, the 'values' vector
  * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
@@ -468,15 +468,15 @@ double BlockAllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
  * @brief Compute the value of a specific component of the Hessian of a  coefficient.
  *
  * This method evaluates the Hessian of the given coefficient with respect to the
- * variables corresponding to the specified blocks 'iblk' and 'jblk'. By default,
+ * variables corresponding to the specified indexes 'iblk' and 'jblk'. By default,
  * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
  * via the class member 'aux_gf_'.
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
  * @param coef   Coefficient whose Hessian is to be computed.
- * @param iblk   Index of the row block of the Hessian component.
- * @param jblk   Index of the column block of the Hessian component.
+ * @param iblk   Index of the row  of the Hessian component.
+ * @param jblk   Index of the column  of the Hessian component.
  * @param values Vector of current and previous solution values (default: {u, u_old}).
  *
  * @return The computed scalar value of the Hessian component for the given coefficient.

@@ -39,7 +39,8 @@
 /**
  * @brief Class dedicated to the VF of the time-derivative (eg. LHS of Allen-Cahn  equation)
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {

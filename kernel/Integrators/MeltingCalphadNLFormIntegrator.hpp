@@ -41,9 +41,11 @@
 #pragma once
 
 /**
- * @brief NonlinearFormIntegrator for ad-hoc melting term based on temperature
+ * @brief Class dedicated to the VF of Calphad melting contribution found in Allen-Cahn-type
+ * equations.
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> {
@@ -82,14 +84,20 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new Melting Temperature N L Form Integrator< V A R S>:: Melting Temperature N
- * L Form Integrator object
+ * @brief Construct a new MeltingCalphadNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old
- * @param params
- * @param auxvars
- * @param coefficients
+ * This constructor initializes the nonlinear form integrator. It forwards the provided previous
+ * solution fields, simulation parameters, auxiliary variables, and coefficients to the base melting
+ * nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 MeltingCalphadNLFormIntegrator<VARS>::MeltingCalphadNLFormIntegrator(
@@ -104,9 +112,21 @@ MeltingCalphadNLFormIntegrator<VARS>::MeltingCalphadNLFormIntegrator(
 }
 
 /**
- * @brief Get parameters
+ * @brief Retrieve and initialize model parameters from the parameter set.
  *
- * @tparam VARS
+ * This function reads the parameters required by the integrator from `params_` and stores them
+ * in the corresponding member variables.
+ *
+ * The following parameters are queried:
+ * - `melting_factor` (double, optional):  Scaling factor applied to the melting contribution.
+ * Defaults to `1.0` if not provided.
+ * - `primary_phase` (std::string, required): Name of the primary phase (eg. SOLID).
+ * - `secondary_phase` (std::string, required): Name of the secondary phase (eg. LIQUID).
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre `params_` must be initialized and contain the required entries.
  */
 template <class VARS>
 void MeltingCalphadNLFormIntegrator<VARS>::get_parameters() {
@@ -117,13 +137,11 @@ void MeltingCalphadNLFormIntegrator<VARS>::get_parameters() {
 }
 
 /**
- * @brief Check presence of driving force
+ * @brief Check the presence of driving forces variables for two phases and stores them in a
+ * container 'dgm_'
  *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
@@ -158,14 +176,13 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
   MFEM_VERIFY(primary_phase_found && secondary_phase_found,
               "Both primary and secondary driving forces must be set.");
 }
+
 /**
- * @brief Check presence of nucleus
+ * @brief Check the presence of nucleus variable  and stores it in a
+ * container 'nucleus_'
  *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
@@ -197,16 +214,19 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
 }
 
 /**
- * @brief Get the value of the phae change at integration point
+ * @brief Compute the value of the phase change at integration point
+ *
  * @remark Written for two phase
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam INTERPOLATION
- * @param Tr
- * @param ir
- * @return double
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk   Index of the block.
+ * @param u value of the current solution at ip
+ * @param un value of the previous solution at ip
+ *
+ * @return The computed phase change at integration point
  */
 template <class VARS>
 double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
@@ -225,6 +245,19 @@ double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
              : 0.;
 }
 
+/**
+ * @brief Compute the value of a seed of the secondary phase at integration point
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk   Index of the block.
+ * @param u value of the current solution at ip
+ * @param un value of the previous solution at ip
+ *
+ * @return The computed seed at integration point
+ */
 template <class VARS>
 double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(mfem::ElementTransformation& Tr,
                                                             const mfem::IntegrationPoint& ir,

@@ -42,7 +42,8 @@
 /**
  * @brief Base class for melting integrators
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
@@ -94,14 +95,20 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new Melting Base N L Form Integrator< V A R S>:: Melting Base N L Form
- * Integrator object
+ * @brief Construct a new MeltingBaseNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old
- * @param params
- * @param auxvars
- * @param coefficients
+ * This constructor initializes the nonlinear form integrator. It forwards the provided previous
+ * solution fields, simulation parameters, auxiliary variables, and coefficients to the base SLOTH
+ * nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 MeltingBaseNLFormIntegrator<VARS>::MeltingBaseNLFormIntegrator(
@@ -110,9 +117,19 @@ MeltingBaseNLFormIntegrator<VARS>::MeltingBaseNLFormIntegrator(
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {}
 
 /**
- * @brief Initialization
+ * @brief Initialize the integrator.
  *
- * @tparam VARS
+ * This method performs all necessary setup steps for the integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' is populated with the
+ *      required coefficient types for this integrator.
+ *
  */
 template <class VARS>
 void MeltingBaseNLFormIntegrator<VARS>::init() {
@@ -121,13 +138,21 @@ void MeltingBaseNLFormIntegrator<VARS>::init() {
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * @tparam VARS
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method computes the residual vector  by element
+ *
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
@@ -168,13 +193,20 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @tparam VARS
- * @param el
- * @param Tr
- * @param elfun
- * @param elmats
+ * This method computes the Jacobian matrix by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
@@ -217,10 +249,20 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief Get coefficients
- * @remark Could be overridden by child classes
+ * @brief Retrieve and store the coefficients required by the integrator.
  *
- * @tparam VARS
+ * This method collects the coefficients of type  `Mobility`, and `PhaseFieldPotential`
+ * from each coefficients and adds them to the corresponding internal storage:
+ * - 'mobility' stores the mobility coefficients,
+ * - 'interpolation_potential' stores the PhaseFieldPotential coefficients.
+ *
+ * Only coefficients with ID 0 are considered for each block.
+ *
+ * @remark This method can be overridden in derived classes to provide
+ *         custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variabls used in the integrator.
+ *
  */
 template <class VARS>
 void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
@@ -232,9 +274,6 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
       interpolation_potential.add(
           *(this->get_coefficient(i, GlossaryType::PhaseFieldPotential, 0)));
     }
-    // if (this->get_coefficient(i, GlossaryType::Temperature, 0).has_value()) {
-    //   melting_temperature.add(*(this->get_coefficient(i, GlossaryType::Temperature, 0)));
-    // }
   }
 }
 
@@ -242,10 +281,13 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
  * @brief Return the value of the coefficient
  * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
  * class variable aux_gf_
- * @tparam VARS
- * @param coef
- * @param values
- * @return double
+
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+
+ * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
@@ -262,15 +304,21 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
 }
 
 /**
- * @brief Return the value of the component blk of the gradient of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
+ * @brief Compute the value of a specific component of the gradient of a coefficient.
  *
- * @tparam VARS
- * @param coef
- * @param blk
- * @param values
- * @return double
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to a specified index 'blk'. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param blk    Index of the gradient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_gradient_coefficient(
@@ -285,7 +333,26 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_gradient_coefficient(
   }
   return coef_value;
 }
-
+/**
+ * @brief Compute the value of a specific component of the Hessian of a  coefficient.
+ *
+ * This method evaluates the Hessian of the given coefficient with respect to the
+ * variables corresponding to the specified indexes 'iblk' and 'jblk'. By default,
+ * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
+ * via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose Hessian is to be computed.
+ * @param iblk   Index of the row  of the Hessian component.
+ * @param jblk   Index of the column  of the Hessian component.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the Hessian component for the given coefficient.
+ *
+ * @note This function can be overridden in derived classes to implement
+ *       more complex or nonlinear Hessian evaluations.
+ */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {
@@ -297,6 +364,20 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
   }
   return coef_value;
 }
+
+/**
+ * @brief Compute the value of a seed of the secondary phase at integration point
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk   Index of the block.
+ * @param u value of the current solution at ip
+ * @param un value of the previous solution at ip
+ *
+ * @return The computed seed at integration point
+ */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(
     [[maybe_unused]] mfem::ElementTransformation& Tr,
