@@ -281,7 +281,7 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
  * @brief Return the value of the coefficient
  * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
  * class variable aux_gf_
-
+ *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
  * @param coef   Coefficient.

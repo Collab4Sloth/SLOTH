@@ -38,11 +38,10 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the FV of the Allen Cahn equation
+ * @brief Class dedicated to the VF of the time-derivativefor heat transfer equation
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class HeatTimeNLFormIntegrator : public TimeNLFormIntegrator<VARS> {
@@ -61,15 +60,21 @@ class HeatTimeNLFormIntegrator : public TimeNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new HeatTimeNLFormIntegrator object
+ * @brief Construct a new HeatTimeNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param u_old
- * @param omega
- * @param lambda
- * @param mob
+ * This constructor initializes the nonlinear form integrator.
+ * It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 HeatTimeNLFormIntegrator<VARS>::HeatTimeNLFormIntegrator(
@@ -83,10 +88,18 @@ HeatTimeNLFormIntegrator<VARS>::HeatTimeNLFormIntegrator(
 }
 
 /**
- * @brief Get default coefficients
- * @remark Could be overridden by child classes
+ * @brief Retrieve and store the coefficients required by the HeatTimeNLFormIntegrator integrator.
  *
- * @tparam VARS
+ * This method collects two default coefficients:
+ * - 'coefficient_A' stores the first coefficient as a Concentration,
+ * - 'coefficient_B' stores the second coefficient as a HeatCapacity,
+ *
+ *
+ * @remark By default, A and B are equal to one. This method specializes the coefficients for the
+ * heat transfer equation
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
  */
 template <class VARS>
 void HeatTimeNLFormIntegrator<VARS>::get_coefficients() {
