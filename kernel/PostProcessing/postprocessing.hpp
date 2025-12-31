@@ -95,7 +95,7 @@ class PostProcessing : public DC {
   std::map<std::string, double> get_iso_val_to_compute();
   std::map<std::string, std::tuple<double, double>> get_integral_to_compute();
 
-  ~PostProcessing();
+  virtual ~PostProcessing() = default;
 };
 
 ///////////////////////////////////////////////////////////
@@ -400,10 +400,3 @@ void PostProcessing<T, DC, DIM>::clean_output_directory() {
     }
   }
 }
-
-/**
- * @brief Destroy the Post Processing:: Post Processing object
- *
- */
-template <class T, class DC, int DIM>
-PostProcessing<T, DC, DIM>::~PostProcessing() {}

@@ -79,17 +79,38 @@ class Problem : public ProblemBase<VAR, PST> {
 };
 
 /**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the operator, primary variables,
+ * auxiliary variables, coefficients, convergence criteria, and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
  * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
  * @param oper
+ *   Nonlinear operator associated with the problem.
  * @param variables
- * @param pst
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
  * @param convergence
+ *   Convergence criteria.
+ * @param pst
+ *   PostProcessing.
  * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
  */
 template <class OPE, class VAR, class PST>
 template <PbVar<VAR>... Args>
@@ -103,16 +124,36 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
 }
 
 /**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the operator, primary variables,
+ * auxiliary variables, coefficients,  and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
  * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
  * @param oper
+ *   Nonlinear operator associated with the problem.
  * @param variables
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
  * @param pst
+ *   PostProcessing.
  * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
  */
 template <class OPE, class VAR, class PST>
 template <PbVar<VAR>... Args>
@@ -125,18 +166,40 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
 }
 
 /**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the name, operator, primary variables,
+ * auxiliary variables, coefficients,  convergence criteria, and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
  * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
  * @param name
+ *   Name of the problem.
  * @param oper
+ *   Nonlinear operator associated with the problem.
  * @param variables
- * @param pst
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
  * @param convergence
+ *   Convergence criteria.
+ * @param pst
+ *   PostProcessing.
  * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
  */
 template <class OPE, class VAR, class PST>
 template <PbVar<VAR>... Args>
@@ -149,17 +212,38 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
 }
 
 /**
- * @brief Construct a new Problem< O P E,  V A R,  P S T>:: Problem object
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the name, operator, primary variables,
+ * auxiliary variables, coefficients,  and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
  * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
  * @param name
+ *   Name of the problem.
  * @param oper
+ *   Nonlinear operator associated with the problem.
  * @param variables
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
  * @param pst
+ *   PostProcessing.
  * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
  */
 template <class OPE, class VAR, class PST>
 template <PbVar<VAR>... Args>
@@ -171,12 +255,16 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
 }
 
 /**
- * @brief Initialize the calculation : operator + ODE
+ * @brief Initialize the Problem
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
  * @param initial_time
+ *   Initial time
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
@@ -184,10 +272,16 @@ void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
 }
 
 /**
- * @brief Finalization stage
+ * @brief Finalize the Problem
+ *
+ * Save specialized results in CSV files
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *   PostProcessing.
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
@@ -197,11 +291,17 @@ void Problem<OPE, VAR, PST>::finalize() {
 }
 
 /**
- * @brief Save specialized values
+ * @brief Save specialized results
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
+ *
+ * @param must_be_saved Flag used to indicate if specialized results must be saved
+ *
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
@@ -227,14 +327,18 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
   }
 }
 /**
- * @brief  Saves variables according with PST
+ * @brief Saves variables according PostProcessing settings
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
+ *   PostProcessing.
+ *
+ * @param iter Current iteration
+ * @param current_time Current time
+ *
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time) {
@@ -293,13 +397,18 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
  * @brief Do a time-step by calling Step method of the ODE
  *
  * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
- * @param next_time
- * @param current_time
- * @param current_time_step
- * @param iter
- * @param vect_unk
+ *   PostProcessing.
+ *
+ * @param next_time Next time.
+ * @param current_time Current time.
+ * @param current_time_step Current time-step.
+ * @param iter Current iteration.
+ * @param vect_unk Vector of pointers towards the unknowns.
+ * @param unks_info Vector containing information associated with the unknowns.
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::do_time_step(
