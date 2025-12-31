@@ -37,7 +37,8 @@
 /**
  * @brief  Class dedicated to the VF of thermal diffusion flux used in energy balance equation
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<VARS> {
@@ -61,7 +62,6 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
   ThermalDiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
                                        const Parameters& params, std::vector<VARS*> auxvars,
                                        const std::vector<Coefficients>& coefficients);
-  ~ThermalDiffusionFluxNLFormIntegrator();
 };
 
 ////////////////////////////////////////////////////////
@@ -70,9 +70,10 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Return parameters required by these integrators
+ * @brief Retrieve and initialize model parameters from the parameter set.
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void ThermalDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
@@ -80,13 +81,20 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
 }
 
 /**
- * @brief Construct a new
- * ThermalDiffusionFluxNLFormIntegrator<VARS>::ThermalDiffusionFluxNLFormIntegrator object
+ * @brief Construct a new ThermalDiffusionFluxNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old
- * @param params
- * @param auxvars
+ * This constructor initializes the nonlinear form integrator. It forwards the provided previous
+ * solution fields, simulation parameters, auxiliary variables, and coefficients to the base
+ * DiffusionFlux nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 ThermalDiffusionFluxNLFormIntegrator<VARS>::ThermalDiffusionFluxNLFormIntegrator(
@@ -97,9 +105,10 @@ ThermalDiffusionFluxNLFormIntegrator<VARS>::ThermalDiffusionFluxNLFormIntegrator
 }
 
 /**
- * @brief Check variables consistency
+ * @brief  Check variables consistency
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
@@ -143,13 +152,16 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 }
 
 /**
- * @brief Return the coefficient part of the thermal diffusion flux
+ * @brief Compute the diffusion coefficients at the integration point
  *
- * @tparam VARS
- * @param Tr
- * @param nElement
- * @param ip
- * @return std::vector<double>
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The diffusion coefficients at integration point
  */
 template <class VARS>
 std::vector<double> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficient(
@@ -162,14 +174,16 @@ std::vector<double> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_coeffic
 }
 
 /**
- * @brief Return the gradient part of the thermal diffusion flux
+ * @brief The thermal diffusion flux at integration point
  *
- * @tparam VARS
- * @param Tr
- * @param nElement
- * @param ip
- * @param dim
- * @return std::vector<mfem::Vector>
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The thermal diffusion flux at integration point
  */
 template <class VARS>
 std::vector<mfem::Vector> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient(
@@ -184,12 +198,3 @@ std::vector<mfem::Vector> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_g
   gradient.emplace_back(gradT);
   return gradient;
 }
-
-/**
- * @brief Destroy the ThermalDiffusionFluxNLFormIntegrator<
- * VARS>::ThermalDiffusionFluxNLFormIntegrator object
- *
- * @tparam VARS
- */
-template <class VARS>
-ThermalDiffusionFluxNLFormIntegrator<VARS>::~ThermalDiffusionFluxNLFormIntegrator() {}
