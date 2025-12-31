@@ -38,7 +38,8 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the VF of the Cahn-Hilliard equation (splitted form)
+ * @brief Class dedicated to the VF of the RHS of the Cahn-Hilliard equation (splitted form) (see
+ * SplitTimeDerivative integrator for the LHS)
  *
  * @tparam VARS
  */

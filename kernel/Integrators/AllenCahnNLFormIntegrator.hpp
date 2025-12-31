@@ -40,7 +40,8 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the VF of the AllenCahn equation
+ * @brief Class dedicated to the VF of the RHS of the AllenCahn equation (see TimeDerivative
+ * integrator for the LHS)
  *
  * @tparam VARS
  */
@@ -356,15 +357,21 @@ double AllenCahnNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
 }
 
 /**
- * @brief Return the value of the component blk of the gradient of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
+ * @brief Compute the value of a specific component of the gradient of a coefficient.
  *
- * @tparam VARS
- * @param coef
- * @param blk
- * @param values
- * @return double
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to the specified block. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param iblk    Index of the gradient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
 template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
@@ -380,6 +387,26 @@ double AllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
   return coef_value;
 }
 
+/**
+ * @brief Compute the value of a specific component of the Hessian of a  coefficient.
+ *
+ * This method evaluates the Hessian of the given coefficient with respect to the
+ * variables corresponding to the specified blocks 'iblk' and 'jblk'. By default,
+ * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
+ * via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose Hessian is to be computed.
+ * @param iblk   Index of the row block of the Hessian component.
+ * @param jblk   Index of the column block of the Hessian component.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the Hessian component for the given coefficient.
+ *
+ * @note This function can be overridden in derived classes to implement
+ *       more complex or nonlinear Hessian evaluations.
+ */
 template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {

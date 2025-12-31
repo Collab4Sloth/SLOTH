@@ -37,11 +37,9 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the FV of the Allen Cahn equation
+ * @brief Class dedicated to the VF of the time-derivative (eg. LHS of Allen-Cahn  equation)
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS
  */
 template <class VARS>
 class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
@@ -80,15 +78,21 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new TimeNLFormIntegrator object
+ * @brief Construct a new TimeNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param u_old
- * @param omega
- * @param lambda
- * @param mob
+ * This constructor initializes a nonlinear form integrator for a simple time derivative operator.
+ * It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
@@ -100,6 +104,23 @@ TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGrid
 
   this->check_variables_consistency();
 }
+
+/**
+ * @brief Initialize the TimeDerivative integrator.
+ *
+ * This method performs all necessary setup steps for the TimeDerivative
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' is populated with the
+ *      required coefficient types for this integrator.
+ *
+ */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::init() {
   if (this->expected_list_.empty()) {
@@ -111,12 +132,10 @@ void TimeNLFormIntegrator<VARS>::init() {
 }
 
 /**
- * @brief Check variables consistency
+ * @brief  Check variables consistency
  *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
@@ -139,10 +158,18 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
 }
 
 /**
- * @brief Get default coefficients
- * @remark Could be overridden by child classes
+ * @brief Retrieve and store the coefficients required by the TimeDerivative integrator.
  *
- * @tparam VARS
+ * This method collects two default coefficients:
+ * - 'coefficient_A' stores the first coefficient,
+ * - 'coefficient_B' stores the second coefficient,
+ *
+ *
+ * @remark By default, A and B are equal to one. This method can be overridden in derived classes to
+ * provide custom behavior for retrieving coefficients (see HeatTimeDerivative)
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
  */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::get_coefficients() {
@@ -153,15 +180,21 @@ void TimeNLFormIntegrator<VARS>::get_coefficients() {
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method computes the residual vector  by element
+ *
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::AssembleElementVector(
@@ -201,15 +234,20 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elmat
+ * This method computes the Jacobian matrix by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
@@ -263,7 +301,7 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief  Return the value of a coefficient
+ * @brief Return the value of the coefficient
  * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
  * class variable aux_gf_
  * @tparam VARS
