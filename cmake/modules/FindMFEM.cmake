@@ -96,20 +96,28 @@ set_property(TARGET MFEM::mfem APPEND
 
 # Set MPI library
 if(MFEM_USE_MPI)
-  # The following include directories are automatically filled within FindMFEM.cmake
   message(STATUS "MFEM uses MPI")
   find_package(MPI REQUIRED)
   find_package(HYPRE REQUIRED)
   find_package(METIS REQUIRED)
-  set_property(TARGET MFEM::mfem APPEND
-    PROPERTY INTERFACE_LINK_LIBRARIES
-    ${MPI_CXX_LIBRARIES})
-    include_directories(${MPI_INCLUDE_PATH})
 
-endif(MFEM_USE_MPI)
+  target_link_libraries(MFEM::mfem INTERFACE
+     ${MPI_CXX_LIBRARIES}
+    HYPRE::HYPRE
+    METIS::METIS
+  )
+  include_directories(MFEM::mfem SYSTEM INTERFACE ${MPI_INCLUDE_PATH})
+endif()
 
 if (NOT MFEM_USE_SUITESPARSE)
   message(FATAL_ERROR "You shall have SUITESPARSE support activated in MFEM.CMake will exit.\n" )
+endif()
+
+if (MFEM_USE_SUNDIALS)
+  if (NOT TARGET SUNDIALS::sundials)
+    find_package(SUNDIALS CONFIG REQUIRED)
+  endif()
+  target_link_libraries(MFEM::mfem INTERFACE SUNDIALS::sundials)
 endif()
 
 # Set the include directories
@@ -132,16 +140,11 @@ mark_as_advanced(FORCE MFEM_CONFIG_FILE)
 set_property(TARGET MFEM::mfem APPEND
     PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
 
-    foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
-  
+foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
   if(FLAG MATCHES "^-I(.+)")
-    target_include_directories(MFEM::mfem SYSTEM INTERFACE
-        "${CMAKE_MATCH_1}"
-    )
-  else()
-    target_compile_options(MFEM::mfem INTERFACE ${FLAG})
+    target_include_directories(MFEM::mfem SYSTEM INTERFACE "${CMAKE_MATCH_1}")
   endif()
-endforeach(FLAG)
+endforeach()
 
 # This handles "REQUIRED" etc keywords
 include(FindPackageHandleStandardArgs)
