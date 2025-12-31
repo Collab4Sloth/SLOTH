@@ -1,8 +1,7 @@
 /**
  * @file AllenCahnNLFormIntegrator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief FV for the Allen Cahn equation
- * @todo Extend coefficient to omega and lambda
+ * @brief VF of the Allen Cahn equation
  * @version 0.1
  * @date 2025-09-05
  *
@@ -41,11 +40,9 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the FV of the Allen Cahn equation
+ * @brief Class dedicated to the VF of the AllenCahn equation
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS
  */
 template <class VARS>
 class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
@@ -94,15 +91,21 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new AllenCahnNLFormIntegrator object
+ * @brief Construct a new AllenCahnNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param u_old
- * @param omega
- * @param lambda
- * @param mob
+ * This constructor initializes a nonlinear form integrator for AllenCahn-type
+ * problems. It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 AllenCahnNLFormIntegrator<VARS>::AllenCahnNLFormIntegrator(
@@ -113,6 +116,23 @@ AllenCahnNLFormIntegrator<VARS>::AllenCahnNLFormIntegrator(
 
   this->check_variables_consistency();
 }
+
+/**
+ * @brief Initialize the AllenCahn integrator.
+ *
+ * This method performs all necessary setup steps for a AllenCahn-type
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' is populated with the
+ *      required coefficient types for this AllenCahn integrator.
+ *
+ */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::init() {
   this->check_coefficient_types(this->expected_list_);
@@ -120,12 +140,10 @@ void AllenCahnNLFormIntegrator<VARS>::init() {
 }
 
 /**
- * @brief Check variables consistency
+ * @brief  Check variables consistency
  *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::check_variables_consistency() {
@@ -160,15 +178,21 @@ void AllenCahnNLFormIntegrator<VARS>::check_variables_consistency() {
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method computes the residual vector of the AllenCahn-type nonlinear problem by element
+ *
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
@@ -216,15 +240,20 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elmat
+ * This method computes the Jacobian matrix of a AllenCahn-type nonlinear problem by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
@@ -272,10 +301,21 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief Get AllenCahn coefficients
- * @remark Could be overridden by child classes
+ * @brief Retrieve and store the coefficients required by the Allen-Cahn integrator.
  *
- * @tparam VARS
+ * This method collects the coefficients of type `Capillary`, `Mobility`, and `FreeEnergy`
+ * from each coefficients and adds them to the corresponding internal storage:
+ * - 'lambda' stores the capillary coefficients,
+ * - 'mobility' stores the mobility coefficients,
+ * - 'double_well_energy' stores the free energy coefficients.
+ *
+ * Only coefficients with ID 0 are considered for each block.
+ *
+ * @remark This method can be overridden in derived classes to provide
+ *         custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variabls used in the integrator.
+ *
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {

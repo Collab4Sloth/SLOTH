@@ -38,7 +38,7 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the FV of the Cahn-Hilliard equation (splitted form)
+ * @brief Class dedicated to the VF of the Cahn-Hilliard equation (splitted form)
  *
  * @tparam VARS
  */
@@ -138,7 +138,8 @@ void CahnHilliardNLFormIntegrator<VARS>::init() {
 /**
  * @brief  Check variables consistency
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::check_variables_consistency() {
@@ -208,6 +209,7 @@ void CahnHilliardNLFormIntegrator<VARS>::get_coefficients() {
  * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
  * This method computes the residual vector of the CahnHilliard-type nonlinear problem by element
+ *
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
