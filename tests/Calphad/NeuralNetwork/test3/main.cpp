@@ -339,7 +339,7 @@ int main(int argc, char* argv[]) {
       VAR(&spatial, calphad_bcs, "M12", Glossary::InterDiffusionMobility, level_of_storage, 0.);
   M12.set_additional_information("B", "inter_mob");
 
-  auto MO = VARS(M11, M12);
+  auto MA = VARS(M11, M12);
 
   auto M21 =
       VAR(&spatial, calphad_bcs, "M21", Glossary::InterDiffusionMobility, level_of_storage, 0.);
@@ -386,14 +386,14 @@ int main(int argc, char* argv[]) {
   Coefficients coef_pb(Dstab);
   DiffusionOperator<FECollection, DIM> interdiffu_oper_a(
       spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
-  interdiffu_oper_o.overload_nl_solver(
+  interdiffu_oper_a.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 5.e-14)));
   // Operator for InterDiffusion equation on B
   DiffusionOperator<FECollection, DIM> interdiffu_oper_b(
       spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
-  interdiffu_oper_u.overload_nl_solver(
+  interdiffu_oper_b.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 5.e-14)));
@@ -432,7 +432,7 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
-  auto mob_pst_b = PST(&spatial, pst_parameters_mob_u);
+  auto mob_pst_b = PST(&spatial, pst_parameters_mob_b);
 
   calculation_path = "InterDiffusion_a";
   auto pst_parameters =
@@ -524,7 +524,7 @@ int main(int argc, char* argv[]) {
   auto ac_coupling = Coupling("Melting coupling", ac_problem);
   auto diffusion_coupling =
       Coupling("Diffusion coupling", A_interdiffusion_mobilities, B_interdiffusion_mobilities,
-               interdiffu_problem_a, interdiffu_problem_b;
+               interdiffu_problem_a, interdiffu_problem_b);
 
   //---------------------------------------
   // Time discretization
