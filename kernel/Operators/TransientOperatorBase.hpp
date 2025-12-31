@@ -337,6 +337,7 @@ void TransientOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vect
 template <class T, int DIM>
 void TransientOperatorBase<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
   this->M_solver_.clear();
+
   for (unsigned int i = 0; i < u_vect.size(); i++) {
     if (M != nullptr) {
       delete M;
@@ -345,8 +346,14 @@ void TransientOperatorBase<T, DIM>::build_mass_matrix(const std::vector<mfem::Ve
     // Mass matrix (constant)
     ////////////////
     M = new mfem::ParBilinearForm(this->fes_[i]);
-    // TODO(cci) : improve for a*b prefactor
-    auto mass_coefficient = mfem::ConstantCoefficient(1.0);
+    // Works only with constants. To extend ?
+    double a_exp =
+        this->params_.template get_param_value_or_default<double>("prefactor_a_explicit", 1.0);
+    double b_exp =
+        this->params_.template get_param_value_or_default<double>("prefactor_b_explicit", 1.0);
+    auto coef_a_exp = mfem::ConstantCoefficient(a_exp);
+    auto coef_b_exp = mfem::ConstantCoefficient(b_exp);
+    mfem::ProductCoefficient mass_coefficient = mfem::ProductCoefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
 
