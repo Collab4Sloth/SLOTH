@@ -1,7 +1,7 @@
 /**
  * @file DiffusionNLFormIntegrator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief FV for a diffusion equation
+ * @brief Nonlinear form integrator for diffusion-type problems
  * @version 0.1
  * @date 2025-09-05
  *
@@ -38,7 +38,7 @@
 #pragma once
 
 /**
- * @brief  Class dedicated to the FV of the mass diffusion equation
+ * @brief  Nonlinear form integrator for diffusion-type problems
  *
  * @tparam DIFFU_NAME
  */
@@ -74,8 +74,7 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
+
 /**
  * @brief Construct a new DiffusionNLFormIntegrator object.
  *
@@ -107,13 +106,13 @@ DiffusionNLFormIntegrator<VARS>::DiffusionNLFormIntegrator(
  * This method performs all necessary setup steps for a diffusion-type
  * nonlinear form integrator:
  * 1. Verifies that the list of expected coefficient types is not empty.
- * 2. Checks that all coefficient blocks contain the expected types.
+ * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the diffusion coefficients internally.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
  *
- * @pre The integrator's `expected_list_` must be populated with the
+ * @pre The integrator's 'expected_list_' must be populated with the
  *      required coefficient types for this diffusion integrator.
  *
  * @post Internal diffusion coefficient storage is initialized.
@@ -282,7 +281,7 @@ double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
  * @param coef   Coefficient whose gradient is to be computed.
- * @param blk    Index of the block.
+ * @param iblk    Index of the gradient.
  * @param values Vector of current and previous solution values (default: {u, u_old}).
  *
  * @return The computed scalar value of the gradient component of the diffusion coefficient.
@@ -291,11 +290,11 @@ double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::vector<double>& values) {
+    Coefficient coef, const int iblk, const std::vector<double>& values) {
   const double u = values[0];
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(blk, {u});
+    coef_value = coef.compute_gradient(iblk, {u});
   }
   return coef_value;
 }

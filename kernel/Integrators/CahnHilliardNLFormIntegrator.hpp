@@ -88,13 +88,21 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new CahnHilliardNLFormIntegrator object
+ * @brief Construct a new CahnHilliardNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old Variables at the previous time-step
- * @param params Parameters associated with the integrator
- * @param auxvars Auxiliary variables
- * @param coefficients Coefficients associated with the integrator
+ * This constructor initializes a nonlinear form integrator for Cahn-Hilliard-type
+ * problems. It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 CahnHilliardNLFormIntegrator<VARS>::CahnHilliardNLFormIntegrator(
@@ -102,14 +110,24 @@ CahnHilliardNLFormIntegrator<VARS>::CahnHilliardNLFormIntegrator(
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
   this->integrator_name_ = "CahnHilliard";
-
   this->check_variables_consistency();
 }
 
 /**
- * @brief Initialization of the integrator
+ * @brief Initialize the CahnHilliard integrator.
  *
- * @tparam VARS
+ * This method performs all necessary setup steps for a CahnHilliard-type
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' is populated with the
+ *      required coefficient types for this CahnHilliard integrator.
+ *
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::init() {
@@ -155,10 +173,21 @@ void CahnHilliardNLFormIntegrator<VARS>::check_variables_consistency() {
 }
 
 /**
- * @brief Get CahnHilliard coefficients
- * @remark Could be overridden by child classes
+ * @brief Retrieve and store the coefficients required by the Cahn-Hilliard integrator.
  *
- * @tparam VARS
+ * This method collects the coefficients of type `Capillary`, `Mobility`, and `FreeEnergy`
+ * from each coefficients and adds them to the corresponding internal storage:
+ * - 'lambda' stores the capillary coefficients,
+ * - 'mobility' stores the mobility coefficients,
+ * - 'double_well_energy' stores the free energy coefficients.
+ *
+ * Only coefficients with ID 0 are considered for each block.
+ *
+ * @remark This method can be overridden in derived classes to provide
+ *         custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variabls used in the integrator.
+ *
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::get_coefficients() {
@@ -176,13 +205,20 @@ void CahnHilliardNLFormIntegrator<VARS>::get_coefficients() {
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * @tparam VARS
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method computes the residual vector of the CahnHilliard-type nonlinear problem by element
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
@@ -265,21 +301,26 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @param el
- * @param Tr
- * @param elfun
- * @param elmats
- * @return * ram
+ * This method computes the Jacobian matrix of a CahHilliard-type nonlinear problem by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // loop over diagonal entries
-
   // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
 
   {
@@ -390,15 +431,21 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief Return the value of the component blk of the gradient of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
+ * @brief Compute the value of a specific component of the gradient of a coefficient.
  *
- * @tparam VARS
- * @param coef
- * @param blk
- * @param values
- * @return double
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to the specified block. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param iblk    Index of the gradient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
 template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
@@ -415,13 +462,24 @@ double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
 }
 
 /**
- * @brief Return the value of the component iblk, jblk of the hessian of the coefficient
- * @tparam VARS
- * @param coef
- * @param iblk
- * @param jblk
- * @param values
- * @return double
+ * @brief Compute the value of a specific component of the Hessian of a  coefficient.
+ *
+ * This method evaluates the Hessian of the given coefficient with respect to the
+ * variables corresponding to the specified blocks 'iblk' and 'jblk'. By default,
+ * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
+ * via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose Hessian is to be computed.
+ * @param iblk   Index of the row block of the Hessian component.
+ * @param jblk   Index of the column block of the Hessian component.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the Hessian component for the given coefficient.
+ *
+ * @note This function can be overridden in derived classes to implement
+ *       more complex or nonlinear Hessian evaluations.
  */
 template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_hessian_coefficient(
