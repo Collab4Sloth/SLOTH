@@ -76,15 +76,24 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-
 /**
- * @brief Construct a new DiffusionNLFormIntegrator<VARS>::DiffusionNLFormIntegratorobject
+ * @brief Construct a new DiffusionNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old
- * @param params
- * @param auxvars
- * @param coefficients
+ * This constructor initializes a nonlinear form integrator for diffusion-type
+ * problems. It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
+ * @note This integrator serves as a base class for specific diffusion
+ *       integrators like FickNLFormIntegrator and FourierNLFormIntegrator.
  */
 template <class VARS>
 DiffusionNLFormIntegrator<VARS>::DiffusionNLFormIntegrator(
@@ -92,6 +101,25 @@ DiffusionNLFormIntegrator<VARS>::DiffusionNLFormIntegrator(
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {}
 
+/**
+ * @brief Initialize the diffusion integrator.
+ *
+ * This method performs all necessary setup steps for a diffusion-type
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficient blocks contain the expected types.
+ * 3. Retrieves and stores the diffusion coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's `expected_list_` must be populated with the
+ *      required coefficient types for this diffusion integrator.
+ *
+ * @post Internal diffusion coefficient storage is initialized.
+ *
+ * @throws mfem::Error If the expected list of coefficients is empty.
+ */
 template <class VARS>
 void DiffusionNLFormIntegrator<VARS>::init() {
   MFEM_VERIFY(
@@ -102,13 +130,20 @@ void DiffusionNLFormIntegrator<VARS>::init() {
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * @tparam VARS
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method computes the residual vector of the diffusion-type nonlinear problem by element
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
@@ -137,8 +172,6 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
     const auto& u = *elfun[blk] * Psi;
     const auto& un = this->u_old_[blk].GetValue(Tr, ip);
 
-    // Laplacian : given u, compute (grad(u), grad(psi)), psi is shape function.
-    // given u (elfun), compute grad(u)
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     gradPsi.MultTranspose(*elfun[blk], gradU);
     double diffu = this->compute_coefficient(diffusion[blk], {u, un});
@@ -149,13 +182,20 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @tparam VARS
- * @param el
- * @param Tr
- * @param elfun
- * @param elmat
+ * This method computes the Jacobian matrix of a diffusion-type nonlinear problem by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
@@ -184,7 +224,6 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
     const auto& u = *elfun[blk] * Psi;
-    // Laplacian : compute (grad(phi), grad(psi)), phi is shape function.
 
     Tr.SetIntPoint(&ip);
 
@@ -202,13 +241,20 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief Return the value of the diffusion coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
- * @tparam VARS
- * @param coef
- * @param values
- * @return double
+ * @brief Compute the value of a diffusion coefficient.
+ *
+ * This method evaluates the given coefficient using the provided values.
+ * By default, the 'values' vector contains {u, u_old}, and auxiliary
+ * variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient to evaluate.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the diffusion coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
@@ -227,15 +273,21 @@ double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
 }
 
 /**
- * @brief Return the value of the component blk of the gradient of the diffusion coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
+ * @brief Compute the value of a specific component of the gradient of a diffusion coefficient.
  *
- * @tparam VARS
- * @param coef
- * @param blk
- * @param values
- * @return double
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to the specified block. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param blk    Index of the block.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the diffusion coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
