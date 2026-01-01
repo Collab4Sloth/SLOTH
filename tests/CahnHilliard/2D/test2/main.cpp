@@ -16,9 +16,9 @@
 #include <tuple>
 #include <vector>
 
+#include "./CahnHilliardCoefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-#include "test2/CahnHilliardCoefficients.hpp"
 #include "tests/tests.hpp"
 ///---------------
 /// Main program

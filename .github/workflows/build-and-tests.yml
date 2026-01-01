@@ -84,6 +84,7 @@ jobs:
       shell: spack-bash {0}    
       run: | 
         cd ${{ github.workspace }}/build
+        find . -name "Save*" |xargs rm -fr
         ctest -j${{ env.CORES }} --output-on-failure
 
     - name: Save Tests on Failure
