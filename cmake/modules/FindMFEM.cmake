@@ -75,7 +75,6 @@ foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
   add_compile_options(-isystem ${FLAG})
 endforeach(FLAG)
 
-
 # Find the library
 find_library(MFEM_LIBRARY mfem
   HINTS ${MFEM_DIR}/build $ENV{MFEM_DIR}/build ${MFEM_CONFIG_DIR} ${MFEM_DIR} $ENV{MFEM_DIR}
@@ -133,14 +132,6 @@ set(MFEM_LIBRARY ${MFEM_LIBRARY} CACHE PATH
 mark_as_advanced(FORCE MFEM_LIBRARY)
 mark_as_advanced(FORCE MFEM_CONFIG_FILE)
 
-
-# Set system for focusing on warning coming from sloth
-
-foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
-  if(FLAG MATCHES "^-I(.+)")
-    target_include_directories(MFEM::mfem SYSTEM INTERFACE "${CMAKE_MATCH_1}")
-  endif()
-endforeach()
 
 # This handles "REQUIRED" etc keywords
 include(FindPackageHandleStandardArgs)
