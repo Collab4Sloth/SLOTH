@@ -1,5 +1,7 @@
 #create_test("SplitMeshAllenCahn2Dtest2" "SplitMeshAllenCahn2Dtest2" FALSE "EXE AC" "--oversubscribe 4")
+
 create_test("SplitMeshAllenCahn2Dtest2" "SplitMeshAllenCahn2Dtest2" FALSE "EXE AC" 2)
+set_tests_properties(SplitMeshAllenCahn2Dtest2 PROPERTIES RUN_SERIAL TRUE)
 
 file(GLOB CAMEMBERT2D
   "${CMAKE_SOURCE_DIR}/kernel/Mesh-examples/camembert2D.00*"
