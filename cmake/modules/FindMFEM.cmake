@@ -71,6 +71,9 @@ find_path(MFEM_INCLUDE_DIRS mfem.hpp)
 set(DISCOVER_EXTRA_INC_DIRS ${MFEM_TPLFLAGS})
 string(REPLACE " " ";" MFEM_EXTRA_INC_DIRS ${DISCOVER_EXTRA_INC_DIRS})
 
+foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
+  add_compile_options(-isystem ${FLAG})
+endforeach(FLAG)
 
 
 # Find the library
