@@ -19,6 +19,7 @@
  *
  */
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <numeric>
@@ -49,9 +50,9 @@ class W : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  W() { this->prefactor_ = 1.0; };
-  W(const double prefactor) { this->prefactor_ = prefactor; };
-  ~W() {};
+  W() { this->prefactor_ = 1.0; }
+  explicit W(const double prefactor) { this->prefactor_ = prefactor; }
+  virtual ~W() = default;
 };
 
 /**
@@ -138,9 +139,9 @@ class Fw : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  Fw() { this->prefactor_ = 1.0; };
-  Fw(const double prefactor) { this->prefactor_ = prefactor; };
-  ~Fw() {};
+  Fw() { this->prefactor_ = 1.0; }
+  explicit Fw(const double prefactor) { this->prefactor_ = prefactor; }
+  virtual ~Fw() = default;
 };
 
 /**
@@ -227,9 +228,9 @@ class H : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  H() { this->prefactor_ = 1.0; };
-  H(const double prefactor) { this->prefactor_ = prefactor; };
-  ~H() {};
+  H() { this->prefactor_ = 1.0; }
+  explicit H(const double prefactor) { this->prefactor_ = prefactor; }
+  virtual ~H() = default;
 };
 
 /**
@@ -317,9 +318,9 @@ class Log : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  Log() { this->prefactor_ = 1.0; };
-  Log(const double prefactor) { this->prefactor_ = prefactor; };
-  ~Log() {};
+  Log() { this->prefactor_ = 1.0; }
+  explicit Log(const double prefactor) { this->prefactor_ = prefactor; }
+  virtual ~Log() = default;
 };
 
 /**
@@ -408,9 +409,9 @@ class GradientEnergy : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  GradientEnergy() { this->prefactor_ = 1.0; };
-  GradientEnergy(const double prefactor) { this->prefactor_ = prefactor; };
-  ~GradientEnergy() {};
+  GradientEnergy() { this->prefactor_ = 1.0; }
+  explicit GradientEnergy(const double prefactor) { this->prefactor_ = prefactor; }
+  virtual ~GradientEnergy() = default;
 };
 
 /**

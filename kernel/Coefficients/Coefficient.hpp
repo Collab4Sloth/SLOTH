@@ -33,13 +33,13 @@
 #include <utility>
 #include <vector>
 
-#include "FunctionCoefficient.hpp"
+#include "Coefficients/FunctionCoefficient.hpp"
+#include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
 #include "Options/TimeOptions.hpp"
-#include "SlothBaseCoefficient.hpp"
 
 #ifdef SLOTH_USE_EXPRTK
-#include "ExprTkSloth.hpp"
+#include "ExprTkSloth.hpp"  // NOLINT [no include the directory when naming exprtk include file]
 #endif
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #pragma once

@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -128,8 +127,9 @@ int main(int argc, char* argv[]) {
   auto heat_vars = VARS(temp);
   auto pl = 15.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, pellet_radius](const mfem::Vector& vcoord, double time) {
-        const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
+      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
+                          [[maybe_unused]] double time) {
+        // const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
         // auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
         // auto chia = chi * pellet_radius;
         // auto I1_chia = std::cyl_bessel_i(1, chia);

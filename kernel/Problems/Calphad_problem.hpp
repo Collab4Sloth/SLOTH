@@ -456,7 +456,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
       case calphad_outputs::mob: {
         MFEM_VERIFY(
             var.get_additional_variable_info().size() == 3,
-            "Calphad problems requires that mobility ouputs are defined with two "
+            "Calphad problems requires that mobility ouputs are defined with three "
             "additional informations: first a phase, second an element, the symbol 'mob'. \n");
 
         SlothInfo::debug("Output : mobility for ", var.get_additional_variable_info()[0]);
@@ -467,6 +467,38 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
                     "Calphad problems requires that heat capacity ouputs are defined with the "
                     "symbol cp as the only additional information. \n");
         SlothInfo::debug("Output : heat capacity ");
+        break;
+      }
+      case calphad_outputs::nucleus: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
+                    "Calphad problems requires that nucleus ouputs are defined with two "
+                    "additional informations: first a phase and second the symbol 'nucleus'. \n");
+
+        SlothInfo::debug("Output : nucleus for ", var.get_additional_variable_info()[0]);
+        break;
+      }
+      case calphad_outputs::x: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 2,
+                    "Calphad problems requires that molar fraction ouputs are defined with two "
+                    "additional informations: first an element and second the symbol 'x'. \n");
+
+        SlothInfo::debug("Output : molar fraction for ", var.get_additional_variable_info()[0]);
+        break;
+      }
+      case calphad_outputs::y: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 4,
+                    "Calphad problems requires that site fraction ouputs are defined with four "
+                    "additional informations: first a phase, second a constituant name, third a "
+                    "sublattice number and the symbol 'y'. \n");
+
+        SlothInfo::debug("Output : site fraction for ", var.get_additional_variable_info()[0]);
+        break;
+      }
+      case calphad_outputs::error: {
+        MFEM_VERIFY(var.get_additional_variable_info().size() == 1,
+                    "Calphad problems requires that error ouputs are defined with the "
+                    "symbol error as the only additional information. \n");
+        SlothInfo::debug("Output : error ");
         break;
       }
     }

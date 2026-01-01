@@ -145,7 +145,6 @@ struct GlossaryQuantity {
  *
  */
 namespace Glossary {
-
 /**
  * @brief Quantity associated with phase-field variables
  *

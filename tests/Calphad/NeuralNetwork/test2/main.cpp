@@ -78,11 +78,10 @@ int main(int argc, char* argv[]) {
   //--- Variables
   // Temperature
   auto parabolic_temp = std::function<double(const mfem::Vector&, double)>(
-      [](const mfem::Vector& vcoord, double time) {
+      [](const mfem::Vector& vcoord, [[maybe_unused]] double time) {
         const double Text = 835.;
         const double pellet_radius = 4.65e-3;
         const double puissance = 26087.78539541;
-        const double conductivity = 2.;
         const double rr = vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1];
         const auto func = Text + puissance * (pellet_radius * pellet_radius - rr) /
                                      (4. * M_PI * 2. * pellet_radius * pellet_radius);

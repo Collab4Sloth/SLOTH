@@ -34,7 +34,6 @@
 #include <utility>
 #include <vector>
 
-#include "Coefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Glossary/Glossary.hpp"
 #pragma once

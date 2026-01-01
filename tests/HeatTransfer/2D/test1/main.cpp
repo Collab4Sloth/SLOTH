@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -88,7 +87,8 @@ int main(int argc, char* argv[]) {
   auto heat_vars = VARS(VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 750.));
   auto pl = 4.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord, double time) {
+      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
+                          [[maybe_unused]] double time) {
         const auto func = pl / (M_PI * pellet_radius * pellet_radius);
 
         return func;

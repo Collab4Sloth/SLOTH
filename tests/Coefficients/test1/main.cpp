@@ -29,6 +29,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "kernel/Coefficients/Coefficient.hpp"
 #include "kernel/sloth.hpp"

@@ -29,13 +29,14 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
-#include "Function.hpp"
-#include "OtherFunction.hpp"
 #include "kernel/Coefficients/Coefficient.hpp"
 #include "kernel/Coefficients/Coefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "test2/Function.hpp"
+#include "test2/OtherFunction.hpp"
 #include "tests/tests.hpp"
 
 struct TestParameters {

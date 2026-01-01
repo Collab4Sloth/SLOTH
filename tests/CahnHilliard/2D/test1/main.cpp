@@ -108,8 +108,8 @@ int main(int argc, char* argv[]) {
   //     variables     //
   // ####################
 
-  auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         const double xx = x[0];
         const double yy = x[1];
         const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);

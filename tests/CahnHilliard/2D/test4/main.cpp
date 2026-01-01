@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
                                      a_x, a_y, epsilon, radius);
 
         auto solution_mu = std::function<double(const mfem::Vector&, double)>(
-            [&](const mfem::Vector& v, double time) {
+            [&](const mfem::Vector& v, [[maybe_unused]] double time) {
               const double x = v[0];
 
               const auto r = a_x * (x - center_x);

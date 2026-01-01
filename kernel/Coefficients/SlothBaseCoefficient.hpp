@@ -32,8 +32,8 @@
 #include <string>
 #include <vector>
 
-#include "ConstantCoefficient.hpp"
-#include "FunctionCoefficient.hpp"
+#include "Coefficients/ConstantCoefficient.hpp"
+#include "Coefficients/FunctionCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
 #include "Options/TimeOptions.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]

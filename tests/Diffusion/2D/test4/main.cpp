@@ -46,7 +46,6 @@ int main(int argc, char* argv[]) {
   // Meshing & Boundary Conditions
   //---------------------------------------
   const int refinement_level = 0;
-  const int fe_order = 1;
   auto length = 1.e-3;
   auto nb_fe = 30;
 

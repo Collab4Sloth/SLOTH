@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -127,8 +126,8 @@ int main(int argc, char* argv[]) {
   const auto& radius = 1.e-2 * pellet_radius;
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](const mfem::Vector& x,
-                                                                       double time) {
+      [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](
+          const mfem::Vector& x, [[maybe_unused]] double time) {
         const auto xx = a_x * (x[0] - center_x);
         const auto yy = a_y * (x[1] - center_y);
         const auto zz = a_z * (x[2] - center_z);
@@ -146,8 +145,9 @@ int main(int argc, char* argv[]) {
   auto heat_vars = VARS(temp);
   auto pl = 15.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, pellet_radius](const mfem::Vector& vcoord, double time) {
-        const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
+      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
+                          [[maybe_unused]] double time) {
+        // const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
         // Rayon identique par cote z
         // std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1] + vcoord[2] * vcoord[2]);
         // auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).

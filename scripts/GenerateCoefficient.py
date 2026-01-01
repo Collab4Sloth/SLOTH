@@ -47,6 +47,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */\n
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <numeric>
@@ -122,9 +123,9 @@ def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, clas
         f.write("  std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> GradientF() final;\n")
         f.write("  std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> HessianF() final;\n\n")
         f.write(" public:\n")
-        f.write(f"  {class_name}() {{this->prefactor_ = 1.0; }};\n")
-        f.write(f"  {class_name}(const double prefactor) {{this->prefactor_ = prefactor; }};\n")
-        f.write(f"  ~{class_name}(){{}};\n")
+        f.write(f"  {class_name}() {{this->prefactor_ = 1.0; }}\n")
+        f.write(f" explicit {class_name}(const double prefactor) {{this->prefactor_ = prefactor; }}\n")
+        f.write(f"  virtual ~{class_name}() = default;\n")
         f.write("};\n\n")
 
 

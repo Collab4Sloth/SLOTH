@@ -95,7 +95,8 @@ int main(int argc, char* argv[]) {
   auto TimeToIncrease = 0.;
 
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, plmax, pldt, TimeToIncrease, pellet_radius](const mfem::Vector& vcoord, double time) {
+      [pl, plmax, pldt, TimeToIncrease, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
+                                                       [[maybe_unused]] double time) {
         double puissance = pl;
         if (time > TimeToIncrease) {
           puissance += (time - TimeToIncrease) * pldt;

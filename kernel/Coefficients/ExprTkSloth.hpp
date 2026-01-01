@@ -32,10 +32,10 @@
 #include <utility>
 #include <vector>
 
-#include "FunctionCoefficient.hpp"
+#include "Coefficients/FunctionCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
-#include "exprtk.hpp"
-#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+#include "exprtk.hpp"  // NOLINT [no include the directory when naming exprtk include file]
+#include "mfem.hpp"    // NOLINT [no include the directory when naming mfem include file]
 #pragma once
 
 /**

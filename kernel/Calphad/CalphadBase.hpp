@@ -5,10 +5,11 @@
  * @version 0.1
  * @date 2025-09-05
  *
+ * @copyright CEA (C) 2025
+ *
  * @anchor CalphadBase
  *
  *
- * Copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -479,6 +480,10 @@ void CalphadBase<T>::update_outputs(
         for (unsigned int i = 0; i < nb_nodes; ++i) {
           output[i] = this->error_equilibrium_[i];
         }
+        break;
+      }
+      case calphad_outputs::x: {
+        // Nothing to do
         break;
       }
     }
