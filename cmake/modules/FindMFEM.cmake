@@ -92,7 +92,9 @@ set_property(TARGET MFEM::mfem
 set_property(TARGET MFEM::mfem APPEND
   PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${MFEM_INCLUDE_DIRS})
 
-
+# Set external libraries (lapack, hypre, metis ...)
+set_property(TARGET MFEM::mfem APPEND
+    PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
 
 # Set MPI library
 if(MFEM_USE_MPI)
@@ -107,18 +109,12 @@ if(MFEM_USE_MPI)
     METIS::METIS
   )
   include_directories(MFEM::mfem SYSTEM INTERFACE ${MPI_INCLUDE_PATH})
-endif()
+endif(MFEM_USE_MPI)
 
 if (NOT MFEM_USE_SUITESPARSE)
   message(FATAL_ERROR "You shall have SUITESPARSE support activated in MFEM.CMake will exit.\n" )
 endif()
 
-if (MFEM_USE_SUNDIALS)
-  if (NOT TARGET SUNDIALS::sundials)
-    find_package(SUNDIALS CONFIG REQUIRED)
-  endif()
-  target_link_libraries(MFEM::mfem INTERFACE SUNDIALS::sundials)
-endif()
 
 # Set the include directories
 set(MFEM_INCLUDE_DIRS ${MFEM_INCLUDE_DIRS}
@@ -135,10 +131,7 @@ mark_as_advanced(FORCE MFEM_LIBRARY)
 mark_as_advanced(FORCE MFEM_CONFIG_FILE)
 
 
-# Set external libraries (lapack, hypre, metis ...)
 # Set system for focusing on warning coming from sloth
-set_property(TARGET MFEM::mfem APPEND
-    PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
 
 foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
   if(FLAG MATCHES "^-I(.+)")
