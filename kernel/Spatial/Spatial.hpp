@@ -283,7 +283,7 @@ struct specialized_spatial_constructor<T, 1> {
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
                   const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args,
-                  std::vector<mfem::Vector> translations) {
+                  [[maybe_unused]] std::vector<mfem::Vector> translations) {
     this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
     a_my_class.apply_uniform_refinement(ref_level);

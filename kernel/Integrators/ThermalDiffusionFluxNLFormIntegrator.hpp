@@ -187,8 +187,8 @@ std::vector<double> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_coeffic
  */
 template <class VARS>
 std::vector<mfem::Vector> ThermalDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient(
-    mfem::ElementTransformation& Tr, const int nElement, const mfem::IntegrationPoint& ip,
-    const int dim) {
+    mfem::ElementTransformation& Tr, [[maybe_unused]] const int nElement,
+    [[maybe_unused]] const mfem::IntegrationPoint& ip, const int dim) {
   std::vector<mfem::Vector> gradient;
   mfem::Vector gradT;
   gradT.SetSize(dim);
