@@ -34,12 +34,13 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich wget unzip libboost-all-dev
+        sudo apt-get install -y mpich wget unzip libboost-all-dev libopenblas-dev perl
         
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
           spack env activate .
+          spack external find openmpi mpich openblas perl
           spack compiler find
           spack concretize -f
           spack install --fail-fast

@@ -8,3 +8,11 @@ spack:
 
   concretizer:
     unify: true
+
+  packages:
+    mpi:
+      buildable: false
+    openblas:
+      buildable: false
+    perl:
+      buildable: false
