@@ -95,7 +95,6 @@ MATimerNode* MATimerNode::find(const std::string name) {
     std::string m_value;
   };
 
-  assert(this != nullptr);
   auto it = std::find_if(m_daughter.begin(), m_daughter.end(), comp(name));
   if (it != m_daughter.end()) {
     return (*it);
