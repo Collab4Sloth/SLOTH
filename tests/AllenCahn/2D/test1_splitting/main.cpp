@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial, &spatial};
-  OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  OPE oper(spatials, {"SplitAllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   auto pst = PST(&spatial, p_pst);
   PB problem1(oper, vars, {coef_ac, coef_ac}, pst);
 

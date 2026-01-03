@@ -73,15 +73,15 @@ class BlockAllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                                  const Parameters& params, std::vector<VARS*> auxvars,
                                  const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec);
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvec) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats);
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -261,7 +261,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       const auto& eta = *elfun[blk] * Psi;
       // const auto& phi = *elfun[off_blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      // const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
       const double coef_mob = mobility[blk].compute() * ip.weight * Tr.Weight();
 

@@ -916,17 +916,14 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     case Integrators::MassFlux: {
       return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(
           vun, all_params, this->auxvariables_, this->coefficients_);
-      break;
     }
     case Integrators::Fick: {
       return new FickNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
                                                          this->coefficients_);
-      break;
     }
     case Integrators::Fourier: {
       return new FourierNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
                                                             this->coefficients_);
-      break;
     }
     case Integrators::CahnHilliard: {
       return new CahnHilliardNLFormIntegrator<Variables<T, DIM>>(
@@ -935,6 +932,10 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     case Integrators::AllenCahn: {
       return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
                                                               this->coefficients_);
+    }
+    case Integrators::SplitAllenCahn: {
+      return new BlockAllenCahnNLFormIntegrator<Variables<T, DIM>>(
+          vun, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingTemperature: {
       return new MeltingTemperatureNLFormIntegrator<Variables<T, DIM>>(
@@ -950,7 +951,6 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");
-      return nullptr;
   }
 }
 
