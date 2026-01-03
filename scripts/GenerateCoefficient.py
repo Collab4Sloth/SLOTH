@@ -7,6 +7,8 @@ from pathlib import Path
 import os
 import re
 import sympy as sp
+
+
 import shutil
 import logging
 import sys
@@ -18,7 +20,79 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+def expand_ranges(expr: str,count: int = 0):
+    """
+    Parse a string composed of symbols and expand a(i..j) in ai, a(i+1), ..., aj.
+    Return a tuple:
+        - string of expanded symbols
+        - total number of variables expanded
+    """
+    tokens = [t.strip() for t in expr.split(',')]
+    result = []
+
+    pattern = re.compile(r'^([a-zA-Z_]\w*)\((\d+)\.\.(\d+)\)$')
+
+    for token in tokens:
+        match = pattern.match(token)
+        if match:
+            count += 1
+            name, start, end = match.groups()
+            start, end = int(start), int(end)
+
+            if start > end:
+                raise ValueError(f"Error: invalid bounds in the range {token}")
+
+            for i in range(start, end + 1):
+                result.append(f"{name}{i}")
+        else:
+            result.append(token)
+
+    return ",".join(result), count
+
+
+def dot_to_inner_product(code: str) -> str:
+    """
+    Replace Sum(a[i]*b[i], (i, 0, n)) by std::inner_product(a.begin(), a.end(), b.begin(), 0)
+    """
+    pattern = re.compile(
+        r"dot\(\s*"        # dot(
+        r"(\w+)\s*,\s*"    # première variable
+        r"(\w+)\s*\)"      # deuxième variable
+    )
+
+    def repl(match):
+        var1 = match.group(1)
+        var2 = match.group(2)
+        return f"std::inner_product({var1}.begin(), {var1}.end(), {var2}.begin(), 0.0)"
+
+    return pattern.sub(repl, code)
+
+def sp_from_expr_with_sum(expression: str, local_dict, nb_var_expanded: int):
+    """
+    Convert string with Sum and IndexedBase into SymPy object.
+    - Detect IndexedBase (variables)
+    - Detect indexes of each summation
+    - Fill locals_dict for sympify
+    - Expand summation with .doit()
+    - Delete []
+    - Check if the number of expanded variables correspond to the number of IndexedBase
+    """
+    local_dict['Sum']= sp.Sum
+    sum_vars = set(re.findall(r'([a-zA-Z_]\w*)\s*\[', expression))
+    sum_indexes = set(re.findall(r'\[([a-zA-Z_]\w*)\]', expression))
     
+    if len(sum_vars) != nb_var_expanded:
+        raise Exception(f"The number of expanded variables must be equal to the number of IndexedBase. Please check json file")
+    
+    for v in sum_indexes:
+        local_dict[v] = sp.symbols(v)
+    for v in sum_vars:
+        local_dict[v] = sp.IndexedBase(v)
+    
+    expr_tmp = sp.sympify(expression, locals=local_dict, rational=True)
+    expr_tmp = sp.sympify(str(expr_tmp.doit()).replace('[', '').replace(']', ''), rational=True)
+    
+    return expr_tmp
 
 
 def prepare_output_file(output_file, is_gradient_coefficient):
@@ -56,47 +130,37 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 #pragma once\n
 """)
 
-def dot_to_inner_product(code: str) -> str:
-    """
-    Replace Sum(a[i]*b[i], (i, 0, n)) by std::inner_product(a.begin(), a.end(), b.begin(), 0)
-    """
-    pattern = re.compile(
-        r"dot\(\s*"        # dot(
-        r"(\w+)\s*,\s*"    # première variable
-        r"(\w+)\s*\)"      # deuxième variable
-    )
-
-    def repl(match):
-        var1 = match.group(1)
-        var2 = match.group(2)
-        return f"std::inner_product({var1}.begin(), {var1}.end(), {var2}.begin(), 0.0)"
-
-    return pattern.sub(repl, code)
 
 def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, class_name, output_file, is_gradient_coefficient):
+    # Expand variables with a range if needed
+    nb_var_expanded = 0
+    var_names, nb_var_expanded = expand_ranges(var_names, nb_var_expanded)
     var_names+=","
     vars = sp.symbols(var_names)
     n = len(vars)
     has_auxiliary_variables = False
     if(len(auxiliary_var_names)>0):
+        auxiliary_var_names, nb_var_expanded = expand_ranges(auxiliary_var_names, nb_var_expanded)
         has_auxiliary_variables = True
         auxiliary_var_names+=","
         auxiliary_vars = sp.symbols(auxiliary_var_names)
-        print(auxiliary_vars)
 
     locals_dict={}
     if(is_gradient_coefficient):
         dot = sp.Function('dot')
         locals_dict["dot"]=dot
-
-    expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
-
-
+    #
+    has_sum = "Sum(" in expr_str
+    if has_sum:
+        expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
+    else:
+        expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
+    
     # Int to float
     expr = expr_tmp
     # expr = sp.N(expr_tmp)
     # Gradient
-    gradient = [ sp.diff(expr, v) for v in vars]
+    gradient = [sp.diff(expr, v) for v in vars]
     # Hessian (n x n)
     hessian = sp.hessian(expr, vars)
 
