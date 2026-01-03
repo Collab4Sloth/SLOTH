@@ -117,10 +117,10 @@ int main(int argc, char* argv[]) {
 
   Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
   Coefficients coef_inter(Dstab);
-  DiffusionOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
+  TransientOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
                                                        TimeScheme::RungeKutta4, "TimeDerivative");
 
-  DiffusionOperator<FECollection, DIM> interdiffu_oper_b(spatials, {"MassFlux"}, td_parameters,
+  TransientOperator<FECollection, DIM> interdiffu_oper_b(spatials, {"MassFlux"}, td_parameters,
                                                          TimeScheme::RungeKutta4, "TimeDerivative");
 
   //==========================================
@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
       "A inter-diffusion mobilities", ppa_parameters, MA, mob_pst_a, var_a, var_b, heat_vars,
       mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
       "Interdiffusion A", interdiffu_oper, var_a, {coef_inter}, interdiffu_pst, mu_var, MA);
 
   auto ppb_parameters =
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
       "B inter-diffusion mobilities", ppb_parameters, MB, mob_pst_b, var_a, var_b, heat_vars,
       mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
       "Interdiffusion B", interdiffu_oper_b, var_b, {coef_inter}, interdiffu_pst_b, mu_var, MB);
 
   //-----------------------

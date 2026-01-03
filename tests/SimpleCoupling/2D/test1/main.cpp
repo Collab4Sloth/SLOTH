@@ -46,11 +46,11 @@ int main(int argc, char* argv[]) {
   /////////////////////////
 
   // ALLEN-CAHN
-  using AC_OPE = PhaseFieldOperator<FECollection, DIM>;
+  using AC_OPE = TransientOperator<FECollection, DIM>;
   using AC_PB = Problem<AC_OPE, VARS, PST>;
 
   // Heat
-  using HEAT_OPE = DiffusionOperator<FECollection, DIM>;
+  using HEAT_OPE = TransientOperator<FECollection, DIM>;
   using HEAT_PB = Problem<HEAT_OPE, VARS, PST>;
 
   // ###########################################

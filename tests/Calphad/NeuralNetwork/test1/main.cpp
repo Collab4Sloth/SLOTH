@@ -208,13 +208,13 @@ int main(int argc, char* argv[]) {
   //--- Operator definition
   std::vector<SPA*> spatials{&spatial};
 
-  DiffusionOperator<FECollection, DIM> interdiffu_oper_a(
+  TransientOperator<FECollection, DIM> interdiffu_oper_a(
       spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_a.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-20)));
 
-  DiffusionOperator<FECollection, DIM> interdiffu_oper_b(
+  TransientOperator<FECollection, DIM> interdiffu_oper_b(
       spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_b.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
       "A inter-diffusion mobilities", ppa_parameters, MA, mob_pst_a, xa_vars, xb_vars, heat_vars,
       calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
       "Interdiffusion A", interdiffu_oper_a, xa_vars, {coef_inter}, interdiffu_pst, calphad_outputs,
       MA, heat_vars);
 
@@ -289,7 +289,7 @@ int main(int argc, char* argv[]) {
       "B inter-diffusion mobilities", ppb_parameters, MB, mob_pst_b, xa_vars, xb_vars, heat_vars,
       calphad_outputs);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
       "Interdiffusion B", interdiffu_oper_b, xb_vars, {coef_inter}, interdiffu_pst_b,
       calphad_outputs, MB, heat_vars);
 

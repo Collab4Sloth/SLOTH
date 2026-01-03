@@ -177,14 +177,39 @@ class OperatorBase : public mfem::Operator {
   virtual void SetTransientParameters(const std::vector<mfem::Vector>& u_vect) = 0;
   virtual void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
                      const double& current_time, double current_time_step, const int iter) = 0;
-  virtual SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
-      const std::string nlfi, const std::vector<mfem::Vector>& u) = 0;
-  virtual void get_parameters() = 0;
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const std::string nlfi,
+                                                         const std::vector<mfem::Vector>& u);
 };
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 
+/**
+ * @brief Set the NonLinearFormIntegrator dedicated to AllenCahn
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam OPEBASE
+ * @param dt
+ * @param u
+ * @return NLFI*
+ */
+template <class T, int DIM>
+SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
+    const std::string nlfi, const std::vector<mfem::Vector>& u) {
+  Catch_Time_Section("OperatorBase::set_nlfi_ptr");
+  std::vector<mfem::ParGridFunction> vun;
+  for (unsigned int i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(un);
+  }
+
+  const Parameters& all_params = this->params_ - this->default_p_;
+  auto rhs_nlfi = this->get_rhs_integrator(nlfi, vun, all_params);
+  rhs_nlfi->init();
+  return rhs_nlfi;
+}
 /**
  * @brief Return the total height (output=rows of Operator) of the PDE system
  *

@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using OPE = DiffusionOperator<FECollection, DIM>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################

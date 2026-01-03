@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
   using PST = Test<DIM>::PST;
   /////////////////////////
 
-  using OPE = PhaseFieldOperator<FECollection, DIM>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################

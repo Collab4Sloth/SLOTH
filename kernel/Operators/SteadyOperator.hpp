@@ -1,7 +1,7 @@
 /**
- * @file SteadyOperatorBase.hpp
+ * @file SteadyOperator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Steady  Operator base
+ * @brief Steady  Operator
  * @version 0.1
  * @date 2025-09-05
  *
@@ -44,61 +44,54 @@
 #pragma once
 
 /**
- * @brief SteadyOperatorBase class
+ * @brief SteadyOperator class
  *
  */
 template <class T, int DIM>
-class SteadyOperatorBase : public OperatorBase<T, DIM> {
+class SteadyOperator : public OperatorBase<T, DIM> {
  private:
   SteadyPhaseFieldReducedOperator* steady_reduced_oper;
 
  public:
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                     const std::vector<std::string>& integrators);
+  SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                 const std::vector<std::string>& integrators);
 
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                     const std::vector<std::string>& integrators,
-                     std::vector<AnalyticalFunctions<DIM>> source_term_name);
+  SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                 const std::vector<std::string>& integrators,
+                 std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                     const std::vector<std::string>& integrators, const Parameters& params);
+  SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                 const std::vector<std::string>& integrators, const Parameters& params);
 
-  SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                     const std::vector<std::string>& integrators, const Parameters& params,
-                     std::vector<AnalyticalFunctions<DIM>> source_term_name);
+  SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                 const std::vector<std::string>& integrators, const Parameters& params,
+                 std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult([[maybe_unused]] const mfem::Vector& k, [[maybe_unused]] mfem::Vector& y)
       const override {  // Nothing to be done because of manage by steadyreducedoperator
   }
-  // mfem::Operator &GetGradient(const mfem::Vector &k) const override;
-
   // Virtual methods
 
-  // void initialize(const double &initial_time, Variables<T, DIM> &vars) override;
   void initialize(const double& initial_time, Variables<T, DIM>& vars,
                   std::vector<Variables<T, DIM>*> auxvars) override;
-  // Pure virtual methods
   void SetTransientParameters(const std::vector<mfem::Vector>& u_vet) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
              const double& current_time, double dt, const int iter) override;
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
-      const std::string nlfi, const std::vector<mfem::Vector>& u) override = 0;
-  void get_parameters() override = 0;
 };
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new SteadyOperatorBase object
+ * @brief Construct a new SteadyOperator object
  *
  * @tparam T
  * @tparam DIM
  * @param spatial
  */
 template <class T, int DIM>
-SteadyOperatorBase<T, DIM>::SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                               const std::vector<std::string>& integrators)
+SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                                       const std::vector<std::string>& integrators)
     : OperatorBase<T, DIM>(integrators, spatials), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -106,7 +99,7 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(std::vector<SpatialDiscretization
 }
 
 /**
- * @brief Construct a new SteadyOperatorBase object
+ * @brief Construct a new SteadyOperator object
  *
  * @tparam T
  * @tparam DIM
@@ -114,10 +107,9 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(std::vector<SpatialDiscretization
  * @param source_term_name
  */
 template <class T, int DIM>
-SteadyOperatorBase<T, DIM>::SteadyOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials,
-    const std::vector<std::string>& integrators,
-    std::vector<AnalyticalFunctions<DIM>> source_term_name)
+SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                                       const std::vector<std::string>& integrators,
+                                       std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM>(integrators, spatials, source_term_name), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -125,7 +117,7 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(
 }
 
 /**
- * @brief Construct a new SteadyOperatorBase object
+ * @brief Construct a new SteadyOperator object
  *
  * @tparam T
  * @tparam DIM
@@ -133,9 +125,9 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(
  * @param params
  */
 template <class T, int DIM>
-SteadyOperatorBase<T, DIM>::SteadyOperatorBase(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                               const std::vector<std::string>& integrators,
-                                               const Parameters& params)
+SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                                       const std::vector<std::string>& integrators,
+                                       const Parameters& params)
     : OperatorBase<T, DIM>(integrators, spatials, params), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -143,7 +135,7 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(std::vector<SpatialDiscretization
 }
 
 /**
- * @brief Construct a new SteadyOperatorBase object
+ * @brief Construct a new SteadyOperator object
  *
  * @tparam T
  * @tparam DIM
@@ -152,10 +144,10 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(std::vector<SpatialDiscretization
  * @param source_term_name
  */
 template <class T, int DIM>
-SteadyOperatorBase<T, DIM>::SteadyOperatorBase(
-    std::vector<SpatialDiscretization<T, DIM>*> spatials,
-    const std::vector<std::string>& integrators, const Parameters& params,
-    std::vector<AnalyticalFunctions<DIM>> source_term_name)
+SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                                       const std::vector<std::string>& integrators,
+                                       const Parameters& params,
+                                       std::vector<AnalyticalFunctions<DIM>> source_term_name)
     : OperatorBase<T, DIM>(integrators, spatials, params, source_term_name),
       steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
@@ -172,9 +164,9 @@ SteadyOperatorBase<T, DIM>::SteadyOperatorBase(
  * @param vars
  */
 template <class T, int DIM>
-void SteadyOperatorBase<T, DIM>::initialize(const double& initial_time, Variables<T, DIM>& vars,
-                                            std::vector<Variables<T, DIM>*> auxvars) {
-  Catch_Time_Section("SteadyOperatorBase::initialize");
+void SteadyOperator<T, DIM>::initialize(const double& initial_time, Variables<T, DIM>& vars,
+                                        std::vector<Variables<T, DIM>*> auxvars) {
+  Catch_Time_Section("SteadyOperator::initialize");
 
   OperatorBase<T, DIM>::initialize(initial_time, vars, auxvars);
 }
@@ -189,9 +181,9 @@ void SteadyOperatorBase<T, DIM>::initialize(const double& initial_time, Variable
  * @param dt
  */
 template <class T, int DIM>
-void SteadyOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
-                                       double& next_time, const double& current_time, double dt,
-                                       const int iter) {
+void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+                                   double& next_time, const double& current_time, double dt,
+                                   const int iter) {
   this->current_time_ = current_time;
   this->current_dt_ = dt;
 
@@ -253,8 +245,8 @@ void SteadyOperatorBase<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>
  * @param u unknown vector
  */
 template <class T, int DIM>
-void SteadyOperatorBase<T, DIM>::SetTransientParameters(const std::vector<mfem::Vector>& u_vect) {
-  Catch_Time_Section("SteadyOperatorBase::SetTransientParameters");
+void SteadyOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::Vector>& u_vect) {
+  Catch_Time_Section("SteadyOperator::SetTransientParameters");
 
   ////////////////////////////////////////////
   //  Build the RHS of the PDEs

@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
   using PB = Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST>;
 
   // Heat
-  using OPE2 = DiffusionOperator<FECollection, DIM>;
+  using OPE2 = TransientOperator<FECollection, DIM>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################

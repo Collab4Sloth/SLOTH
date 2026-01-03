@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
   //==========================================
   //======      HEAT TRANSFER           ======
   //==========================================
-  using TH_OPE = DiffusionOperator<FECollection, DIM>;
+  using TH_OPE = TransientOperator<FECollection, DIM>;
   using TH_PB = Problem<TH_OPE, VARS, PST>;
 
   auto temp = VAR(&spatial, thermal_bcs, "T", Glossary::Temperature, level_of_storage, 700.);
@@ -352,7 +352,7 @@ int main(int argc, char* argv[]) {
   //==========================================
   //======      Melting                 ======
   //==========================================
-  using AC_OPE = PhaseFieldOperator<FECollection, DIM>;
+  using AC_OPE = TransientOperator<FECollection, DIM>;
   using AC_PB = Problem<AC_OPE, VARS, PST>;
 
   const auto& lambda = 3. * sigma * epsilon / 2.;
@@ -384,14 +384,14 @@ int main(int argc, char* argv[]) {
   // Operator for InterDiffusion equation on A
   Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
   Coefficients coef_pb(Dstab);
-  DiffusionOperator<FECollection, DIM> interdiffu_oper_a(
+  TransientOperator<FECollection, DIM> interdiffu_oper_a(
       spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_a.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-11), Parameter("abs_tol", 5.e-14)));
   // Operator for InterDiffusion equation on B
-  DiffusionOperator<FECollection, DIM> interdiffu_oper_b(
+  TransientOperator<FECollection, DIM> interdiffu_oper_b(
       spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
   interdiffu_oper_b.overload_nl_solver(
       NLSolverType::NEWTON,
@@ -496,7 +496,7 @@ int main(int argc, char* argv[]) {
       "A inter-diffusion mobilities", ppa_parameters, MA, mob_pst_a, xa_vars, xb_vars, heat_vars,
       calphad_outputs, var_phi, mob_liquid);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
       "Interdiffusion A", interdiffu_oper_a, xa_vars, {coef_pb}, interdiffu_pst, calphad_outputs,
       MA, heat_vars);
 
@@ -512,7 +512,7 @@ int main(int argc, char* argv[]) {
       "B inter-diffusion mobilities", ppb_parameters, MB, mob_pst_b, xa_vars, xb_vars, heat_vars,
       calphad_outputs, var_phi, mob_liquid);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
       "Interdiffusion B", interdiffu_oper_b, xb_vars, {coef_pb}, interdiffu_pst_b, calphad_outputs,
       MB, heat_vars);
 

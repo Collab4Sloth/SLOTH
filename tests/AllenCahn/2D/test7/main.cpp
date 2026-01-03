@@ -43,8 +43,8 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using OPE = PhaseFieldOperator<FECollection, DIM>;
-  using OPE2 = DiffusionOperator<FECollection, DIM>;
+  using OPE = TransientOperator<FECollection, DIM>;
+  using OPE2 = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   using PB2 = Problem<OPE2, VARS, PST>;
   // ###########################################

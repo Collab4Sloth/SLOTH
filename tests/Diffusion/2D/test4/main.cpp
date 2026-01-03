@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
   Coefficients coef_fick(D);
   auto diffu_vars = VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, level_of_storage,
                              initial_compo, analytical_compo));
-  DiffusionOperator<FECollection, DIM> diffu_oper(spatials, {"Fick"}, TimeScheme::RungeKutta4,
+  TransientOperator<FECollection, DIM> diffu_oper(spatials, {"Fick"}, TimeScheme::RungeKutta4,
                                                   "TimeDerivative");
 
   //==========================================
@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) {
 
   Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
   Coefficients coef_inter(Dstab);
-  DiffusionOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
+  TransientOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
                                                        TimeScheme::RungeKutta4, "TimeDerivative");
 
   //==========================================
@@ -192,10 +192,10 @@ int main(int argc, char* argv[]) {
       "A inter-diffusion mobilities", pp_parameters, MA, mob_pst_a, compo_vars, heat_vars,
       mobilities);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> interdiffu_problem(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem(
       "InterDiffusion", interdiffu_oper, compo_vars, {coef_inter}, interdiffu_pst, mu_var, MA);
 
-  Problem<DiffusionOperator<FECollection, DIM>, VARS, PST> diffu_problem(
+  Problem<TransientOperator<FECollection, DIM>, VARS, PST> diffu_problem(
       "Fick", diffu_oper, diffu_vars, {coef_fick}, diffu_pst);
 
   //-----------------------

@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
-  using OPE = PhaseFieldOperator<FECollection, DIM>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################

@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using OPE = SteadyPhaseFieldOperator<FECollection, DIM>;
+  using OPE = SteadyOperator<FECollection, DIM>;
 
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
