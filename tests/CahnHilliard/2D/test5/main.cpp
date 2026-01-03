@@ -145,7 +145,6 @@ int main(int argc, char* argv[]) {
         auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
             [&](const mfem::Vector& x, double time) {
               const double xx = x[0];
-              const double yy = x[1];
               const auto c = (time + 1) * std::sin(M_PI * xx);
               const double delta_c = -M_PI * M_PI * c;
               const double dc_dx = (time + 1) * M_PI * std::cos(M_PI * xx);
