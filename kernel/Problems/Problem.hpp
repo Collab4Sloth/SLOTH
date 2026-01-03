@@ -131,6 +131,9 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, convergence, pst,
                             auxvariables...),
       oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
   this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
@@ -173,6 +176,9 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, pst, auxvariables...),
       oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
   this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
@@ -219,6 +225,9 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
                                 PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, pst, auxvariables...),
       oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
   this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
@@ -262,6 +271,9 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
                                 const std::vector<Coefficients>& Coeff, PST& pst,
                                 Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...), oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
   this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
 }
 
