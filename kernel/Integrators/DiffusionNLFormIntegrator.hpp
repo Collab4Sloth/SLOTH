@@ -1,36 +1,35 @@
 /**
  * @file DiffusionNLFormIntegrator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief FV for the mass diffusion equation
+ * @brief Nonlinear form integrator for diffusion-type problems
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
+#include <list>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "Coefficients/DiffusionCoefficient.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -40,135 +39,114 @@
 #pragma once
 
 /**
- * @brief  Class dedicated to the FV of the mass diffusion equation
+ * @brief  Nonlinear form integrator for diffusion-type problems
  *
- * @tparam SCHEME
  * @tparam DIFFU_NAME
  */
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-class DiffusionNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                                  public SlothNLFormIntegrator<VARS> {
+template <class VARS>
+class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
-  std::vector<mfem::ParGridFunction> u_old_;
-  std::vector<mfem::ParGridFunction> aux_gf_;
-  std::vector<mfem::Vector> aux_old_gf_;
-  std::vector<std::vector<std::string>> aux_infos_;
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
-  template <typename... Args>
-  double diffusion(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
-                   const double u, const Parameters& parameters);
-  template <typename... Args>
-  double diffusion_prime(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
-                         const double u, const Parameters& parameters);
+ protected:
+  std::list<GlossaryType> expected_list_;
+  Coefficients diffusion;
+  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
+                                              const std::vector<double>& values);
+  void get_coefficients() override = 0;
+  void init() override;
 
  public:
-  DiffusionNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                            const Parameters& params, std::vector<VARS*> auxvars);
-  ~DiffusionNLFormIntegrator();
+  DiffusionNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                            const Parameters& params, std::vector<VARS*> auxvars,
+                            const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvect);
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvect) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmat);
-
-  std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>> get_energy(
-      std::vector<mfem::ParGridFunction*> gfu, const double diffu);
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmat) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
 
 /**
- * @brief Return the value of the diffusion coefficient at integration point
+ * @brief Construct a new DiffusionNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam DIFFU_NAME
- * @tparam Args
- * @param Tr
- * @param ip
- * @param gfu
- * @param parameters
- * @return double
+ * This constructor initializes a nonlinear form integrator for diffusion-type
+ * problems. It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
+ * @note This integrator serves as a base class for specific diffusion
+ *       integrators like FickNLFormIntegrator and FourierNLFormIntegrator.
  */
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-template <typename... Args>
-double DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::diffusion(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-    const Parameters& parameters) {
-  if (SCHEME == CoefficientDiscretization::Implicit) {
-    DiffusionCoefficient<0, DIFFU_NAME> diff_coeff(u, parameters);
-    return diff_coeff.Eval(Tr, ip);
-  } else {
-    DiffusionCoefficient<0, DIFFU_NAME> diff_coeff(&this->u_old_[0], parameters);
-    return diff_coeff.Eval(Tr, ip);
-  }
+template <class VARS>
+DiffusionNLFormIntegrator<VARS>::DiffusionNLFormIntegrator(
+    const std::vector<mfem::ParGridFunction> u_old, const Parameters& params,
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {}
+
+/**
+ * @brief Initialize the diffusion integrator.
+ *
+ * This method performs all necessary setup steps for a diffusion-type
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the diffusion coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' must be populated with the
+ *      required coefficient types for this diffusion integrator.
+ *
+ * @post Internal diffusion coefficient storage is initialized.
+ *
+ * @throws mfem::Error If the expected list of coefficients is empty.
+ */
+template <class VARS>
+void DiffusionNLFormIntegrator<VARS>::init() {
+  MFEM_VERIFY(
+      !this->expected_list_.empty(),
+      "Expected not empty list of coefficients for diffusion integrators. Please check your data.");
+  this->check_coefficient_types(this->expected_list_);
+  this->get_coefficients();
 }
 
 /**
- * @brief Return the first derivative of the diffusion coefficient vs the variable at integration
- * point
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam DIFFU_NAME
- * @tparam Args
- * @param Tr
- * @param ip
- * @param gfu
- * @param parameters
- * @return double
- */
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-template <typename... Args>
-double DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::diffusion_prime(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-    const Parameters& parameters) {
-  double coef = 0.;
-  if (SCHEME == CoefficientDiscretization::Implicit) {
-    DiffusionCoefficient<1, DIFFU_NAME> diff_coeff(u, parameters);
-    coef = diff_coeff.Eval(Tr, ip);
-  }
-  return coef;
-}
-
-/**
- * @brief Construct a new DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::DiffusionNLFormIntegrator
- * object
+ * This method computes the residual vector of the diffusion-type nonlinear problem by element
  *
- * @tparam SCHEME
- * @tparam COEFFICIENT
- * @param u_old
- * @param alpha
- * @param kappa
- */
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::DiffusionNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
-  this->aux_gf_ = this->get_aux_gf();
-  this->aux_old_gf_ = this->get_aux_old_gf();
-  this->aux_infos_ = this->get_aux_infos();
-}
-
-/**
- * @brief Residual part of the non linear problem
+ * @tparam VARS Template parameter defining the variables used in the integrator.
  *
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
-
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
+template <class VARS>
+void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int blk = 0;
@@ -181,6 +159,8 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
   elvect[blk]->SetSize(nd);
   *elvect[blk] = 0.;
 
+  Coefficients coeff_blk = this->coefficients_[blk];
+
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
@@ -190,31 +170,37 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementVector(
     Tr.SetIntPoint(&ip);
 
     const auto& u = *elfun[blk] * Psi;
+    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
 
-    // Laplacian : given u, compute (grad(u), grad(psi)), psi is shape function.
-    // given u (elfun), compute grad(u)
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     gradPsi.MultTranspose(*elfun[blk], gradU);
-
-    const double coeff_diffu = this->diffusion(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
+    double diffu = this->compute_coefficient(diffusion[blk], {u, un});
+    const double coeff_diffu = diffu * ip.weight * Tr.Weight();
     gradU *= coeff_diffu;
     gradPsi.AddMult(gradU, *elvect[blk]);
   }
 }
 
 /**
- * @brief  Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @param el
- * @param Tr
- * @param elfun
- * @param elmat
+ * This method computes the Jacobian matrix of a diffusion-type nonlinear problem by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
+template <class VARS>
+void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
-
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
@@ -228,43 +214,88 @@ void DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::AssembleElementGrad(
   elmat(blk, blk)->SetSize(nd);
   *elmat(blk, blk) = 0.0;
 
+  Coefficients coeff_blk = this->coefficients_[blk];
+
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-
 
   vec = 0.0;
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
     const auto& u = *elfun[blk] * Psi;
-    // Laplacian : compute (grad(phi), grad(psi)), phi is shape function.
 
     Tr.SetIntPoint(&ip);
-    const double coeff_diffu = this->diffusion(Tr, ip, u, this->params_) * ip.weight * Tr.Weight();
+
+    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+    double diffu = this->compute_coefficient(diffusion[blk], {u, un});
+    double grad_diffu = this->compute_gradient_coefficient(diffusion[blk], blk, {u});
+
     el[blk]->CalcPhysDShape(Tr, gradPsi);
-    AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
+    AddMult_a_AAt(diffu * ip.weight * Tr.Weight(), gradPsi, *elmat(blk, blk));
 
     gradPsi.MultTranspose(*elfun[blk], gradU);
     gradPsi.AddMult(gradU, vec);
-    const auto coef_diffu_derivative = this->diffusion_prime(Tr, ip, u, this->params_);
-    AddMult_a_VWt(coef_diffu_derivative * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
+    AddMult_a_VWt(grad_diffu * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
   }
 }
 
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-std::unique_ptr<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>
-DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::get_energy(
-    std::vector<mfem::ParGridFunction*> gfu, const double diffu) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ThermodynamicsPotentials::LOG>>(gfu[0],
-                                                                                       diffu);
+/**
+ * @brief Compute the value of a diffusion coefficient.
+ *
+ * This method evaluates the given coefficient using the provided values.
+ * By default, the 'values' vector contains {u, u_old}, and auxiliary
+ * variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient to evaluate.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the diffusion coefficient.
+ *
+ * @note This function can be overridden in derived classes.
+ */
+template <class VARS>
+double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                            const std::vector<double>& values) {
+  const double u = values[0];
+  const double un = values[1];
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    coef_value = coef.compute({u});
+  } else if (coef.is_explicit()) {
+    coef_value = coef.compute({un});
+  } else if (coef.is_scalar()) {
+    coef_value = coef.compute();
+  }
+  return coef_value;
 }
 
 /**
- * @brief Destroy the DiffusionNLFormIntegrator<SCHEME, COEFFICIENT>::DiffusionNLFormIntegrator
+ * @brief Compute the value of a specific component of the gradient of a diffusion coefficient.
  *
- * @tparam SCHEME
- * @tparam COEFFICIENT
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to the specified block. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param iblk    Index of the gradient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the diffusion coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
-
-template <class VARS, CoefficientDiscretization SCHEME, Diffusion DIFFU_NAME>
-DiffusionNLFormIntegrator<VARS, SCHEME, DIFFU_NAME>::~DiffusionNLFormIntegrator() {}
+template <class VARS>
+double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
+    Coefficient coef, const int iblk, const std::vector<double>& values) {
+  const double u = values[0];
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    coef_value = coef.compute_gradient(iblk, {u});
+  }
+  return coef_value;
+}

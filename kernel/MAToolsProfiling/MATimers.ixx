@@ -89,8 +89,8 @@ void finalize() {
   if (is_enable()) {
     using namespace MATools::MATimer::Optional;
     using namespace MATools::MAOutput;
-    MATimerNode* root_ptr = MATools::MATimer::get_MATimer_node<ROOT>();
-    MATimerNode* current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>();
+    auto& root_ptr = MATools::MATimer::get_MATimer_node<ROOT>();
+    auto& current_ptr = MATools::MATimer::get_MATimer_node<CURRENT>();
     root_ptr = nullptr;
     current_ptr = nullptr;
   }

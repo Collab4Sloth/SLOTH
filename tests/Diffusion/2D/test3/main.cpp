@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+#include "kernel/Coefficients/Coefficient.hpp"
+#include "kernel/Coefficients/Coefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -29,8 +31,6 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
 
   mfem::Mpi::Init(argc, argv);
-  int size = mfem::Mpi::WorldSize();
-  int rank = mfem::Mpi::WorldRank();
   mfem::Hypre::Init();
   //
   //---------------------------------------
@@ -42,15 +42,11 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using NLFI =
-      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Implicit, Diffusion::Linear>;
-
-  using OPE = SteadyDiffusionOperator<FECollection, DIM, NLFI>;
+  //
+  using OPE = SteadyOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -77,21 +73,17 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   // ####################
-  //     parameters    //
+  //     Coefficients  //
   // ####################
-  // kappa + alpha u
-  const auto& alpha(0.);
-  const auto& kappa(-1.);
+  std::vector<Coefficients> coeffs;
+  Coefficient D(Glossary::Diffusivity, Scheme::Implicit, "-1");
+  Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
+  Coefficients CoeffDiffusion(D, FW);
+  coeffs.emplace_back(CoeffDiffusion);
   // ####################
   //     variables     //
   // ####################
-
-  auto user_func =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& v, double time) {
-        const auto func = 0.;
-        return func;
-      });
-  auto initial_condition = AnalyticalFunctions<DIM>(user_func);
+  auto initial_condition = 0.0;
 
   auto vars = VARS(VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition));
 
@@ -112,8 +104,8 @@ int main(int argc, char* argv[]) {
   //     operators     //
   // ####################
 
-  auto user_func_source_term =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& v, double time) {
+  auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
+      []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
         const auto func = 1.;
         return func;
       });
@@ -123,10 +115,10 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, src_term);
-  oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
+  OPE oper(spatials, {"Fick"}, src_term);
+
   auto pst = PST(&spatial, p_pst);
-  PB problem1("Problem 1", oper, vars, pst);
+  PB problem1("Problem 1", oper, vars, coeffs, pst);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1);
@@ -137,7 +129,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.1;  // 0.5;
+  const auto& t_final = 0.1;
   const auto& dt = 0.1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));

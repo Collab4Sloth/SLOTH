@@ -24,6 +24,7 @@
  *
  */
 #include <map>
+#include <optional>
 #include <string>
 #pragma once
 
@@ -110,8 +111,11 @@ enum class GlossaryType {
   SiteFraction,
   ChemicalPotential,
   ThermodynamicPotential,
+  FreeEnergy,
+  GradientEnergy,
   PhaseFieldPotential,
   PhaseField,
+  Thickness,
   System
 };
 
@@ -123,14 +127,17 @@ struct GlossaryQuantity {
    * @param u GloassaryUnit of the quantity
    * @param d Description of the quantity
    */
-  GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d)
-      : type(t), unit(u), description(d) {}
+  GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d) : GlossaryQuantity(t, u, d, 0) {}
+  GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d, unsigned int id_qty)
+      : type(t), unit(u), id(id_qty), description(d) {}
 
   GlossaryType type;
   GlossaryUnit unit;
+  unsigned int id;
   std::string description;
 
-  void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
+  inline void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
+  inline void setId(unsigned int newId) { id = newId; }
 };
 
 /**
@@ -138,7 +145,6 @@ struct GlossaryQuantity {
  *
  */
 namespace Glossary {
-
 /**
  * @brief Quantity associated with phase-field variables
  *
@@ -163,6 +169,14 @@ static const GlossaryQuantity MoleFraction = GlossaryQuantity(
  */
 static const GlossaryQuantity SiteFraction = GlossaryQuantity(
     GlossaryType::SiteFraction, GlossaryUnit::None, "Site fraction variable (dimensionless)");
+
+/**
+ * @brief Quantity associated with phase-field mobility coefficients
+ *
+ */
+static GlossaryQuantity Thickness =
+    GlossaryQuantity(GlossaryType::Thickness, GlossaryUnit::Meter,
+                     "Thickness of interface in " + toString(GlossaryUnit::Meter));
 
 /**
  * @brief Quantity associated with phase-field mobility coefficients
@@ -291,7 +305,11 @@ static const GlossaryQuantity DrivingForce =
  *
  */
 static const GlossaryQuantity FreeEnergy = GlossaryQuantity(
-    GlossaryType::PhaseFieldPotential, GlossaryUnit::None, "Free energy function (dimensionless)");
+    GlossaryType::FreeEnergy, GlossaryUnit::None, "Free energy function (dimensionless)");
+
+// CCI ameliorer les commentaires et dimension
+static const GlossaryQuantity GradEnergy = GlossaryQuantity(
+    GlossaryType::GradientEnergy, GlossaryUnit::None, "Free energy function (dimensionless)");
 
 /**
  * @brief Quantity associated with the thermal conductivity
@@ -329,5 +347,12 @@ static const GlossaryQuantity MPI =
  */
 static const GlossaryQuantity Coordinate = GlossaryQuantity(
     GlossaryType::System, GlossaryUnit::None, "Spatial coordinate variable (dimensionless)");
+
+/**
+ * @brief Default quantity usefull integrators
+ *
+ */
+static const GlossaryQuantity Default =
+    GlossaryQuantity(GlossaryType::System, GlossaryUnit::None, "Default quantity (dimensionless)");
 
 }  // namespace Glossary

@@ -5,24 +5,24 @@
  * @brief Class used to compute inter-diffusion coefficients
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
 #include <functional>
@@ -34,10 +34,10 @@
 #include <tuple>
 #include <vector>
 
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Property/PropertyBase.hpp"
 
 #pragma once
@@ -128,7 +128,8 @@ void InterDiffusionCoefficient::check_variables_consistency(
                 "variables.");
     const int vsize =
         aux_infos.size() - 1;  // -1 because the first info is the name of the variable
-    const std::string_view symbol(toLowerCase(aux_infos.back()));
+    const std::string lower = toLowerCase(aux_infos.back());
+    const std::string_view symbol(lower);
 
     if (symbol == "inter_mob") {
       MFEM_VERIFY(vsize == 2,
@@ -151,7 +152,8 @@ void InterDiffusionCoefficient::check_variables_consistency(
                 "getting auxiliary variables. Additional informations must be given for each "
                 "auxiliary variables.");
     const int vsize = aux_infos.size();
-    const std::string_view symbol(toLowerCase(aux_infos.back()));
+    const std::string lower = toLowerCase(aux_infos.back());
+    const std::string_view symbol(lower);
 
     if (symbol == "x") {
       has_x = true;
@@ -318,7 +320,7 @@ void InterDiffusionCoefficient::get_property(
   int j = 0;
   for (auto& [output_infos, output_value] : output_system) {
     mfem::Vector vv(vmob[j].size());
-    for (int k = 0; k < vmob[j].size(); k++) {
+    for (unsigned int k = 0; k < vmob[j].size(); k++) {
       vv(k) = vmob[j][k];
       std::string msg = "Error for j " + std::to_string(j) + "  at node " + std::to_string(k) +
                         " with mob " + std::to_string(vv(k)) + " phi " + std::to_string(phi[k]);

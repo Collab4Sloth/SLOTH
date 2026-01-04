@@ -70,10 +70,10 @@ find_path(MFEM_INCLUDE_DIRS mfem.hpp)
 
 set(DISCOVER_EXTRA_INC_DIRS ${MFEM_TPLFLAGS})
 string(REPLACE " " ";" MFEM_EXTRA_INC_DIRS ${DISCOVER_EXTRA_INC_DIRS})
-foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
-  add_compile_options(${FLAG})
-endforeach(FLAG)
 
+foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
+  add_compile_options(-isystem ${FLAG})
+endforeach(FLAG)
 
 # Find the library
 find_library(MFEM_LIBRARY mfem
@@ -98,24 +98,25 @@ set_property(TARGET MFEM::mfem APPEND
 set_property(TARGET MFEM::mfem APPEND
     PROPERTY INTERFACE_LINK_LIBRARIES ${MFEM_EXT_LIBS})
 
-
 # Set MPI library
 if(MFEM_USE_MPI)
-  # The following include directories are automatically filled within FindMFEM.cmake
   message(STATUS "MFEM uses MPI")
   find_package(MPI REQUIRED)
   find_package(HYPRE REQUIRED)
   find_package(METIS REQUIRED)
-  set_property(TARGET MFEM::mfem APPEND
-    PROPERTY INTERFACE_LINK_LIBRARIES
-    ${MPI_CXX_LIBRARIES})
-    include_directories(${MPI_INCLUDE_PATH})
 
+  target_link_libraries(MFEM::mfem INTERFACE
+     ${MPI_CXX_LIBRARIES}
+    HYPRE::HYPRE
+    METIS::METIS
+  )
+  include_directories(MFEM::mfem SYSTEM INTERFACE ${MPI_INCLUDE_PATH})
 endif(MFEM_USE_MPI)
 
 if (NOT MFEM_USE_SUITESPARSE)
   message(FATAL_ERROR "You shall have SUITESPARSE support activated in MFEM.CMake will exit.\n" )
 endif()
+
 
 # Set the include directories
 set(MFEM_INCLUDE_DIRS ${MFEM_INCLUDE_DIRS}

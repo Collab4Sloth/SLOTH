@@ -36,7 +36,9 @@
 #include <vector>
 
 #include "Calphad/CalphadUtils.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/CommonCoefficients.hpp"
+#include "Glossary/Glossary.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
@@ -119,9 +121,7 @@ class KKS {
   bool KKS_freeze_nucleation_{true};
 
   // Interpolation function. It must be consistent with the choice made in AC equation.
-  PotentialFunctions<0, ThermodynamicsPotentialDiscretization::Implicit,
-                     ThermodynamicsPotentials::H>
-      interpolation_func_;
+  std::shared_ptr<Coefficient> interpolation_func_;
 
   // Method used to build the blocks of the linear system resulting from linearization of KKS
   // problem
@@ -170,6 +170,8 @@ class KKS {
 template <typename T>
 KKS<T>::KKS() {
   this->CU_ = std::make_shared<CalphadUtils<T>>();
+  this->interpolation_func_ =
+      std::make_shared<Coefficient>(Glossary::InterpolationFunction, Scheme::Implicit, H());
 }
 
 /**
@@ -307,8 +309,9 @@ void KKS<T>::execute_linearization(
   std::set<int> indices_ph_1;
   std::set<int> indices_ph_2;
   std::set<int> indices_inter;
-  for (int i = 0; i < nb_nodes; ++i) {
-    const double phi = phi_gf[i];
+  for (unsigned int i = 0; i < nb_nodes; ++i) {
+    const double phi = std::clamp(phi_gf[i], 0.0, 1.0);
+    const double phi_old = std::clamp(phi_gf_old(i), 0.0, 1.0);
     if (phi > 1 - this->KKS_threshold_) {
       indices_ph_1.insert(i);
     } else if (phi < this->KKS_threshold_) {
@@ -321,9 +324,8 @@ void KKS<T>::execute_linearization(
     }
 
     // Interpolation function at node
-    FType H = this->interpolation_func_.getPotentialFunction(phi_gf_old(i));
-    Hphi(i) = H(phi);
-    Hphi_old(i) = H(phi_gf_old(i));
+    Hphi(i) = this->interpolation_func_->compute({phi});
+    Hphi_old(i) = this->interpolation_func_->compute({phi_old});
   }
 
   // Save the number of two-phase nodes where KKS problem must be solved
@@ -489,7 +491,7 @@ void KKS<T>::execute_linearization(
                       this->chemical_potentials_by_phase_, st_phase_12, phase);
 
   // Cancel before checking nucleation state
-  for (int i = 0; i < nb_nodes; ++i) {
+  for (unsigned int i = 0; i < nb_nodes; ++i) {
     // Must be zero except for nodes detected as  nucleus  in solid
     CALPHAD.nucleus_[std::make_tuple(i, this->KKS_secondary_phase_)] = 0.;
     // Must be zero except for nodes in interface.

@@ -90,7 +90,8 @@ class AllenCahnGrainNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator
 
  public:
   AllenCahnGrainNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                 const Parameters& params, std::vector<VARS*> auxvars);
+                                 const Parameters& params, std::vector<VARS*> auxvars,
+                                 const std::vector<Coefficients>& coefficients);
   ~AllenCahnGrainNLFormIntegrator();
 
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
@@ -259,8 +260,8 @@ template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, Thermodynami
           Mobility MOBI>
 AllenCahnGrainNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AllenCahnGrainNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : SlothNLFormIntegrator<VARS>(params, auxvars, coefficients), u_old_(u_old) {
   this->check_variables_consistency();
 }
 

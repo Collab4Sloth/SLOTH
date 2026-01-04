@@ -40,16 +40,11 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
-
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -65,7 +60,7 @@ int main(int argc, char* argv[]) {
   // std::vector<int> vect_order{1, 2};
   std::vector<int> vect_order{1};
   std::vector<int> vect_NN{30, 60, 90, 120};
-  for (const auto elem_type : vect_elem) {
+  for (const auto& elem_type : vect_elem) {
     for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {
         const int order_fe = order;      // finite element order
@@ -92,7 +87,7 @@ int main(int argc, char* argv[]) {
         // ###########################################
         // ###########################################
         // ####################
-        //     parameters    //
+        //     coefficients  //
         // ####################
         //  Interface thickness
         const double epsilon(0.1);
@@ -102,8 +97,11 @@ int main(int argc, char* argv[]) {
         const double mob(1.);
         const double lambda = 1.5 * sigma * epsilon;
         const double omega = 12. * sigma / epsilon;
-        auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                                 Parameter("lambda", lambda), Parameter("omega", omega));
+
+        Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+        Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+        Coefficient capillary(Glossary::Capillary, lambda);
+        Coefficient mobility(Glossary::Mobility, mob);
         // ####################
         //     variables     //
         // ####################
@@ -149,8 +147,7 @@ int main(int argc, char* argv[]) {
 
         // Problem 1:
         std::vector<SPA*> spatials{&spatial};
-        OPE oper(spatials, params, TimeScheme::EulerImplicit);
-        oper.overload_mobility(Parameters(Parameter("mob", mob)));
+        OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
@@ -164,8 +161,9 @@ int main(int argc, char* argv[]) {
         auto phi_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-12);
         auto CVG = Convergence(phi_cvg);
         auto pst = PST(&spatial, p_pst);
+        Coefficients coef_pb1(double_well_imp, capillary, mobility, grad_energy);
 
-        PB problem1(oper, vars, pst, CVG);
+        PB problem1(oper, vars, {coef_pb1}, CVG, pst);
 
         // Coupling 1
         auto cc = Coupling("AllenCahn Coupling", problem1);

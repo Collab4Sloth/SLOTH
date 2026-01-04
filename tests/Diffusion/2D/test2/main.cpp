@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+#include "kernel/Coefficients/Coefficient.hpp"
+#include "kernel/Coefficients/Coefficients.hpp"
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 #include "tests/tests.hpp"
@@ -39,16 +41,11 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using NLFI =
-      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Implicit, Diffusion::Linear>;
-
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant, LHS_NLFI>;
+  //
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -72,15 +69,21 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   // ####################
-  //     parameters    //
+  //     Coefficients  //
   // ####################
-  const auto& alpha(1.e-2);
-  const auto& kappa(0.5);
+  std::string function = "0.5 + 0.01*c";
+  std::string gx = "0.01";
+  std::vector<std::string> grad_functions{gx};
+  std::vector<Coefficients> coeffs;
+  Coefficient D(Glossary::Diffusivity, Scheme::Implicit, grad_functions, function, "c");
+  Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
+  Coefficients CoeffDiffusion(D, FW);
+  coeffs.emplace_back(CoeffDiffusion);
   // ####################
   //     variables     //
   // ####################
-  auto user_func =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         if (x.Norml2() < 0.5) {
           return 1.0;
         } else {
@@ -111,12 +114,11 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, TimeScheme::EulerImplicit);
-  oper.overload_diffusion(Parameters(Parameter("D_0", kappa), Parameter("D_1", alpha)));
+  OPE oper(spatials, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
   auto pst = PST(&spatial, p_pst);
 
-  PB problem1("Problem 1", oper, vars, pst);
+  PB problem1("Problem 1", oper, vars, coeffs, pst);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1);
