@@ -101,7 +101,7 @@ void write_debug_file(std::string a_name) {
   assert(root_timer != nullptr);
   auto rootTime = root_timer->get_duration();
   rootTime = MATools::MPI::reduce_max(rootTime);
-  auto my_debuging_write_function = [rootTime](MATimerNode* a_ptr, std::ofstream& a_file) {
+  auto my_debuging_write_function = [](MATimerNode* a_ptr, std::ofstream& a_file) {
     std::string space;
     std::string motif = "   ";
 

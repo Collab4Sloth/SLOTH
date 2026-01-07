@@ -41,16 +41,12 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = MassDiffusionFluxNLFormIntegrator<VARS>;
-
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -88,7 +84,7 @@ int main(int argc, char* argv[]) {
       //  ####################
 
       auto user_func = std::function<double(const mfem::Vector&, double)>(
-          [L](const mfem::Vector& x, double time) {
+          [L](const mfem::Vector& x, [[maybe_unused]] double time) {
             const auto xx = x[0];
             const auto epsilon = 1e-4;
             auto func = (0.5 + 0.3 * std::tanh((xx - L / 2) / epsilon));
@@ -104,7 +100,6 @@ int main(int argc, char* argv[]) {
       auto user_func_analytical = std::function<double(const mfem::Vector&, double)>(
           [L, diffusionCoeff](const mfem::Vector& x, double time) {
             const auto xx = x[0];
-            const auto epsilon = 1e-3;
             auto func = 0.5 * (1 + std::erf((xx - L / 2) / std::sqrt(4 * diffusionCoeff * time)));
 
             return func;
@@ -129,44 +124,45 @@ int main(int argc, char* argv[]) {
       auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
                               Parameter("calculation_path", calculation_path),
                               Parameter("frequency", frequency),
-                              Parameter("level_of_detail", level_of_detail));
+                              Parameter("level_of_detail", level_of_detail),
+                              Parameter("enable_compute_energies", false));
       // ####################
       //     operators     //
       // ####################
       // Thermal diffusion Parameters
-      auto td_parameters = Parameters(Parameter("last_component", "U"));
-      auto fictitious_mobO =
-          VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
+      auto td_parameters = Parameters(Parameter("last_component", "B"));
+      auto fictitious_MobA =
+          VAR(&spatial, bcs, "Ma", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
       // Fictitious mobilities
-      fictitious_mobO.set_additional_information("C1_MO2", "O", "mob");
-      auto fictitious_mobU =
-          VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
-      fictitious_mobU.set_additional_information("C1_MO2", "U", "mob");
-      auto mobo_var = VARS(fictitious_mobO);
-      auto mobu_var = VARS(fictitious_mobU);
+      fictitious_MobA.set_additional_information("SOLID", "A", "mob");
+      auto fictitious_MobB =
+          VAR(&spatial, bcs, "Mb", Glossary::InterDiffusionMobility, 2, diffusionCoeff);
+      fictitious_MobB.set_additional_information("SOLID", "B", "mob");
+      auto moba_var = VARS(fictitious_MobA);
+      auto mobb_var = VARS(fictitious_MobB);
       // Fictitious chemical potentials and mobilities
-      auto fictitious_muo = VAR(&spatial, bcs, "muO", Glossary::ChemicalPotential, 2, 0.);
-      fictitious_muo.set_additional_information("O", "mu");
-      auto mu_var = VARS(fictitious_muo);
-      auto fictitious_muu = VAR(&spatial, bcs, "muU", Glossary::ChemicalPotential, 2, 0.);
-      fictitious_muu.set_additional_information("U", "mu");
-      auto muu_var = VARS(fictitious_muu);
+      auto fictitious_Mua = VAR(&spatial, bcs, "muA", Glossary::ChemicalPotential, 2, 0.);
+      fictitious_Mua.set_additional_information("A", "mu");
+      auto mua_var = VARS(fictitious_Mua);
+      auto fictitious_Mub = VAR(&spatial, bcs, "muB", Glossary::ChemicalPotential, 2, 0.);
+      fictitious_Mub.set_additional_information("B", "mu");
+      auto mub_var = VARS(fictitious_Mub);
 
-      auto fictitious_Mo = VAR(&spatial, bcs, "Mo", Glossary::InterDiffusionMobility, 2, 1.);
-      fictitious_Mo.set_additional_information("O", "inter_mob");
-      auto fictitious_Mu = VAR(&spatial, bcs, "Mu", Glossary::InterDiffusionMobility, 2, 1.);
-      fictitious_Mu.set_additional_information("U", "inter_mob");
+      auto fictitious_Ma = VAR(&spatial, bcs, "Ma", Glossary::InterDiffusionMobility, 2, 1.);
+      fictitious_Ma.set_additional_information("A", "inter_mob");
+      auto fictitious_Mb = VAR(&spatial, bcs, "Mb", Glossary::InterDiffusionMobility, 2, 1.);
+      fictitious_Mb.set_additional_information("B", "inter_mob");
 
-      auto fictitious_mob = VARS(fictitious_Mo, fictitious_Mu);
+      auto fictitious_Mob = VARS(fictitious_Ma, fictitious_Mb);
       // Problem 1:
-      const auto crit_cvg_1 = 1.e-12;
+      Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
+      Coefficients coef_pb(Dstab);
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, td_parameters, TimeScheme::EulerImplicit);
-      oper.overload_diffusion(Parameters(Parameter("D", stabCoeff)));
+      OPE oper(spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
 
       auto pst = PST(&spatial, p_pst);
 
-      PB problem1(oper, vars, pst, mu_var, muu_var, mobo_var, mobu_var, fictitious_mob);
+      PB problem1(oper, vars, {coef_pb}, pst, mua_var, mub_var, moba_var, mobb_var, fictitious_Mob);
 
       // Coupling 1
       auto cc = Coupling("coupling 1 ", problem1);

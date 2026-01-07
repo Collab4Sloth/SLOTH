@@ -4,24 +4,24 @@
  * @brief Steady version of the linear system resulting from the NonLinear algorithm
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <vector>
 
@@ -36,11 +36,6 @@ class SteadyPhaseFieldReducedOperator : public mfem::Operator {
   mfem::ParBlockNonlinearForm* RHS_;
   // Jacobian matrix
   mutable mfem::HypreParMatrix* Jacobian;
-
-  // Time step
-  double dt_;
-  // Unknown
-  const mfem::Vector* unk_;
 
   const std::vector<mfem::Array<int>>& ess_tdof_list;
 
@@ -57,19 +52,15 @@ class SteadyPhaseFieldReducedOperator : public mfem::Operator {
 };
 
 /**
- * @brief Construct a new Phase Field Reduced Operator:: Phase Field Reduced Operator object
+ * @brief Construct a new Steady Phase Field Reduced Operator:: Steady Phase Field Reduced Operator
+ * object
  *
- * @param M
- * @param N
+ * @param RHS
+ * @param ess_tdof
  */
 SteadyPhaseFieldReducedOperator::SteadyPhaseFieldReducedOperator(
     mfem::ParBlockNonlinearForm* RHS, const std::vector<mfem::Array<int>>& ess_tdof)
-    : Operator(RHS->Height()),
-      RHS_(RHS),
-      Jacobian(NULL),
-      dt_(0.0),
-      unk_(NULL),
-      ess_tdof_list(ess_tdof) {}
+    : Operator(RHS->Height()), RHS_(RHS), Jacobian(NULL), ess_tdof_list(ess_tdof) {}
 
 /**
  * @brief  Compute y = N(unk + dt*k) + M k

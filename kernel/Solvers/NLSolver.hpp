@@ -4,24 +4,24 @@
  * @brief  Class used to manage a NonLinear Solver( Newton type)
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <memory>
 #include <type_traits>
@@ -72,10 +72,10 @@ class NLSolver {
  * @param p_params
  * @param ope
  */
-NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
-                   const Parameters& s_params, VSolverType PRECOND, const Parameters& p_params,
-                   mfem::Operator& ope)
-    : nl_solver_(NLSolverBase_.create_solver(NLSOLVER, nl_params)) {
+NLSolver::NLSolver([[maybe_unused]] NLSolverType NLSOLVER, const Parameters& nl_params,
+                   VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
+                   const Parameters& p_params, mfem::Operator& ope)
+    : nl_solver_(NLSolverBase_.create_solver(nl_params)) {
   SlothInfo::debug("NLSolver::NLSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
@@ -96,9 +96,9 @@ NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverTy
  * @param s_params
  * @param ope
  */
-NLSolver::NLSolver(NLSolverType NLSOLVER, const Parameters& nl_params, VSolverType SOLVER,
-                   const Parameters& s_params, mfem::Operator& ope)
-    : nl_solver_(NLSolverBase_.create_solver(NLSOLVER, nl_params)) {
+NLSolver::NLSolver([[maybe_unused]] NLSolverType NLSOLVER, const Parameters& nl_params,
+                   VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope)
+    : nl_solver_(NLSolverBase_.create_solver(nl_params)) {
   SlothInfo::debug("NLSolver::NLSolver start");
   ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();

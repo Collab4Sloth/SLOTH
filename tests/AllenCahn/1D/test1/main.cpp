@@ -40,24 +40,13 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
-  using NLFI2 = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Explicit,
-                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-  using NLFI3 = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::SemiImplicit,
-                                          ThermodynamicsPotentials::W, Mobility::Constant>;
-
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
-  using LHS_NLFI_3 = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
-  using OPE2 = PhaseFieldOperator<FECollection, DIM, NLFI2, LHS_NLFI_2>;
-  using OPE3 = PhaseFieldOperator<FECollection, DIM, NLFI3, LHS_NLFI_3>;
+  using OPE = TransientOperator<FECollection, DIM>;
+  using OPE2 = TransientOperator<FECollection, DIM>;
+  using OPE3 = TransientOperator<FECollection, DIM>;
 
   using PB = Problem<OPE, VARS, PST>;
   using PB2 = Problem<OPE2, VARS, PST>;
@@ -99,8 +88,6 @@ int main(int argc, char* argv[]) {
   const auto& mob(1.e-5);
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega));
   // ####################
   //     variables     //
   // ####################
@@ -110,7 +97,7 @@ int main(int argc, char* argv[]) {
   const auto& radius = 5.e-4;
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [center_x, a_x, radius, thickness](const mfem::Vector& x, double time) {
+      [center_x, a_x, radius, thickness](const mfem::Vector& x, [[maybe_unused]] double time) {
         const auto xx = a_x * (x[0] - center_x);
         const auto r = xx;
         const auto func = 0.5 + 0.5 * std::tanh(2. * (r - radius) / thickness);
@@ -126,6 +113,16 @@ int main(int argc, char* argv[]) {
       VAR(&spatial, bcs, "phi2", Glossary::PhaseField, 2, initial_condition, analytical_solution));
   auto vars3 = VARS(
       VAR(&spatial, bcs, "phi3", Glossary::PhaseField, 2, initial_condition, analytical_solution));
+
+  // ####################
+  //     coefficients  //
+  // ####################
+
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient double_well_exp(Glossary::FreeEnergy, Scheme::Explicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -144,11 +141,10 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
 
   // Problem 1:
-  std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, params, TimeScheme::EulerImplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE oper({&spatial}, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  Coefficients coef_pb1(double_well_imp, capillary, mobility, grad_energy);
   auto pst = PST(&spatial, p_pst1);
-  PB problem1(oper, vars, pst);
+  PB problem1(oper, vars, {coef_pb1}, pst);
 
   // Problem 2:
   calculation_path = "Problem2";
@@ -156,10 +152,10 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE2 oper2(spatials, params, TimeScheme::EulerExplicit);
-  oper2.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE2 oper2({&spatial}, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
+  Coefficients coef_pb2(double_well_exp, capillary, mobility, grad_energy);
   auto pst2 = PST(&spatial, p_pst2);
-  PB2 problem2(oper2, vars2, pst2);
+  PB2 problem2(oper2, vars2, {coef_pb2}, pst2);
 
   // Problem 3:
   calculation_path = "Problem3";
@@ -167,10 +163,9 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE3 oper3(spatials, params, TimeScheme::RungeKutta4);
-  oper3.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE3 oper3({&spatial}, {"AllenCahn"}, TimeScheme::RungeKutta4, "TimeDerivative");
   auto pst3 = PST(&spatial, p_pst3);
-  PB3 problem3(oper3, vars3, pst3);
+  PB3 problem3(oper3, vars3, {coef_pb1}, pst3);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1, problem2, problem3);

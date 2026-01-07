@@ -4,24 +4,24 @@
  * @brief  Analytical thermodynamic description for an ideal solution
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
 #include <functional>
@@ -54,8 +54,8 @@ class AnalyticalIdealSolution : public CalphadBase<T> {
   constexpr explicit AnalyticalIdealSolution(const Parameters& params);
   constexpr AnalyticalIdealSolution(const Parameters& params, bool is_KKS);
 
-  void initialize(
-      const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) override;
+  void initialize([[maybe_unused]] const std::vector<std::tuple<std::string, std::string>>&
+                      sorted_chemical_system) override {}
 
   void execute(const int dt, const std::set<int>& list_nodes, const std::vector<T>& aux_gf,
                const std::vector<std::tuple<std::string, std::string>>& chemical_system,
@@ -114,15 +114,6 @@ constexpr AnalyticalIdealSolution<T>::AnalyticalIdealSolution(const Parameters& 
 }
 
 /**
- * @brief Initialization of the thermodynamic calculation
- *
- * @tparam T
- */
-template <typename T>
-void AnalyticalIdealSolution<T>::initialize(
-    const std::vector<std::tuple<std::string, std::string>>& sorted_chemical_system) {}
-
-/**
  * @brief Main method to calculate equilibrium states
  *
  * @tparam T
@@ -133,20 +124,11 @@ void AnalyticalIdealSolution<T>::initialize(
  */
 template <typename T>
 void AnalyticalIdealSolution<T>::execute(
-    const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
+    [[maybe_unused]] const int dt, const std::set<int>& list_nodes, const std::vector<T>& tp_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemical_system,
-    std::optional<std::vector<std::tuple<std::string, std::string, double>>> status_phase) {
-  // Clear containers and recalculation of the numbers of nodes
-  // const size_t nb_nodes = this->CU_->get_size(tp_gf[0]);
-  // this->clear_containers();
-  // if (dt == 1) {
-  //   this->check_variables_consistency(output_system);
-  // }
-  // Thermodynamic Calculations
+    [[maybe_unused]] std::optional<std::vector<std::tuple<std::string, std::string, double>>>
+        status_phase) {
   this->compute(list_nodes, tp_gf, chemical_system);
-
-  // Use containers to update output_system
-  // this->update_outputs(nb_nodes, output_system);
 }
 
 /**

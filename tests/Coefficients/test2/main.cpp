@@ -29,9 +29,10 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
-#include "Function.hpp"
-#include "OtherFunction.hpp"
+#include "./Function.hpp"
+#include "./OtherFunction.hpp"
 #include "kernel/Coefficients/Coefficient.hpp"
 #include "kernel/Coefficients/Coefficients.hpp"
 #include "kernel/sloth.hpp"
@@ -75,9 +76,9 @@ int main(int argc, char* argv[]) {
     case 0: {
       // Evaluation of variables
       SlothInfo::print("Running test case 0: variable evaluation");
-      Coefficient coeff(Glossary::Temperature, FunctionA());
+      Coefficient coeff(Glossary::Temperature, Scheme::Implicit, FunctionA());
       try {
-        auto result = coeff.compute(2, 3, 1);
+        auto result = coeff.compute({2, 3, 1});
         if (std::abs(result - 94.1) > epsilon) {
           throw std::runtime_error("Wrong variable evaluation");
         }
@@ -91,19 +92,19 @@ int main(int argc, char* argv[]) {
     case 1: {
       // Evaluation of gradient
       SlothInfo::print("Running test case 1: gradient/hessian evaluation");
-      Coefficient coeff(Glossary::Temperature, FunctionB());
+      Coefficient coeff(Glossary::Temperature, Scheme::Implicit, FunctionB());
       std::vector<double> gradient_solution{98.3, 60.2, 0.6};
       std::vector<double> hessian_solution{4.0, 30.1, 0.3, 30.1, 0.0, 0.2, 0.3, 0.2, 0.0};
       try {
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, 2, 3, 1);
+          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, 2, 3, 1);
+            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");
@@ -120,9 +121,9 @@ int main(int argc, char* argv[]) {
     case 2: {
       // Check Coefficients
       SlothInfo::print("Running test case 0: gradient/hessian evaluation");
-      Coefficient coeffA(Glossary::Temperature, FunctionA());
-      Coefficient coeffB(Glossary::Temperature, FunctionB());
-      Coefficient coeffC(Glossary::Temperature, FunctionB());
+      Coefficient coeffA(Glossary::Temperature, Scheme::Implicit, FunctionA());
+      Coefficient coeffB(Glossary::Temperature, Scheme::Implicit, FunctionB());
+      Coefficient coeffC(Glossary::Temperature, Scheme::Implicit, FunctionB());
       std::vector<double> gradient_solution{98.3, 60.2, 0.6};
       std::vector<double> hessian_solution{4.0, 30.1, 0.3, 30.1, 0.0, 0.2, 0.3, 0.2, 0.0};
       Coefficients coeffAB = Coefficients(coeffA, coeffB);
@@ -134,14 +135,14 @@ int main(int argc, char* argv[]) {
         }
         auto coeff = coeffAB[1];
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, 2, 3, 1);
+          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, 2, 3, 1);
+            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");
@@ -149,7 +150,6 @@ int main(int argc, char* argv[]) {
           }
         }
         std::cout << "Successfull gradient and hessian evaluation " << std::endl;
-
       } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;

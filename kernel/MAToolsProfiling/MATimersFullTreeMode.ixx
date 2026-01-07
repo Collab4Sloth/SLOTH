@@ -61,11 +61,15 @@ minimal_info::minimal_info() : minimal_info("undefined", 666) {}
  * @see class minimal_info
  */
 minimal_info::minimal_info(std::string a_name, std::size_t a_s) {
+#if defined(__GNUC__) && !defined(__clang__)
   _Pragma("GCC diagnostic push");
   _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"");
+#endif
   strncpy(m_name, a_name.c_str(), minimal_info_name_size);
   m_name[minimal_info_name_size - 1] = '\0';
+#if defined(__GNUC__) && !defined(__clang__)
   _Pragma("GCC diagnostic pop");
+#endif
   m_nb_daughter = a_s;
 }
 
