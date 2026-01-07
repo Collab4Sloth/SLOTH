@@ -39,7 +39,9 @@ Timer::Timer(duration* acc) {
 /**
  * @brief This function sets m_start to the current time point.
  */
-void Timer::start() { m_start = high_resolution_clock::now(); }
+void Timer::start() { 
+  m_start = high_resolution_clock::now(); 
+}
 
 /**
  * @brief This function sets m_stop to the current time point.

@@ -1,9 +1,9 @@
 /**
- * @file MAOutput.hxx
+ * @file MATraceColor.hxx
  * @author Raphaël Prat (raphael.prat@cea.fr)
  * @brief
  * @version 0.1
- * @date 2025-09-08
+ * @date 2025-12-27
  *
  * Copyright CEA (C) 2025
  *
@@ -23,37 +23,40 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 #pragma once
-#include <iostream>
-#include <mfem.hpp>
-#include <MAToolsProfiling/MAToolsMPI.hxx>
 
 namespace MATools {
-namespace MAOutput {
-using namespace MATools::MPI;
+namespace MATrace {
+struct MATraceRGB{double r; double g; double b; };
 
-/**
- * @brief Displays one message if the current mpi rank is 0
- */
-template <typename Arg>
-void printMessage(Arg a_msg) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    mfem::out << a_msg << std::endl;
-  }
+constexpr int default_color_size() {
+  constexpr int ret = 12;
+  return ret;
 }
 
-/**
- * @brief Displays some messages if the current mpi rank is the master.
- */
-template <typename Arg, typename... Args>
-void printMessage(Arg a_msg, Args... a_msgs) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    mfem::out << a_msg << " ";
-  }
-  printMessage(a_msgs...);
+MATraceRGB get_idle_color() {
+  MATraceRGB ret = {0.5, 0.5, 0.5};
+  return ret;
 }
-}  // namespace MAOutput
+
+MATraceRGB get_default_color(int color_id) {
+  auto size = default_color_size();
+  const int i = color_id % size;
+  switch (i) {
+    case 0 : return {1, 0, 0};
+    case 1 : return {0, 0, 1};
+    case 2 : return {0, 1, 0};
+    case 3 : return {0.5, 0, 0};
+    case 4 : return {1, 1, 0};
+    case 5 : return {0.5, 0.5, 0};
+    case 6 : return {0, 0.5, 0};
+    case 7 : return {0, 1, 1};
+    case 8 : return {0, 0.5, 0.5};
+    case 9 : return {0, 0, 0.5};
+    case 10 : return {1, 0, 1};
+    case 11 : return {0.5, 0, 0.5};
+    default : return {0, 0, 0};
+  }
+}
+}  // namespace MATrace
 }  // namespace MATools

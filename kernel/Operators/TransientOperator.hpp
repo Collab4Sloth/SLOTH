@@ -548,6 +548,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   mfem::Vector dv_dt(du_dt.GetData(), sc);
   const int fes_size = this->block_trueOffsets_.Size() - 1;
 
+  MATools::MATrace::start();
   {
     Catch_Time_Section("ImplicitSolve::SetTransientParams");
     std::vector<mfem::Vector> v_vect;
@@ -560,8 +561,11 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     }
     this->SetTransientParameters(v_vect);
   }
+  MATools::MATrace::stop("SetTransientParams");
+
   // Apply BCs
   {
+    MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
     auto sc_1 = 0;
     auto sc_2 = sc / fes_size;
@@ -571,11 +575,14 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
       sc_1 += sc_2;
     }
     reduced_oper->SetParameters(dt, &v);
+    MATools::MATrace::stop("ApplyBCs");
   }
+
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
   {
+    MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::SourceTerm");
     if (!this->src_func_.empty()) {
       for (int i = 0; i < fes_size; ++i) {
@@ -587,13 +594,16 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
         }
       }
     }
+    MATools::MATrace::stop("SourceTerm");
   }
 
   // source_term.Print();
   {
+    MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
     this->newton_solver_->Mult(source_term, dv_dt);
     delete this->rhs_solver_;
+    MATools::MATrace::stop("Solve");
   }
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");

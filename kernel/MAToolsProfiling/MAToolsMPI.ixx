@@ -108,5 +108,5 @@ double reduce_mean(double a_duration) {
   assert(mpi_size > 0);
   return ret / mpi_size;
 }
-};  // namespace MPI
-};  // namespace MATools
+}  // namespace MPI
+}  // namespace MATools

@@ -43,7 +43,7 @@ class MATimerInfo {
   // members
   std::string m_full_name;    /**< The full name of the timer. */
   std::size_t m_n_iterations; /**< The number of calls of the timer. */
-  double m_duration; /**< The accumulate duration of code section capture by the timer. This value
+  double m_duration;  /**< The accumulate duration of code section capture by the timer. This value
                         is the maximum duration with MPI. */
   double m_mean_duration; /**< The mean duration of the timer (MPI-specific). */
 

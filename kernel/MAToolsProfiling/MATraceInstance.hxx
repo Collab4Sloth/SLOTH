@@ -1,9 +1,9 @@
 /**
- * @file MAOutput.hxx
+ * @file MATraceInstance.hxx
  * @author Raphaël Prat (raphael.prat@cea.fr)
  * @brief
  * @version 0.1
- * @date 2025-09-08
+ * @date 2025-12-27
  *
  * Copyright CEA (C) 2025
  *
@@ -23,37 +23,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 #pragma once
-#include <iostream>
-#include <mfem.hpp>
-#include <MAToolsProfiling/MAToolsMPI.hxx>
+
+#include <MAToolsProfiling/MATraceTypes.hxx>
 
 namespace MATools {
-namespace MAOutput {
-using namespace MATools::MPI;
-
-/**
- * @brief Displays one message if the current mpi rank is 0
- */
-template <typename Arg>
-void printMessage(Arg a_msg) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    mfem::out << a_msg << std::endl;
-  }
+namespace MATrace {
+MATrace_point& get_ref_MATrace_point() {
+  static MATrace_point instance;
+  return instance;
 }
 
-/**
- * @brief Displays some messages if the current mpi rank is the master.
- */
-template <typename Arg, typename... Args>
-void printMessage(Arg a_msg, Args... a_msgs) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    mfem::out << a_msg << " ";
-  }
-  printMessage(a_msgs...);
+MATrace_point& get_MATrace_point() {
+  static MATrace_point instance;
+  return instance;
 }
-}  // namespace MAOutput
+
+Trace& get_local_MATrace() {
+  static Trace instance;
+  return instance;
+}
+}  // namespace MATrace
 }  // namespace MATools

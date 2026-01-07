@@ -31,8 +31,8 @@ namespace MATimer {
 namespace Optional {
 // define some default values
 constexpr bool full_tree_default_mode = false;
-constexpr bool print_timetable_default_mode = true;
-constexpr bool write_file_default_mode = true;
+constexpr bool print_timetable_default_mode = false;
+constexpr bool write_file_default_mode = false;
 
 /*
  * @brief accessor to the static boolean value of the full tree mode

@@ -1,9 +1,9 @@
 /**
- * @file MAOutput.hxx
+ * @file MATraceOptional.hxx
  * @author Raphaël Prat (raphael.prat@cea.fr)
  * @brief
  * @version 0.1
- * @date 2025-09-08
+ * @date 2025-12-27
  *
  * Copyright CEA (C) 2025
  *
@@ -23,37 +23,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 #pragma once
-#include <iostream>
-#include <mfem.hpp>
-#include <MAToolsProfiling/MAToolsMPI.hxx>
 
 namespace MATools {
-namespace MAOutput {
-using namespace MATools::MPI;
+namespace MATrace {
 
-/**
- * @brief Displays one message if the current mpi rank is 0
- */
-template <typename Arg>
-void printMessage(Arg a_msg) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    mfem::out << a_msg << std::endl;
-  }
+void initialize();  // Definied in MATrace.hxx
+
+namespace Optional {
+// define default mode values
+constexpr bool MATrace_default_mode = false;
+
+extern bool& get_MATrace_mode() {
+  static bool _ftm = MATrace_default_mode;
+  return _ftm;
 }
 
-/**
- * @brief Displays some messages if the current mpi rank is the master.
- */
-template <typename Arg, typename... Args>
-void printMessage(Arg a_msg, Args... a_msgs) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    mfem::out << a_msg << " ";
-  }
-  printMessage(a_msgs...);
+
+void active_MATrace_mode() {
+  bool& mode = get_MATrace_mode();
+  MATools::MATrace::initialize();
+  mode = true;
+  MATools::MAOutput::printMessage("MATrace_LOG: MATrace is activated");
 }
-}  // namespace MAOutput
+
+bool is_MATrace_mode() {
+  bool ret = get_MATrace_mode();
+  return ret;
+}
+}  // namespace Optional
+}  // namespace MATrace
 }  // namespace MATools

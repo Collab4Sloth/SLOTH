@@ -51,7 +51,7 @@ void rec_call(MATimerNode* a_node, minimal_info* a_ptr) {
 
 void transform_to_MATimerMPI(std::vector<minimal_info>& a_in, std::vector<int> a_sizes,
                              int a_mpi_size) {
-  MATimerNode*& root = get_MATimer_node<enumTimer::ROOT>();
+  MATimerNode*& root = MATools::MATimer::get_MATimer_node<enumTimer::ROOT>();
   int acc = 0;
   // int rank = MPI::get_rank();
   for (int mpi = 0; mpi < a_mpi_size; mpi++) {
@@ -61,6 +61,6 @@ void transform_to_MATimerMPI(std::vector<minimal_info>& a_in, std::vector<int> a
     acc += a_sizes[mpi];
   }
 }
-};  // namespace FullTreeMode
-};  // namespace MATimer
-};  // namespace MATools
+}  // namespace FullTreeMode
+}  // namespace MATimer
+}  // namespace MATools
