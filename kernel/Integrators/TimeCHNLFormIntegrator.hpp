@@ -24,6 +24,7 @@
  *
  */
 #include <algorithm>
+#include <list>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,15 +38,13 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the FV of the Allen Cahn equation
+ * @brief Class dedicated to the VF of the time-derivative (eg. LHS of Cahn-Hilliard and Allen-Cahn
+ * equations under splitted form)
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS
  */
 template <class VARS>
-class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                               public SlothNLFormIntegrator<VARS> {
+class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
@@ -53,26 +52,26 @@ class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
   void check_variables_consistency();
 
  protected:
-  std::vector<mfem::ParGridFunction> u_old_;
-  std::vector<mfem::ParGridFunction> aux_gf_;
-  std::vector<mfem::Vector> aux_old_gf_;
-  std::vector<std::vector<std::string>> aux_gf_infos_;
   std::vector<mfem::ParGridFunction> temp_gf_;
+  std::list<GlossaryType> expected_list_;
+  Coefficients coefficient_A;
+  void get_coefficients() override;
+  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
 
  public:
+  void init() override;
   TimeCHNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-                         std::vector<VARS*> auxvars);
-  ~TimeCHNLFormIntegrator();
+                         std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec);
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvec) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats);
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -80,42 +79,69 @@ class TimeCHNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new TimeCHNLFormIntegrator object
+ * @brief Construct a new TimeCHNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param u_old
- * @param omega
- * @param lambda
- * @param mob
+ * This constructor initializes a nonlinear form integrator for a splitted time derivative operator.
+ * It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "SplitTimeDerivative";
+
   this->check_variables_consistency();
 }
 
 /**
- * @brief Check variables consistency
+ * @brief Initialize the SplitTimeDerivative integrator.
  *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * This method performs all necessary setup steps for the SplitTimeDerivative
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' is populated with the
+ *      required coefficient types for this integrator.
+ *
+ */
+template <class VARS>
+void TimeCHNLFormIntegrator<VARS>::init() {
+  if (this->expected_list_.empty()) {
+    this->get_coefficients();
+  } else {
+    this->check_coefficient_types(this->expected_list_);
+    this->get_coefficients();
+  }
+}
+
+/**
+ * @brief  Check variables consistency
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
-  this->aux_gf_ = this->get_aux_gf();
-  this->aux_old_gf_ = this->get_aux_old_gf();
-  this->aux_gf_infos_ = this->get_aux_infos();
-
   // Temperature scaling for mobility
-  bool temperature_found = false;
-  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_gf_infos_[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
 
@@ -126,35 +152,58 @@ void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
     const std::string& symbol = toUpperCase(variable_info.back());
     if (symbol == "T") {
       this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      temperature_found = true;
       break;
     }
   }
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Retrieve and store the coefficients required by the TimeDerivative integrator.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method collects one default coefficient:
+ * - 'coefficient_A' stores the first coefficient,
+ *
+ *
+ * @remark By default, A is equal to one. This method can be overridden in derived classes to
+ * provide custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ */
+template <class VARS>
+void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
+  for (unsigned int i = 0; i < this->nb_blk_; i++) {
+    this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
+  }
+}
+
+/**
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
+ *
+ * This method computes the residual vector  by element
+ *
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  int num_blocks = el.Size();
   //////////////////////
   // Block 0 R(phi) on mu term
   {
     int blk = 0;
 
     int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
   }
@@ -182,23 +231,30 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
       Tr.SetIntPoint(&ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
+      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
-      const double ww = phi * ip.weight * Tr.Weight();
+      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
+      const double ww = coef_a * phi * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elmat
+ * This method computes the Jacobian matrix by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
@@ -207,7 +263,6 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
   // loop over diagonal entries
-  int num_blocks = el.Size();
   // block 0 0  dR(phi)dphi
   {
     int blk = 0;
@@ -259,7 +314,12 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       Tr.SetIntPoint(&ip);
       el[blk]->CalcPhysShape(Tr, Psi);
-      double w = Tr.Weight() * ip.weight;
+
+      const auto& phi = *elfun[blk] * Psi;
+      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+
+      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
+      double w = coef_a * Tr.Weight() * ip.weight;
       AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }
   }
@@ -280,11 +340,29 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
 }
 
 /**
- * @brief Destroy the TimeCHNLFormIntegrator  object
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @brief Return the value of the coefficient
+ * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
+ * class variable aux_gf_
+ * @tparam VARS
+ * @param coef
+ * @param values
+ * @return double
  */
 template <class VARS>
-TimeCHNLFormIntegrator<VARS>::~TimeCHNLFormIntegrator() {}
+double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                         const std::vector<double>& values) {
+  // const double u = values[0];
+  const double un = values[1];
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    // coef_value = coef.compute({u});
+    MFEM_VERIFY(false,
+                "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
+                "check your data.");
+  } else if (coef.is_explicit()) {
+    coef_value = coef.compute({un});
+  } else if (coef.is_scalar()) {
+    coef_value = coef.compute();
+  }
+  return coef_value;
+}

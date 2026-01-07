@@ -34,9 +34,12 @@
 #include <utility>
 #include <vector>
 
-#include "Coefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
+#include "Glossary/Glossary.hpp"
 #pragma once
+
+template <class T, class Coefficient>
+concept CoeffVar = std::same_as<std::remove_cvref_t<T>, Coefficient>;
 
 /**
  * @brief Class used to manage a collection of Coefficient
@@ -45,61 +48,72 @@
 class Coefficients {
  private:
   std::vector<Coefficient> vect_coefficients_;
+  std::vector<GlossaryType> vect_coefficient_types_;
 
  public:
-  template <class... Args>
-    requires((sizeof...(Args) > 0) && (std::same_as<Args, Coefficient> && ...))
+  template <CoeffVar<Coefficient>... Args>
+    requires((sizeof...(Args) > 0))
   explicit Coefficients(const Args&... args);
 
   Coefficients() = default;
+  virtual ~Coefficients() = default;
 
   void add(Coefficient coef);
   std::vector<Coefficient> getCoefficients() const;
   size_t size() noexcept;
-  const Coefficient& operator[](size_t i);
+  Coefficient operator[](size_t i);
+
+  std::vector<GlossaryType> get_types() const;
 };
 
 /**
- * @brief Construct a new Coefficients::Coefficients object from a list of Coefficient
+ * @brief Constructs a Coefficients object from a list of Coefficient objects.
  *
- * @tparam Args
- * @param args
+ * @tparam Args Variadic template parameters constrained to Coefficient-compatible types.
+ * @param args List of coefficients used to initialize the container.
  */
-template <class... Args>
-  requires((sizeof...(Args) > 0) && (std::same_as<Args, Coefficient> && ...))
-Coefficients::Coefficients(const Args&... args) : vect_coefficients_{args...} {}
+template <CoeffVar<Coefficient>... Args>
+  requires((sizeof...(Args) > 0))
+Coefficients::Coefficients(const Args&... args)
+    : vect_coefficients_{args...}, vect_coefficient_types_{args.get_type()...} {}
 
 /**
- * @brief Add a new coefficient
+ * @brief Adds a new coefficient to the container.
  *
- * @param coef coefficient to add
+ * @param coef Coefficient to be added.
  */
 void Coefficients::add(Coefficient coef) { this->vect_coefficients_.push_back(std::move(coef)); }
 
 /**
- * @brief get vector of coefficients
+ * @brief Returns the vector of coefficients.
  *
- * @return std::vector<Coefficient>
+ * @return Vector containing all coefficients.
  */
 std::vector<Coefficient> Coefficients::getCoefficients() const { return this->vect_coefficients_; }
 
 /**
- * @brief Return the number of coefficients
+ * @brief Returns the number of coefficients.
  *
- * @return size_t
+ * @return Number of stored coefficients.
  */
 size_t Coefficients::size() noexcept { return this->vect_coefficients_.size(); }
+
 /**
- * @brief Return the i-th coefficient
+ * @brief Returns the i-th coefficient.
  *
- * @param i
- * @return Coefficient&
+ * @param i Index of the coefficient.
+ * @return Reference to the i-th coefficient.
+ *
+ * @throws std::out_of_range if i is out of bounds.
  */
-const Coefficient& Coefficients::operator[](size_t i) {
+Coefficient Coefficients::operator[](size_t i) {
   if (i >= vect_coefficients_.size()) throw std::out_of_range("Index out of range");
   return this->vect_coefficients_[i];
 }
-// const Coefficient& Coefficients::operator+=(Coefficients coeff) {
 
-//   return vect_coefficients_[i];
-// }
+/**
+ * @brief Returns a copy of the glossary types associated with the coefficients.
+ *
+ * @return Vector of glossary types.
+ */
+std::vector<GlossaryType> Coefficients::get_types() const { return this->vect_coefficient_types_; }

@@ -217,7 +217,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_name);
   this->setVariableDepth(depth);
 
@@ -244,7 +243,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_name);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_name);
@@ -403,7 +401,6 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
   this->setInitialCondition(initial_condition_value);
   this->setVariableDepth(depth);
   this->setAnalyticalSolution(analytical_solution_name);
@@ -983,7 +980,6 @@ void Variable<T, DIM>::setVariableDepth(const int& depth) {
   this->depth_ = std::max(2, depth);
 
   for (auto id = 0; id < this->depth_; id++) {
-    std::cout << " id " << id << " s " << this->unk_.Size() << std::endl;
     this->map_of_unk_.insert(std::pair<int, mfem::Vector>(id, this->unk_));
   }
 }

@@ -52,10 +52,8 @@ class Coupling {
   void initialize(const int& iter, const double& initial_time);
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
-  void post_execute(const int& iter, const double& current_time, const double& current_time_step);
   void update();
-  void post_processing(const int& iter, const double& current_time,
-                       const double& current_time_step);
+  void post_processing(const int& iter, const double& current_time);
   void finalize();
 
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
@@ -154,23 +152,6 @@ void Coupling<Args...>::execute(const int& iter, double& next_time, const double
 }
 
 /**
- * @brief Call recursively the post_execute methods of the problem
- *
- * @tparam Args
- * @param iter
- * @param current_time
- * @param current_time_step
- */
-template <class... Args>
-void Coupling<Args...>::post_execute(const int& iter, const double& current_time,
-                                     const double& current_time_step) {
-  std::apply(
-      [iter, current_time, current_time_step](auto&... problem) {
-        (problem.post_execute(iter, current_time, current_time_step), ...);
-      },
-      problems_);
-}
-/**
  * @brief Update the variables of the problems inside this coupling
  *
  * @tparam Args
@@ -189,13 +170,10 @@ void Coupling<Args...>::update() {
  * @param current_time_step
  */
 template <class... Args>
-void Coupling<Args...>::post_processing(const int& iter, const double& current_time,
-                                        const double& current_time_step) {
-  std::apply(
-      [iter, current_time, current_time_step](auto&... problem) {
-        (problem.post_processing(iter, current_time, current_time_step), ...);
-      },
-      problems_);
+void Coupling<Args...>::post_processing(const int& iter, const double& current_time) {
+  std::apply([iter, current_time](
+                 auto&... problem) { (problem.post_processing(iter, current_time), ...); },
+             problems_);
 }
 
 /**

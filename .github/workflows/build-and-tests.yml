@@ -34,22 +34,26 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich wget unzip libboost-all-dev
+        sudo apt-get install -y mpich wget unzip libboost-all-dev libopenblas-dev perl
         
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
-          spack clean --downloads
-          spack install gcc@14
-          spack load gcc
+          spack env activate .
+          spack external find openmpi mpich openblas perl
           spack compiler find
-          spack compilers
-          echo "FC=$(which gfortran)" >> $GITHUB_ENV
-          echo "F77=$(which gfortran)" >> $GITHUB_ENV
-          echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
-          spack install hypre@2.33.0 +shared %gcc
-          spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
-          spack install exprtk
+          spack concretize -f
+          spack install --fail-fast
+          # spack install gcc@14
+          # spack load gcc
+          # spack compiler find
+          # spack compilers
+          # echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          # echo "F77=$(which gfortran)" >> $GITHUB_ENV
+          # echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
+          # spack install hypre@2.33.0 +shared %gcc
+          # spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
+          # spack install exprtk
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
     - name: Download and extract libtorch
@@ -80,6 +84,7 @@ jobs:
       shell: spack-bash {0}    
       run: | 
         cd ${{ github.workspace }}/build
+        find . -name "Save*" |xargs rm -fr
         ctest -j${{ env.CORES }} --output-on-failure
 
     - name: Save Tests on Failure
