@@ -1,11 +1,11 @@
 //+
-radius=0.00465;
+radius=0.00607;
 angle = Pi/4.;
 height=0.01;
 
 //+
-Point(1) = {0, 0, 0, 4.e-4};
-Point(2) = {radius, 0, 0, 4.e-4};
+Point(1) = {0, 0, 0, 1.e-4};
+Point(2) = {radius, 0, 0, 1.e-4};
 Point(3) = {radius*Cos(angle), radius*Sin(angle), 0, 1.e-4};
 
 //+ Lines
@@ -30,5 +30,5 @@ Physical Surface("External",5) = surfaceVector[3];
 Physical Volume("Pellet",6) = surfaceVector[1];
 
 
-Transfinite Line {2} = 50;
-Transfinite Line {1} = 50;
+Transfinite Line {2} = 250;
+Transfinite Line {1} = 250;

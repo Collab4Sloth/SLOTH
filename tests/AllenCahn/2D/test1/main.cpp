@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles"};
   // std::vector<int> vect_order{1, 2};
   std::vector<int> vect_order{1};
-  std::vector<int> vect_NN{30, 60, 90, 120};
+  std::vector<int> vect_NN{ 120};
   for (const auto elem_type : vect_elem) {
     for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {

@@ -31,6 +31,21 @@ function(create_col_comparison_convergence test_name reference_file results_file
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 endfunction() # COMPARISON test
 
+# COMPARISONHDF5 test
+function(create_hdf5_comparison test_name reference_file results_file test_will_fail test_depend test_label)
+  set(DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/ref_${test_name})
+  file(GLOB_RECURSE REF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/ref/${reference_file})
+  file(MAKE_DIRECTORY ${DEST_DIR})
+  configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
+  configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
+  configure_file(${CMAKE_SOURCE_DIR}/tests/tools/hdf5Compare.py ${CMAKE_CURRENT_BINARY_DIR}/hdf5Compare.py COPYONLY)
+
+  add_test(NAME ${test_name} COMMAND python3 hdf5Compare.py -f ${results_file} ${DEST_DIR}/${reference_file})
+  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+  set_tests_properties(${test_name} PROPERTIES DEPENDS ${test_depend})
+  set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
+endfunction() # COMPARISON test
+
 # CREATION  test
 function(create_test exe_name test_name test_will_fail test_label test_cpu)
   set(CURRENT_EXE ${exe_name})

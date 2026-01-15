@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
   auto refinement_level = 0;
   auto L = 1.;
   std::vector<int> vect_order{1};
-  std::vector<int> vect_NN{4};
+  std::vector<int> vect_NN{128};
   for (const auto& order : vect_order) {
     for (const auto& NN : vect_NN) {
       //---------------------------------------

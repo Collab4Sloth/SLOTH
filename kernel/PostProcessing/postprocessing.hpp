@@ -4,24 +4,24 @@
  * @brief  Post-processing features
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #pragma once
@@ -31,6 +31,9 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mfem/fem/fespace.hpp>
+#include <mfem/fem/gridfunc.hpp>
+#include <mfem/fem/pfespace.hpp>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -195,6 +198,30 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
     std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
     for (auto& [name, gf] : map_var) {
       this->RegisterField(name, &gf);
+      // // DEBUT CP
+      // // Attention cette version fonctionne mais elle passe du // au séquentiel sur l'ensemble des
+      // // coeurs, evidement pas opti et ne peux être viable sur de grosse simulations.
+      // // Next step : faire le comparateur entre gfs avec les projections sur un unique maillage
+      // std::filesystem::create_directories("SavesGF");
+      // std::filesystem::create_directories("SavesGF/" + name);
+      // std::string name_ = "SavesGF/" + name + "/" + name + "_" + std::to_string(time);
+      // std::string namem_ = "SavesGF/mesh_" + std::to_string(time);
+      // // std::cout << "0";
+      // mfem::ParFiniteElementSpace* pfes = gf.ParFESpace();
+      // mfem::ParMesh* temp_pmesh = pfes->GetParMesh();
+      // int rank = mfem::Mpi::WorldRank();
+      // mfem::Mesh smesh = temp_pmesh->GetSerialMesh(0);
+      // // mfem::FiniteElementSpace* sfe(&smesh, pfes->FEColl(), pfes->GetVDim(),
+      // // pfes->GetOrdering()); // pas utile on peux utiliser le mesh directement et c'est plus
+      // // simple
+      // mfem::GridFunction sgf = gf.GetSerialGridFunction(0, smesh);
+
+      // if (rank == 0) {
+      //   sgf.Save(name_.c_str());
+      //   smesh.Save(namem_.c_str());
+      // }
+
+      // // FIN CP
     }
     this->Save();
   }

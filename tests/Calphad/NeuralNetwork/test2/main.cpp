@@ -23,7 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  setVerbosity(Verbosity::Debug);
+  setVerbosity(Verbosity::Quiet);
 
   //---------------------------------------
   // Initialize MPI and HYPRE
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
         const double rr = vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1];
         const auto func = Text + puissance * (pellet_radius * pellet_radius - rr) /
                                      (4. * M_PI * 2. * pellet_radius * pellet_radius);
-
+     
         return func;
       });
   auto temp = VAR(&spatial, thermal_bcs, "T", level_of_storage, parabolic_temp);
