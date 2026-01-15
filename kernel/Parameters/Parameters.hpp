@@ -4,27 +4,28 @@
  * @brief Parameter class used to build and manage calculation parameter
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <algorithm>
 #include <any>
+#include <concepts>
 #include <limits>
 #include <map>
 #include <optional>
@@ -37,14 +38,18 @@
 #include "Parameters/Parameter.hpp"
 #pragma once
 
+template <typename T>
+concept ParameterType = std::same_as<std::remove_cvref_t<T>, Parameter>;
 class Parameters {
  private:
   std::vector<Parameter> vect_params_;
 
  public:
   template <typename... Args>
+    requires(ParameterType<Args> && ...)
   explicit Parameters(Args&&... args);
   explicit Parameters(const std::vector<Parameter>& vect_params);
+  virtual ~Parameters() = default;
 
   std::optional<Parameter> get_parameter(const std::string& name) const;
   template <typename T>
@@ -117,8 +122,6 @@ class Parameters {
 
     return Parameters(initial_vect);
   }
-
-  ~Parameters();
 };
 
 /**
@@ -128,9 +131,8 @@ class Parameters {
  * @param args
  */
 template <typename... Args>
-Parameters::Parameters(Args&&... args) {
-  this->vect_params_ = std::vector<Parameter>{std::forward<Args>(args)...};
-}
+  requires(ParameterType<Args> && ...)
+Parameters::Parameters(Args&&... args) : vect_params_{std::forward<Args>(args)...} {}
 
 /**
  * @brief Construct a new Parameters:: Parameters object
@@ -240,9 +242,3 @@ T Parameters::get_param_value(const std::string& name) const {
     mfem::mfem_error(error_mess.c_str());
   }
 }
-
-/**
- * @brief Destroy the Parameters:: Parameters object
- *
- */
-Parameters::~Parameters() {}

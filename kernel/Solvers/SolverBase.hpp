@@ -1,4 +1,3 @@
-
 /**
  * @file SolverBase.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
@@ -6,10 +5,10 @@
  * @version 0.1
  * @date 2025-09-05
  *
+ * @copyright 2025 CEA (C)
+ *
  * @anchor SolverBase
  *
- *
- * Copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -27,6 +26,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
 #include <memory>
 #include <string>
 
@@ -41,7 +41,7 @@ class SolverBase {
  public:
   std::string solver_description_;
 
-  virtual std::shared_ptr<T> create_solver(S SOLVER, const Parameters& params) = 0;
+  virtual std::shared_ptr<T> create_solver(const Parameters& params) = 0;
 
   virtual ~SolverBase() = default;
 

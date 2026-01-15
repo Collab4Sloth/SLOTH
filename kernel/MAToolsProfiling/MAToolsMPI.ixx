@@ -77,7 +77,7 @@ int get_mpi_size() { return mfem::Mpi::WorldSize(); }
 bool is_master() { return mfem::Mpi::Root(); }
 
 template <typename T>
-T reduce(T a_in, MPI_Op a_op) {
+T reduce([[maybe_unused]] T a_in, [[maybe_unused]] MPI_Op a_op) {
   std::cout << "error" << std::endl;
   std::exit(EXIT_FAILURE);
   return -666;
@@ -108,5 +108,5 @@ double reduce_mean(double a_duration) {
   assert(mpi_size > 0);
   return ret / mpi_size;
 }
-};  // namespace MPI
-};  // namespace MATools
+}  // namespace MPI
+}  // namespace MATools

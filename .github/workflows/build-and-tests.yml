@@ -26,29 +26,35 @@ jobs:
     - name: Set up Spack
       uses: spack/setup-spack@v2
       with:
-        ref: develop      # Spack version (examples: develop, releases/v0.21)
-        buildcache: false  # Configure oci://ghcr.io/spack/github-actions-buildcache
+        ref: v1.1.0       # Spack version (examples: develop, releases/v0.21)
+        buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
 
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich wget unzip libboost-all-dev
+        sudo apt-get install -y mpich wget unzip libboost-all-dev libopenblas-dev perl
         
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
-          spack clean --downloads
-          spack install gcc@14
-          spack load gcc
+          spack env activate .
+          spack external find openmpi mpich openblas perl
           spack compiler find
-          spack compilers
-          echo "FC=$(which gfortran)" >> $GITHUB_ENV
-          echo "F77=$(which gfortran)" >> $GITHUB_ENV
-          echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
-          spack install hypre@2.33.0%gcc
-          spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
+          spack concretize -f
+          spack install --fail-fast
+          # spack install gcc@14
+          # spack load gcc
+          # spack compiler find
+          # spack compilers
+          # echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          # echo "F77=$(which gfortran)" >> $GITHUB_ENV
+          # echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
+          # spack install hypre@2.33.0 +shared %gcc
+          # spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
+          # spack install exprtk
+          echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
     - name: Download and extract libtorch
       run: |
@@ -63,14 +69,14 @@ jobs:
         python-version: '3.10'
 
     - name: Install Python dependencies 
-      run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy
+      run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy
 
     - name: Build SLOTH 
       shell: spack-bash {0}    
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR
+        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR --exprtk=$ExprTk_INCLUDE_DIR
         make -j${{ env.CORES }}
         
 
@@ -78,6 +84,7 @@ jobs:
       shell: spack-bash {0}    
       run: | 
         cd ${{ github.workspace }}/build
+        find . -name "Save*" |xargs rm -fr
         ctest -j${{ env.CORES }} --output-on-failure
 
     - name: Save Tests on Failure
@@ -88,57 +95,57 @@ jobs:
         path: ${{ github.workspace }}/build/tests
         retention-days: 1
 
-  build-MacOS:
-    runs-on: macos-latest
-    env: 
-      CORES: $(sysctl -n hw.ncpu)
-    steps:
-    - uses: actions/checkout@v4
+  # build-MacOS:
+  #   runs-on: macos-latest
+  #   env: 
+  #     CORES: $(sysctl -n hw.ncpu)
+  #   steps:
+  #   - uses: actions/checkout@v4
 
-    - name: Install MFEM
-      run: brew install mfem
+  #   - name: Install MFEM
+  #     run: brew install mfem
 
-    - name: Setup Python 
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+  #   - name: Setup Python 
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: '3.10'
 
-    - name: Install Python dependencies 
-      run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy
+  #   - name: Install Python dependencies 
+  #     run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy
       
-    - name: Build SLOTH 
-      run: | 
-        mkdir -p ${{ github.workspace }}/build
-        cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage
-        make -j${{ env.CORES }}
+  #   - name: Build SLOTH 
+  #     run: | 
+  #       mkdir -p ${{ github.workspace }}/build
+  #       cd ${{ github.workspace }}/build
+  #       bash ../envSloth.sh --coverage
+  #       make -j${{ env.CORES }}
 
-    - name: Test SLOTH 
-      run: | 
-        cd ${{ github.workspace }}/build
-        ctest -j${{ env.CORES }} --output-on-failure
+  #   - name: Test SLOTH 
+  #     run: | 
+  #       cd ${{ github.workspace }}/build
+  #       ctest -j${{ env.CORES }} --output-on-failure
 
-    - name: Save Tests on Failure
-      if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-reports-macos
-        path: ${{ github.workspace }}/build/tests
-        retention-days: 1
+  #   - name: Save Tests on Failure
+  #     if: ${{ failure() }}
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: test-reports-macos
+  #       path: ${{ github.workspace }}/build/tests
+  #       retention-days: 1
 
-    - name: Code Coverage Analysis 
-      if: ${{ always() }}
-      run: | 
-        cd ${{ github.workspace }}/build
-        make cc
+  #   - name: Code Coverage Analysis 
+  #     if: ${{ always() }}
+  #     run: | 
+  #       cd ${{ github.workspace }}/build
+  #       make cc
 
-    - name: Save Code Coverage Analysis
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: code-coverage-report
-        path: ${{ github.workspace }}/build/Coverage
-        retention-days: 1
+  #   - name: Save Code Coverage Analysis
+  #     if: ${{ always() }}
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: code-coverage-report
+  #       path: ${{ github.workspace }}/build/Coverage
+  #       retention-days: 1
   
     - name: CppLint
       if: ${{ always() }}

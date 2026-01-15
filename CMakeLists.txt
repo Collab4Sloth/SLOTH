@@ -54,7 +54,7 @@ include(MFEM4SLOTH)
 include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
 
-include(HEADER4SLOTH)
+#include(HEADER4SLOTH)
 
 
 # ########################
@@ -79,8 +79,16 @@ if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
 endif(SLOTH_USE_LIBTORCH)
 
+# ########################
+# Script
+# ########################
+set(SCRIPT_FILE ${CMAKE_SOURCE_DIR}/scripts/GenerateCoefficient.py)
+set(BUILD_SCRIPT_DIR ${CMAKE_BINARY_DIR}/scripts)
+file(COPY ${SCRIPT_FILE} DESTINATION ${BUILD_SCRIPT_DIR})
 
-
+# ########################
+# Tests
+# ########################
 include(TEST4SLOTH)
 
 include(CTest)
@@ -95,7 +103,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Coverage)
   # Collect CodeCoverage analysis with gcovr
   add_custom_target(cc
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
-    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --sort-uncovered --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
+    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --exclude '${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling/.*' --sort-uncovered --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
     COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
   )
 ENDIF()

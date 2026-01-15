@@ -64,6 +64,7 @@ class PostProcessing : public DC {
   std::vector<double> times_list_;
 
   int level_of_detail_;
+  bool enable_compute_energies_;
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
   std::map<std::string, double> iso_val_to_compute_;
@@ -93,10 +94,11 @@ class PostProcessing : public DC {
   int get_frequency();
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
+  bool get_enable_compute_energies();
   std::map<std::string, double> get_iso_val_to_compute();
   std::map<std::string, std::tuple<double, double>> get_integral_to_compute();
 
-  ~PostProcessing();
+  virtual ~PostProcessing() = default;
 };
 
 ///////////////////////////////////////////////////////////
@@ -142,6 +144,8 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
 
   this->level_of_detail_ =
       this->params_.template get_param_value_or_default<int>("level_of_detail", 1);
+  this->enable_compute_energies_ =
+      this->params_.template get_param_value_or_default<bool>("enable_compute_energies", true);
   this->enable_save_specialized_at_iter_ = this->params_.template get_param_value_or_default<bool>(
       "enable_save_specialized_at_iter", false);
   this->force_clean_output_dir_ =
@@ -296,6 +300,20 @@ bool PostProcessing<T, DC, DIM>::get_enable_save_specialized_at_iter() {
 }
 
 /**
+ * @brief Indicate if energies must be calculated
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @return true
+ * @return false
+ */
+template <class T, class DC, int DIM>
+bool PostProcessing<T, DC, DIM>::get_enable_compute_energies() {
+  return this->enable_compute_energies_;
+}
+
+/**
  * @brief Check if results have to be saved at iteration
  *
  * @tparam T mfem FECollection
@@ -409,10 +427,3 @@ void PostProcessing<T, DC, DIM>::clean_output_directory() {
     }
   }
 }
-
-/**
- * @brief Destroy the Post Processing:: Post Processing object
- *
- */
-template <class T, class DC, int DIM>
-PostProcessing<T, DC, DIM>::~PostProcessing() {}

@@ -1,7 +1,7 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief 2D coupling problem Thermal-AC
+ * @brief 3D coupling problem Thermal-AC
  * @version 0.1
  * @date 2024-09-3
  *
@@ -23,6 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  setVerbosity(Verbosity::Debug);
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -39,27 +40,18 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
   // ALLEN-CAHN
-  using NLFI = AllenCahnTemperatureMeltingNLFormIntegrator<
-      VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
-      Mobility::Constant, ThermodynamicsPotentials::H>;
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
-  using PB = Problem<OPE, VARS, PST>;
+  using AC_OPE = TransientOperator<FECollection, DIM>;
+  using AC_PB = Problem<AC_OPE, VARS, PST>;
 
   // Heat
-  using LHS_NLFI_2 = TimeNLFormIntegrator<VARS>;
-  using NLFI2 =
-      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 =
-      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI_2, Density::Constant, HeatCapacity::Constant>;
-  using PB2 = Problem<OPE2, VARS, PST>;
+  using HEAT_OPE = TransientOperator<FECollection, DIM>;
+  using HEAT_PB = Problem<HEAT_OPE, VARS, PST>;
 
   // ###########################################
   // ###########################################
@@ -134,8 +126,8 @@ int main(int argc, char* argv[]) {
   const auto& radius = 1.e-2 * pellet_radius;
 
   auto user_func = std::function<double(const mfem::Vector&, double)>(
-      [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](const mfem::Vector& x,
-                                                                       double time) {
+      [center_x, center_y, center_z, a_x, a_y, a_z, radius, thickness](
+          const mfem::Vector& x, [[maybe_unused]] double time) {
         const auto xx = a_x * (x[0] - center_x);
         const auto yy = a_y * (x[1] - center_y);
         const auto zz = a_z * (x[2] - center_z);
@@ -145,16 +137,17 @@ int main(int argc, char* argv[]) {
       });
   auto ac_ic = AnalyticalFunctions<DIM>(user_func);
 
-  auto ac_vars = VARS(VAR(&spatial, bcs, "phi", 2, ac_ic));
+  auto ac_vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, ac_ic));
 
   // Heat
-  auto temp = VAR(&spatial, Tbcs, "T", 2, 1073.15);
+  auto temp = VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 1073.15);
   temp.set_additional_information("T");
   auto heat_vars = VARS(temp);
   auto pl = 15.e4;
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, pellet_radius](const mfem::Vector& vcoord, double time) {
-        const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
+      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
+                          [[maybe_unused]] double time) {
+        // const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
         // Rayon identique par cote z
         // std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1] + vcoord[2] * vcoord[2]);
         // auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
@@ -170,14 +163,28 @@ int main(int argc, char* argv[]) {
         return func;
       });
 
+  // ####################
+  //     coefficients  //
+  // ####################
+
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+
+  Coefficient density(Glossary::Concentration, rho);
+  Coefficient heat_capacity(Glossary::Cp, cp);
+  Coefficient conductivity(Glossary::Conductivity, cond);
+  Coefficient interpolation(Glossary::InterpolationFunction, Scheme::Implicit, H());
+
   // ###########################################
   // ###########################################
   //      Post-processing                     //
   // ###########################################
   // ###########################################
-  const std::string& main_folder_path = "SavesBigR4";
+  const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
-  const auto& frequency = 50;
+  const auto& frequency = 1;
   // Allen-Cahn
   std::string calculation_path = "AllenCahn";
   auto p_pst1 =
@@ -187,10 +194,10 @@ int main(int argc, char* argv[]) {
   auto pst = PST(&spatial, p_pst1);
   // Heat
   calculation_path = "Heat";
-  auto p_pst2 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
+  auto p_pst2 = Parameters(
+      Parameter("main_folder_path", main_folder_path),
+      Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+      Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
   auto pst2 = PST(&spatial, p_pst2);
 
   // ####################
@@ -198,33 +205,31 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // AllenCahn:
+  Coefficients ac_coef(double_well, capillary, mobility, interpolation, grad_energy);
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, ac_params, TimeScheme::EulerImplicit);
+  AC_OPE oper(spatials, {"AllenCahn", "MeltingTemperature"}, ac_params, TimeScheme::EulerImplicit,
+              "TimeDerivative");
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-20)));
 
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
-
-  PB allencahn_pb("AllenCahn", oper, ac_vars, pst, heat_vars);
+  AC_PB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
 
   // Heat:
+  Coefficients heat_coef(density, heat_capacity, conductivity);
   std::vector<AnalyticalFunctions<DIM> > src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
-  OPE2 oper2(spatials, TimeScheme::EulerImplicit, src_term);
-  oper2.overload_density(Parameters(Parameter("rho", rho)));
-  oper2.overload_heat_capacity(Parameters(Parameter("cp", cp)));
-  oper2.overload_conductivity(Parameters(Parameter("lambda", cond)));
+  HEAT_OPE oper_heat(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                     src_term);
+  oper_heat.overload_nl_solver(
+      NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
+                                       Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),
+                                       Parameter("abs_tol", 1.e-11), Parameter("iter_max", 1000)));
 
-  oper2.overload_nl_solver(NLSolverType::NEWTON,
-                           Parameters(Parameter("description", "Newton solver "),
-                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-9)));
-
-  PB2 Heat_pb("Heat", oper2, heat_vars, pst2);
+  HEAT_PB heat_pb("Heat", oper_heat, heat_vars, {heat_coef}, pst2);
 
   // Coupling 1
-  auto cc = Coupling("AC-Heat coupling", allencahn_pb, Heat_pb);
-  // auto cc = Coupling("AC-Heat coupling", Heat_pb);
+  auto cc = Coupling("AC-Heat coupling", allencahn_pb, heat_pb);
 
   // ###########################################
   // ###########################################
@@ -232,7 +237,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.5;  // 200.;
+  const auto& t_final = 0.5;
   const auto& dt = 0.25;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));

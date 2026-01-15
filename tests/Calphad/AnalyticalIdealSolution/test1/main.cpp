@@ -39,7 +39,6 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
@@ -47,11 +46,7 @@ int main(int argc, char* argv[]) {
   using PB = Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST>;
 
   // Heat
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using NLFI2 =
-      HeatNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Conductivity::Constant>;
-  using OPE2 =
-      HeatOperator<FECollection, DIM, NLFI2, LHS_NLFI, Density::Constant, HeatCapacity::Constant>;
+  using OPE2 = TransientOperator<FECollection, DIM>;
   using PB2 = Problem<OPE2, VARS, PST>;
 
   // ###########################################
@@ -90,7 +85,7 @@ int main(int argc, char* argv[]) {
   const auto& pellet_radius = 0.00465;
   // Heat
 
-  auto temp = VAR(&spatial, Tbcs, "T", 2, 750.);
+  auto temp = VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 750.);
   temp.set_additional_information("K", "T");
 
   auto heat_vars = VARS(temp);
@@ -100,7 +95,8 @@ int main(int argc, char* argv[]) {
   auto TimeToIncrease = 0.;
 
   auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, plmax, pldt, TimeToIncrease, pellet_radius](const mfem::Vector& vcoord, double time) {
+      [pl, plmax, pldt, TimeToIncrease, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
+                                                       [[maybe_unused]] double time) {
         double puissance = pl;
         if (time > TimeToIncrease) {
           puissance += (time - TimeToIncrease) * pldt;
@@ -116,20 +112,19 @@ int main(int argc, char* argv[]) {
   //            Physical models               //
   // ###########################################
   // ###########################################
-  auto muo = VAR(&spatial, Calphadbcs, "muO", 2, 0.);
+  auto muo = VAR(&spatial, Calphadbcs, "muO", Glossary::ChemicalPotential, 2, 0.);
   muo.set_additional_information("O", "mu");
-  auto xso = VAR(&spatial, Calphadbcs, "xsO", 2, 0.);
-  xso.set_additional_information("O", "SOLUTION", "x");
-  auto gs = VAR(&spatial, Calphadbcs, "gs", 2, 0.);
+  auto xso = VAR(&spatial, Calphadbcs, "xsO", Glossary::MoleFraction, 2, 0.);
+  xso.set_additional_information("O", "SOLUTION", "xp");
+  auto gs = VAR(&spatial, Calphadbcs, "gs", Glossary::GibbsEnergy, 2, 0.);
   gs.set_additional_information("SOLUTION", "g");
   auto outputs = VARS(muo, xso, gs);
-
-  auto pres = VAR(&spatial, Calphadbcs, "pressure", 2, 50.e5);
+  auto pres = VAR(&spatial, Calphadbcs, "pressure", Glossary::Pressure, 2, 50.e5);
   pres.set_additional_information("Pa", "P");
 
   auto p_vars = VARS(pres);
 
-  auto xo = VAR(&spatial, Calphadbcs, "O", 2, 0.66);
+  auto xo = VAR(&spatial, Calphadbcs, "O", Glossary::MoleFraction, 2, 0.66);
   xo.set_additional_information("O", "X");
   auto compo_vars = VARS(xo);
   auto description_calphad =
@@ -151,10 +146,10 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
   auto Calphad_pst = PST(&spatial, cpst);
   calculation_path = "Heat";
-  auto hpst =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-                 Parameter("level_of_detail", level_of_detail));
+  auto hpst = Parameters(
+      Parameter("main_folder_path", main_folder_path),
+      Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
+      Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
   auto Heat_pst = PST(&spatial, hpst);
 
   // ####################
@@ -164,17 +159,19 @@ int main(int argc, char* argv[]) {
   //---------------
   // Heat transfer
   //---------------
+  Coefficient density(Glossary::Concentration, rho);
+  Coefficient heat_capacity(Glossary::Cp, cp);
+  Coefficient conductivity(Glossary::Conductivity, cond);
+  Coefficients coef_heat(density, heat_capacity, conductivity);
+
   std::vector<AnalyticalFunctions<DIM> > src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
   std::vector<SPA*> spatials{&spatial};
-  OPE2 Heat_op(spatials, TimeScheme::EulerImplicit, src_term);
-  Heat_op.overload_density(Parameters(Parameter("rho", rho)));
-  Heat_op.overload_heat_capacity(Parameters(Parameter("cp", cp)));
-  Heat_op.overload_conductivity(Parameters(Parameter("lambda", cond)));
+  OPE2 Heat_op(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative", src_term);
   Heat_op.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));
-  PB2 Heat_pb("Heat", Heat_op, heat_vars, Heat_pst);
+  PB2 Heat_pb("Heat", Heat_op, heat_vars, {coef_heat}, Heat_pst);
 
   //---------------
   // Calphad

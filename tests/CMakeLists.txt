@@ -5,7 +5,11 @@ add_subdirectory(SimpleCoupling)
 add_subdirectory(Calphad)
 add_subdirectory(CahnHilliard)
 add_subdirectory(Bench)
+<<<<<<< HEAD
 add_subdirectory(ExternalLoading)
+=======
+add_subdirectory(Coefficients)
+>>>>>>> origin/master
 # EXTERNAL ??
 if((SLOTH_USE_EXTERNAL OR SLOTH_USE_AUTO_EXTERNAL) AND NOT "$ENV{EXT_TEST}" STREQUAL "")
     add_subdirectory($ENV{EXT_TEST} "external")

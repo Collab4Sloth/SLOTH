@@ -1,5 +1,3 @@
-
-
 /**
  * @file Options.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
@@ -31,6 +29,7 @@
 #include "Options/AnalyticalFunctionOptions.hpp"
 #include "Options/CalphadOptions.hpp"
 #include "Options/DiffusionOptions.hpp"
+#include "Options/IntegratorsOptions.hpp"
 #include "Options/PhaseFieldOptions.hpp"
 #include "Options/PhysicalConvergenceOptions.hpp"
 #include "Options/PhysicalPropertiesOptions.hpp"

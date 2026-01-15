@@ -30,8 +30,15 @@ set_target_properties(Sloth PROPERTIES LINKER_LANGUAGE CXX)
 # And the most important part set the include directories
 target_include_directories(Sloth INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
+<<<<<<< HEAD
 target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include  /home/cp273896/CODES/hdf5-1.14.6/hdf5/include)
 target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib /home/cp273896/CODES/hdf5-1.14.6/hdf5/lib)
+=======
+# Include MFEM + ExprTk
+target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include $ENV{ExprTk_INCLUDE_DIR})
+
+target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
+>>>>>>> origin/master
 
 target_link_libraries(Sloth INTERFACE ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} $ENV{FILESYSTEM_VAR} hdf5 hdf5_cpp)
 
@@ -61,5 +68,13 @@ if(SLOTH_USE_LIBTORCH)
     MESSAGE(STATUS "Sloth use libTorch API ")
     target_include_directories(Sloth INTERFACE ${TORCH_INCLUDE_DIRS} )
     target_link_libraries(Sloth INTERFACE ${TORCH_LIBRARIES})
+    target_compile_definitions(Sloth INTERFACE SLOTH_USE_LIBTORCH=1)
 endif(SLOTH_USE_LIBTORCH)
 
+
+# ExprTk ??
+option(SLOTH_USE_EXPRTK "Sloth use ExprTk" OFF)
+
+if(SLOTH_USE_EXPRTK)
+    target_compile_definitions(Sloth INTERFACE SLOTH_USE_EXPRTK=1)
+endif()

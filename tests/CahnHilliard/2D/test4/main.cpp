@@ -40,16 +40,12 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::W, Mobility::Constant>;
-  using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -65,7 +61,7 @@ int main(int argc, char* argv[]) {
   // std::vector<int> vect_order{1, 2};
   std::vector<int> vect_order{1};
   std::vector<int> vect_NN{30, 60, 90, 120};
-  for (const auto elem_type : vect_elem) {
+  for (const auto& elem_type : vect_elem) {
     for (const auto order : vect_order) {
       for (const auto NN : vect_NN) {
         const int order_fe = order;      // finite element order
@@ -110,6 +106,14 @@ int main(int argc, char* argv[]) {
                                  Parameter("lambda", lambda), Parameter("omega", omega),
                                  Parameter("power", 2.0));
         // ####################
+        //     coefficients  //
+        // ####################
+
+        Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+        Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+        Coefficient capillary(Glossary::Capillary, lambda);
+        Coefficient mobility(Glossary::Mobility, mob);
+        // ####################
         //     variables     //
         // ####################
         const double center_x = 0.;
@@ -127,7 +131,7 @@ int main(int argc, char* argv[]) {
                                      a_x, a_y, epsilon, radius);
 
         auto solution_mu = std::function<double(const mfem::Vector&, double)>(
-            [&](const mfem::Vector& v, double time) {
+            [&](const mfem::Vector& v, [[maybe_unused]] double time) {
               const double x = v[0];
 
               const auto r = a_x * (x - center_x);
@@ -143,8 +147,9 @@ int main(int argc, char* argv[]) {
         auto initial_solution_mu = AnalyticalFunctions<DIM>(solution_mu);
         const std::string& var_name_1 = "phi";
         const std::string& var_name_2 = "mu";
-        auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, initial_condition, analytical_solution);
-        auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, 0.);
+        auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::PhaseField, 2, initial_condition,
+                      analytical_solution);
+        auto v2 = VAR(&spatial, bcs_mu, var_name_2, Glossary::ChemicalPotential, 2, 0.);
         auto vars = VARS(v1, v2);
 
         // ###########################################
@@ -172,9 +177,10 @@ int main(int argc, char* argv[]) {
         // ####################
 
         // Problem 1:
+        Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
         std::vector<SPA*> spatials{&spatial, &spatial};
-        OPE oper(spatials, params, TimeScheme::EulerImplicit);
-        oper.overload_mobility(Parameters(Parameter("mob", mob)));
+        OPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                 "SplitTimeDerivative");
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
@@ -190,7 +196,7 @@ int main(int argc, char* argv[]) {
         auto CVG = Convergence(phi_cvg, mu_cvg);
         auto pst = PST(&spatial, p_pst);
 
-        PB problem1(oper, vars, pst, CVG);
+        PB problem1(oper, vars, {coef_pb1, coef_pb1}, CVG, pst);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);

@@ -23,15 +23,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 #pragma once
+#include <cassert>
+#include <iostream>
 #include <MAToolsProfiling/EnumTimer.hxx>
 #include <MAToolsProfiling/MAOutputManager.hxx>
 #include <MAToolsProfiling/MATimerInfo.hxx>
 #include <MAToolsProfiling/MATimerNode.hxx>
 #include <MAToolsProfiling/Timer.hxx>
-#include <cassert>
-#include <iostream>
 
 namespace MATools {
 namespace MATimer {

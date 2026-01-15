@@ -4,24 +4,24 @@
  * @brief Class to define a SlothSolver objet
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <memory>
 
@@ -310,7 +310,7 @@ VSharedMFEMSolver SlothSolver::get_value() {
           switch (arg) {
             case DirectSolverType::UMFPACK: {
               SolverUMFPACK hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "UMFPACK"));
+              return hh.create_solver(params_ + Parameter("description", "UMFPACK"));
             }
             default:
               mfem::mfem_error("Unhandled DirectSolverType enum value");
@@ -320,19 +320,19 @@ VSharedMFEMSolver SlothSolver::get_value() {
             case IterativeSolverType::BICGSTAB: {
               SolverBICGSTAB hh;
 
-              return hh.create_solver(arg, params_ + Parameter("description", "BICGSTAB"));
+              return hh.create_solver(params_ + Parameter("description", "BICGSTAB"));
             }
             case IterativeSolverType::CG: {
               SolverCG hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "CG"));
+              return hh.create_solver(params_ + Parameter("description", "CG"));
             }
             case IterativeSolverType::GMRES: {
               SolverGMRES hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "GMRES"));
+              return hh.create_solver(params_ + Parameter("description", "GMRES"));
             }
             case IterativeSolverType::MINRES: {
               SolverMINRES hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "MINRES"));
+              return hh.create_solver(params_ + Parameter("description", "MINRES"));
             }
             default:
               mfem::mfem_error("Unhandled IterativeSolverType enum value");
@@ -341,15 +341,15 @@ VSharedMFEMSolver SlothSolver::get_value() {
           switch (arg) {
             case HypreSolverType::HYPRE_PCG: {
               SolverHyprePCG hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_PCG"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_PCG"));
             }
             case HypreSolverType::HYPRE_GMRES: {
               SolverHypreGMRES hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_GMRES"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_GMRES"));
             }
             case HypreSolverType::HYPRE_FGMRES: {
               SolverHypreFGMRES hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_FGMRES"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_FGMRES"));
             }
             default:
               mfem::mfem_error("Unhandled HypreSolverType enum value");
@@ -358,19 +358,19 @@ VSharedMFEMSolver SlothSolver::get_value() {
           switch (arg) {
             case HyprePreconditionerType::HYPRE_ILU: {
               PrecondHypreILU hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_ILU"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_ILU"));
             }
             case HyprePreconditionerType::HYPRE_BOOMER_AMG: {
               PrecondHypreBoomerAMG hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_BOOMER_AMG"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_BOOMER_AMG"));
             }
             case HyprePreconditionerType::HYPRE_DIAG_SCALE: {
               PrecondHypreDiagScale hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_DIAG_SCALE"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_DIAG_SCALE"));
             }
             case HyprePreconditionerType::HYPRE_SMOOTHER: {
               PrecondHypreSmoother hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "HYPRE_SMOOTHER"));
+              return hh.create_solver(params_ + Parameter("description", "HYPRE_SMOOTHER"));
             }
             case HyprePreconditionerType::NO: {
               return std::make_shared<std::monostate>();
@@ -382,7 +382,7 @@ VSharedMFEMSolver SlothSolver::get_value() {
           switch (arg) {
             case PreconditionerType::SMOOTHER: {
               PrecondDSmoother hh;
-              return hh.create_solver(arg, params_ + Parameter("description", "SMOOTHER"));
+              return hh.create_solver(params_ + Parameter("description", "SMOOTHER"));
             }
             case PreconditionerType::NO: {
               return std::make_shared<std::monostate>();

@@ -7,15 +7,18 @@
  *
  * Copyright CEA (c) 2024
  *
-*/
+ */
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/Boundary.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/CalphadBase.hpp"
+#ifdef SLOTH_USE_LIBTORCH
 #include "Calphad/CalphadInformedNeuralNetwork.hpp"
+#endif
 #include "Calphad/CalphadUtils.hpp"
 #include "Calphad/KKS.hpp"
+<<<<<<< HEAD
 #include "Calphad/MultiParamsTabulation.hpp"
 #include "Coefficients/ConductivityCoefficient.hpp"
 #include "Coefficients/ConductivityFunctions.hpp"
@@ -45,31 +48,53 @@
 #include "Integrators/AllenCahnConstantMeltingNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnGrainsNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnMeltingBaseNLFormIntegrator.hpp"
+=======
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/Coefficients.hpp"
+#include "Coefficients/CommonCoefficients.hpp"
+#ifdef SLOTH_USE_EXPRTK
+#include "Coefficients/ExprTkSloth.hpp"
+#endif
+#include "Coefficients/FunctionCoefficient.hpp"
+#include "Coefficients/SlothBaseCoefficient.hpp"
+#include "Convergence/Convergence.hpp"
+#include "Convergence/PhysicalConvergence.hpp"
+#include "Couplings/Coupling.hpp"
+#include "Glossary/Glossary.hpp"
+>>>>>>> origin/master
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
-#include "Integrators/AllenCahnTemperatureMeltingNLFormIntegrator.hpp"
 #include "Integrators/BlockAllenCahnNLFormIntegrator.hpp"
 #include "Integrators/CahnHilliardNLFormIntegrator.hpp"
 #include "Integrators/DiffusionFluxNLFormIntegrator.hpp"
 #include "Integrators/DiffusionNLFormIntegrator.hpp"
-#include "Integrators/HeatNLFormIntegrator.hpp"
+#include "Integrators/FickNLFormIntegrator.hpp"
+#include "Integrators/FourierNLFormIntegrator.hpp"
+#include "Integrators/HeatTimeNLFormIntegrator.hpp"
 #include "Integrators/MassDiffusionFluxNLFormIntegrator.hpp"
+#include "Integrators/MeltingBaseNLFormIntegrator.hpp"
+#include "Integrators/MeltingCalphadNLFormIntegrator.hpp"
+#include "Integrators/MeltingConstantNLFormIntegrator.hpp"
+#include "Integrators/MeltingTemperatureNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Integrators/ThermalDiffusionFluxNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"
+<<<<<<< HEAD
 #include "Interpolators/MultiLinearInterpolator.hpp"
 #include "Operators/DiffusionOperator.hpp"
 #include "Operators/HeatOperator.hpp"
+=======
+>>>>>>> origin/master
 #include "Operators/OperatorBase.hpp"
-#include "Operators/PhaseFieldOperator.hpp"
 #include "Operators/ReducedOperator.hpp"
-#include "Operators/SteadyOperatorBase.hpp"
+#include "Operators/SteadyOperator.hpp"
 #include "Operators/SteadyReducedOperator.hpp"
-#include "Operators/TransientOperatorBase.hpp"
+#include "Operators/TransientOperator.hpp"
 #include "Options/AnalyticalFunctionOptions.hpp"
 #include "Options/CalphadOptions.hpp"
 #include "Options/DiffusionOptions.hpp"
+#include "Options/IntegratorsOptions.hpp"
 #include "Options/Options.hpp"
 #include "Options/PhaseFieldOptions.hpp"
 #include "Options/PhysicalConvergenceOptions.hpp"

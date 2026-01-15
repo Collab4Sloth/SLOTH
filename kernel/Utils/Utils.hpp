@@ -1,5 +1,3 @@
-
-
 /**
  * @file Utils.hpp
  * @author Clément Introïni (clement.introini@cea.fr)

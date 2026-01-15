@@ -38,20 +38,13 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
-  using NLFI2 =
-      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
 
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
-  using LHS_NLFI2 = TimeNLFormIntegrator<VARS>;
-  using OPE2 = DiffusionOperator<FECollection, DIM, NLFI2, Density::Constant, LHS_NLFI2>;
+  using OPE = TransientOperator<FECollection, DIM>;
+  using OPE2 = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   using PB2 = Problem<OPE2, VARS, PST>;
   // ###########################################
@@ -83,28 +76,20 @@ int main(int argc, char* argv[]) {
   // ####################
   //     parameters    //
   // ####################
-  //  Interface thickness
-  const auto& epsilon(1.);
-  // Interfacial energy
-  const auto& sigma(6.e-2);
   // Two-phase mobility
   const auto& mob(1.e-2);
   const auto& lambda = 1.;
   const auto& omega = 0.;
-  auto params =
-      Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                 Parameter("sigma", sigma), Parameter("lambda", lambda), Parameter("omega", omega));
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
   // ####################
   //     variables     //
   // ####################
-  const auto& center_x = 0.;
-  const auto& center_y = 0.;
-  const auto& a_x = 1.;
-  const auto& a_y = 0.;
-  const auto& thickness = 1.e-1;
-  const auto& radius = 5.e-1;
-  auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         if (x[0] > 0.5) {
           return 1.0;
         } else {
@@ -121,9 +106,11 @@ int main(int argc, char* argv[]) {
       });
   auto exact_condition = AnalyticalFunctions<DIM>(ex_func_solution);
 
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 1, initial_condition, exact_condition));
+  auto vars =
+      VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 1, initial_condition, exact_condition));
 
-  auto vars2 = VARS(VAR(&spatial, bcs, "c", 1, initial_condition, exact_condition));
+  auto vars2 =
+      VARS(VAR(&spatial, bcs, "c", Glossary::PhaseField, 1, initial_condition, exact_condition));
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -139,28 +126,28 @@ int main(int argc, char* argv[]) {
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
   std::string calculation_path2 = "Problem2";
-  auto p_pst2 =
-      Parameters(Parameter("main_folder_path", main_folder_path),
-                 Parameter("calculation_path", calculation_path2),
-                 Parameter("frequency", frequency), Parameter("level_of_detail", level_of_detail));
+  auto p_pst2 = Parameters(
+      Parameter("main_folder_path", main_folder_path),
+      Parameter("calculation_path", calculation_path2), Parameter("frequency", frequency),
+      Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
   // ####################
   //     operators     //
   // ####################
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, params, TimeScheme::EulerExplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst);
+  PB problem1(oper, vars, {coef_ac}, pst);
 
   // Problem 2:
 
-  OPE2 oper2(spatials, TimeScheme::EulerExplicit);
-  oper2.overload_diffusion(Parameters(Parameter("D", mob)));
+  Coefficient D(Glossary::Diffusivity, mob);
+  Coefficients CoeffDiffusion(D);
+  OPE2 oper2(spatials, {"Fick"}, TimeScheme::EulerExplicit, "TimeDerivative");
   auto pst2 = PST(&spatial, p_pst2);
-  PB2 problem2(oper2, vars2, pst2);
+  PB2 problem2(oper2, vars2, {CoeffDiffusion}, pst2);
 
   // Coupling 1
   auto cc = Coupling("AllenCahn + Diffusion", problem1, problem2);

@@ -1,4 +1,3 @@
-
 /**
  * @file CalphadBase.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
@@ -6,10 +5,11 @@
  * @version 0.1
  * @date 2025-09-05
  *
+ * @copyright CEA (C) 2025
+ *
  * @anchor CalphadBase
  *
  *
- * Copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -40,7 +40,7 @@
 #include <vector>
 
 #include "Calphad/CalphadUtils.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
+#include "Coefficients/CommonCoefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
@@ -113,6 +113,7 @@ class CalphadBase {
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
   const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
+  void clear_time_specialized();
 
   explicit CalphadBase(const Parameters& params);
   CalphadBase(const Parameters& params, bool is_KKS);
@@ -164,7 +165,7 @@ CalphadBase<T>::CalphadBase(const Parameters& params) : CalphadBase(params, fals
  */
 template <typename T>
 CalphadBase<T>::CalphadBase(const Parameters& params, bool is_KKS)
-    : params_(params), is_KKS_(is_KKS) {
+    : is_KKS_(is_KKS), params_(params) {
   this->KKS_ = std::make_shared<KKS<T>>();
   this->get_parameters();
 }
@@ -219,7 +220,7 @@ void CalphadBase<T>::global_execute(
   if (!this->is_KKS_) {
     // Creation list of nodes
     std::set<int> list_nodes;
-    for (int i = 0; i < nb_nodes; ++i) {
+    for (unsigned int i = 0; i < nb_nodes; ++i) {
       list_nodes.insert(i);
     }
     this->execute(dt, list_nodes, tp_gf, chemicalsystem);
@@ -278,7 +279,7 @@ void CalphadBase<T>::clear_containers() {
  */
 template <typename T>
 void CalphadBase<T>::update_outputs(
-    const int dt, const size_t nb_nodes,
+    [[maybe_unused]] const int dt, const size_t nb_nodes,
     std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<T>>>& output_system,
     const std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>& previous_output_system) {
   Catch_Time_Section("CalphadBase<T>::update_outputs");
@@ -306,7 +307,7 @@ void CalphadBase<T>::update_outputs(
       // Chemical potential of the elements
       case calphad_outputs::mu: {
         const std::string& output_elem = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -319,7 +320,7 @@ void CalphadBase<T>::update_outputs(
       // Diffusion chemical potentials (reference is the element removed from initial condition)
       case calphad_outputs::dmu: {
         const std::string& output_elem = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -332,7 +333,7 @@ void CalphadBase<T>::update_outputs(
       // Molar fraction of the phases
       case calphad_outputs::xph: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -346,7 +347,7 @@ void CalphadBase<T>::update_outputs(
       case calphad_outputs::xp: {
         const std::string& output_elem = output_infos[1];
         const std::string& output_phase = output_infos[2];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -361,7 +362,7 @@ void CalphadBase<T>::update_outputs(
         const std::string& output_cons = output_infos[1];
         const int& output_sub = std::stoi(output_infos[2]);
         const std::string& output_phase = output_infos[3];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -375,7 +376,7 @@ void CalphadBase<T>::update_outputs(
       // Gibbs energy
       case calphad_outputs::g: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -388,7 +389,7 @@ void CalphadBase<T>::update_outputs(
       // Molar Gibbs energy
       case calphad_outputs::gm: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -401,7 +402,7 @@ void CalphadBase<T>::update_outputs(
       // Enthalpy
       case calphad_outputs::h: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -414,7 +415,7 @@ void CalphadBase<T>::update_outputs(
       // Molar enthalpy
       case calphad_outputs::hm: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -427,7 +428,7 @@ void CalphadBase<T>::update_outputs(
       // Driving force
       case calphad_outputs::dgm: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -439,7 +440,7 @@ void CalphadBase<T>::update_outputs(
       }
       // Heat capacity (per mole?)
       case calphad_outputs::cp: {
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             output[i] = std::get<1>(previous_output_system[id_output])(i);
           } else {
@@ -452,7 +453,7 @@ void CalphadBase<T>::update_outputs(
       case calphad_outputs::mob: {
         const std::string& output_phase = output_infos[1];
         const std::string& output_elem = output_infos[2];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -465,7 +466,7 @@ void CalphadBase<T>::update_outputs(
       // Seed for starting nucleation in KKS studies
       case calphad_outputs::nucleus: {
         const std::string& output_phase = output_infos[1];
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           default_value = 0.;
           if (this->error_equilibrium_[i] == CalphadDefaultConstant::error_max) {
             default_value = std::get<1>(previous_output_system[id_output])(i);
@@ -477,9 +478,13 @@ void CalphadBase<T>::update_outputs(
       }
       // Convergence error (used with GEM)
       case calphad_outputs::error: {
-        for (std::size_t i = 0; i < nb_nodes; ++i) {
+        for (unsigned int i = 0; i < nb_nodes; ++i) {
           output[i] = this->error_equilibrium_[i];
         }
+        break;
+      }
+      case calphad_outputs::x: {
+        // Nothing to do
         break;
       }
     }
@@ -498,6 +503,17 @@ template <typename T>
 const std::multimap<IterationKey, SpecializedValue> CalphadBase<T>::get_time_specialized() const {
   return this->time_specialized_;
 }
+
+/**
+ * @brief Clear time_specialized_ container
+ *
+ * @tparam T
+ */
+template <typename T>
+void CalphadBase<T>::clear_time_specialized() {
+  this->time_specialized_.clear();
+}
+
 /**
  * @brief Destroy the Calphad Base< T>:: Calphad Base object
  *

@@ -5,24 +5,24 @@
  * @brief Base class for Hypre solvers
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <memory>
 #include <string>
@@ -37,8 +37,7 @@
 class SolverHyprePCG : public SolverBase<mfem::HyprePCG, HypreSolverType> {
  public:
   SolverHyprePCG();
-  std::shared_ptr<mfem::HyprePCG> create_solver(HypreSolverType SOLVER,
-                                                const Parameters& params) override;
+  std::shared_ptr<mfem::HyprePCG> create_solver(const Parameters& params) override;
 
   ~SolverHyprePCG();
 };
@@ -56,8 +55,7 @@ SolverHyprePCG::SolverHyprePCG() {}
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(HypreSolverType SOLVER,
-                                                              const Parameters& params) {
+std::shared_ptr<mfem::HyprePCG> SolverHyprePCG::create_solver(const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
@@ -90,8 +88,7 @@ SolverHyprePCG::~SolverHyprePCG() {}
 class SolverHypreGMRES : public SolverBase<mfem::HypreGMRES, HypreSolverType> {
  public:
   SolverHypreGMRES();
-  std::shared_ptr<mfem::HypreGMRES> create_solver(HypreSolverType SOLVER,
-                                                  const Parameters& params) override;
+  std::shared_ptr<mfem::HypreGMRES> create_solver(const Parameters& params) override;
 
   ~SolverHypreGMRES();
 };
@@ -109,8 +106,7 @@ SolverHypreGMRES::SolverHypreGMRES() {}
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(HypreSolverType SOLVER,
-                                                                  const Parameters& params) {
+std::shared_ptr<mfem::HypreGMRES> SolverHypreGMRES::create_solver(const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
@@ -146,8 +142,7 @@ SolverHypreGMRES::~SolverHypreGMRES() {}
 class SolverHypreFGMRES : public SolverBase<mfem::HypreFGMRES, HypreSolverType> {
  public:
   SolverHypreFGMRES();
-  std::shared_ptr<mfem::HypreFGMRES> create_solver(HypreSolverType SOLVER,
-                                                   const Parameters& params) override;
+  std::shared_ptr<mfem::HypreFGMRES> create_solver(const Parameters& params) override;
 
   ~SolverHypreFGMRES();
 };
@@ -165,8 +160,7 @@ SolverHypreFGMRES::SolverHypreFGMRES() {}
  * @param params
  * @return std::shared_ptr<mfem::IterativeSolver>
  */
-std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(HypreSolverType SOLVER,
-                                                                    const Parameters& params) {
+std::shared_ptr<mfem::HypreFGMRES> SolverHypreFGMRES::create_solver(const Parameters& params) {
   // TODO(cci): mettre un check sur le param de base name
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");

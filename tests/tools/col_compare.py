@@ -42,9 +42,12 @@ def compare_csv_files(file1, file2, columns, error_type, criterion, skip_lines):
 
     errors = {i + skip_lines: {} for i in range(len(df1))}
     generate_md = False
+    
+    nrows = min(len(df1), len(df2))
+
     for id, col in enumerate(columns):
         col_name = headers1[col]
-        for i in range(len(df1)):
+        for i in range(nrows):
             if id > 0:
                 error = calculate_error(
                     df1.iloc[i, col], df2.iloc[i, col], error_type)

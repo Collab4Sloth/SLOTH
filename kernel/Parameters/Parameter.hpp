@@ -62,7 +62,7 @@ class Parameter {
   // Type is specifically mentioned despite of auto
   auto get_value() const -> param_type;
 
-  ~Parameter() {}
+  virtual ~Parameter() = default;
 };
 
 /**

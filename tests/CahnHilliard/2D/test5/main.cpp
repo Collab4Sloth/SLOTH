@@ -47,17 +47,12 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::F, Mobility::Constant>;
-
-  using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -73,7 +68,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> vect_elem{"InlineSquareWithQuadrangles"};
   std::vector<int> vect_order{2, 1};
   std::vector<int> vect_NN{160, 80, 40, 20};
-  for (const auto elem_type : vect_elem) {
+  for (const auto& elem_type : vect_elem) {
     for (const auto order_fe : vect_order) {
       for (const auto NN : vect_NN) {
         const int nx = NN;
@@ -116,6 +111,14 @@ int main(int argc, char* argv[]) {
         auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
                                  Parameter("lambda", lambda), Parameter("omega", omega));
         // ####################
+        //     coefficients  //
+        // ####################
+
+        Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+        Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
+        Coefficient capillary(Glossary::Capillary, lambda);
+        Coefficient mobility(Glossary::Mobility, mob);
+        // ####################
         //     variables     //
         // ####################
 
@@ -142,7 +145,6 @@ int main(int argc, char* argv[]) {
         auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
             [&](const mfem::Vector& x, double time) {
               const double xx = x[0];
-              const double yy = x[1];
               const auto c = (time + 1) * std::sin(M_PI * xx);
               const double delta_c = -M_PI * M_PI * c;
               const double dc_dx = (time + 1) * M_PI * std::cos(M_PI * xx);
@@ -153,7 +155,9 @@ int main(int argc, char* argv[]) {
               return func;
             });
         auto user_func_source_term2 = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& v, double time) { return 0.; });
+            []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
+              return 0.;
+            });
 
         auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
         auto phi_analytical_condition = AnalyticalFunctions<DIM>(user_func_solution);
@@ -161,9 +165,10 @@ int main(int argc, char* argv[]) {
         auto mu_analytical_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
         const std::string& var_name_1 = "phi";
         const std::string& var_name_2 = "mu";
-        auto v1 =
-            VAR(&spatial, bcs_phi, var_name_1, 2, phi_initial_condition, phi_analytical_condition);
-        auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, mu_initial_condition);
+        auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::PhaseField, 2, phi_initial_condition,
+                      phi_analytical_condition);
+        auto v2 =
+            VAR(&spatial, bcs_mu, var_name_2, Glossary::ChemicalPotential, 2, mu_initial_condition);
         auto vars = VARS(v1, v2);
 
         // ###########################################
@@ -177,7 +182,6 @@ int main(int argc, char* argv[]) {
         const int level_of_detail = 1;
         const int frequency = 1;
         std::string calculation_path = "Problem1";
-        const double threshold = 10.;
         std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
             {var_name_1, {-10.1, 10.1}}};
         bool enable_save_specialized_at_iter = true;
@@ -191,13 +195,17 @@ int main(int argc, char* argv[]) {
         //     operators     //
         // ####################
 
+        // Problem 1:
+        Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
         std::vector<SPA*> spatials{&spatial, &spatial};
         std::vector<AnalyticalFunctions<DIM>> src_term;
         src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term2));
         src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
         // OPE oper(spatials, params, src_term);
-        OPE oper(spatials, params, TimeScheme::EulerImplicit, src_term);
-        oper.overload_mobility(Parameters(Parameter("mob", mob)));
+
+        OPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                 "SplitTimeDerivative", src_term);
+
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
@@ -208,7 +216,7 @@ int main(int argc, char* argv[]) {
         oper.overload_preconditioner(precond, Parameters(Parameter("type", 1)));
 
         auto pst = PST(&spatial, p_pst);
-        PB problem1(oper, vars, pst);
+        PB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);
