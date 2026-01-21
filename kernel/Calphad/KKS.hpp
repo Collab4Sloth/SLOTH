@@ -285,20 +285,11 @@ std::set<int> KKS<T>::check_nucleation(CalphadBase<T>& CALPHAD, const std::set<i
  */
 template <typename T>
 void KKS<T>::execute_linearization(
-<<<<<<< HEAD
-    CalphadBase<T> &CALPHAD, const int dt, const double time_step, const std::vector<T> &tp_gf,
-    const std::vector<T> &tp_gf_old, const std::tuple<std::string, T, T> &phasefields_gf,
-    const std::vector<std::tuple<std::string, std::string>> &chemicalsystem,
-    const std::vector<std::tuple<std::string, std::string, T, T>> &x_gf,
-    const std::vector<std::tuple<std::string, T>> &coordinates) {
-      Catch_Time_Section("KKS::execute_linearization");
-=======
     CalphadBase<T>& CALPHAD, const int dt, const double time_step, const std::vector<T>& tp_gf,
     const std::vector<T>& tp_gf_old, const std::tuple<std::string, T, T>& phasefields_gf,
     const std::vector<std::tuple<std::string, std::string>>& chemicalsystem,
     const std::vector<std::tuple<std::string, std::string, T, T>>& x_gf,
     const std::vector<std::tuple<std::string, T>>& coordinates) {
->>>>>>> origin/master
   // Number of chemical elements
   const int nb_elem = chemicalsystem.size();
   // Creation initial list of nodes

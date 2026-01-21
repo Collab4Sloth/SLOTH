@@ -44,7 +44,7 @@
 #pragma once
 
 template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-class ExternalLoadingProblem {
+class ExternalLoadingProblem : public ProblemBase<VAR, PST> {
  private:
   const Parameters& params_;
   std::vector<std::tuple<std::string, mfem::Vector>> get_coordinates();
@@ -58,32 +58,28 @@ class ExternalLoadingProblem {
   VAR& variables_;
   std::vector<VAR*> auxvariables_;
   PST& pst_;
-  std::vector<mfem::Vector> unknown_;
+  // std::vector<mfem::Vector> unknown_;
 
   std::vector<std::tuple<std::string, std::string>> sorted_chemical_system_;
   std::vector<std::tuple<std::string, bool, double>> var_convergence_;
 
  public:
-  template <class... Args>
+  template <PbVar<VAR>... Args>
   ExternalLoadingProblem(const std::string& name, const Parameters& params, VAR& variables,
                          PST& pst, Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
-  void initialize(const double& initial_time);
+  void initialize(const double& initial_time) override;
   std::vector<std::tuple<std::string, bool, double>> get_convergence();
   /////////////////////////////////////////////////////
-  void execute(const int& iter, double& next_time, const double& current_time,
-               const double& current_time_step);
+  // void execute(const int& iter, double& next_time, const double& current_time,
+  //              const double& current_time_step);
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
-                    const int iter, std::vector<mfem::Vector>& unks,
+                    const int iter, std::vector<std::unique_ptr<mfem::Vector>>&  unks,
                     const std::vector<std::vector<std::string>>& unks_info);
 
   /////////////////////////////////////////////////////
-  void save(const int& iter, const double& current_time);
-  void post_execute(const int& iter, const double& current_time, const double& current_time_step);
-  void post_processing(const int& iter, const double& current_time,
-                       const double& current_time_step);
-  void update();
+  void post_processing(const int& iter, const double& current_time) override;
   VAR get_problem_variables();
   std::string get_name();
   /////////////////////////////////////////////////////
@@ -112,12 +108,16 @@ class ExternalLoadingProblem {
  * @param auxvariables
  */
 template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-template <class... Args>
+template <PbVar<VAR>... Args>
 ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::ExternalLoadingProblem(const std::string& name,
                                                                          const Parameters& params,
                                                                          VAR& variables, PST& pst,
                                                                          Args&&... auxvariables)
-    : name_(name), params_(params), variables_(variables), pst_(pst) {
+    : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...),
+      name_(name),
+      params_(params),
+      variables_(variables),
+      pst_(pst) {
   this->LOPE = std::make_shared<LOADINGOPE<CS>>(params_);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.resize(0);
@@ -140,87 +140,56 @@ void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::initialize(const double& 
   this->LOPE->initialize();
 }
 
-/**
- * @brief
- *
- * @tparam LOADINGOPE
- * @tparam CS
- * @tparam VAR
- * @tparam PST
- */
-template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::update() {
-  for (std::size_t i = 0; i < this->variables_.get_variables_number(); i++) {
-    auto& var = this->variables_.getIVariable(i);
-    var.update(this->unknown_[i]);
-  }
-  this->unknown_.clear();
-}
-
-/**
- * @brief
- *
- * @tparam LOADINGOPE
- * @tparam CS
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- * @param current_time_step
- */
-template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::post_execute(
-    const int& iter, const double& current_time, const double& current_time_step) {}
-
 template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
 void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
-    std::vector<mfem::Vector>& vect_unk, const std::vector<std::vector<std::string>>& unks_info) {
+    std::vector<std::unique_ptr<mfem::Vector>>&  unks, const std::vector<std::vector<std::string>>& unks_info) {
   Catch_Time_Section("ExternalLoadingProblem::do_time_step");
   next_time = current_time + current_time_step;
   std::vector<std::tuple<std::string, mfem::Vector>> coordinates_gf = this->get_coordinates();
 
-  this->LOPE->do_time_step(next_time, this->unknown_, unks_info, coordinates_gf);
+  this->LOPE->do_time_step(next_time, unks, unks_info, coordinates_gf);
 }
 
-/**
- * @brief
- *
- * @tparam LOADINGOPE
- * @tparam CS
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param next_time
- * @param current_time
- * @param current_time_step
- */
-template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::execute(const int& iter, double& next_time,
-                                                               const double& current_time,
-                                                               const double& current_time_step) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    SlothInfo::verbose("   ============================== ");
-    SlothInfo::verbose("   ==== Problem : ", this->name_);
-    SlothInfo::verbose("   ============================== ");
-  }
+// /**
+//  * @brief
+//  *
+//  * @tparam LOADINGOPE
+//  * @tparam CS
+//  * @tparam VAR
+//  * @tparam PST
+//  * @param iter
+//  * @param next_time
+//  * @param current_time
+//  * @param current_time_step
+//  */
+// template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
+// void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::execute(const int& iter, double& next_time,
+//                                                                const double& current_time,
+//                                                                const double& current_time_step) {
+//   int rank = mfem::Mpi::WorldRank();
+//   if (rank == 0) {
+//     SlothInfo::verbose("   ============================== ");
+//     SlothInfo::verbose("   ==== Problem : ", this->name_);
+//     SlothInfo::verbose("   ============================== ");
+//   }
 
-  std::vector<std::vector<std::string>> vect_unk_info;
+//   std::vector<std::vector<std::string>> vect_unk_info;
 
-  size_t num_vars = this->variables_.getVariables().size();
-  unknown_.reserve(num_vars);
-  vect_unk_info.reserve(num_vars);
+//   size_t num_vars = this->variables_.getVariables().size();
+//   this->unknown_.reserve(num_vars);
+//   vect_unk_info.reserve(num_vars);
 
-  for (auto& var : this->variables_.getVariables()) {
-    unknown_.push_back(var.get_unknown());
+//   for (auto& var : this->variables_.getVariables()) {
+//     this->unknown_.push_back(var.get_unknown());
 
-    auto& unk_info = vect_unk_info.emplace_back(var.get_additional_variable_info());
-    unk_info.insert(unk_info.begin(), var.getVariableName());
-  }
+//     auto& unk_info = vect_unk_info.emplace_back(var.get_additional_variable_info());
+//     unk_info.insert(unk_info.begin(), var.getVariableName());
+//   }
 
-  this->do_time_step(next_time, current_time, current_time_step, iter, unknown_, vect_unk_info);
-}
+//   this->do_time_step(next_time, current_time, current_time_step, iter, this->unknown_,
+//                      vect_unk_info);
+// }
 
 /**
  * @brief
@@ -256,9 +225,9 @@ void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::finalize() {}
  * @param current_time_step
  */
 template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::post_processing(
-    const int& iter, const double& current_time, const double& current_time_step) {
-  this->save(iter, current_time);
+void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::post_processing(const int& iter,
+                                                                       const double& current_time) {
+  ProblemBase<VAR, PST>::post_processing(iter, current_time);
 }
 
 /**
@@ -317,23 +286,6 @@ ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::get_convergence() {
 template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
 std::string ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::get_name() {
   return this->name_;
-}
-
-/**
- * @brief
- *
- * @tparam LOADINGOPE
- * @tparam CS
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- */
-template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::save(const int& iter,
-                                                            const double& current_time) {
-  auto vars = this->get_problem_variables();
-  this->pst_.save_variables(vars, iter, current_time);
 }
 
 /**

@@ -54,7 +54,7 @@ class TabulatedLoading {
   std::vector<std::string> hdf5_filename;
   std::vector<std::string> hdf5_datasetname;
   const Parameters& params_;
-  void do_time_step(double& time, std::vector<mfem::Vector>& unknown_,
+  void do_time_step(double& time, std::vector<std::unique_ptr<mfem::Vector>>& unknown_,
                     const std::vector<std::vector<std::string>>& unks_info,
                     const std::vector<std::tuple<std::string, mfem::Vector>>& coordinates_gf);
   void initialize();
@@ -102,7 +102,7 @@ void TabulatedLoading<CS>::get_parameters() {
  */
 template <CoordinateSystem CS>
 void TabulatedLoading<CS>::do_time_step(
-    double& time, std::vector<mfem::Vector>& unknown_,
+    double& time, std::vector<std::unique_ptr<mfem::Vector>>&  unknown_,
     const std::vector<std::vector<std::string>>& unks_info,
     const std::vector<std::tuple<std::string, mfem::Vector>>& coordinates_gf) {
   std::vector<double> coord;
@@ -110,7 +110,7 @@ void TabulatedLoading<CS>::do_time_step(
   std::vector<std::vector<double>> grid_values;
   std::vector<double> point_to_interpolate;
   for (std::size_t u = 0; u < unknown_.size(); u++) {  // loop on unknown
-    auto& unk = unknown_[u];
+    auto& unk = *unknown_[u];
     for (std::size_t i = 0; i < unk.Size(); i++) {  // loop on each point of the unknows
 
       std::size_t dim = coordinates_gf.size();  // problem dimension
