@@ -10,8 +10,6 @@
  *
  */
 
-#include <H5Cpp.h>
-
 #include <functional>
 #include <memory>
 #include <string>
@@ -19,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "H5Cpp.h"
 #include "Utils/Utils.hpp"
 #include "Utils/UtilsForTensorialAlgebra.hpp"
 #pragma once
@@ -106,9 +105,10 @@ void HDF54Sloth<T>::get_data_from_HDF5(const H5std_string& file_name,
   output_multi_array.set_dim(rank);
 
   dataspace.getSimpleExtentDims(dims.data(), NULL);
-  output_multi_array.set_shape(dims);
+  std::vector<size_t> size_t_dims(dims.begin(), dims.end());
+  output_multi_array.set_shape(size_t_dims);
   size_t total_size = 1;
-  for (size_t dim : dims) {
+  for (size_t dim : size_t_dims) {
     total_size *= dim;
   }
   output_multi_array.resize(total_size);

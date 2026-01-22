@@ -75,7 +75,7 @@ class ExternalLoadingProblem : public ProblemBase<VAR, PST> {
   // void execute(const int& iter, double& next_time, const double& current_time,
   //              const double& current_time_step);
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
-                    const int iter, std::vector<std::unique_ptr<mfem::Vector>>&  unks,
+                    const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info);
 
   /////////////////////////////////////////////////////
@@ -143,12 +143,19 @@ void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::initialize(const double& 
 template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
 void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
-    std::vector<std::unique_ptr<mfem::Vector>>&  unks, const std::vector<std::vector<std::string>>& unks_info) {
+    std::vector<std::unique_ptr<mfem::Vector>>& unks,
+    const std::vector<std::vector<std::string>>& unks_info) {
   Catch_Time_Section("ExternalLoadingProblem::do_time_step");
   next_time = current_time + current_time_step;
   std::vector<std::tuple<std::string, mfem::Vector>> coordinates_gf = this->get_coordinates();
 
   this->LOPE->do_time_step(next_time, unks, unks_info, coordinates_gf);
+  const size_t unk_size = unks.size();
+
+  for (size_t i = 0; i < unk_size; i++) {
+    auto& unk_i = *(unks[i]);
+    this->unknown_.emplace_back(unk_i);
+  }
 }
 
 // /**
@@ -163,8 +170,9 @@ void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::do_time_step(
 //  * @param current_time
 //  * @param current_time_step
 //  */
-// template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
-// void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::execute(const int& iter, double& next_time,
+// template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class
+// PST> void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::execute(const int& iter, double&
+// next_time,
 //                                                                const double& current_time,
 //                                                                const double& current_time_step) {
 //   int rank = mfem::Mpi::WorldRank();
