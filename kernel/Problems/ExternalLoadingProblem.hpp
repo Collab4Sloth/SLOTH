@@ -48,6 +48,8 @@ class ExternalLoadingProblem : public ProblemBase<VAR, PST> {
  private:
   const Parameters& params_;
   std::vector<std::tuple<std::string, mfem::Vector>> get_coordinates();
+  std::vector<std::tuple<std::string, mfem::Vector>> get_total_mole();
+
   void get_parameters();
 
   std::shared_ptr<LOADINGOPE<CS>> LOPE;
@@ -148,8 +150,9 @@ void ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::do_time_step(
   Catch_Time_Section("ExternalLoadingProblem::do_time_step");
   next_time = current_time + current_time_step;
   std::vector<std::tuple<std::string, mfem::Vector>> coordinates_gf = this->get_coordinates();
+  std::vector<std::tuple<std::string, mfem::Vector>> N_tot = this->get_total_mole();
 
-  this->LOPE->do_time_step(next_time, unks, unks_info, coordinates_gf);
+  this->LOPE->do_time_step(next_time, unks, unks_info, coordinates_gf, N_tot);
   const size_t unk_size = unks.size();
 
   for (size_t i = 0; i < unk_size; i++) {
@@ -259,6 +262,33 @@ ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::get_coordinates() {
       if ((symbol == "XCOORD") || (symbol == "YCOORD") || (symbol == "ZCOORD")) {
         MFEM_VERIFY(variable_info.size() == 1,
                     "Error while getting coordinates. Expected ['XYZCOORD']");
+        aux_gf.emplace_back(std::make_tuple(symbol, gf));
+      }
+    }
+  }
+
+  return aux_gf;
+}
+
+/**
+ * @brief
+ *
+ * @tparam LOADINGOPE
+ * @tparam CS
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::string, mfem::Vector>>
+ */
+template <template <CoordinateSystem> class LOADINGOPE, CoordinateSystem CS, class VAR, class PST>
+std::vector<std::tuple<std::string, mfem::Vector>>
+ExternalLoadingProblem<LOADINGOPE, CS, VAR, PST>::get_total_mole() {
+  std::vector<std::tuple<std::string, mfem::Vector>> aux_gf;
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      const auto gf = auxvar.get_unknown();
+      auto variable_info = auxvar.get_additional_variable_info();
+      const std::string& symbol = toUpperCase(auxvar.get_additional_variable_info().back());
+      if ((symbol == "N")) {
         aux_gf.emplace_back(std::make_tuple(symbol, gf));
       }
     }

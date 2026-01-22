@@ -56,7 +56,8 @@ class TabulatedLoading {
   const Parameters& params_;
   void do_time_step(double& time, std::vector<std::unique_ptr<mfem::Vector>>& unknown_,
                     const std::vector<std::vector<std::string>>& unks_info,
-                    const std::vector<std::tuple<std::string, mfem::Vector>>& coordinates_gf);
+                    const std::vector<std::tuple<std::string, mfem::Vector>>& coordinates_gf,
+                    const std::vector<std::tuple<std::string, mfem::Vector>>& vec_N_tot);
   void initialize();
   void get_parameters();
 
@@ -102,9 +103,10 @@ void TabulatedLoading<CS>::get_parameters() {
  */
 template <CoordinateSystem CS>
 void TabulatedLoading<CS>::do_time_step(
-    double& time, std::vector<std::unique_ptr<mfem::Vector>>&  unknown_,
+    double& time, std::vector<std::unique_ptr<mfem::Vector>>& unknown_,
     const std::vector<std::vector<std::string>>& unks_info,
-    const std::vector<std::tuple<std::string, mfem::Vector>>& coordinates_gf) {
+    const std::vector<std::tuple<std::string, mfem::Vector>>& coordinates_gf,
+    const std::vector<std::tuple<std::string, mfem::Vector>>& vec_N_tot) {
   std::vector<double> coord;
   std::vector<std::size_t> lower_indices;
   std::vector<std::vector<double>> grid_values;
@@ -115,6 +117,7 @@ void TabulatedLoading<CS>::do_time_step(
 
       std::size_t dim = coordinates_gf.size();  // problem dimension
 
+      double local_N = std::get<1>(vec_N_tot[0])(i);
       if constexpr (CS == CoordinateSystem::Cartesian) {
         // coord.resize(dim);
         // for (std::size_t j = 0; j < dim; j++) {
@@ -165,9 +168,10 @@ void TabulatedLoading<CS>::do_time_step(
 
         // unk(i) = unk(i) * std::pow(MultiLinearInterpolator<std::monostate>::computeInterpolation(
         //                       2, lower_indices, alpha, ftensor),0.1);
-              unk(i) = MultiLinearInterpolator<std::monostate>::computeInterpolation(
-                              2, lower_indices, alpha, ftensor);
-                              // std::cout << unk(i) << std::endl;
+        unk(i) = MultiLinearInterpolator<std::monostate>::computeInterpolation(2, lower_indices,
+                                                                               alpha, ftensor);
+        unk(i) /= local_N;
+        // std::cout << unk(i) << std::endl;
       }
 
       // unk(i) = 0.;
