@@ -62,7 +62,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
 
   SlothNLFormIntegrator<Variables<T, DIM>>* get_lhs_integrator(
       const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
-      const Parameters& all_params);
+      const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
   std::string lhs_integrator_;
 
  protected:
@@ -395,14 +395,24 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
   Catch_Time_Section("TransientOperator::set_lhs_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
+  std::vector<mfem::ParGridFunction> vauxn;
   for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u[i]);
     vun.emplace_back(un);
   }
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (auto auxvars : auxvar_vec->getVariables()) {
+      auto fes = auxvars.get_fespace();
+      mfem::ParGridFunction auxn(fes);
+      auto auxvar_n = auxvars.get_second_to_last();
+      auxn.SetFromTrueDofs(auxvar_n);
+      vauxn.emplace_back(auxn);
+    }
+  }
   const Parameters& all_params = this->params_ - this->default_p_;
 
-  auto lhs = this->get_lhs_integrator(this->lhs_integrator_, vun, all_params);
+  auto lhs = this->get_lhs_integrator(this->lhs_integrator_, vun, vauxn, all_params);
   lhs->init();
   return lhs;
 }
@@ -684,21 +694,21 @@ void TransientOperator<T, DIM>::set_default_mass_solver() {
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_integrator(
     const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
-    const Parameters& all_params) {
+    const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
     case Integrators::TimeDerivative: {
-      return new TimeNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                         this->coefficients_);
+      return new TimeNLFormIntegrator<Variables<T, DIM>>(vun, vauxn, all_params,
+                                                         this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::HeatTimeDerivative: {
-      return new HeatTimeNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                             this->coefficients_);
+      return new HeatTimeNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::SplitTimeDerivative: {
-      return new TimeCHNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                           this->coefficients_);
+      return new TimeCHNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     default:

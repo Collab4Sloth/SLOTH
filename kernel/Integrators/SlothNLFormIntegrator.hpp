@@ -70,7 +70,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
 
   std::vector<mfem::ParGridFunction> u_old_;
   std::vector<mfem::ParGridFunction> aux_gf_;
-  std::vector<mfem::Vector> aux_old_gf_;
+  std::vector<mfem::ParGridFunction> aux_old_gf_;
   std::vector<std::vector<std::string>> aux_infos_;
 
   std::vector<VARS*> auxvariables_;
@@ -79,7 +79,6 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   unsigned int nb_blk_;
 
   std::vector<mfem::ParGridFunction> get_aux_gf();
-  std::vector<mfem::Vector> get_aux_old_gf();
   std::vector<std::vector<std::string>> get_aux_infos();
 
   void check_coefficient_types(std::list<GlossaryType> expected_type);
@@ -87,7 +86,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
 
  public:
   virtual void init() = 0;
-  SlothNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old, const Parameters& params,
+  SlothNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                        const std::vector<mfem::ParGridFunction> aux_old, const Parameters& params,
                         std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
   virtual ~SlothNLFormIntegrator() = default;
 };
@@ -105,14 +105,14 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
  */
 template <class VARS>
 SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                                                   const std::vector<mfem::ParGridFunction> aux_old,
                                                    const Parameters& params,
                                                    std::vector<VARS*> auxvars,
                                                    const std::vector<Coefficients>& coefficients)
-    : u_old_(u_old), params_(params), coefficients_(coefficients) {
+    : u_old_(u_old), aux_old_gf_(aux_old), params_(params), coefficients_(coefficients) {
   this->nb_blk_ = this->u_old_.size();
   this->manage_auxiliary_variables(auxvars);
   this->aux_gf_ = this->get_aux_gf();
-  this->aux_old_gf_ = this->get_aux_old_gf();
   this->aux_infos_ = this->get_aux_infos();
 }
 
@@ -128,7 +128,6 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (const auto& auxvar : auxvar_vec->getVariables()) {
       this->vect_aux_gf_.emplace_back(std::move(auxvar.get_gf()));
-      this->vect_aux_old_gf_.emplace_back(std::move(auxvar.get_second_to_last()));
 
       std::vector<std::string> var_info = auxvar.get_additional_variable_info();
 
@@ -147,19 +146,6 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
 template <class VARS>
 std::vector<mfem::ParGridFunction> SlothNLFormIntegrator<VARS>::get_aux_gf() {
   return vect_aux_gf_;
-}
-
-/**
- * @brief Return a vector of GridFunction associated with auxiliary variables at the previous
- * time-step
- * @remark Order of the vector is implicitly the same as the order of auxiliary variables
- *
- * @tparam VARS
- * @return std::vector<mfem::ParGridFunction>
- */
-template <class VARS>
-std::vector<mfem::Vector> SlothNLFormIntegrator<VARS>::get_aux_old_gf() {
-  return vect_aux_old_gf_;
 }
 
 /**

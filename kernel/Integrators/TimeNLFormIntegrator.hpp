@@ -61,7 +61,8 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
-  TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old, const Parameters& params,
+  TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                       const std::vector<mfem::ParGridFunction> aux_old, const Parameters& params,
                        std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
 
   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
@@ -98,10 +99,11 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  */
 template <class VARS>
 TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                                                 const std::vector<mfem::ParGridFunction> aux_old,
                                                  const Parameters& params,
                                                  std::vector<VARS*> auxvars,
                                                  const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "TimeDerivative";
 
   this->check_variables_consistency();

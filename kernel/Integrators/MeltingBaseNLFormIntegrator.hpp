@@ -76,6 +76,7 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   MeltingBaseNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                              const std::vector<mfem::ParGridFunction>& aux_old,
                               const Parameters& params, std::vector<VARS*> auxvars,
                               const std::vector<Coefficients>& coefficients);
 
@@ -113,9 +114,10 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  */
 template <class VARS>
 MeltingBaseNLFormIntegrator<VARS>::MeltingBaseNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    const std::vector<mfem::ParGridFunction>& u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {}
+    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {}
 
 /**
  * @brief Initialize the integrator.

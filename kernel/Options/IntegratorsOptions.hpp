@@ -46,7 +46,8 @@ struct Integrators {
     MeltingTemperature,
     MeltingCalphad,
     MeltingConstant,
-    MassFlux
+    MassFlux,
+    LatentHeat
   };
   static value from(const std::string&);
 };
@@ -63,6 +64,7 @@ Integrators::value Integrators::from(const std::string& v) {
       {"MeltingTemperature", Integrators::MeltingTemperature},
       {"MeltingCalphad", Integrators::MeltingCalphad},
       {"MeltingConstant", Integrators::MeltingConstant},
-      {"MassFlux", Integrators::MassFlux}};
+      {"MassFlux", Integrators::MassFlux},
+      {"LatentHeat", Integrators::LatentHeat}};
   return m.find("Integrators", v);
 }
