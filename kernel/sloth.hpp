@@ -21,6 +21,7 @@
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "Coefficients/CommonCoefficients.hpp"
+#include "Coefficients/ConstantCoefficient.hpp"
 #ifdef SLOTH_USE_EXPRTK
 #include "Coefficients/ExprTkSloth.hpp"
 #endif
@@ -38,6 +39,7 @@
 #include "Integrators/FickNLFormIntegrator.hpp"
 #include "Integrators/FourierNLFormIntegrator.hpp"
 #include "Integrators/HeatTimeNLFormIntegrator.hpp"
+#include "Integrators/LatentHeatNLFormIntegrator.hpp"
 #include "Integrators/MassDiffusionFluxNLFormIntegrator.hpp"
 #include "Integrators/MeltingBaseNLFormIntegrator.hpp"
 #include "Integrators/MeltingCalphadNLFormIntegrator.hpp"
