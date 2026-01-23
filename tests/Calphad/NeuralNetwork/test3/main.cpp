@@ -272,7 +272,7 @@ int main(int argc, char* argv[]) {
   auto KKS_composition_increment = Parameter("KKS_composition_increment", 1.e-7);
   auto KKS_seed = Parameter("KKS_seed", 0.5);
   auto KKS_seed_radius = Parameter("KKS_seed_radius", 1.e-4);
-  auto KKS_threshold = Parameter("KKS_threshold", 5.e-2);
+  auto KKS_threshold = Parameter("KKS_threshold", 5.e-3);
   auto KKS_temperature_threshold = Parameter("KKS_temperature_threshold", 2500.);
   auto KKS_freeze_nucleation = Parameter("KKS_freeze_nucleation", true);
   auto KKS_nucleation_started = Parameter("KKS_nucleation_started", false);
@@ -314,7 +314,7 @@ int main(int argc, char* argv[]) {
   // If the inputs of the model are  moles, not molar fractions (comment in this case)
   auto input_composition_factor = Parameter("InputCompositionFactor", 1.);
 
-  std::vector<std::string> composition_order{"A", "B", "C"};
+  std::vector<std::string> composition_order{"A", "C", "B"};
   auto input_composition_order = Parameter("InputCompositionOrder", composition_order);
 
   std::vector<std::string> energy_order{"G", "GM", "H", "HM"};
