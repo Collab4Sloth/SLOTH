@@ -54,8 +54,9 @@ include(MFEM4SLOTH)
 include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
 
-#include(HEADER4SLOTH)
-
+if(SLOTH_USE_EXTERNAL)
+include(HEADER4SLOTH)
+endif(SLOTH_USE_EXTERNAL)
 
 # ########################
 # # Doc Configuration
