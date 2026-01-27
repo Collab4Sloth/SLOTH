@@ -83,6 +83,7 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
 
  public:
   MassDiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                    const std::vector<mfem::ParGridFunction>& aux_old,
                                     const Parameters& params, std::vector<VARS*> auxvars,
                                     const std::vector<Coefficients>& coefficients);
 };
@@ -144,9 +145,10 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
  */
 template <class VARS>
 MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    const std::vector<mfem::ParGridFunction>& u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : DiffusionFluxNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+    : DiffusionFluxNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
   this->get_parameters();
   this->check_variables_consistency();
 }

@@ -111,7 +111,7 @@ class OperatorBase : public mfem::Operator {
   int compute_total_width(const std::vector<SpatialDiscretization<T, DIM>*>& spatials);
   SlothNLFormIntegrator<Variables<T, DIM>>* get_rhs_integrator(
       const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
-      const Parameters& all_params);
+      const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
 
  public:
   OperatorBase(const std::vector<std::string>& integrators,
@@ -199,14 +199,24 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
     const std::string nlfi, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("OperatorBase::set_nlfi_ptr");
   std::vector<mfem::ParGridFunction> vun;
+  std::vector<mfem::ParGridFunction> vauxn;
   for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u[i]);
     vun.emplace_back(un);
   }
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (auto auxvars : auxvar_vec->getVariables()) {
+      auto fes = auxvars.get_fespace();
+      mfem::ParGridFunction auxn(fes);
+      auto auxvar_n = auxvars.get_second_to_last();
+      auxn.SetFromTrueDofs(auxvar_n);
+      vauxn.emplace_back(auxn);
+    }
+  }
 
   const Parameters& all_params = this->params_ - this->default_p_;
-  auto rhs_nlfi = this->get_rhs_integrator(nlfi, vun, all_params);
+  auto rhs_nlfi = this->get_rhs_integrator(nlfi, vun, vauxn, all_params);
   rhs_nlfi->init();
   return rhs_nlfi;
 }
@@ -936,43 +946,47 @@ void OperatorBase<T, DIM>::set_default_solver() {
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrator(
     const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
-    const Parameters& all_params) {
+    const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
     case Integrators::MassFlux: {
       return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(
-          vun, all_params, this->auxvariables_, this->coefficients_);
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fick: {
-      return new FickNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                         this->coefficients_);
+      return new FickNLFormIntegrator<Variables<T, DIM>>(vun, vauxn, all_params,
+                                                         this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fourier: {
-      return new FourierNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                            this->coefficients_);
+      return new FourierNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::CahnHilliard: {
       return new CahnHilliardNLFormIntegrator<Variables<T, DIM>>(
-          vun, all_params, this->auxvariables_, this->coefficients_);
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::AllenCahn: {
-      return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(vun, all_params, this->auxvariables_,
-                                                              this->coefficients_);
+      return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::SplitAllenCahn: {
       return new BlockAllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          vun, all_params, this->auxvariables_, this->coefficients_);
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingTemperature: {
       return new MeltingTemperatureNLFormIntegrator<Variables<T, DIM>>(
-          vun, all_params, this->auxvariables_, this->coefficients_);
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingCalphad: {
       return new MeltingCalphadNLFormIntegrator<Variables<T, DIM>>(
-          vun, all_params, this->auxvariables_, this->coefficients_);
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingConstant: {
       return new MeltingConstantNLFormIntegrator<Variables<T, DIM>>(
-          vun, all_params, this->auxvariables_, this->coefficients_);
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+    }
+    case Integrators::LatentHeat: {
+      return new LatentHeatNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");

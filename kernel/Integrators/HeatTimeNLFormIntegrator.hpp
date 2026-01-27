@@ -49,8 +49,9 @@ class HeatTimeNLFormIntegrator : public TimeNLFormIntegrator<VARS> {
   void get_coefficients() override;
 
  public:
-  HeatTimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old, const Parameters& params,
-                           std::vector<VARS*> auxvars,
+  HeatTimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                           const std::vector<mfem::ParGridFunction>& aux_old,
+                           const Parameters& params, std::vector<VARS*> auxvars,
                            const std::vector<Coefficients>& coefficients);
   virtual ~HeatTimeNLFormIntegrator() = default;
 };
@@ -78,9 +79,10 @@ class HeatTimeNLFormIntegrator : public TimeNLFormIntegrator<VARS> {
  */
 template <class VARS>
 HeatTimeNLFormIntegrator<VARS>::HeatTimeNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction> u_old, const Parameters& params,
+    const std::vector<mfem::ParGridFunction> u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : TimeNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+    : TimeNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "HeatTime";
 
   this->expected_list_.push_back(GlossaryType::Concentration);

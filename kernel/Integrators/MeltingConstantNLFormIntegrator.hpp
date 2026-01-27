@@ -60,6 +60,7 @@ class MeltingConstantNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS>
 
  public:
   MeltingConstantNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                                  const std::vector<mfem::ParGridFunction>& aux_old,
                                   const Parameters& params, std::vector<VARS*> auxvars,
                                   const std::vector<Coefficients>& coefficients);
 
@@ -88,9 +89,10 @@ class MeltingConstantNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS>
  */
 template <class VARS>
 MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    const std::vector<mfem::ParGridFunction>& u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : MeltingBaseNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+    : MeltingBaseNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "MeltingConstant";
 
   this->get_parameters();

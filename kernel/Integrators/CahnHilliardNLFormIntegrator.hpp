@@ -72,6 +72,7 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  public:
   void init() override;
   CahnHilliardNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                               const std::vector<mfem::ParGridFunction>& aux_old,
                                const Parameters& params, std::vector<VARS*> auxvars,
                                const std::vector<Coefficients>& coefficients);
 
@@ -109,9 +110,10 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  */
 template <class VARS>
 CahnHilliardNLFormIntegrator<VARS>::CahnHilliardNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    const std::vector<mfem::ParGridFunction>& u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "CahnHilliard";
   this->check_variables_consistency();
 }

@@ -1,7 +1,7 @@
 /**
- * @file TimeCHNLFormIntegrator.hpp
+ * @file LatentHeatNLFormIntegrator.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief VF of the time derivative for CH equations
+ * @brief Latent heat contribution for heat transfer equation
  * @version 0.1
  * @date 2025-09-05
  *
@@ -25,12 +25,15 @@
  */
 #include <algorithm>
 #include <list>
+#include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
+#include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -38,32 +41,38 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the VF of the time-derivative (eg. LHS of Cahn-Hilliard and Allen-Cahn
- * equations under splitted form)
+ * @brief Latent heat contribution for heat transfer equations
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
-class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
+class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  std::vector<mfem::ParGridFunction> phi_gf_;
+  std::vector<mfem::ParGridFunction> phi_old_gf_;
+  double latent_time_step_;
+
+  std::list<GlossaryType> expected_list_{GlossaryType::Mobility};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
+ protected:
+  Coefficients mobility;
+
+  double get_latent_heat_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
+                               unsigned int blk);
+
+  double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+
+  void get_coefficients() override;
   void check_variables_consistency();
 
- protected:
-  std::vector<mfem::ParGridFunction> temp_gf_;
-  std::list<GlossaryType> expected_list_;
-  Coefficients coefficient_A;
-  void get_coefficients() override;
-  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
-
  public:
-  void init() override;
-  TimeCHNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                         const std::vector<mfem::ParGridFunction>& aux_old,
-                         const Parameters& params, std::vector<VARS*> auxvars,
-                         const std::vector<Coefficients>& coefficients);
+  LatentHeatNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+                             const std::vector<mfem::ParGridFunction>& aux_old,
+                             const Parameters& params, std::vector<VARS*> auxvars,
+                             const std::vector<Coefficients>& coefficients);
 
   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                              mfem::ElementTransformation& Tr,
@@ -74,6 +83,7 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                            mfem::ElementTransformation& Tr,
                            const mfem::Array<const mfem::Vector*>& elfun,
                            const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
+  void init() override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -81,12 +91,11 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Construct a new TimeCHNLFormIntegrator object.
+ * @brief Construct a new LatentHeatNLFormIntegrator object.
  *
- * This constructor initializes a nonlinear form integrator for a splitted time derivative operator.
- * It forwards the provided previous solution fields, simulation
- * parameters, auxiliary variables, and coefficients to the base
- * SLOTH nonlinear form integrator.
+ * This constructor initializes the nonlinear form integrator. It forwards the provided previous
+ * solution fields, simulation parameters, auxiliary variables, and coefficients to the base SLOTH
+ * nonlinear form integrator.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -98,21 +107,46 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  *
  */
 template <class VARS>
-TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
+LatentHeatNLFormIntegrator<VARS>::LatentHeatNLFormIntegrator(
     const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
     : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
-  this->integrator_name_ = "SplitTimeDerivative";
-
+  this->integrator_name_ = "LatentHeat";
+  this->latent_time_step_ = this->params_.template get_param_value<double>("latent_time_step");
   this->check_variables_consistency();
 }
 
 /**
- * @brief Initialize the SplitTimeDerivative integrator.
+ * @brief  Check variables consistency
  *
- * This method performs all necessary setup steps for the SplitTimeDerivative
- * nonlinear form integrator:
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ */
+template <class VARS>
+void LatentHeatNLFormIntegrator<VARS>::check_variables_consistency() {
+  // Phase-field variable
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
+    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
+    size_t vsize = variable_info.size();
+
+    MFEM_VERIFY(vsize >= 1,
+                "LatentHeatNLFormIntegrator<VARS>: at least "
+                "one additionnal information is expected for auxiliary variables associated with "
+                "this integrator");
+    const std::string& symbol = toUpperCase(variable_info.back());
+    if (symbol == "PHI") {
+      this->phi_gf_.emplace_back(std::move(this->aux_gf_[i]));
+      this->phi_old_gf_.emplace_back(std::move(this->aux_old_gf_[i]));
+      break;
+    }
+  }
+}
+/**
+ * @brief Initialize the integrator.
+ *
+ * This method performs all necessary setup steps for the integrator:
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
@@ -125,59 +159,9 @@ TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
  *
  */
 template <class VARS>
-void TimeCHNLFormIntegrator<VARS>::init() {
-  if (this->expected_list_.empty()) {
-    this->get_coefficients();
-  } else {
-    this->check_coefficient_types(this->expected_list_);
-    this->get_coefficients();
-  }
-}
-
-/**
- * @brief  Check variables consistency
- *
- * @tparam VARS Template parameter defining the variables used
- *              in the integrator.
- */
-template <class VARS>
-void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
-  // Temperature scaling for mobility
-  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_infos_[i];
-    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    size_t vsize = variable_info.size();
-
-    MFEM_VERIFY(vsize >= 1,
-                "TimeCHNLFormIntegrator<VARS>: at least "
-                "one additionnal information is expected for auxiliary variables associated with "
-                "this integrator");
-    const std::string& symbol = toUpperCase(variable_info.back());
-    if (symbol == "T") {
-      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      break;
-    }
-  }
-}
-
-/**
- * @brief Retrieve and store the coefficients required by the TimeDerivative integrator.
- *
- * This method collects one default coefficient:
- * - 'coefficient_A' stores the first coefficient,
- *
- *
- * @remark By default, A is equal to one. This method can be overridden in derived classes to
- * provide custom behavior for retrieving coefficients.
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- */
-template <class VARS>
-void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
-  for (unsigned int i = 0; i < this->nb_blk_; i++) {
-    this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
-  }
+void LatentHeatNLFormIntegrator<VARS>::init() {
+  this->check_coefficient_types(this->expected_list_);
+  this->get_coefficients();
 }
 
 /**
@@ -198,47 +182,31 @@ void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
  *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
-void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
+void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  //////////////////////
-  // Block 0 R(phi) on mu term
-  {
-    int blk = 0;
-
-    int nd = el[blk]->GetDof();
-    elvect[blk]->SetSize(nd);
-    *elvect[blk] = 0.;
-  }
-
-  //////////////////////
-  // Block 1 R(mu) on dphi/dt term
-  {
-    int blk = 1;
-
-    int off_blk = 0;
-
+  int num_blocks = el.Size();
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
     gradU.SetSize(dim);
+    // elvect.SetSize(nd);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // elvect = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& phi = *elfun[off_blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
-
-      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
-      const double ww = coef_a * phi * ip.weight * Tr.Weight();
-      add(*elvect[blk], ww, Psi, *elvect[blk]);
+      const double latent_heat = this->get_latent_heat_at_ip(Tr, ip, blk) * ip.weight * Tr.Weight();
+      add(*elvect[blk], latent_heat, Psi, *elvect[blk]);
     }
   }
 }
@@ -260,85 +228,46 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
  *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
-void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
+void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
-  // loop over diagonal entries
-  // block 0 0  dR(phi)dphi
-  {
-    int blk = 0;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
+  // Catch_Time_Section("LatentHeatNLFormIntegrator::AssembleElementGrad");
+  int num_blocks = el.Size();
+  for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
 
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
-
+    // elmat.SetSize(nd);
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
   }
-  // block 0 1  dR(phi)dmu
-  {
-    int blk = 0;
-    int off_blk = 1;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
+}
 
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-
-    elmats(blk, off_blk)->SetSize(nd);
-    *elmats(blk, off_blk) = 0.0;
-  }
-
-  // block 1 0   dR(mu)dPhi
-  {
-    int blk = 1;
-    int off_blk = 0;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
-
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-
-    elmats(blk, off_blk)->SetSize(nd);
-    *elmats(blk, off_blk) = 0.0;
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-    ///// CCI
-    for (int i = 0; i < ir->GetNPoints(); i++) {
-      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-      Tr.SetIntPoint(&ip);
-      el[blk]->CalcPhysShape(Tr, Psi);
-
-      const auto& phi = *elfun[blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
-
-      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
-      double w = coef_a * Tr.Weight() * ip.weight;
-      AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
+/**
+ * @brief Retrieve and store the coefficients required by the integrator.
+ *
+ * This method collects the coefficients of type  `Mobility`, and `PhaseFieldPotential`
+ * from each coefficients and adds them to the corresponding internal storage:
+ * - 'mobility' stores the mobility coefficients,
+ * - 'interpolation_potential' stores the PhaseFieldPotential coefficients.
+ *
+ * Only coefficients with ID 0 are considered for each block.
+ *
+ * @remark This method can be overridden in derived classes to provide
+ *         custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variabls used in the integrator.
+ *
+ */
+template <class VARS>
+void LatentHeatNLFormIntegrator<VARS>::get_coefficients() {
+  for (unsigned int i = 0; i < this->nb_blk_; i++) {
+    if (this->get_coefficient(i, GlossaryType::Mobility, 0).has_value()) {
+      mobility.add(*(this->get_coefficient(i, GlossaryType::Mobility, 0)));
     }
-  }
-  // block 1 1 dR(mu)dmu
-  {
-    int blk = 1;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
-
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-
-    elmats(blk, blk)->SetSize(nd);
-    *elmats(blk, blk) = 0.0;
   }
 }
 
@@ -346,26 +275,61 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
  * @brief Return the value of the coefficient
  * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
  * class variable aux_gf_
- * @tparam VARS
- * @param coef
- * @param values
- * @return double
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+
+ * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
-double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                         const std::vector<double>& values) {
-  // const double u = values[0];
+double LatentHeatNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                             const std::vector<double>& values) {
+  const double u = values[0];
   const double un = values[1];
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    // coef_value = coef.compute({u});
-    MFEM_VERIFY(false,
-                "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
-                "check your data.");
+    coef_value = coef.compute({u});
   } else if (coef.is_explicit()) {
     coef_value = coef.compute({un});
-  } else if (coef.is_scalar()) {
-    coef_value = coef.compute();
   }
   return coef_value;
+}
+
+/**
+ * @brief Compute the value of latent heat at integration point
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk Index of the block.
+ *
+ * @return The computed latent heat at integration point
+ */
+template <class VARS>
+double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(mfem::ElementTransformation& Tr,
+                                                               const mfem::IntegrationPoint& ir,
+                                                               unsigned int blk) {
+  const auto phi = this->phi_gf_[0].GetValue(Tr, ir);
+  const auto phin = this->phi_old_gf_[0].GetValue(Tr, ir);
+  Coefficient coef = this->mobility[blk];
+  double mobility_value = 0.0;
+  if (coef.is_scalar()) {
+    mobility_value = coef.compute();
+  } else {
+    if (coef.is_implicit()) {
+      mobility_value = coef.compute({phi});
+    } else if (coef.is_explicit()) {
+      mobility_value = coef.compute({phin});
+    }
+  }
+
+  double square_time_derivative = (phi - phin) / this->latent_time_step_;
+  square_time_derivative *= square_time_derivative;
+  const double epsilon = 1.e-10;
+  const double latent_heat = -square_time_derivative / std::max(epsilon, mobility_value);
+
+  return latent_heat;
 }

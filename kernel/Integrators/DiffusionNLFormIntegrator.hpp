@@ -60,6 +60,7 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   DiffusionNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+                            const std::vector<mfem::ParGridFunction> aux_old,
                             const Parameters& params, std::vector<VARS*> auxvars,
                             const std::vector<Coefficients>& coefficients);
 
@@ -97,9 +98,10 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  */
 template <class VARS>
 DiffusionNLFormIntegrator<VARS>::DiffusionNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction> u_old, const Parameters& params,
+    const std::vector<mfem::ParGridFunction> u_old,
+    const std::vector<mfem::ParGridFunction> aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {}
+    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {}
 
 /**
  * @brief Initialize the diffusion integrator.
