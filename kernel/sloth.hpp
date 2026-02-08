@@ -26,7 +26,9 @@
 #include "Coefficients/ExprTkSloth.hpp"
 #endif
 #include "Coefficients/FunctionCoefficient.hpp"
+#include "Coefficients/ProductFunctionCoefficients.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
+#include "Coefficients/SumFunctionCoefficients.hpp"
 #include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Couplings/Coupling.hpp"

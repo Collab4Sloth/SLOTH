@@ -20,9 +20,58 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+
+def get_constants(constants):
+    """
+    Parse a string composed of couples (symbol, value), separated by semicolon
+    Return a dict:
+        - string of the constant
+        - value of the constant
+    """
+    dict_constants = {t.replace("(","").replace(")","").split(':')[0]:t.replace("(","").replace(")","").split(':')[1] for t in constants.split(',')}
+    # Translate R,NA,H,K constants as Physical constants in SLOTH
+    for k,v in dict_constants.items():
+        if v == 'K':
+            dict_constants[k]="Physical::K"
+        elif v == 'NA':
+            dict_constants[k]="Physical::NA"
+        elif v == 'H':
+            dict_constants[k]="Physical::H"
+        elif v == 'R':
+            dict_constants[k]="Physical::R"
+    return dict_constants
+
+
+#  Case : a * sdot(x(1..j)) = a * (dot(x1,x2)+...+dot(xj,xj))
+def sdot_replace_fct(match):
+    fact, var, start_str, end_str = match.groups()
+    start, end = int(start_str), int(end_str)
+
+    if start > end:
+        raise ValueError("Error: invalid bounds in sdot expression. Please check your data.")
+
+    expanded = "+".join(f"dot({var}{i},{var}{i})" for i in range(start, end+1))
+
+    if fact:
+        return f"{fact}*({expanded})"
+    else:
+        return f"{expanded}"
+    
+def expand_sdot(expr: str) -> str:
+    """
+    Parse a string composed of symbols and expand sdot .
+    Return the expanded expression
+    """
+    pattern = re.compile(r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)")
+    return re.sub(pattern, sdot_replace_fct, expr)
+
+# -------------------
+# -------------------
+
+#  Case : a(i..j) in ai, ai+1, ..., aj.
 def expand_ranges(expr: str,count: int = 0):
     """
-    Parse a string composed of symbols and expand a(i..j) in ai, a(i+1), ..., aj.
+    Parse a string composed of symbols and expand a(i..j) in ai, ai+1, ..., aj.
     Return a tuple:
         - string of expanded symbols
         - total number of variables expanded
@@ -49,6 +98,9 @@ def expand_ranges(expr: str,count: int = 0):
 
     return ",".join(result), count
 
+# -------------------
+# -------------------
+#  Case : dot(x,x) -> std::inner_product
 
 def dot_to_inner_product(code: str) -> str:
     """
@@ -66,6 +118,10 @@ def dot_to_inner_product(code: str) -> str:
         return f"std::inner_product({var1}.begin(), {var1}.end(), {var2}.begin(), 0.0)"
 
     return pattern.sub(repl, code)
+
+
+# -------------------
+# -------------------
 
 def sp_from_expr_with_sum(expression: str, local_dict, nb_var_expanded: int):
     """
@@ -93,6 +149,9 @@ def sp_from_expr_with_sum(expression: str, local_dict, nb_var_expanded: int):
     expr_tmp = sp.sympify(str(expr_tmp.doit()).replace('[', '').replace(']', ''), rational=True)
     
     return expr_tmp
+
+#######################################################################
+#######################################################################
 
 
 def prepare_output_file(output_file, is_gradient_coefficient):
@@ -126,12 +185,25 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 #include <functional>
 #include <numeric>
 #include <vector>\n
+#include "Options/PhysicalPropertiesOptions.hpp"\n  
 #include "kernel/Coefficients/FunctionCoefficient.hpp"\n  
 #pragma once\n
 """)
+        
+        
 
 
-def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, class_name, output_file, is_gradient_coefficient):
+def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient):
+    
+    # Get constants
+    has_constants = False
+    if(len(constants)>0):
+        dict_constants = get_constants(constants)
+        has_constants = True
+        constants_names=','.join(list(dict_constants.keys()))+ ","
+        constants_vars = sp.symbols(constants_names)
+    
+    
     # Expand variables with a range if needed
     nb_var_expanded = 0
     var_names, nb_var_expanded = expand_ranges(var_names, nb_var_expanded)
@@ -145,11 +217,30 @@ def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, clas
         auxiliary_var_names+=","
         auxiliary_vars = sp.symbols(auxiliary_var_names)
 
+    # translate sdot contributions before managing expressions with sympy    
+    pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
+    expr_str = expand_sdot(expr_str1)
+
     locals_dict={}
+    
+    # Check if the expression is of type gradient 
+    has_dot = bool(re.search(r"\bdot\s*\(", expr_str))
+    if has_dot and (not is_gradient_coefficient):
+        raise ValueError(f"Analytical expression contains at least a dot(...) term but "
+                        "is not declared as a gradient expression."
+                        "Expression of type gradient are differentiated.")
+
     if(is_gradient_coefficient):
         dot = sp.Function('dot')
         locals_dict["dot"]=dot
-    #
+        
+    # Check presence of Sum terms in the expression
+    
+    bad_sum_term = bool(re.search(r"\bsum\s*\(", expr_str))
+    if bad_sum_term:
+        raise ValueError(f"Analytical expression contains at least a sum term but is incorrectly written."
+                         "Summation is defined Sum(...)")
+        
     has_sum = "Sum(" in expr_str
     if has_sum:
         expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
@@ -214,6 +305,11 @@ def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, clas
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+            
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+                    
             f.write(f"    double F = {sp.cxxcode(expr)};\n")
         else:
             if(has_auxiliary_variables):
@@ -230,6 +326,9 @@ def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, clas
                     f.write(f"    std::vector<double> {v};\n")
                     f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(auxiliary_vector[{i}*dimension+i]);\n")
 
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
 
             f.write(f"    double F = {dot_to_inner_product(str(sp.N(expr)))};\n")
 
@@ -261,6 +360,11 @@ def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, clas
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+                    
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+                    
             f.write(f"    std::vector<double> gradient({n});\n")
             for i in range(n):
                 f.write(f"    gradient[{i}] = this->prefactor_ * ({sp.cxxcode(gradient[i])});\n")
@@ -296,6 +400,10 @@ def generate_class_with_functions(expr_str, var_names, auxiliary_var_names, clas
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    double {v} = auxiliary_vector[{i}];\n")
                 
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+                    
             f.write(f"    std::vector<double> hessian({n*n});\n")
             for i in range(n):
                 for j in range(n):
@@ -319,27 +427,12 @@ def parse_args() -> Namespace:
     """
     Parse and validate command-line arguments for GenerateCoefficient.py.
 
-    This function defines two mutually exclusive usage modes:
-    
-    1. **File processing mode**:  
-       The user provides a JSON file containing coefficient definitions using
-       the `-f/--input-file` option.
-
-    2. **Direct processing mode**:  
-       The user provides one or several coefficient definitions directly from
-       the command line using `-c/--coefficients`.  
-       Each coefficient must follow the format: ``expr,var,class_name,outputfile``.
-
-    Several validations are performed:
-      - ``-f`` must point to an existing file.
-      - ``-c`` must contain valid comma-separated quadruplets.
-      - ``-c`` is required if ``-f`` is omitted.
+    This function defines one usage mode: the user provides a JSON file containing 
+    coefficient definitions using the `-f/--input-file` option.
 
     Returns:
         argparse.Namespace: A namespace containing:
             - input_file (Path | None): Path to JSON input file if provided.
-            - coefficients (list[tuple[str, str, str, str]] | None):
-              Coefficients provided directly via command line.
             - remove (bool): Whether to remove existing output C++ files.
     """
     def type_file(asstring: str) -> Path:
@@ -348,32 +441,16 @@ def parse_args() -> Namespace:
             raise ArgumentTypeError(f"file {path} does not exist")
         return path
 
-    def type_coefficient(val: str) -> Tuple[str, str, str, str]:
-        """Convert string in format 'a,b,c,d' to tuple (a,b,c,d)"""
-        parts = [p.strip() for p in val.split(',')]
-        if len(parts) != 4:
-            raise ArgumentTypeError(f"Expected format 'a,b,c,d', got '{val}'")
-        return tuple(parts)
 
     parser = ArgumentParser()
 
-    # Group 1: -f is provided (optional -c)
+    # Group 1: -f is provided
     group1 = parser.add_argument_group('File processing mode')
     group1.add_argument(
         "-f", "--input-file",
         dest="input_file",
         type=type_file,
         help="Path to input file (JSON format, must exist)"
-    )
-
-    # Group 2: -f is not provided (required -c)
-    group2 = parser.add_argument_group('Direct processing mode')
-    group2.add_argument(
-        "-c", "--coefficients",
-        dest="coefficients",
-        nargs='+',
-        type=type_coefficient,
-        help="Space-separated list of strings (e.g., 'expr1,var1,class1,cppfile1' 'expr2,var2,class2,cppfile2')"
     )
 
     parser.add_argument("-r", "--remove", dest="remove", help="Remove output cpp files is already exist\n", action="store_true")
@@ -392,9 +469,7 @@ if __name__ == "__main__":
     """
     The script GenerateCoefficient.py performs the following tasks:
 
-    1. Loads coefficient definitions either from:
-    - a JSON file (via `-f`), or
-    - command-line tuples (via `-c`).
+    1. Loads coefficient definitions from a JSON file (via `-f`)
     2. Optionally removes previously generated C++ output files (flag `-r`).
     3. Generates C++ classes using the `generate_class_with_functions` function.
 
@@ -425,19 +500,15 @@ if __name__ == "__main__":
                     auxiliaries = item["auxiliary_variables"]
                 else:
                     auxiliaries = ""
+                if "constants" in item:
+                    constants = item["constants"]
+                else:
+                    constants = ""
                 
-                coefficients.append((item["expression"], item["variables"], auxiliaries, item["class_name"], item["outputfile"], gradient))
+                coefficients.append((item["expression"], item["variables"], auxiliaries, constants, item["class_name"], item["outputfile"], gradient))
             
-
-
         except json.JSONDecodeError:
-            print("Error: Failed to decode JSON from the file.")           
-    else:
-        # Direct mode: -f is not provided, -c is required
-        if args.coefficients is None:
-            parser.error("When -f is not provided, -c is required")
-
-        coefficients = args.coefficients
+            print("Error: Failed to decode JSON from the file.")         
 
     # Remove existing Cpp files
     if args.remove:
@@ -450,6 +521,6 @@ if __name__ == "__main__":
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, auxiliary_var_names, class_name, output_cpp_file, is_gradient_coefficient] = coef
-        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, class_name, output_cpp_file, is_gradient_coefficient)
+        [expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient] = coef
+        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient)
     
