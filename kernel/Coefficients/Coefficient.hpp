@@ -64,6 +64,11 @@ class Coefficient : public SlothBaseCoefficient {
   Coefficient(GlossaryQuantity type, Scheme scheme, T&& coef)
       : Coefficient(type, scheme, std::make_shared<std::decay_t<T>>(std::forward<T>(coef))) {}
 
+  template <class T>
+    requires std::derived_from<T, FunctionCoefficient>
+  Coefficient(GlossaryQuantity type, Scheme scheme, const T& coef)
+      : Coefficient(type, scheme, std::make_shared<std::remove_cvref_t<T>>(coef)) {}
+
   Coefficient(GlossaryQuantity type, Scheme scheme, std::shared_ptr<FunctionCoefficient> coef);
   Coefficient(GlossaryQuantity type, double coef);
   virtual ~Coefficient() = default;

@@ -4,24 +4,24 @@
  * @brief Options for physical properties
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include "Utils/Utils.hpp"
@@ -34,9 +34,10 @@
  * Set of fundamental physical constants used by SLOTH
  */
 namespace Physical {
-const double R = 8.314462618;     // molar gas constant in J mol-1 K-1 ;
+const double R = 8.314462618;     // molar gas constant in J mol-1 K-1 (K*NA);
+const double K = 1.380649e-23;    // Boltzman constant in J K-1
 const double NA = 6.02214076e23;  // Avogadro constant  mol-1
-
+const double H = 6.62607015e-34;  // Planck constant in J s
 }  // namespace Physical
 
 ///////////////////////////////////////////////////

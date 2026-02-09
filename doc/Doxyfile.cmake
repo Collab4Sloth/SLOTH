@@ -763,7 +763,7 @@ INPUT_ENCODING= UTF-8
 # *.hh, *.hxx, *.hpp, *.h++, *.cs, *.d, *.php, *.php4, *.php5, *.phtml, *.inc,
 # *.m, *.markdown, *.md, *.mm, *.dox, *.py, *.pyw, *.f90, *.f95, *.f03, *.f08,
 # *.f, *.for, *.tcl, *.vhd, *.vhdl, *.ucf and *.qsf.
-FILE_PATTERNS= *.hpp 
+FILE_PATTERNS= *.hpp *.md
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.
@@ -874,7 +874,7 @@ FILTER_SOURCE_PATTERNS=
 # is part of the input, its contents will be placed on the main page
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
-USE_MDFILE_AS_MAINPAGE= CodeSloth.md
+USE_MDFILE_AS_MAINPAGE= @CMAKE_CURRENT_SOURCE_DIR@/CodeSloth.md
 
 # ---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -1935,19 +1935,19 @@ GENERATE_TAGFILE= @PROGRAM_NAME@.tag
 # the class index. If set to NO, only the inherited external classes will be
 # listed.
 # The default value is: NO.
-ALLEXTERNALS= YES
+ALLEXTERNALS= NO
 
 # If the EXTERNAL_GROUPS tag is set to YES, all external groups will be listed
 # in the modules index. If set to NO, only the current project's groups will be
 # listed.
 # The default value is: YES.
-EXTERNAL_GROUPS= YES
+EXTERNAL_GROUPS= NO
 
 # If the EXTERNAL_PAGES tag is set to YES, all external pages will be listed in
 # the related pages index. If set to NO, only the current project's pages will
 # be listed.
 # The default value is: YES.
-EXTERNAL_PAGES= YES
+EXTERNAL_PAGES= NO
 
 # The PERL_PATH should be the absolute path and name of the perl script
 # interpreter (i.e. the result of 'which perl').

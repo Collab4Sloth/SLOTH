@@ -23,9 +23,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <any>
 #include <cmath>
+#include <concepts>
 #include <functional>
+#include <limits>
+#include <map>
+#include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <utility>
 #include <vector>
 #pragma once
 
