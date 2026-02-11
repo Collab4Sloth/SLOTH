@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -64,13 +65,13 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   virtual double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
                                 unsigned int blk, const double u, const double un);
 
-  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values);
 
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::vector<double>& values);
+                                              const std::span<const double>& values);
 
   virtual double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                             const std::vector<double>& values);
+                                             const std::span<const double>& values);
 
   void get_coefficients() override;
 
@@ -188,7 +189,8 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
       const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
       const double seed = this->get_seed_at_ip(Tr, ip, blk, u, un);
       const double ww = coef_mobi * (alpha * this->compute_gradient_coefficient(
-                                                 interpolation_potential[blk], blk, {u, un}) +
+                                                 interpolation_potential[blk], blk,
+                                                 std::span<const double>({u, un})) +
                                      seed);
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -243,8 +245,9 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
       const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
       double fun_val =
           coef_mobi * alpha *
-          this->compute_hessian_coefficient(interpolation_potential[blk], blk, blk,
-                                            {u, un});  // this->energy_derivatives(2, Tr, ip)(u);
+          this->compute_hessian_coefficient(
+              interpolation_potential[blk], blk, blk,
+              std::span<const double>({u, un}));  // this->energy_derivatives(2, Tr, ip)(u);
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
@@ -293,15 +296,15 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
  * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
-double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                              const std::vector<double>& values) {
-  const double u = values[0];
-  const double un = values[1];
+double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute({u});
+    coef_value = coef.compute(u);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute({un});
+    coef_value = coef.compute(un);
   }
   return coef_value;
 }
@@ -325,14 +328,14 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::vector<double>& values) {
-  const double u = values[0];
-  const double un = values[1];
+    Coefficient coef, const int blk, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(blk, {u});
+    coef_value = coef.compute_gradient(blk, u);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute_gradient(blk, {un});
+    coef_value = coef.compute_gradient(blk, un);
   }
   return coef_value;
 }
@@ -358,12 +361,12 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_gradient_coefficient(
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {
-  const double u = values[0];
-  // const double un = values[1];
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_hessian(iblk, jblk, {u});
+    coef_value = coef.compute_hessian(iblk, jblk, u);
   }
   return coef_value;
 }

@@ -184,6 +184,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 #include <cmath>
 #include <functional>
 #include <numeric>
+#include <span>
 #include <vector>\n
 #include "Options/PhysicalPropertiesOptions.hpp"\n  
 #include "kernel/Coefficients/FunctionCoefficient.hpp"\n  
@@ -274,9 +275,9 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
         f.write(" private:\n")
         f.write("  double prefactor_;\n")
         f.write(" protected:\n")
-        f.write("  std::function<double(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> F() final;\n")
-        f.write("  std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> GradientF() final;\n")
-        f.write("  std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> HessianF() final;\n\n")
+        f.write("  std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> F() final;\n")
+        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> GradientF() final;\n")
+        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;\n\n")
         f.write(" public:\n")
         f.write(f"  {class_name}() {{this->prefactor_ = 1.0; }}\n")
         f.write(f" explicit {class_name}(const double prefactor) {{this->prefactor_ = prefactor; }}\n")
@@ -288,17 +289,17 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
  *
  * @brief C++ function of the expression: {expr_str}
  * 
- * @return std::function<double(const std::vector<double>&,const std::vector<double>&)> 
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)> 
  */
 """)
         # Fonction F()
-        f.write(f"std::function<double(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> {class_name}::F() {{\n")
+        f.write(f"std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::F() {{\n")
 
         if(not is_gradient_coefficient):        
             if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
             else:
-                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
 
             for i, v in enumerate(vars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
@@ -313,9 +314,9 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
             f.write(f"    double F = {sp.cxxcode(expr)};\n")
         else:
             if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, const unsigned int dimension) {\n")
             else:
-                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {\n")
 
             for i, v in enumerate(vars):
                 f.write(f"    std::vector<double> {v};\n")
@@ -342,18 +343,18 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
  *
  * @brief Gradient
  * 
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> 
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
  */
 """)
         # Gradient
-        f.write(f"std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> {class_name}::GradientF() {{\n")
+        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::GradientF() {{\n")
 
 
         if(not is_gradient_coefficient):   
             if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
             else:
-                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
 
             for i, v in enumerate(vars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
@@ -369,7 +370,7 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
             for i in range(n):
                 f.write(f"    gradient[{i}] = this->prefactor_ * ({sp.cxxcode(gradient[i])});\n")
         else: 
-            f.write("  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> gradient({n},0.0);\n")
 
 
@@ -384,16 +385,16 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  * 
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> 
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
  */
 """)
         # HessianF()
-        f.write(f"std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&, const unsigned int dimension)> {class_name}::HessianF() {{\n")
+        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::HessianF() {{\n")
         if(not is_gradient_coefficient): 
             if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::vector<double>& input_vector, const std::vector<double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
             else:
-                f.write("  auto func = [&](const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             for i, v in enumerate(vars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
             if(has_auxiliary_variables):
@@ -409,7 +410,7 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
                 for j in range(n):
                     f.write(f"    hessian[{i*n + j}] = this->prefactor_ * ({sp.cxxcode(hessian[i,j])});\n")
         else:
-            f.write("  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector, [[maybe_unused]] const std::vector<double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> hessian({n*n},0.0);\n")
 
 

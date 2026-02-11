@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <span>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -52,9 +53,9 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  protected:
   std::list<GlossaryType> expected_list_;
   Coefficients diffusion;
-  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values);
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::vector<double>& values);
+                                              const std::span<const double>& values);
   void get_coefficients() override = 0;
   void init() override;
 
@@ -176,7 +177,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
 
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     gradPsi.MultTranspose(*elfun[blk], gradU);
-    double diffu = this->compute_coefficient(diffusion[blk], {u, un});
+    double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>({u, un}));
     const double coeff_diffu = diffu * ip.weight * Tr.Weight();
     gradU *= coeff_diffu;
     gradPsi.AddMult(gradU, *elvect[blk]);
@@ -230,8 +231,9 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
     Tr.SetIntPoint(&ip);
 
     const auto& un = this->u_old_[blk].GetValue(Tr, ip);
-    double diffu = this->compute_coefficient(diffusion[blk], {u, un});
-    double grad_diffu = this->compute_gradient_coefficient(diffusion[blk], blk, {u});
+    double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>({u, un}));
+    double grad_diffu =
+        this->compute_gradient_coefficient(diffusion[blk], blk, std::span<const double>({u}));
 
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(diffu * ip.weight * Tr.Weight(), gradPsi, *elmat(blk, blk));
@@ -260,14 +262,15 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                            const std::vector<double>& values) {
-  const double u = values[0];
-  const double un = values[1];
+                                                            const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute({u});
+    coef_value = coef.compute(u);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute({un});
+    coef_value = coef.compute(un);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }
@@ -293,11 +296,11 @@ double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int iblk, const std::vector<double>& values) {
-  const double u = values[0];
+    Coefficient coef, const int iblk, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(iblk, {u});
+    coef_value = coef.compute_gradient(iblk, u);
   }
   return coef_value;
 }

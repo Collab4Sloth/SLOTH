@@ -102,7 +102,6 @@ class OperatorBase : public mfem::Operator {
   mutable mfem::Vector z;  // auxiliary vector
 
   std::vector<std::string> rhs_integrators_;
-  std::vector<SlothNLFormIntegrator<Variables<T, DIM>>*> nlfi_ptr_;
 
   void build_rhs_nonlinear_form(const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);

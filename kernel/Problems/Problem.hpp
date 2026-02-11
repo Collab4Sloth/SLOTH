@@ -450,7 +450,8 @@ void Problem<OPE, VAR, PST>::do_time_step(
   // this->unknown_.emplace_back(unk);
 
   for (size_t i = 0; i < unk_size; i++) {
-    auto& unk_i = *(vect_unk[i]);
-    this->unknown_.emplace_back(unk_i);
+    // auto& unk_i = *(vect_unk[i]);
+    // this->unknown_.emplace_back(unk_i);
+    this->unknown_.emplace_back(std::move(*(vect_unk[i])));
   }
 }

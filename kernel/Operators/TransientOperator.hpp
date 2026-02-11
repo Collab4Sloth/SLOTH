@@ -75,7 +75,6 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   mfem::ParBlockNonlinearForm* LHS;
 
   // CCI
-  //  mfem::SparseMatrix Mmat;
   mfem::HypreParMatrix* Mmat;
   // CCI
   void build_mass_matrix(const std::vector<mfem::Vector>& u_vect);
@@ -440,14 +439,14 @@ void TransientOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::V
   ////////////////////////////////////////////
   // Build Newton Linear system
   ////////////////////////////////////////////
-  if (reduced_oper != nullptr) {
-    delete reduced_oper;
+  if (this->reduced_oper != nullptr) {
+    delete this->reduced_oper;
   }
-  reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->RHS, this->ess_tdof_list_);
+  this->reduced_oper = new PhaseFieldReducedOperator(this->LHS, this->RHS, this->ess_tdof_list_);
   ////////////////////////////////////////////
   // Newton Solver
   ////////////////////////////////////////////
-  this->SetNewtonAlgorithm(reduced_oper);
+  this->SetNewtonAlgorithm(this->reduced_oper);
 }
 /**
  * @brief Compute the mass matrix and the non linear form with the solution at the previous time
@@ -551,6 +550,8 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
 template <class T, int DIM>
 void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vector& u,
                                               mfem::Vector& du_dt) {
+  UtilsForDebug::memory_checkpoint("Avant ImplicitSolve");
+
   Catch_Time_Section("TransientOperator::ImplicitSolve");
 
   const auto sc = this->height_;
@@ -588,6 +589,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::stop("ApplyBCs");
   }
 
+  UtilsForDebug::memory_checkpoint("avant source term  ");
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
@@ -607,6 +609,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::stop("SourceTerm");
   }
 
+  UtilsForDebug::memory_checkpoint("avant nexton mult  ");
   // source_term.Print();
   {
     MATools::MATrace::start();
@@ -615,6 +618,15 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     delete this->rhs_solver_;
     MATools::MATrace::stop("Solve");
   }
+
+  UtilsForDebug::memory_checkpoint("avant free memory ");
+  delete this->RHS;
+  this->RHS = nullptr;
+  delete this->LHS;
+  this->LHS = nullptr;
+  delete this->reduced_oper;
+  this->reduced_oper = nullptr;
+  UtilsForDebug::memory_checkpoint("Apres ImplicitSolve");
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
 }

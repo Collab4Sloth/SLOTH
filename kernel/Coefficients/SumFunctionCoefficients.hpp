@@ -32,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -50,13 +51,13 @@ class SumCoefficient : public FunctionCoefficient {
   std::vector<FunctionCoefficient*> vect_coefficients_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -79,14 +80,14 @@ SumCoefficient::SumCoefficient(std::initializer_list<FunctionCoefficient*> coeff
 /**
  * @brief  Compute the value of the coefficient as a summation of the value of coefficients
  *
- * @return std::function<double(const std::vector<double>&, const std::vector<double>&,
+ * @return std::function<double(const std::span<const double>&, const std::span<const double>&,
  * const unsigned int dimension)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 SumCoefficient::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  const std::vector<double>& auxiliary_vector,
+  auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     double sum_F = 0.0;
     for (const auto& coef : this->vect_coefficients_) {
@@ -102,14 +103,14 @@ SumCoefficient::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 SumCoefficient::GradientF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  const std::vector<double>& auxiliary_vector,
+  auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> gradient(input_vector.size(), 0.0);
 
@@ -129,14 +130,14 @@ SumCoefficient::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 SumCoefficient::HessianF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  const std::vector<double>& auxiliary_vector,
+  auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     const int size = input_vector.size();
     std::vector<double> hessian(size * size, 0.0);

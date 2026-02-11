@@ -324,8 +324,8 @@ void KKS<T>::execute_linearization(
     }
 
     // Interpolation function at node
-    Hphi(i) = this->interpolation_func_->compute({phi});
-    Hphi_old(i) = this->interpolation_func_->compute({phi_old});
+    Hphi(i) = this->interpolation_func_->compute(std::span<const double>({phi}));
+    Hphi_old(i) = this->interpolation_func_->compute(std::span<const double>({phi_old}));
   }
 
   // Save the number of two-phase nodes where KKS problem must be solved

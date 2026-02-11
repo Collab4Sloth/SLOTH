@@ -226,6 +226,11 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   this->newton_solver_->Mult(source_term, block_unk);
   delete this->rhs_solver_;
 
+  delete this->RHS;
+  this->RHS = nullptr;
+  delete this->steady_reduced_oper;
+  this->steady_reduced_oper = nullptr;
+
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
     const mfem::Vector& bb = block_unk.GetBlock(i);
