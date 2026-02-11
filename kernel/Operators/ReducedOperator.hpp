@@ -160,7 +160,9 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
           std::make_unique<mfem::HypreParMatrix>(*LHS_sparse_block);
 
       blocks_to_delete_[i * fes_size_ + j]->Add(dt_, *RHS_sparse_block);
-      // blocks_to_delete_[i * fes_size_ + j]->EliminateRowsCols(ess_tdof_list[i]);
+
+      std::unique_ptr<mfem::HypreParMatrix> bb(
+          blocks_to_delete_[i * fes_size_ + j]->EliminateRowsCols(ess_tdof_list[i]));
 
       tmp_blocks_(i, j) = blocks_to_delete_[i * fes_size_ + j].get();
     }

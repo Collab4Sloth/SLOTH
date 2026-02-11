@@ -507,7 +507,7 @@ void OperatorBase<T, DIM>::SetNewtonAlgorithm(mfem::Operator* oper) {
   this->rhs_solver_ =
       new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_, this->solver_params_,
                    this->precond_, this->precond_params_, *oper);
-
+  this->newton_solver_.reset();
   this->newton_solver_ = this->rhs_solver_->get_nl_solver();
 }
 
