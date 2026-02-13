@@ -353,7 +353,6 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
   // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
   {
     int blk = 0;
-    int off_blk = 1;
     mfem::DenseMatrix gradPsi;
     mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();

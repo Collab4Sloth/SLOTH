@@ -457,18 +457,9 @@ template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_coefficient(
     Coefficient coef, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  double coef_value = 0.0;
   if (coef.is_scalar()) {
     return coef.compute();
   } else {
-    // std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    // std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    // if (coef.is_implicit()) {
-    //   coef_value = coef.compute(u, aux_values);
-    // } else if (coef.is_explicit()) {
-    //   coef_value = coef.compute(un, aux_values);
-    // }
-
     std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
     std::span<const double> un(values.begin() + this->nb_blk_, values.end());
 
@@ -498,14 +489,6 @@ template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
     Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  // std::vector<double> u(values.begin(), values.begin() + this->nb_blk_);
-  // std::vector<double> un(values.begin() + this->nb_blk_, values.end());
-  // double coef_value = 0.0;
-  // if (coef.is_implicit()) {
-  //   coef_value = coef.compute_gradient(blk, u, aux_values);
-  // } else if (coef.is_explicit()) {
-  //   coef_value = coef.compute_gradient(blk, un, aux_values);
-  // }
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
 
