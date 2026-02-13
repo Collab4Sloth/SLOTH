@@ -53,10 +53,8 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
 
-  // std::vector<int> vect_order{1, 2};
-  // std::vector<int> vect_NN{4, 8, 16};
-  std::vector<int> vect_order{1};
-  std::vector<int> vect_NN{256};
+  std::vector<int> vect_order{1, 2};
+  std::vector<int> vect_NN{4, 8, 16};
   for (const auto& order : vect_order) {
     for (const auto& NN : vect_NN) {
       // ##############################
@@ -196,8 +194,7 @@ int main(int argc, char* argv[]) {
       // ###########################################
       // ###########################################
       const auto& t_initial = 0.0;
-      // const auto& t_final = 1e-1;
-      const auto& t_final = 0.02;
+      const auto& t_final = 1e-1;
       const auto dt = 0.01;
 
       const std::string& main_folder_path = "Saves_order_" + std::to_string(order) + "_Nx" +
