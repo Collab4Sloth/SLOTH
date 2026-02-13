@@ -53,9 +53,13 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  protected:
   std::list<GlossaryType> expected_list_;
   Coefficients diffusion;
-  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values);
+  std::vector<mfem::ParGridFunction> vaux_gf_;
+
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
+                                     const std::span<const double>& aux_values);
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::span<const double>& values);
+                                              const std::span<const double>& values,
+                                              const std::span<const double>& aux_values);
   void get_coefficients() override = 0;
   void init() override;
 
@@ -130,6 +134,10 @@ void DiffusionNLFormIntegrator<VARS>::init() {
       "Expected not empty list of coefficients for diffusion integrators. Please check your data.");
   this->check_coefficient_types(this->expected_list_);
   this->get_coefficients();
+
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
 }
 
 /**
@@ -152,38 +160,50 @@ template <class VARS>
 void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  int blk = 0;
-  int nd = el[blk]->GetDof();
-  int dim = el[blk]->GetDim();
-  gradPsi.SetSize(nd, dim);
-  Psi.SetSize(nd);
-  gradU.SetSize(dim);
+  int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
 
-  elvect[blk]->SetSize(nd);
-  *elvect[blk] = 0.;
+  std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
 
-  Coefficients coeff_blk = this->coefficients_[blk];
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
+    gradPsi.SetSize(nd, dim);
+    Psi.SetSize(nd);
+    gradU.SetSize(dim);
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    elvect[blk]->SetSize(nd);
+    *elvect[blk] = 0.;
 
-  for (int i = 0; i < ir->GetNPoints(); i++) {
-    const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el[blk]->CalcShape(ip, Psi);
-    Tr.SetIntPoint(&ip);
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
-    const auto& u = *elfun[blk] * Psi;
-    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);
+      Tr.SetIntPoint(&ip);
 
-    el[blk]->CalcPhysDShape(Tr, gradPsi);
-    gradPsi.MultTranspose(*elfun[blk], gradU);
-    double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>({u, un}));
-    const double coeff_diffu = diffu * ip.weight * Tr.Weight();
-    gradU *= coeff_diffu;
-    gradPsi.AddMult(gradU, *elvect[blk]);
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
+
+      el[blk]->CalcPhysDShape(Tr, gradPsi);
+      gradPsi.MultTranspose(*elfun[blk], gradU);
+      double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>(u_values),
+                                               std::span<const double>(vaux_gf_at_ip));
+      const double coeff_diffu = diffu * ip.weight * Tr.Weight();
+      gradU *= coeff_diffu;
+      gradPsi.AddMult(gradU, *elvect[blk]);
+    }
   }
 }
-
 /**
  * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
@@ -204,43 +224,58 @@ template <class VARS>
 void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
-  int blk = 0;
-  int nd = el[blk]->GetDof();
-  int dim = el[blk]->GetDim();
+  int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
 
-  Psi.SetSize(nd);
-  gradPsi.SetSize(nd, dim);
+  std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
 
-  mfem::Vector vec;
-  vec.SetSize(nd);
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    int nd = el[blk]->GetDof();
+    int dim = el[blk]->GetDim();
 
-  elmat(blk, blk)->SetSize(nd);
-  *elmat(blk, blk) = 0.0;
+    Psi.SetSize(nd);
+    gradPsi.SetSize(nd, dim);
 
-  Coefficients coeff_blk = this->coefficients_[blk];
+    mfem::Vector vec;
+    vec.SetSize(nd);
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    elmat(blk, blk)->SetSize(nd);
+    *elmat(blk, blk) = 0.0;
 
-  vec = 0.0;
-  for (int i = 0; i < ir->GetNPoints(); i++) {
-    const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    el[blk]->CalcShape(ip, Psi);
-    const auto& u = *elfun[blk] * Psi;
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
-    Tr.SetIntPoint(&ip);
+    vec = 0.0;
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);
 
-    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
-    double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>({u, un}));
-    double grad_diffu =
-        this->compute_gradient_coefficient(diffusion[blk], blk, std::span<const double>({u}));
+      Tr.SetIntPoint(&ip);
 
-    el[blk]->CalcPhysDShape(Tr, gradPsi);
-    AddMult_a_AAt(diffu * ip.weight * Tr.Weight(), gradPsi, *elmat(blk, blk));
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
 
-    gradPsi.MultTranspose(*elfun[blk], gradU);
-    gradPsi.AddMult(gradU, vec);
-    AddMult_a_VWt(grad_diffu * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
+      double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>(u_values),
+                                               std::span<const double>(vaux_gf_at_ip));
+      double grad_diffu =
+          this->compute_gradient_coefficient(diffusion[blk], blk, std::span<const double>(u_values),
+                                             std::span<const double>(vaux_gf_at_ip));
+
+      el[blk]->CalcPhysDShape(Tr, gradPsi);
+      AddMult_a_AAt(diffu * ip.weight * Tr.Weight(), gradPsi, *elmat(blk, blk));
+
+      gradPsi.MultTranspose(*elfun[blk], gradU);
+      gradPsi.AddMult(gradU, vec);
+      AddMult_a_VWt(grad_diffu * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
+    }
   }
 }
 
@@ -261,16 +296,17 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
  * @note This function can be overridden in derived classes.
  */
 template <class VARS>
-double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                            const std::span<const double>& values) {
+double DiffusionNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
 
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute(u);
+    coef_value = coef.compute(u, aux_values);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un);
+    coef_value = coef.compute(un, aux_values);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }
@@ -296,11 +332,12 @@ double DiffusionNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int iblk, const std::span<const double>& values) {
+    Coefficient coef, const int iblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(iblk, u);
+    coef_value = coef.compute_gradient(iblk, u, aux_values);
   }
   return coef_value;
 }
