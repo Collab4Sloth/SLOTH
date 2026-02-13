@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-09-05
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -64,6 +64,8 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
       const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
   std::string lhs_integrator_;
+
+  void free_memory();
 
  protected:
   /// Mass operator
@@ -494,7 +496,6 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   // Todo(cci) : try to do different because of not satisfying
   const_cast<TransientOperator<T, DIM>*>(this)->SetExplicitTransientParameters(v_vect);
 
-  // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
   const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::BlockVector bb(this->block_trueOffsets_);
 
@@ -506,11 +507,10 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
       if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
         mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, RHS);
-
-        delete RHS;
+        this->get_source_term(i, this->src_func_[i], src_i, SRC);
+        delete SRC;
       }
     }
     bb -= source_term;
@@ -550,8 +550,6 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
 template <class T, int DIM>
 void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vector& u,
                                               mfem::Vector& du_dt) {
-  UtilsForDebug::memory_checkpoint("Avant ImplicitSolve");
-
   Catch_Time_Section("TransientOperator::ImplicitSolve");
 
   const auto sc = this->height_;
@@ -589,7 +587,6 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::stop("ApplyBCs");
   }
 
-  UtilsForDebug::memory_checkpoint("avant source term  ");
   // Source term
   mfem::BlockVector source_term(this->block_trueOffsets_);
   source_term = 0.0;
@@ -599,34 +596,25 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     if (!this->src_func_.empty()) {
       for (int i = 0; i < fes_size; ++i) {
         if (this->src_func_[i] != nullptr) {
-          mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
+          mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
           mfem::Vector& src_i = source_term.GetBlock(i);
-          this->get_source_term(i, this->src_func_[i], src_i, RHS);
-          delete RHS;
+          this->get_source_term(i, this->src_func_[i], src_i, SRC);
+          delete SRC;
         }
       }
     }
     MATools::MATrace::stop("SourceTerm");
   }
 
-  UtilsForDebug::memory_checkpoint("avant nexton mult  ");
-  // source_term.Print();
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
     this->newton_solver_->Mult(source_term, dv_dt);
-    delete this->rhs_solver_;
     MATools::MATrace::stop("Solve");
   }
 
-  UtilsForDebug::memory_checkpoint("avant free memory ");
-  delete this->RHS;
-  this->RHS = nullptr;
-  delete this->LHS;
-  this->LHS = nullptr;
-  delete this->reduced_oper;
-  this->reduced_oper = nullptr;
-  UtilsForDebug::memory_checkpoint("Apres ImplicitSolve");
+  // Free memory
+  this->free_memory();
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
 }
@@ -634,8 +622,8 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
 /**
  * @brief Overload the solver used to invert the mass matrix
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param SOLVER
  */
 template <class T, int DIM>
@@ -646,8 +634,8 @@ void TransientOperator<T, DIM>::overload_mass_solver(VSolverType SOLVER) {
 /**
  * @brief Overload the solver used to invert the mass matrix with its parameters
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param SOLVER
  * @param s_params
  */
@@ -661,8 +649,8 @@ void TransientOperator<T, DIM>::overload_mass_solver(VSolverType SOLVER,
 /**
  * @brief Overload the preconditioner for the solver used to invert the mass matrix
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param PRECOND
  */
 template <class T, int DIM>
@@ -674,8 +662,8 @@ void TransientOperator<T, DIM>::overload_mass_preconditioner(VSolverType PRECOND
  * @brief Overload the preconditioner for the solver used to invert the mass matrix and its
  * parameters
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param PRECOND
  * @param p_params
  */
@@ -689,8 +677,9 @@ void TransientOperator<T, DIM>::overload_mass_preconditioner(VSolverType PRECOND
 /**
  * @brief Set the default solver and preconditioner associated with the mass matrix
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ *
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::set_default_mass_solver() {
@@ -703,6 +692,17 @@ void TransientOperator<T, DIM>::set_default_mass_solver() {
   this->mass_precond_params_ = p_params;
 }
 
+/**
+ * @brief Build integrator for LHS
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param integrator
+ * @param vun
+ * @param vauxn
+ * @param all_params
+ * @return SlothNLFormIntegrator<Variables<T, DIM>>*
+ */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_integrator(
     const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
@@ -727,4 +727,22 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_int
       mfem::mfem_error("LHS Integrators not found. Please check your data.");
       return nullptr;
   }
+}
+
+/**
+ * @brief Free memory
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ *
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::free_memory() {
+  delete this->rhs_solver_;
+  delete this->RHS;
+  this->RHS = nullptr;
+  delete this->LHS;
+  this->LHS = nullptr;
+  delete this->reduced_oper;
+  this->reduced_oper = nullptr;
 }
