@@ -23,6 +23,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <array>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -80,7 +81,7 @@ int main(int argc, char* argv[]) {
       SlothInfo::print("Running test case 0: variable evaluation");
       Coefficient coeff(Glossary::Temperature, Scheme::Implicit, FunctionA());
       try {
-        auto result = coeff.compute({2, 3, 1});
+        auto result = coeff.compute(std::array{2.0, 3.0, 1.0});
         if (std::abs(result - 94.1) > epsilon) {
           throw std::runtime_error("Wrong variable evaluation");
         }
@@ -99,14 +100,14 @@ int main(int argc, char* argv[]) {
       std::vector<double> hessian_solution{4.0, 30.1, 0.3, 30.1, 0.0, 0.2, 0.3, 0.2, 0.0};
       try {
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
+          const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
+            const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");
@@ -137,14 +138,14 @@ int main(int argc, char* argv[]) {
         }
         auto coeff = coeffAB[1];
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
+          const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
+            const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");
@@ -172,14 +173,14 @@ int main(int argc, char* argv[]) {
       try {
         auto coeff = coeffAB[0];
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
+          const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - 2.0 * gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
+            const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - 2.0 * hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");
@@ -207,12 +208,12 @@ int main(int argc, char* argv[]) {
                                            42.84, 39.26,   42.84, 0.12};
       try {
         auto coeff = coeffAB[0];
-        const double value = coeff.compute({2.0, 3.0, 1.0});
+        const double value = coeff.compute(std::array{2.0, 3.0, 1.0});
         if (std::abs(value - 17747.26) > epsilon) {
           throw std::runtime_error("Wrong value evaluation");
         }
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, {2.0, 3.0, 1.0});
+          const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation " +
@@ -220,7 +221,7 @@ int main(int argc, char* argv[]) {
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
+            const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error(
@@ -252,12 +253,12 @@ int main(int argc, char* argv[]) {
                                            42.84, 39.26,   42.84, 0.12};
       try {
         auto coeff = coeffAB[0];
-        const double value = coeff.compute({2.0, 3.0, 1.0});
+        const double value = coeff.compute(std::array{2.0, 3.0, 1.0});
         if (std::abs(value - 2.0 * 17747.26) > epsilon) {
           throw std::runtime_error("Wrong value evaluation " + std::format("{:.14f}", value));
         }
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, {2.0, 3.0, 1.0});
+          const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - 2.0 * gradient_solution[i]) > epsilon) {
             throw std::runtime_error(
@@ -266,7 +267,7 @@ int main(int argc, char* argv[]) {
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
+            const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - 2.0 * hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error(
