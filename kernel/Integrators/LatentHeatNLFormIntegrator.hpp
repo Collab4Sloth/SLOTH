@@ -185,7 +185,8 @@ void LatentHeatNLFormIntegrator<VARS>::init() {
 template <class VARS>
 void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+    [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
+    const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
@@ -230,10 +231,10 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
  */
 template <class VARS>
 void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
-    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::Array<const mfem::Vector*>& elfun,
+    const mfem::Array<const mfem::FiniteElement*>& el,
+    [[maybe_unused]] mfem::ElementTransformation& Tr,
+    [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Catch_Time_Section("LatentHeatNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
@@ -241,7 +242,6 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
 
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
-    // elmat.SetSize(nd);
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
   }
