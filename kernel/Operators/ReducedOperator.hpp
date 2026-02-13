@@ -130,16 +130,12 @@ void PhaseFieldReducedOperator::Mult(const mfem::Vector& k, mfem::Vector& y) con
  */
 mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) const {
   Jacobian.reset();
-  UtilsForDebug::memory_checkpoint("avant getgradient Add");
 
   add(*unk_, dt_, k, z);
   // Gets gradients of RHS_ and LHS_
-  UtilsForDebug::memory_checkpoint("avant getgradient LHS");
   mfem::BlockOperator& LHS_grad = this->LHS_->GetGradient(z);
-  UtilsForDebug::memory_checkpoint("avant getgradient RHS");
   mfem::BlockOperator& RHS_grad = this->RHS_->GetGradient(z);
 
-  UtilsForDebug::memory_checkpoint("avant assemblage RHS");
   for (int i = 0; i < this->fes_size_; ++i) {
     for (int j = 0; j < this->fes_size_; ++j) {
       const mfem::Operator& LHS_block = LHS_grad.GetBlock(i, j);
@@ -168,7 +164,6 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
     }
   }
   Jacobian.reset(mfem::HypreParMatrixFromBlocks(tmp_blocks_));
-  UtilsForDebug::memory_checkpoint("avant return jacobian ");
 
   return *Jacobian;
 }

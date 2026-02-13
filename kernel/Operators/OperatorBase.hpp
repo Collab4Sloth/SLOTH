@@ -168,7 +168,6 @@ class OperatorBase : public mfem::Operator {
   void overload_preconditioner(VSolverType PRECOND, const Parameters& p_params);
 
   // Virtual methods
-  // virtual void initialize(const double &initial_time, Variables<T, DIM> &vars);
   virtual void initialize(const double& initial_time, Variables<T, DIM>& vars,
                           std::vector<Variables<T, DIM>*> auxvars);
 
