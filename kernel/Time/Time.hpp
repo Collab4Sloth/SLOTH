@@ -61,7 +61,6 @@ class TimeDiscretization {
 
   void initialize();
   void execute(const int& iter);
-  void post_execute(const int& iter);
   void update();
   void post_processing(const int& iter);
   void finalize();
@@ -156,13 +155,10 @@ void TimeDiscretization<Args...>::post_processing(const int& iter) {
   Catch_Time_Section("TimeDiscretization::post_processing");
 
   const auto& current_time = this->current_time_;
-  const auto& current_time_step = this->current_time_step_;
 
-  std::apply(
-      [iter, current_time, current_time_step](auto&... coupling) {
-        (coupling.post_processing(iter, current_time, current_time_step), ...);
-      },
-      couplings_);
+  std::apply([iter, current_time](
+                 auto&... coupling) { (coupling.post_processing(iter, current_time), ...); },
+             couplings_);
 }
 
 /**
@@ -214,25 +210,6 @@ void TimeDiscretization<Args...>::execute(const int& iter) {
   // TODO(cci): ici c'est le dernier current_time. A améliorer dans le cadre d'une gestion du pas de
   // temps
   this->current_time_ = next_time;
-}
-
-/**
- * @brief Call the post_execute method of each coupling
- *
- * @tparam Args
- * @param iter
- */
-template <class... Args>
-void TimeDiscretization<Args...>::post_execute(const int& iter) {
-  Catch_Time_Section("TimeDiscretization::post_execute");
-
-  const auto& current_time = this->current_time_;
-  const auto& current_time_step = this->current_time_step_;
-  std::apply(
-      [iter, current_time, current_time_step](auto&... coupling) {
-        (coupling.post_execute(iter, current_time, current_time_step), ...);
-      },
-      couplings_);
 }
 
 /**
@@ -310,11 +287,6 @@ void TimeDiscretization<Args...>::solve() {
     // Solve
     //------------
     this->execute(iter);
-
-    //------------
-    //  Post Execute
-    //------------
-    this->post_execute(iter);
 
     //------------
     //  Update

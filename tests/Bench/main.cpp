@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "kernel/sloth.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -111,25 +112,20 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Profiling start
   Profiling::getInstance().enable();
+  Profiling::getInstance().active_trace();
   //---------------------------------------
   /////////////////////////
   const int DIM = 3;
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = CahnHilliardNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                            ThermodynamicsPotentials::F, Mobility::Constant>;
-
-  using LHS_NLFI = TimeCHNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
 
   // ################ //
   // ################ //
@@ -159,7 +155,7 @@ int main(int argc, char* argv[]) {
   const double ly = 2. * M_PI;
   const double lz = 2. * M_PI;
   const std::tuple<int, int, int, double, double, double>& tuple_of_dimensions = std::make_tuple(
-      nx, ny, nz, lx, ly, ly);  // Number of elements and maximum length in each direction
+      nx, ny, nz, lx, ly, lz);  // Number of elements and maximum length in each direction
 
   SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
   print_mesh_information(*(spatial.get_mesh()), *(spatial.get_finite_element_space()));
@@ -186,20 +182,21 @@ int main(int argc, char* argv[]) {
   // ####################
   //  Interface thickness
   const double epsilon(0.02);
-  // Interfacial energy
-  const double sigma(1.);
   // Two-phase mobility
   const double mob(1.);
   const double lambda = (epsilon * epsilon);
   const double omega = 1.;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega));
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficients coef_ch(double_well_imp, capillary, mobility, grad_energy);
   // ####################
   //     variables     //
   // ####################
 
-  auto user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         const double xx = x[0];
         const double yy = x[1];
         const double zz = x[2];
@@ -218,8 +215,8 @@ int main(int argc, char* argv[]) {
         return sol;
       });
 
-  auto mu_user_func_solution =
-      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double time) {
+  auto mu_user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
         const double xx = x[0];
         const double yy = x[1];
         const double zz = x[2];
@@ -242,8 +239,8 @@ int main(int argc, char* argv[]) {
   auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
   const std::string& var_name_1 = "phi";
   const std::string& var_name_2 = "mu";
-  auto v1 = VAR(&spatial, bcs_phi, var_name_1, 2, phi_initial_condition);
-  auto v2 = VAR(&spatial, bcs_mu, var_name_2, 2, mu_initial_condition);
+  auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::PhaseField, 2, phi_initial_condition);
+  auto v2 = VAR(&spatial, bcs_mu, var_name_2, Glossary::PhaseField, 2, mu_initial_condition);
   auto vars = VARS(v1, v2);
 
   // ###########################################
@@ -254,7 +251,6 @@ int main(int argc, char* argv[]) {
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
   std::string calculation_path = "CahnHilliard";
-  const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
       {var_name_1, {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;
@@ -273,8 +269,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial, &spatial};
-  OPE oper(spatials, params, TimeScheme::EulerImplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE oper(spatials, {"CahnHilliard"}, TimeScheme::EulerImplicit, "SplitTimeDerivative");
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", p.verbosity),
@@ -298,7 +293,7 @@ int main(int argc, char* argv[]) {
   }
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, pst);
+  PB problem1(oper, vars, {coef_ch, coef_ch}, pst);
 
   // Coupling 1
   auto cc = Coupling("CahnHilliard Coupling", problem1);

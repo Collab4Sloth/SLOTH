@@ -1,0 +1,527 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import json
+from argparse import ArgumentParser, ArgumentTypeError, Namespace, RawTextHelpFormatter
+from pathlib import Path
+import os
+import re
+import sympy as sp
+
+
+import shutil
+import logging
+import sys
+from typing import List, Tuple, Optional
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s][%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+
+def get_constants(constants):
+    """
+    Parse a string composed of couples (symbol, value), separated by semicolon
+    Return a dict:
+        - string of the constant
+        - value of the constant
+    """
+    dict_constants = {t.replace("(","").replace(")","").split(':')[0]:t.replace("(","").replace(")","").split(':')[1] for t in constants.split(',')}
+    # Translate R,NA,H,K constants as Physical constants in SLOTH
+    for k,v in dict_constants.items():
+        if v == 'K':
+            dict_constants[k]="Physical::K"
+        elif v == 'NA':
+            dict_constants[k]="Physical::NA"
+        elif v == 'H':
+            dict_constants[k]="Physical::H"
+        elif v == 'R':
+            dict_constants[k]="Physical::R"
+    return dict_constants
+
+
+#  Case : a * sdot(x(1..j)) = a * (dot(x1,x2)+...+dot(xj,xj))
+def sdot_replace_fct(match):
+    fact, var, start_str, end_str = match.groups()
+    start, end = int(start_str), int(end_str)
+
+    if start > end:
+        raise ValueError("Error: invalid bounds in sdot expression. Please check your data.")
+
+    expanded = "+".join(f"dot({var}{i},{var}{i})" for i in range(start, end+1))
+
+    if fact:
+        return f"{fact}*({expanded})"
+    else:
+        return f"{expanded}"
+    
+def expand_sdot(expr: str) -> str:
+    """
+    Parse a string composed of symbols and expand sdot .
+    Return the expanded expression
+    """
+    pattern = re.compile(r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)")
+    return re.sub(pattern, sdot_replace_fct, expr)
+
+# -------------------
+# -------------------
+
+#  Case : a(i..j) in ai, ai+1, ..., aj.
+def expand_ranges(expr: str,count: int = 0):
+    """
+    Parse a string composed of symbols and expand a(i..j) in ai, ai+1, ..., aj.
+    Return a tuple:
+        - string of expanded symbols
+        - total number of variables expanded
+    """
+    tokens = [t.strip() for t in expr.split(',')]
+    result = []
+
+    pattern = re.compile(r'^([a-zA-Z_]\w*)\((\d+)\.\.(\d+)\)$')
+
+    for token in tokens:
+        match = pattern.match(token)
+        if match:
+            count += 1
+            name, start, end = match.groups()
+            start, end = int(start), int(end)
+
+            if start > end:
+                raise ValueError(f"Error: invalid bounds in the range {token}")
+
+            for i in range(start, end + 1):
+                result.append(f"{name}{i}")
+        else:
+            result.append(token)
+
+    return ",".join(result), count
+
+# -------------------
+# -------------------
+#  Case : dot(x,x) -> std::inner_product
+
+def dot_to_inner_product(code: str) -> str:
+    """
+    Replace Sum(a[i]*b[i], (i, 0, n)) by std::inner_product(a.begin(), a.end(), b.begin(), 0)
+    """
+    pattern = re.compile(
+        r"dot\(\s*"        # dot(
+        r"(\w+)\s*,\s*"    # première variable
+        r"(\w+)\s*\)"      # deuxième variable
+    )
+
+    def repl(match):
+        var1 = match.group(1)
+        var2 = match.group(2)
+        return f"std::inner_product({var1}.begin(), {var1}.end(), {var2}.begin(), 0.0)"
+
+    return pattern.sub(repl, code)
+
+
+# -------------------
+# -------------------
+
+def sp_from_expr_with_sum(expression: str, local_dict, nb_var_expanded: int):
+    """
+    Convert string with Sum and IndexedBase into SymPy object.
+    - Detect IndexedBase (variables)
+    - Detect indexes of each summation
+    - Fill locals_dict for sympify
+    - Expand summation with .doit()
+    - Delete []
+    - Check if the number of expanded variables correspond to the number of IndexedBase
+    """
+    local_dict['Sum']= sp.Sum
+    sum_vars = set(re.findall(r'([a-zA-Z_]\w*)\s*\[', expression))
+    sum_indexes = set(re.findall(r'\[([a-zA-Z_]\w*)\]', expression))
+    
+    if len(sum_vars) != nb_var_expanded:
+        raise Exception(f"The number of expanded variables must be equal to the number of IndexedBase. Please check json file")
+    
+    for v in sum_indexes:
+        local_dict[v] = sp.symbols(v)
+    for v in sum_vars:
+        local_dict[v] = sp.IndexedBase(v)
+    
+    expr_tmp = sp.sympify(expression, locals=local_dict, rational=True)
+    expr_tmp = sp.sympify(str(expr_tmp.doit()).replace('[', '').replace(']', ''), rational=True)
+    
+    return expr_tmp
+
+#######################################################################
+#######################################################################
+
+
+def prepare_output_file(output_file, is_gradient_coefficient):
+
+    filename = Path(output_file).resolve()
+
+    with open(output_file, "w") as f:
+        # Header 
+        f.write("""/**
+ *
+ * Copyright CEA (C) 2025
+ *
+ * This file is part of SLOTH.
+ *
+ * SLOTH is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SLOTH is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */\n
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <numeric>
+#include <span>
+#include <vector>\n
+#include "Options/PhysicalPropertiesOptions.hpp"\n  
+#include "kernel/Coefficients/FunctionCoefficient.hpp"\n  
+#pragma once\n
+""")
+        
+        
+
+
+def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient):
+    
+    # Get constants
+    has_constants = False
+    if(len(constants)>0):
+        dict_constants = get_constants(constants)
+        has_constants = True
+        constants_names=','.join(list(dict_constants.keys()))+ ","
+        constants_vars = sp.symbols(constants_names)
+    
+    
+    # Expand variables with a range if needed
+    nb_var_expanded = 0
+    var_names, nb_var_expanded = expand_ranges(var_names, nb_var_expanded)
+    var_names+=","
+    vars = sp.symbols(var_names)
+    n = len(vars)
+    has_auxiliary_variables = False
+    if(len(auxiliary_var_names)>0):
+        auxiliary_var_names, nb_var_expanded = expand_ranges(auxiliary_var_names, nb_var_expanded)
+        has_auxiliary_variables = True
+        auxiliary_var_names+=","
+        auxiliary_vars = sp.symbols(auxiliary_var_names)
+
+    # translate sdot contributions before managing expressions with sympy    
+    pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
+    expr_str = expand_sdot(expr_str1)
+
+    locals_dict={}
+    
+    # Check if the expression is of type gradient 
+    has_dot = bool(re.search(r"\bdot\s*\(", expr_str))
+    if has_dot and (not is_gradient_coefficient):
+        raise ValueError(f"Analytical expression contains at least a dot(...) term but "
+                        "is not declared as a gradient expression."
+                        "Expression of type gradient are differentiated.")
+
+    if(is_gradient_coefficient):
+        dot = sp.Function('dot')
+        locals_dict["dot"]=dot
+        
+    # Check presence of Sum terms in the expression
+    
+    bad_sum_term = bool(re.search(r"\bsum\s*\(", expr_str))
+    if bad_sum_term:
+        raise ValueError(f"Analytical expression contains at least a sum term but is incorrectly written."
+                         "Summation is defined Sum(...)")
+        
+    has_sum = "Sum(" in expr_str
+    if has_sum:
+        expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
+    else:
+        expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
+    
+    # Int to float
+    expr = expr_tmp
+    # expr = sp.N(expr_tmp)
+    # Gradient
+    gradient = [sp.diff(expr, v) for v in vars]
+    # Hessian (n x n)
+    hessian = sp.hessian(expr, vars)
+
+    cpp_file = f"{output_file}.hpp"
+    path = Path(cpp_file).resolve()
+    if not path.exists():
+        prepare_output_file(cpp_file,is_gradient_coefficient)
+
+    with open(cpp_file, "a") as f:
+
+        f.write(f"""
+/**
+ *
+ * @brief Coefficient based on expression: {expr_str}
+ *
+ */
+""")
+        # Class
+        f.write(f"class {class_name} : public FunctionCoefficient {{\n")
+        f.write(" private:\n")
+        f.write("  double prefactor_;\n")
+        f.write(" protected:\n")
+        f.write("  std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> F() final;\n")
+        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> GradientF() final;\n")
+        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;\n\n")
+        f.write(" public:\n")
+        f.write(f"  {class_name}() {{this->prefactor_ = 1.0; }}\n")
+        f.write(f" explicit {class_name}(const double prefactor) {{this->prefactor_ = prefactor; }}\n")
+        f.write(f"  virtual ~{class_name}() = default;\n")
+        f.write("};\n\n")
+
+
+        f.write(f"""/**
+ *
+ * @brief C++ function of the expression: {expr_str}
+ * 
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)> 
+ */
+""")
+        # Fonction F()
+        f.write(f"std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::F() {{\n")
+
+        if(not is_gradient_coefficient):        
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+
+            for i, v in enumerate(vars):
+                f.write(f"    double {v} = input_vector[{i}];\n")
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+            
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+                    
+            f.write(f"    double F = {sp.cxxcode(expr)};\n")
+        else:
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, const unsigned int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {\n")
+
+            for i, v in enumerate(vars):
+                f.write(f"    std::vector<double> {v};\n")
+                f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(input_vector[{i}*dimension+i]);\n")
+
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    std::vector<double> {v};\n")
+                    f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(auxiliary_vector[{i}*dimension+i]);\n")
+
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+
+            f.write(f"    double F = {dot_to_inner_product(str(sp.N(expr)))};\n")
+
+   
+        f.write("    return this->prefactor_ * F;\n")
+        f.write("  };\n")
+        f.write("  return func;\n")
+        f.write("}\n\n")
+
+        f.write(f"""/**
+ *
+ * @brief Gradient
+ * 
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
+ */
+""")
+        # Gradient
+        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::GradientF() {{\n")
+
+
+        if(not is_gradient_coefficient):   
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+
+            for i, v in enumerate(vars):
+                f.write(f"    double {v} = input_vector[{i}];\n")
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+                    
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+                    
+            f.write(f"    std::vector<double> gradient({n});\n")
+            for i in range(n):
+                f.write(f"    gradient[{i}] = this->prefactor_ * ({sp.cxxcode(gradient[i])});\n")
+        else: 
+            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            f.write(f"    std::vector<double> gradient({n},0.0);\n")
+
+
+        f.write("    return gradient;\n")
+        f.write("  };\n")
+        f.write("  return func;\n")
+        f.write("}\n\n")
+
+
+        f.write(f"""/**
+ *
+ * @brief Hessian
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ * 
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
+ */
+""")
+        # HessianF()
+        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::HessianF() {{\n")
+        if(not is_gradient_coefficient): 
+            if(has_auxiliary_variables):
+                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:
+                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            for i, v in enumerate(vars):
+                f.write(f"    double {v} = input_vector[{i}];\n")
+            if(has_auxiliary_variables):
+                for i, v in enumerate(auxiliary_vars):
+                    f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+                
+            if(has_constants):
+                for const in dict_constants:
+                    f.write(f"    double {const} = {dict_constants[const]};\n")
+                    
+            f.write(f"    std::vector<double> hessian({n*n});\n")
+            for i in range(n):
+                for j in range(n):
+                    f.write(f"    hessian[{i*n + j}] = this->prefactor_ * ({sp.cxxcode(hessian[i,j])});\n")
+        else:
+            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            f.write(f"    std::vector<double> hessian({n*n},0.0);\n")
+
+
+        f.write("    return hessian;\n")
+        f.write("  };\n")
+        f.write("  return func;\n")
+        f.write("}\n")
+
+    print(f"Class {class_name} generated in {cpp_file}")
+
+########################################################################################
+########################################################################################
+
+def parse_args() -> Namespace:
+    """
+    Parse and validate command-line arguments for GenerateCoefficient.py.
+
+    This function defines one usage mode: the user provides a JSON file containing 
+    coefficient definitions using the `-f/--input-file` option.
+
+    Returns:
+        argparse.Namespace: A namespace containing:
+            - input_file (Path | None): Path to JSON input file if provided.
+            - remove (bool): Whether to remove existing output C++ files.
+    """
+    def type_file(asstring: str) -> Path:
+        path = Path(asstring).resolve()
+        if not path.is_file():
+            raise ArgumentTypeError(f"file {path} does not exist")
+        return path
+
+
+    parser = ArgumentParser()
+
+    # Group 1: -f is provided
+    group1 = parser.add_argument_group('File processing mode')
+    group1.add_argument(
+        "-f", "--input-file",
+        dest="input_file",
+        type=type_file,
+        help="Path to input file (JSON format, must exist)"
+    )
+
+    parser.add_argument("-r", "--remove", dest="remove", help="Remove output cpp files is already exist\n", action="store_true")
+
+    args = parser.parse_args()
+
+
+    return args
+
+
+########################################################################################
+########################################################################################
+########################################################################################
+
+if __name__ == "__main__":
+    """
+    The script GenerateCoefficient.py performs the following tasks:
+
+    1. Loads coefficient definitions from a JSON file (via `-f`)
+    2. Optionally removes previously generated C++ output files (flag `-r`).
+    3. Generates C++ classes using the `generate_class_with_functions` function.
+
+    Each coefficient is expected to be a quadruplet:
+        (expression, variables, class_name, output_cpp_file)
+    """ 
+ 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s][%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    args = parse_args()
+
+    
+    # Read data
+    coefficients = []
+    if args.input_file is not None:       
+        try:
+            with open(args.input_file, 'r') as file:
+                data = json.load(file)
+            for item in data:
+                if "gradient" in item and item["gradient"]:
+                    gradient=True
+                else:
+                    gradient=False
+                if "auxiliary_variables" in item:
+                    auxiliaries = item["auxiliary_variables"]
+                else:
+                    auxiliaries = ""
+                if "constants" in item:
+                    constants = item["constants"]
+                else:
+                    constants = ""
+                
+                coefficients.append((item["expression"], item["variables"], auxiliaries, constants, item["class_name"], item["outputfile"], gradient))
+            
+        except json.JSONDecodeError:
+            print("Error: Failed to decode JSON from the file.")         
+
+    # Remove existing Cpp files
+    if args.remove:
+        for coef in coefficients:
+            output_cpp_file = coef[-2]        
+            cpp_file = f"{output_cpp_file}.hpp"
+            path = Path(cpp_file).resolve()
+            if path.is_file():
+                os.remove(cpp_file)
+
+    # Generate Cpp files
+    for coef in coefficients:
+        [expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient] = coef
+        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient)
+    

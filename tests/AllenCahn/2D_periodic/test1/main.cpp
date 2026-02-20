@@ -42,18 +42,13 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::F, Mobility::Constant>;
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -97,13 +92,18 @@ int main(int argc, char* argv[]) {
       const auto& mob(1.);
       const auto& lambda = 1.;
       const auto& omega = 1. / (epsilon * epsilon);
-      auto params = Parameters(Parameter("lambda", lambda), Parameter("omega", omega));
+      Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+      Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
+      Coefficient capillary(Glossary::Capillary, lambda);
+      Coefficient mobility(Glossary::Mobility, mob);
+      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
       // ####################
       //     variables     //
       // ####################
       auto analytical_solution = AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide, 1.);
 
-      auto vars = VARS(VAR(&spatial, bcs, "phi", 2, analytical_solution, analytical_solution));
+      auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, analytical_solution,
+                           analytical_solution));
 
       // ###########################################
       // ###########################################
@@ -127,26 +127,13 @@ int main(int argc, char* argv[]) {
       std::vector<SPA*> spatials{&spatial};
       std::vector<AnalyticalFunctions<DIM> > src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega));
-      OPE oper(spatials, params, TimeScheme::from(time_scheme), src_term);
-      oper.overload_mobility(Parameters(Parameter("mob", mob)));
+      OPE oper(spatials, {"AllenCahn"}, TimeScheme::from(time_scheme), "TimeDerivative", src_term);
 
       auto pst = PST(&spatial, p_pst);
-      PB problem1("AllenCahn", oper, vars, pst);
+      PB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
 
-      auto user_func = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& x, double time) { return 0.; });
-
-      auto initial_rank = AnalyticalFunctions<DIM>(user_func);
-      auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", 2, initial_rank));
-      calculation_path = "ProblemMPI_";
-      auto p_pst2 = Parameters(Parameter("main_folder_path", main_folder_path),
-                               Parameter("calculation_path", calculation_path),
-                               Parameter("frequency", frequency),
-                               Parameter("level_of_detail", level_of_detail));
-      auto pst2 = PST(&spatial, p_pst2);
-      PB1 problem2(vars1, pst2);
       // Coupling 1
-      auto cc = Coupling("AllenCahn-MPI Coupling", problem2, problem1);
+      auto cc = Coupling("AllenCahn Coupling", problem1);
 
       // ###########################################
       // ###########################################

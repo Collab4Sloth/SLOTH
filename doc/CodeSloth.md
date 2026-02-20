@@ -2,7 +2,7 @@
 
 - Data:
   - [Analytical Functions](@ref analytical)
-  - Coefficients	
+  - [Coefficients](@ref coefficients)	
   - Parameters
   - Variables
   - [Options](@ref Options)
@@ -15,7 +15,7 @@
   - [Time](@ref time)		
   - [Couplings](@ref couplings)		
   - [Problems](@ref ProblemBase)	
-  - [Solvers](@ref SolverBase)	
+  - [Solvers](@ref SolverBase)		
   - [Convergence](@ref Convergence)
 
 - PostProcessing

@@ -1,0 +1,16 @@
+[
+	{
+	"expression":"a*x+b*y+c*z",
+	"variables":"x,y z",
+	"constants":"(a:2.0),(b:30.0),(c:0.1)",
+	"class_name":"FunctionA",
+	"outputfile":"Function"
+	}
+	,
+	{
+	"expression":"2*x*x+30*x*y+0.1*z*x*y",
+	"variables":"x y z",
+	"class_name":"FunctionB",
+	"outputfile":"OtherFunction"
+	}
+]

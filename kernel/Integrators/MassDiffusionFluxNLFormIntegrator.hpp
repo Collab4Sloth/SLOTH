@@ -5,24 +5,24 @@
  * balance equation
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include <algorithm>
@@ -43,7 +43,8 @@
  * @brief  Class dedicated to the VF of  diffusion flux (gradient of chemical potential) used in
  * mass balance equation
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<VARS> {
@@ -82,8 +83,9 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
 
  public:
   MassDiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                                    const Parameters& params, std::vector<VARS*> auxvars);
-  ~MassDiffusionFluxNLFormIntegrator();
+                                    const std::vector<mfem::ParGridFunction>& aux_old,
+                                    const Parameters& params, std::vector<VARS*> auxvars,
+                                    const std::vector<Coefficients>& coefficients);
 };
 
 ////////////////////////////////////////////////////////
@@ -92,9 +94,23 @@ class MassDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrator<V
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Return parameters required by these integrators
+ * @brief Retrieve and initialize model parameters from the parameter set.
  *
- * @tparam VARS
+ * This function reads the parameters required by the integrator from `params_` and stores them
+ * in the corresponding member variables.
+ *
+ * The following parameters are queried:
+ * - `ScaleVariablesByTemperature` (bool, optional): flag to indicate if variables are divided by
+ * temperature.
+ * - `ScaleCoefficientsByTemperature` (bool, optional): flag to indicate if diffusion coefficients
+ * are divided by temperature.
+ * - `EnableDiffusionChemicalPotentials` (bool, optional): falg to indicate if diffusion chemical
+ * potentials are considered.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre `params_` must be initialized and contain the required entries.
  */
 template <class VARS>
 void MassDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
@@ -112,41 +128,46 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
 }
 
 /**
- * @brief Construct a new MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator
- * object
+ * @brief Construct a new MassDiffusionFluxNLFormIntegrator object.
  *
- * @tparam VARS
- * @param u_old
- * @param params
- * @param auxvars
+ * This constructor initializes the nonlinear form integrator. It forwards the provided previous
+ * solution fields, simulation parameters, auxiliary variables, and coefficients to the base
+ * DiffusionFlux nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
 template <class VARS>
 MassDiffusionFluxNLFormIntegrator<VARS>::MassDiffusionFluxNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : DiffusionFluxNLFormIntegrator<VARS>(u_old, params, auxvars) {
+    const std::vector<mfem::ParGridFunction>& u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : DiffusionFluxNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
   this->get_parameters();
-
   this->check_variables_consistency();
 }
 
 /**
- * @brief Check variables consistency
+ * @brief  Check variables consistency
  *
- * @tparam VARS
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
 template <class VARS>
 void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
-  std::vector<mfem::ParGridFunction> aux_gf = this->get_aux_gf();
-  std::vector<std::vector<std::string>> aux_infos = this->get_aux_infos();
-
   //==========================================================
   // Get chemical potentials and mobilities (aux. variables)
   //==========================================================
   bool temperature_found = false;
   std::set<std::string> set_mob, set_pot, set_dpot;
-  for (std::size_t i = 0; i < aux_infos.size(); ++i) {
-    const auto& variable_info = aux_infos[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
 
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
@@ -164,7 +185,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
           "getting chemical potentials. Expected [element, 'mu']");
 
       const std::string& elem_name = variable_info[0];
-      this->mu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->mu_gf_.emplace(toUpperCase(elem_name), std::move(this->aux_gf_[i]));
       this->mu_found_ = true;
       set_pot.insert(elem_name);
     } else if (symbol == "dmu" && this->enable_diffusion_chemical_potentials_) {
@@ -174,7 +195,7 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
           "getting diffusion chemical potentials. Expected [element, 'dmu']");
 
       const std::string& elem_name = variable_info[0];
-      this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->dmu_gf_.emplace(toUpperCase(elem_name), std::move(this->aux_gf_[i]));
       this->dmu_found_ = true;
       set_dpot.insert(elem_name);
     } else if (symbol == "inter_mob") {
@@ -187,13 +208,13 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 
       const std::string& elem_name = toUpperCase(variable_info[vsize - 2]);
 
-      this->mob_gf_.emplace(toUpperCase(elem_name), std::move(aux_gf[i]));
+      this->mob_gf_.emplace(toUpperCase(elem_name), std::move(this->aux_gf_[i]));
       this->mobilities_found_ = true;
       set_mob.insert(elem_name);
     } else if (toUpperCase(variable_info.back()) == "T") {
       // this->temp_gf_ = std::move(aux_gf[i]);
       // const std::string& elem_name = toUpperCase(variable_info[vsize - 2]);
-      this->temp_gf_.emplace_back(std::move(aux_gf[i]));
+      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
       temperature_found = true;
     }
   }
@@ -242,10 +263,16 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::check_variables_consistency() {
 }
 
 /**
- * @brief Return the gradient part of the mass diffusion flux
+ * @brief Compute the diffusion flux at the integration point
  *
- * @tparam VARS
- * @return std::vector<mfem::Vector>
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The diffusion flux at integration point
  */
 template <class VARS>
 std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient(
@@ -259,13 +286,16 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
 }
 
 /**
- * @brief Return the coefficient part of the mass diffusion flux
+ * @brief Compute the diffusion coefficients at the integration point
  *
- * @tparam VARS
- * @param Tr
- * @param nElement
- * @param ip
- * @return std::vector<double>
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The diffusion coefficients at integration point
  */
 template <class VARS>
 std::vector<double> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficient(
@@ -287,11 +317,17 @@ std::vector<double> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_coefficien
 }
 
 /**
- * @brief Return the gradient part of the diffusion flux calculated with diffusion chemical
- * potentials (dmu)
+ * @brief The diffusion flux calculated with diffusion chemical potentials (dmu)
  *
- * @tparam VARS
- * @return std::vector<mfem::Vector>
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The diffusion flux calculated with diffusion chemical
+ * potentials at integration point
  */
 template <class VARS>
 std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient_dmu(
@@ -313,10 +349,16 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
 }
 
 /**
- * @brief Return the gradient part of the diffusion flux calculated with chemical potentials (mu)
+ * @brief The diffusion flux calculated with chemical potentials (mu)
  *
- * @tparam VARS
- * @return std::vector<mfem::Vector>
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The diffusion flux calculated with chemical potentials at integration point
  */
 template <class VARS>
 std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_gradient_mu(
@@ -339,11 +381,16 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
 }
 
 /**
- * @brief Return the cross thermal flux
+ * @brief The thermal diffusion flux at the integration point
  *
- * @tparam VARS
- * @param potential
- * @return mfem::Vector
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param nElement number of the element
+ * @param ip Integration point
+ * @param dim Spatial dimension
+ *
+ * @return The thermal diffusion flux at the integration point
  */
 template <class VARS>
 void MassDiffusionFluxNLFormIntegrator<VARS>::get_cross_thermal_flux(
@@ -361,12 +408,3 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_cross_thermal_flux(
   grad_pot /= temp_at_ip;
   grad_pot -= gradT;
 }
-
-/**
- * @brief Destroy the MassDiffusionFluxNLFormIntegrator<
- * VARS>::MassDiffusionFluxNLFormIntegrator object
- *
- * @tparam VARS
- */
-template <class VARS>
-MassDiffusionFluxNLFormIntegrator<VARS>::~MassDiffusionFluxNLFormIntegrator() {}

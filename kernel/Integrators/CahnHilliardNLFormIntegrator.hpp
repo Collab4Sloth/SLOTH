@@ -24,15 +24,12 @@
  *
  */
 #include <algorithm>
+#include <list>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "Coefficients/LambdaCoefficient.hpp"
-#include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/OmegaCoefficient.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameters.hpp"
@@ -42,70 +39,58 @@
 #pragma once
 
 /**
- * @brief Class dedicated to the FV of the Allen Cahn equation
+ * @brief Class dedicated to the VF of the RHS of the Cahn-Hilliard equation (splitted form) (see
+ * SplitTimeDerivative integrator for the LHS)
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-class CahnHilliardNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
-                                     public SlothNLFormIntegrator<VARS> {
+template <class VARS>
+class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  std::list<GlossaryType> expected_list_{GlossaryType::Mobility, GlossaryType::Capillary,
+                                         GlossaryType::FreeEnergy};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
-
-  PotentialFunctions<1, SCHEME, ENERGY> energy_first_derivative_potential_;
-  PotentialFunctions<2, SCHEME, ENERGY> energy_second_derivative_potential_;
-
-  template <typename... Args>
-  double mobility(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-                  const Parameters& parameters);
-
-  template <typename... Args>
-  double omega(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-               const Parameters& parameters);
-
-  template <typename... Args>
-  double lambda(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-                const Parameters& parameters);
-
-  FType double_well_derivative(const int order_derivative, mfem::ElementTransformation& Tr,
-                               const mfem::IntegrationPoint& ir);
 
   void check_variables_consistency();
 
  protected:
-  std::vector<mfem::ParGridFunction> u_old_;
-  std::vector<mfem::ParGridFunction> aux_gf_;
-  std::vector<mfem::Vector> aux_old_gf_;
-  std::vector<std::vector<std::string>> aux_gf_infos_;
+  Coefficients lambda;
+  Coefficients mobility;
+  Coefficients double_well_energy;
+
+  std::vector<mfem::ParGridFunction> vaux_gf_;
   std::vector<mfem::ParGridFunction> temp_gf_;
   bool scale_mobility_by_temperature_{false};
 
-  virtual FType energy_derivatives(const int order_derivative, mfem::ElementTransformation& Tr,
-                                   const mfem::IntegrationPoint& ir);
+  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values,
+                                     const std::vector<double>& aux_values);
+  virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
+                                              const std::vector<double>& values,
+                                              const std::vector<double>& aux_values);
+  virtual double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
+                                             const std::vector<double>& values,
+                                             const std::vector<double>& aux_values);
+
+  void get_coefficients() override;
 
  public:
+  void init() override;
   CahnHilliardNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
-                               const Parameters& params, std::vector<VARS*> auxvars);
-  ~CahnHilliardNLFormIntegrator();
+                               const std::vector<mfem::ParGridFunction>& aux_old,
+                               const Parameters& params, std::vector<VARS*> auxvars,
+                               const std::vector<Coefficients>& coefficients);
 
-  virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
-                                     mfem::ElementTransformation& Tr,
-                                     const mfem::Array<const mfem::Vector*>& elfun,
-                                     const mfem::Array<mfem::Vector*>& elvec);
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvec) override;
 
-  virtual void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                                   mfem::ElementTransformation& Tr,
-                                   const mfem::Array<const mfem::Vector*>& elfun,
-                                   const mfem::Array2D<mfem::DenseMatrix*>& elmats);
-
-  std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>> get_energy(
-      std::vector<mfem::ParGridFunction*> gfu, const double omega);
-  std::unique_ptr<GradientEnergyCoefficient> get_grad_energy(
-      std::vector<mfem::ParGridFunction*> gfu, const double lambda);
+  void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
+                           mfem::ElementTransformation& Tr,
+                           const mfem::Array<const mfem::Vector*>& elfun,
+                           const mfem::Array2D<mfem::DenseMatrix*>& elmats) override;
 };
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -113,178 +98,74 @@ class CahnHilliardNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator,
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Energy derivatives contribution
+ * @brief Construct a new CahnHilliardNLFormIntegrator object.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param order_derivative
- * @return FuncType
+ * This constructor initializes a nonlinear form integrator for Cahn-Hilliard-type
+ * problems. It forwards the provided previous solution fields, simulation
+ * parameters, auxiliary variables, and coefficients to the base
+ * SLOTH nonlinear form integrator.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @param u_old        Vector of previous-time-step solution fields.
+ * @param params       Paramters that can be used with the integrator.
+ * @param auxvars      Auxiliary variables required by the inetgrator.
+ * @param coefficients List of coefficients defining material properties.
+ *
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-FType CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::energy_derivatives(
-    const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
-  return [this, order_derivative, &Tr, &ir](const double& u) {
-    return this->double_well_derivative(order_derivative, Tr, ir)(u);
-  };
-}
-
-/**
- * @brief Return the value of the mobility coefficient at integration point
- *
- * @remark Actually, only explicit mobility is available. (See diffusion integrator  to extend
- * towards implicit mobility. )
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam Args
- * @param Tr
- * @param ip
- * @param u
- * @param parameters
- * @return double
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-template <typename... Args>
-double CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::mobility(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-    const Parameters& parameters) {
-  const int nElement = Tr.ElementNo;
-  // TODO(cci) return vector of double
-  MobilityCoefficient<0, MOBI> mobi_coeff(&this->u_old_[0], parameters);
-  double mob_coeff = mobi_coeff.Eval(Tr, ip);
-
-  return mob_coeff;
-}
-
-/**
- * @brief Return the value of the omega coefficient at integration point
- *
- * @remark Actually, only constant omega is available.
- *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam Args
- * @param Tr
- * @param ip
- * @param u
- * @param parameters
- * @return double
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-template <typename... Args>
-double CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::omega(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-    const Parameters& parameters) {
-  OmegaCoefficient<0, Omega::Constant> omega_coeff(&this->u_old_[0], parameters);
-  return omega_coeff.Eval(Tr, ip);
-}
-/**
- * @brief Return the value of the lambda coefficient at integration point
- *
- * @remark Actually, only constant lambda is available.
- *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam Args
- * @param Tr
- * @param ip
- * @param u
- * @param parameters
- * @return double
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-template <typename... Args>
-double CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::lambda(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip, const double u,
-    const Parameters& parameters) {
-  LambdaCoefficient<0, Lambda::Constant> lambda_coeff(&this->u_old_[0], parameters);
-  return lambda_coeff.Eval(Tr, ip);
-}
-
-/**
- * @brief double_well_derivative contribution
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param order_derivative
- * @return std::function<double(const double&, const double&)>
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-FType CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::double_well_derivative(
-    const int order_derivative, mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir) {
-  return FType([this, order_derivative, &Tr, &ir](const double& u) {
-    const auto& un = this->u_old_[0].GetValue(Tr, ir);
-    FType W_derivative;
-    if (order_derivative == 1) {
-      W_derivative = this->energy_first_derivative_potential_.getPotentialFunction(un);
-    } else if (order_derivative == 2) {
-      W_derivative = this->energy_second_derivative_potential_.getPotentialFunction(un);
-    } else {
-      std::runtime_error("Error while setting the order of derivative : only 1 and 2 are allowed.");
-    }
-    const double omega = this->omega(Tr, ir, u, this->params_);
-
-    const auto& w_prime = omega * W_derivative(u);
-    return w_prime;
-  });
-}
-
-/**
- * @brief Construct a new CahnHilliardNLFormIntegrator object
- *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param u_old
- * @param omega
- * @param lambda
- * @param mob
- */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::CahnHilliardNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
-    std::vector<VARS*> auxvars)
-    : SlothNLFormIntegrator<VARS>(params, auxvars), u_old_(u_old) {
+template <class VARS>
+CahnHilliardNLFormIntegrator<VARS>::CahnHilliardNLFormIntegrator(
+    const std::vector<mfem::ParGridFunction>& u_old,
+    const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
+    std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
+    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+  this->integrator_name_ = "CahnHilliard";
   this->check_variables_consistency();
 }
 
 /**
- * @brief Check variables consistency
+ * @brief Initialize the CahnHilliard integrator.
  *
- * @tparam VARS
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * This method performs all necessary setup steps for a CahnHilliard-type
+ * nonlinear form integrator:
+ * 1. Verifies that the list of expected coefficient types is not empty.
+ * 2. Checks that all coefficients contain the expected types.
+ * 3. Retrieves and stores the coefficients internally.
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ *
+ * @pre The integrator's 'expected_list_' is populated with the
+ *      required coefficient types for this CahnHilliard integrator.
+ *
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_consistency() {
-  this->aux_gf_ = this->get_aux_gf();
-  this->aux_old_gf_ = this->get_aux_old_gf();
-  this->aux_gf_infos_ = this->get_aux_infos();
+template <class VARS>
+void CahnHilliardNLFormIntegrator<VARS>::init() {
+  this->check_coefficient_types(this->expected_list_);
+  this->get_coefficients();
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
+}
 
+/**
+ * @brief  Check variables consistency
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ */
+template <class VARS>
+void CahnHilliardNLFormIntegrator<VARS>::check_variables_consistency() {
   // Temperature scaling for mobility
   bool temperature_found = false;
-  for (std::size_t i = 0; i < this->aux_gf_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_gf_infos_[i];
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
     size_t vsize = variable_info.size();
 
     MFEM_VERIFY(vsize >= 1,
-                "CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>: at least "
+                "CahnHilliardNLFormIntegrator<VARS>: at least "
                 "one additionnal information is expected for auxiliary variables associated with "
                 "this integrator");
     const std::string& symbol = toUpperCase(variable_info.back());
@@ -307,21 +188,60 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::check_variables_c
 }
 
 /**
- * @brief Residual part of the non linear problem
+ * @brief Retrieve and store the coefficients required by the Cahn-Hilliard integrator.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elvect
+ * This method collects the coefficients of type `Capillary`, `Mobility`, and `FreeEnergy`
+ * from each coefficients and adds them to the corresponding internal storage:
+ * - 'lambda' stores the capillary coefficients,
+ * - 'mobility' stores the mobility coefficients,
+ * - 'double_well_energy' stores the free energy coefficients.
+ *
+ * Only coefficients with ID 0 are considered for each block.
+ *
+ * @remark This method can be overridden in derived classes to provide
+ *         custom behavior for retrieving coefficients.
+ *
+ * @tparam VARS Template parameter defining the variabls used in the integrator.
+ *
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVector(
+template <class VARS>
+void CahnHilliardNLFormIntegrator<VARS>::get_coefficients() {
+  for (unsigned int i = 0; i < this->nb_blk_; i++) {
+    if (this->get_coefficient(i, GlossaryType::Capillary, 0).has_value()) {
+      lambda.add(*(this->get_coefficient(i, GlossaryType::Capillary, 0)));
+    }
+    if (this->get_coefficient(i, GlossaryType::Mobility, 0).has_value()) {
+      mobility.add(*(this->get_coefficient(i, GlossaryType::Mobility, 0)));
+    }
+    if (this->get_coefficient(i, GlossaryType::FreeEnergy, 0).has_value()) {
+      double_well_energy.add(*(this->get_coefficient(i, GlossaryType::FreeEnergy, 0)));
+    }
+  }
+}
+
+/**
+ * @brief Assemble the element-level residual vector for the nonlinear problem.
+ *
+ * This method computes the residual vector of the CahnHilliard-type nonlinear problem by element
+ *
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element residual contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
+ */
+template <class VARS>
+void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  std::vector<double> vaux_gf_at_ip;
+
   //
   // Block 0 R(phi)=mu - w' + div lambda grad phi
   //
@@ -346,20 +266,24 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVe
       Tr.SetIntPoint(&ip);
 
       const auto& mu = *elfun[off_blk] * Psi;
-
       const auto& phi = *elfun[blk] * Psi;
+      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      // Get aux values at ip TODO(cci) (move in method)
+      vaux_gf_at_ip.clear();
+      for (const auto& aux_gf : vaux_gf_) {
+        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      }
 
       const double xx = ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      const double lambda = this->lambda(Tr, ip, phi, this->params_);
 
-      gradU *= -xx * lambda;
+      gradU *= -xx * this->compute_coefficient(lambda[blk], {phi, phin}, vaux_gf_at_ip);
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // Given u, compute (w'(u), psi), psi is shape function
-
-      const double ww = xx * (mu - this->energy_derivatives(1, Tr, ip)(phi));
+      const double ww = xx * (mu - this->compute_gradient_coefficient(double_well_energy[blk], blk,
+                                                                      {phi, phin}, vaux_gf_at_ip));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -387,40 +311,46 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementVe
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& mu = *elfun[blk] * Psi;
       const auto& phi = *elfun[off_blk] * Psi;
+      const auto& phin = this->u_old_[off_blk].GetValue(Tr, ip);
+      vaux_gf_at_ip.clear();
+      for (const auto& aux_gf : vaux_gf_) {
+        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      }
 
-      const double coef_mob = this->mobility(Tr, ip, phi, this->params_) * ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      gradU *= coef_mob;
+      gradU *= this->compute_coefficient(mobility[off_blk], {phi, phin}, vaux_gf_at_ip) *
+               ip.weight * Tr.Weight();
       gradPsi.AddMult(gradU, *elvect[blk]);
     }
   }
 }
 
 /**
- * @brief Jacobian part of the non linear problem
+ * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param el
- * @param Tr
- * @param elfun
- * @param elmat
+ * This method computes the Jacobian matrix of a CahHilliard-type nonlinear problem by element.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elmat   Array of dense matrices where the computed element Jacobian contributions
+ *                will be stored.
+ *
+ * @note Users typically do not call this function directly; it is invoked
+ *       internally during the assembly of the global nonlinear form.
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGrad(
+template <class VARS>
+void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // loop over diagonal entries
-  int num_blocks = el.Size();
+  std::vector<double> vaux_gf_at_ip;
 
   // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
-
   {
     int blk = 0;
     mfem::DenseMatrix gradPsi;
@@ -440,16 +370,26 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGr
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
+
       const auto& phi = *elfun[blk] * Psi;
+      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+
+      // Get aux values at ip TODO(cci) (move in method)
+      vaux_gf_at_ip.clear();
+      for (const auto& aux_gf : vaux_gf_) {
+        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      }
 
       const double xx = -ip.weight * Tr.Weight();
+
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
-      const double lambda = this->lambda(Tr, ip, phi, this->params_);
+      const double coef_lambda = this->compute_coefficient(lambda[blk], {phi, phin}, vaux_gf_at_ip);
 
-      AddMult_a_AAt(xx * lambda, gradPsi, *elmats(blk, blk));
+      AddMult_a_AAt(xx * coef_lambda, gradPsi, *elmats(blk, blk));
 
-      double fun_val = xx * this->energy_derivatives(2, Tr, ip)(phi);
+      double fun_val = xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
+                                                              {phi, phin}, vaux_gf_at_ip);
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -517,8 +457,15 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGr
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
+      vaux_gf_at_ip.clear();
+      for (const auto& aux_gf : vaux_gf_) {
+        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      }
       const auto& phi = *elfun[off_blk] * Psi;
-      const double coef_mob = this->mobility(Tr, ip, phi, this->params_) * ip.weight * Tr.Weight();
+      const auto& phin = this->u_old_[off_blk].GetValue(Tr, ip);
+
+      const double coef_mob = this->compute_coefficient(mobility[blk], {phi, phin}, vaux_gf_at_ip) *
+                              ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
       AddMult_a_AAt(coef_mob, gradPsi, *elmats(blk, blk));
@@ -527,50 +474,95 @@ void CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::AssembleElementGr
 }
 
 /**
- * @brief Return the energy coefficient associated with the integrator
+ * @brief Return the value of the coefficient
+ * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
+ * class variable aux_gf_
+
+ * @tparam VARS Template parameter defining the variables used in the integrator.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @tparam Args
- * @param gfu
- * @param lambda
- * @param omega
- * @return EnergyCoefficient<SCHEME, ENERGY>
+ * @param coef   Coefficient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+
+ * @return The computed scalar value of the coefficient.
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-std::unique_ptr<HomogeneousEnergyCoefficient<ENERGY>>
-CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_energy(
-    std::vector<mfem::ParGridFunction*> gfu, const double omega) {
-  return std::make_unique<HomogeneousEnergyCoefficient<ENERGY>>(gfu[0], omega);
+template <class VARS>
+double CahnHilliardNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::vector<double>& values, const std::vector<double>& aux_values) {
+  double coef_value = 0.0;
+  if (coef.is_scalar()) {
+    coef_value = coef.compute();
+  } else {
+    std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
+    std::vector<double> un(values.begin() + this->nb_blk_ - 1, values.end());
+    if (coef.is_implicit()) {
+      coef_value = coef.compute(u, aux_values);
+    } else if (coef.is_explicit()) {
+      coef_value = coef.compute(un, aux_values);
+    }
+  }
+  return coef_value;
 }
 
 /**
- * @brief  Return the gradient energy coefficient associated with the integrator
+ * @brief Compute the value of a specific component of the gradient of a coefficient.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
- * @param gfu
- * @param lambda
- * @return GradientEnergyCoefficient
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to the specified index 'blk'. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param iblk    Index of the gradient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the coefficient.
+ *
+ * @note This function can be overridden in derived classes.
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-std::unique_ptr<GradientEnergyCoefficient>
-CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::get_grad_energy(
-    std::vector<mfem::ParGridFunction*> gfu, const double lambda) {
-  return std::make_unique<GradientEnergyCoefficient>(gfu[0], lambda);
+template <class VARS>
+double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
+    Coefficient coef, const int blk, const std::vector<double>& values,
+    const std::vector<double>& aux_values) {
+  std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
+  std::vector<double> un(values.begin() + this->nb_blk_ - 1, values.end());
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    coef_value = coef.compute_gradient(blk, u, aux_values);
+  } else if (coef.is_explicit()) {
+    coef_value = coef.compute_gradient(blk, un, aux_values);
+  }
+  return coef_value;
 }
 
 /**
- * @brief Destroy the CahnHilliardNLFormIntegrator  object
+ * @brief Compute the value of a specific component of the Hessian of a  coefficient.
  *
- * @tparam SCHEME
- * @tparam ENERGY
- * @tparam MOBI
+ * This method evaluates the Hessian of the given coefficient with respect to the
+ * variables corresponding to the specified indexes 'iblk' and 'jblk'. By default,
+ * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
+ * via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose Hessian is to be computed.
+ * @param iblk   Index of the row  of the Hessian component.
+ * @param jblk   Index of the column of the Hessian component.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the Hessian component for the given coefficient.
+ *
+ * @note This function can be overridden in derived classes to implement
+ *       more complex or nonlinear Hessian evaluations.
  */
-template <class VARS, ThermodynamicsPotentialDiscretization SCHEME, ThermodynamicsPotentials ENERGY,
-          Mobility MOBI>
-CahnHilliardNLFormIntegrator<VARS, SCHEME, ENERGY, MOBI>::~CahnHilliardNLFormIntegrator() {}
+template <class VARS>
+double CahnHilliardNLFormIntegrator<VARS>::compute_hessian_coefficient(
+    Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values,
+    const std::vector<double>& aux_values) {
+  std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
+  double coef_value = 0.0;
+  if (coef.is_implicit()) {
+    coef_value = coef.compute_hessian(iblk, jblk, u, aux_values);
+  }
+  return coef_value;
+}

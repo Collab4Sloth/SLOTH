@@ -4,24 +4,24 @@
  * @brief Usefull methods for debug
  * @version 0.1
  * @date 2025-09-05
- * 
+ *
  * Copyright CEA (C) 2025
- * 
+ *
  * This file is part of SLOTH.
- * 
+ *
  * SLOTH is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * SLOTH is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 #include <sys/resource.h>
 #include <unistd.h>
@@ -46,7 +46,6 @@ class UtilsForDebug {
 
   static void memory_checkpoint(const std::string& msg);
 };
-
 /**
  * @brief This function creates a rusage variable (by rp)
  * @return rusage data type that get memory information
@@ -69,7 +68,16 @@ void UtilsForDebug::memory_checkpoint(const std::string& msg) {
   auto mem = UtilsForDebug::make_memory_checkpoint();
   std::cout << "========= MEMORY CHECKPOINT ====== " << std::endl;
   std::cout << "<<<" << msg << ">>>" << std::endl;
-  std::cout << "Memory footprint " << mem.ru_maxrss / (1024.0 * 1024.0) << " GB" << std::endl;
+#if defined(__APPLE__)
+  // macOS : ru_maxrss est en octets
+  std::cout << "Memory footprint "
+            << static_cast<double>(mem.ru_maxrss) / (1024.0 * 1024.0 * 1024.0) << " GB"
+            << std::endl;
+#else
+  // Linux : ru_maxrss est en kB
+  std::cout << "Memory footprint " << static_cast<double>(mem.ru_maxrss) / (1024.0 * 1024.0)
+            << " GB" << std::endl;
+#endif
 }
 
 /*!

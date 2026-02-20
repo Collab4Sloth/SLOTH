@@ -40,17 +40,12 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI =
-      DiffusionNLFormIntegrator<VARS, CoefficientDiscretization::Explicit, Diffusion::Constant>;
-
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = DiffusionOperator<FECollection, DIM, NLFI, Density::Constant, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -62,7 +57,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   auto refinement_level = 0;
   double L = 1e-3;
-  std::vector<int> vect_NN{10, 20, 40};
+  std::vector<int> vect_NN{10};
 
   for (const auto& NN : vect_NN) {
     SPA spatial("InlineLineWithSegments", 1, refinement_level, std::make_tuple(NN, L));
@@ -85,8 +80,8 @@ int main(int argc, char* argv[]) {
     //     variables     //
     // ####################
 
-    auto user_func_init =
-        std::function<double(const mfem::Vector&, double)>([L](const mfem::Vector& x, double time) {
+    auto user_func_init = std::function<double(const mfem::Vector&, double)>(
+        [L](const mfem::Vector& x, [[maybe_unused]] double time) {
           const auto xx = x[0];
           const auto epsilon = 1e-10;
           auto func = 0.5 * (1 + std::tanh((xx - L / 2) / epsilon));
@@ -104,7 +99,8 @@ int main(int argc, char* argv[]) {
     auto initial_condition = AnalyticalFunctions<DIM>(user_func_init);
     auto analytical_solution = AnalyticalFunctions<DIM>(user_func_analytical);
 
-    auto vars = VARS(VAR(&spatial, bcs, "c", 2, initial_condition, analytical_solution));
+    auto vars = VARS(
+        VAR(&spatial, bcs, "c", Glossary::MoleFraction, 2, initial_condition, analytical_solution));
 
     // ###########################################
     // ###########################################
@@ -122,16 +118,17 @@ int main(int argc, char* argv[]) {
     // ####################
     //     operators     //
     // ####################
+    Coefficient D(Glossary::Diffusivity, diffusionCoeff);
+    Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
+    Coefficients CoeffDiffusion(D, FW);
 
     // Problem 1:
-    const auto crit_cvg_1 = 1.e-12;
     std::vector<SPA*> spatials{&spatial};
-    OPE oper(spatials, TimeScheme::EulerImplicit);
-    oper.overload_diffusion(Parameters(Parameter("D", diffusionCoeff)));
+    OPE oper(spatials, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
     auto pst = PST(&spatial, p_pst);
 
-    PB problem1("Problem 1", oper, vars, pst);
+    PB problem1("Problem 1", oper, vars, {CoeffDiffusion}, pst);
 
     // Coupling 1
     auto cc = Coupling("coupling 1 ", problem1);

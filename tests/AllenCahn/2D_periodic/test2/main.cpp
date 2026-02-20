@@ -40,16 +40,12 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = AllenCahnNLFormIntegrator<VARS, ThermodynamicsPotentialDiscretization::Implicit,
-                                         ThermodynamicsPotentials::W, Mobility::Constant>;
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
@@ -90,7 +86,11 @@ int main(int argc, char* argv[]) {
   const auto& sigma = 6.e-2;
   const auto& lambda = 3. * sigma * epsilon / 2.;
   const auto& omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("lambda", lambda), Parameter("omega", omega));
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
   // ####################
   //     variables     //
   // ####################
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
   auto analytical_solution = AnalyticalFunctions<DIM>(
       AnalyticalFunctionsType::HyperbolicTangent, center_x, center_y, a_x, a_y, epsilon, radius);
 
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, initial_condition));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, initial_condition));
 
   // ###########################################
   // ###########################################
@@ -126,10 +126,9 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, params, TimeScheme::EulerImplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   auto pst = PST(&spatial, p_pst);
-  PB problem1("AllenCahn", oper, vars, pst);
+  PB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

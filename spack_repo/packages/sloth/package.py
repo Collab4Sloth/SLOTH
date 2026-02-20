@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 # Contributions made by CEA, France
 
-from spack import *
+from spack_repo.builtin.build_systems.cmake import CMakePackage
+from spack.package import *
+
 import os
 import shutil
 
@@ -13,8 +15,8 @@ class Sloth(CMakePackage):
     homepage = "https://github.com/Collab4Sloth/SLOTH"
     url      = "https://github.com/Collab4Sloth/SLOTH.git"
 
-    version('master', git='https://github.com/Collab4Sloth/SLOTH.git',  branch='master', preferred=True)
-    version('1.0.0', git='https://github.com/Collab4Sloth/SLOTH.git',  tag='v1.0.0', preferred=True)
+    version("master",  branch='master', preferred=True)
+    version("1.0.0",  tag='v1.0.0')
 
     variant('petsc'       , default=False  , description='Enable PETSc solvers, preconditioners, etc.')
 

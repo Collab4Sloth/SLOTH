@@ -39,20 +39,13 @@ int main(int argc, char* argv[]) {
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
-  using PSTCollection = Test<DIM>::PSTCollection;
   using PST = Test<DIM>::PST;
   using SPA = Test<DIM>::SPA;
   using BCS = Test<DIM>::BCS;
   /////////////////////////
 
-  using NLFI = AllenCahnConstantMeltingNLFormIntegrator<
-      VARS, ThermodynamicsPotentialDiscretization::Implicit, ThermodynamicsPotentials::W,
-      Mobility::Constant, ThermodynamicsPotentials::H>;
-
-  using LHS_NLFI = TimeNLFormIntegrator<VARS>;
-  using OPE = PhaseFieldOperator<FECollection, DIM, NLFI, LHS_NLFI>;
+  using OPE = TransientOperator<FECollection, DIM>;
   using PB = Problem<OPE, VARS, PST>;
-  using PB1 = MPI_Problem<VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -89,13 +82,17 @@ int main(int argc, char* argv[]) {
   const double mob(1.e-5);
   const double lambda = 3. * sigma * epsilon / 2.;
   const double omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("epsilon", epsilon),
-                           Parameter("sigma", sigma), Parameter("lambda", lambda),
-                           Parameter("omega", omega), Parameter("melting_factor", alpha));
+  auto params = Parameters(Parameter("melting_factor", alpha));
+  Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+  Coefficient interpolation(Glossary::InterpolationFunction, Scheme::Implicit, H());
+  Coefficient capillary(Glossary::Capillary, lambda);
+  Coefficient mobility(Glossary::Mobility, mob);
+  Coefficients coef_ac(double_well_imp, capillary, mobility, interpolation, grad_energy);
   // ####################
   //     variables     //
   // ####################
-  auto vars = VARS(VAR(&spatial, bcs, "phi", 2, 1., {"cluster"}));
+  auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, 1., {"cluster"}));
 
   // ###########################################
   // ###########################################
@@ -118,15 +115,15 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, params, TimeScheme::EulerImplicit);
-  oper.overload_mobility(Parameters(Parameter("mob", mob)));
+  OPE oper(spatials, {"AllenCahn", "MeltingConstant"}, params, TimeScheme::EulerImplicit,
+           "TimeDerivative");
 
   auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
                               Parameter("abs_tol", 1.e-20), Parameter("rel_tol", 1.e-20));
 
   oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
 
-  PB problem1("AllenCahn", oper, vars, pst);
+  PB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

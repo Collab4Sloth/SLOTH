@@ -251,7 +251,7 @@ struct specialized_spatial_constructor<T, 1> {
             "allowed");
         break;
     }
-
+    a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
       a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
@@ -291,8 +291,8 @@ struct specialized_spatial_constructor<T, 1> {
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
                   const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args,
-                  std::vector<mfem::Vector> translations) {
-    this->build_periodic_mesh(a_my_class, mesh_type, tup_args);
+                  [[maybe_unused]] std::vector<mfem::Vector> translations) {
+    this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
     a_my_class.apply_uniform_refinement(ref_level);
 
@@ -1034,4 +1034,8 @@ bool SpatialDiscretization<T, DIM>::is_periodic() {
  * @tparam T
  */
 template <class T, int DIM>
-SpatialDiscretization<T, DIM>::~SpatialDiscretization() {}
+SpatialDiscretization<T, DIM>::~SpatialDiscretization() {
+  delete fespace_;
+  delete mesh_;
+  delete fecollection_;
+}
