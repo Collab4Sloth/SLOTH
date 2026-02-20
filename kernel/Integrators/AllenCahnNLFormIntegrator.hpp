@@ -66,14 +66,14 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<mfem::ParGridFunction> vaux_gf_;
   std::vector<mfem::ParGridFunction> temp_gf_;
   bool scale_mobility_by_temperature_{false};
-  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values,
-                                     const std::vector<double>& aux_values);
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
+                                     const std::span<const double>& aux_values);
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::vector<double>& values,
-                                              const std::vector<double>& aux_values);
+                                              const std::span<const double>& values,
+                                              const std::span<const double>& aux_values);
   virtual double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                             const std::vector<double>& values,
-                                             const std::vector<double>& aux_values);
+                                             const std::span<const double>& values,
+                                             const std::span<const double>& aux_values);
 
   void get_coefficients() override;
 
@@ -214,7 +214,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
   std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip;
+  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("AllenCahnNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -236,9 +236,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       Tr.SetIntPoint(&ip);
 
       // Get aux values at ip TODO(cci) (move in method)
-      vaux_gf_at_ip.clear();
-      for (const auto& aux_gf : vaux_gf_) {
-        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
       }
       // Get values
       for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
@@ -250,15 +249,20 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       // given u (elfun), compute grad(u)
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      const double coef_mobi = this->compute_coefficient(mobility[blk], u_values, vaux_gf_at_ip) *
-                               ip.weight * Tr.Weight();
-      const double lamb = this->compute_coefficient(lambda[blk], u_values, vaux_gf_at_ip);
+      const double coef_mobi =
+          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip)) *
+          ip.weight * Tr.Weight();
+      const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
+                                                    std::span<const double>(vaux_gf_at_ip));
       gradU *= coef_mobi * lamb;
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // Given u, compute (w'(u), psi), psi is shape function
-      const double ww = coef_mobi * this->compute_gradient_coefficient(double_well_energy[blk], blk,
-                                                                       u_values, vaux_gf_at_ip);
+      const double ww =
+          coef_mobi * this->compute_gradient_coefficient(double_well_energy[blk], blk,
+                                                         std::span<const double>(u_values),
+                                                         std::span<const double>(vaux_gf_at_ip));
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -290,7 +294,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
   std::vector<double> u_values(2 * num_blocks);
 
   std::vector<double> vaux_gf_at_ip;
-
+  vaux_gf_at_ip.resize(vaux_gf_.size());
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
@@ -311,9 +315,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       Tr.SetIntPoint(&ip);
 
       // Get aux values at ip TODO(cci) (move in method)
-      vaux_gf_at_ip.clear();
-      for (const auto& aux_gf : vaux_gf_) {
-        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
       }
       // Get values
       for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
@@ -322,15 +325,20 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       }
 
       // Laplacian : compute (grad(u), grad(psi)), psi is shape function.
-      const double coef_mobi = this->compute_coefficient(mobility[blk], u_values, vaux_gf_at_ip) *
-                               ip.weight * Tr.Weight();
+      const double coef_mobi =
+          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip)) *
+          ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
-      const double lamb = this->compute_coefficient(lambda[blk], u_values, vaux_gf_at_ip);
+      const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
+                                                    std::span<const double>(vaux_gf_at_ip));
       AddMult_a_AAt(coef_mobi * lamb, gradPsi, *elmats(blk, blk));
 
       // Compute w'(u)*(du,psi), psi is shape function ( // w''(u))
-      double fun_val = coef_mobi * this->compute_hessian_coefficient(double_well_energy[blk], blk,
-                                                                     blk, u_values, vaux_gf_at_ip);
+      double fun_val =
+          coef_mobi * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
+                                                        std::span<const double>(u_values),
+                                                        std::span<const double>(vaux_gf_at_ip));
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
@@ -346,9 +354,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         Tr.SetIntPoint(&ip);
 
         // Get aux values at ip TODO(cci) (move in method)
-        vaux_gf_at_ip.clear();
-        for (const auto& aux_gf : vaux_gf_) {
-          vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+        for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+          vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
         }
         // Get values
         for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
@@ -357,12 +364,14 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         }
 
         const double coef_mobi =
-            this->compute_coefficient(mobility[jblk], u_values, vaux_gf_at_ip) * ip.weight *
-            Tr.Weight();
+            this->compute_coefficient(mobility[jblk], std::span<const double>(u_values),
+                                      std::span<const double>(vaux_gf_at_ip)) *
+            ip.weight * Tr.Weight();
 
         double fun_val =
             coef_mobi * this->compute_hessian_coefficient(double_well_energy[jblk], blk, jblk,
-                                                          u_values, vaux_gf_at_ip);
+                                                          std::span<const double>(u_values),
+                                                          std::span<const double>(vaux_gf_at_ip));
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }
@@ -376,9 +385,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         Tr.SetIntPoint(&ip);
 
         // Get aux values at ip TODO(cci) (move in method)
-        vaux_gf_at_ip.clear();
-        for (const auto& aux_gf : vaux_gf_) {
-          vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+        for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+          vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
         }
         // Get values
         for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
@@ -387,12 +395,14 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         }
 
         const double coef_mobi =
-            this->compute_coefficient(mobility[jblk], u_values, vaux_gf_at_ip) * ip.weight *
-            Tr.Weight();
+            this->compute_coefficient(mobility[jblk], std::span<const double>(u_values),
+                                      std::span<const double>(vaux_gf_at_ip)) *
+            ip.weight * Tr.Weight();
 
         double fun_val =
             coef_mobi * this->compute_hessian_coefficient(double_well_energy[jblk], blk, jblk,
-                                                          u_values, vaux_gf_at_ip);
+                                                          std::span<const double>(u_values),
+                                                          std::span<const double>(vaux_gf_at_ip));
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }
@@ -444,22 +454,18 @@ void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {
  * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
-double AllenCahnNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                            const std::vector<double>& values,
-                                                            const std::vector<double>& aux_values) {
-  double coef_value = 0.0;
+double AllenCahnNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   if (coef.is_scalar()) {
-    coef_value = coef.compute();
+    return coef.compute();
   } else {
-    std::vector<double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::vector<double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_implicit()) {
-      coef_value = coef.compute(u, aux_values);
-    } else if (coef.is_explicit()) {
-      coef_value = coef.compute(un, aux_values);
-    }
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute(input, aux_values);
   }
-  return coef_value;
 }
 
 /**
@@ -481,17 +487,13 @@ double AllenCahnNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
  */
 template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::vector<double>& values,
-    const std::vector<double>& aux_values) {
-  std::vector<double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::vector<double> un(values.begin() + this->nb_blk_, values.end());
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(blk, u, aux_values);
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute_gradient(blk, un, aux_values);
-  }
-  return coef_value;
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
+  const std::span<const double>& input = coef.is_implicit() ? u : un;
+  return coef.compute_gradient(blk, input, aux_values);
 }
 
 /**
@@ -516,9 +518,9 @@ double AllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
  */
 template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values,
-    const std::vector<double>& aux_values) {
-  std::vector<double> u(values.begin(), values.begin() + this->nb_blk_);
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     coef_value = coef.compute_hessian(iblk, jblk, u, aux_values);

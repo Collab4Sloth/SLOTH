@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
       SlothInfo::print("Running test case 0: variable evaluation");
       Coefficient coeff(Glossary::Temperature, Scheme::Implicit, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
-        auto result = coeff.compute({2, 3, 1});
+        auto result = coeff.compute(std::array{2.0, 3.0, 1.0});
         if (std::abs(result - 94.1) > epsilon) {
           throw std::runtime_error("Wrong variable evaluation");
         }
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
       SlothInfo::print("Running test case 2: wrong number of arguments");
       Coefficient coeff(Glossary::Temperature, Scheme::Implicit, "2*x+30*y+0.1*z", "x", "y", "z");
       try {
-        const double bad_result = coeff.compute({1.0, 2.0});
+        const double bad_result = coeff.compute(std::array{1.0, 2.0});
       } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
@@ -172,14 +172,14 @@ int main(int argc, char* argv[]) {
       std::vector<double> hessian_solution{4.0, 30.1, 0.3, 30.1, 0.0, 0.2, 0.3, 0.2, 0.0};
       try {
         for (int i = 0; i < 3; i++) {
-          const double gradient_i = coeff.compute_gradient(i, {2, 3, 1});
+          const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
             throw std::runtime_error("Wrong gradient evaluation");
           }
 
           for (int j = 0; j < 3; j++) {
-            const double hessian_ij = coeff.compute_hessian(i, j, {2, 3, 1});
+            const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
               throw std::runtime_error("Wrong hessian evaluation");

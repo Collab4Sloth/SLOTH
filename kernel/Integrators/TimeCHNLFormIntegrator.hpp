@@ -25,6 +25,7 @@
  */
 #include <algorithm>
 #include <list>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -56,7 +57,7 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::list<GlossaryType> expected_list_;
   Coefficients coefficient_A;
   void get_coefficients() override;
-  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values);
 
  public:
   void init() override;
@@ -236,7 +237,8 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
       const auto& phi = *elfun[off_blk] * Psi;
       const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
-      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
+      double coef_a =
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({phi, phin}));
       const double ww = coef_a * phi * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -321,7 +323,8 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
       const auto& phi = *elfun[blk] * Psi;
       const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
 
-      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {phi, phin});
+      double coef_a =
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({phi, phin}));
       double w = coef_a * Tr.Weight() * ip.weight;
       AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }
@@ -353,9 +356,9 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
  */
 template <class VARS>
 double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                         const std::vector<double>& values) {
-  // const double u = values[0];
-  const double un = values[1];
+                                                         const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     // coef_value = coef.compute({u});
@@ -363,7 +366,7 @@ double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                 "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
                 "check your data.");
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute({un});
+    coef_value = coef.compute(un);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }

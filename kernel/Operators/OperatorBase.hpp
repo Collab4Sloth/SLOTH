@@ -102,7 +102,6 @@ class OperatorBase : public mfem::Operator {
   mutable mfem::Vector z;  // auxiliary vector
 
   std::vector<std::string> rhs_integrators_;
-  std::vector<SlothNLFormIntegrator<Variables<T, DIM>>*> nlfi_ptr_;
 
   void build_rhs_nonlinear_form(const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
@@ -169,7 +168,6 @@ class OperatorBase : public mfem::Operator {
   void overload_preconditioner(VSolverType PRECOND, const Parameters& p_params);
 
   // Virtual methods
-  // virtual void initialize(const double &initial_time, Variables<T, DIM> &vars);
   virtual void initialize(const double& initial_time, Variables<T, DIM>& vars,
                           std::vector<Variables<T, DIM>*> auxvars);
 
@@ -508,7 +506,7 @@ void OperatorBase<T, DIM>::SetNewtonAlgorithm(mfem::Operator* oper) {
   this->rhs_solver_ =
       new NLSolver(this->nl_solver_, this->nl_solver_params_, this->solver_, this->solver_params_,
                    this->precond_, this->precond_params_, *oper);
-
+  this->newton_solver_.reset();
   this->newton_solver_ = this->rhs_solver_->get_nl_solver();
 }
 

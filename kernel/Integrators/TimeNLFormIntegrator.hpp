@@ -25,6 +25,7 @@
  */
 #include <algorithm>
 #include <list>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,7 +58,7 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficients coefficient_A;
   Coefficients coefficient_B;
   void get_coefficients() override;
-  virtual double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values);
 
  public:
   void init() override;
@@ -229,8 +230,10 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
 
       // el[blk]->CalcPhysDShape(Tr, gradPsi);
       // gradPsi.MultTranspose(*elfun[blk], gradU);
-      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {u, un});
-      double coef_b = this->compute_coefficient(this->coefficient_B[blk], {u, un});
+      double coef_a =
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({u, un}));
+      double coef_b =
+          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>({u, un}));
       const double ww = coef_a * coef_b * u * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -283,8 +286,10 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       const auto& u = *elfun[blk] * Psi;
       const auto& un = this->u_old_[blk].GetValue(Tr, ip);
 
-      double coef_a = this->compute_coefficient(this->coefficient_A[blk], {u, un});
-      double coef_b = this->compute_coefficient(this->coefficient_B[blk], {u, un});
+      double coef_a =
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({u, un}));
+      double coef_b =
+          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>({u, un}));
       double fun_val = coef_a * coef_b * ip.weight * Tr.Weight();
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
@@ -317,9 +322,9 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
  */
 template <class VARS>
 double TimeNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                       const std::vector<double>& values) {
-  // const double u = values[0];
-  const double un = values[1];
+                                                       const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     // coef_value = coef.compute({u});
@@ -327,7 +332,7 @@ double TimeNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                 "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
                 "check your data.");
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute({un});
+    coef_value = coef.compute(un);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }

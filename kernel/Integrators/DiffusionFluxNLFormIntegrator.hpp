@@ -26,6 +26,7 @@
 
 #include <list>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -56,7 +57,7 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::list<GlossaryType> expected_list_;
   Coefficients stab_diffusion;
 
-  double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  double compute_coefficient(Coefficient coef, const std::span<const double>& values);
 
   std::vector<SlothGridFunction> sloth_u_old_;
   virtual void get_parameters() {}
@@ -105,15 +106,16 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
-double DiffusionFluxNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                                const std::vector<double>& values) {
-  const double u = values[0];
-  const double un = values[1];
+double DiffusionFluxNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute({u});
+    coef_value = coef.compute(u);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute({un});
+    coef_value = coef.compute(un);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }
@@ -249,7 +251,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     this->sloth_u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
-    this->Flux_ *= this->compute_coefficient(stab_diffusion[blk], {u, un});
+    this->Flux_ *= this->compute_coefficient(stab_diffusion[blk], std::span<const double>({u, un}));
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
@@ -304,7 +306,8 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
 
     Tr.SetIntPoint(&ip);
     const double coeff_diffu =
-        this->compute_coefficient(stab_diffusion[blk], {u, un}) * ip.weight * Tr.Weight();
+        this->compute_coefficient(stab_diffusion[blk], std::span<const double>({u, un})) *
+        ip.weight * Tr.Weight();
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
   }

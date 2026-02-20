@@ -26,6 +26,7 @@
 
 #include <cmath>
 #include <functional>
+#include <span>
 #include <vector>
 
 #include "kernel/Coefficients/FunctionCoefficient.hpp"
@@ -43,13 +44,13 @@
  */
 class ConstantCoefficient : public FunctionCoefficient {
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -71,11 +72,11 @@ class ConstantCoefficient : public FunctionCoefficient {
  *
  * @return Constant scalar value.
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 ConstantCoefficient::F() {
-  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) { return this->value_; };
   return func;
 }
@@ -91,11 +92,11 @@ ConstantCoefficient::F() {
  *
  * @return Zero vector of size input_vector.size().
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 ConstantCoefficient::GradientF() {
-  auto func = [](const std::vector<double>& input_vector,
-                 [[maybe_unused]] const std::vector<double>&,
+  auto func = [](const std::span<const double>& input_vector,
+                 [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
     std::vector<double> gradient(size, 0.0);
@@ -119,11 +120,11 @@ ConstantCoefficient::GradientF() {
  *
  * @return Zero-valued Hessian vector.
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 ConstantCoefficient::HessianF() {
-  auto func = [](const std::vector<double>& input_vector,
-                 [[maybe_unused]] const std::vector<double>&,
+  auto func = [](const std::span<const double>& input_vector,
+                 [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
     std::vector<double> hessian(size, 0.0);

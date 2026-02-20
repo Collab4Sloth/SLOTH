@@ -26,6 +26,7 @@
  */
 
 #include <iostream>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -68,13 +69,13 @@ class ExprTkCoefficient : public FunctionCoefficient {
   void build_hessian();
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -171,10 +172,11 @@ ExprTkCoefficient::ExprTkCoefficient(std::vector<std::string> hess_functions,
  * @param args
  * @return T
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 ExprTkCoefficient::F() {
-  auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& values,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     if (this->variable_names_.size() > 0) {
       if (values.size() != this->variable_names_.size()) {
@@ -192,12 +194,13 @@ ExprTkCoefficient::F() {
 /**
  * @brief Function used to evaluate the gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&)>
+ * @return std::function<std::vector<double>(const std::span<const double>&)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 ExprTkCoefficient::GradientF() {
-  auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& values,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     const auto n = values.size();
     std::vector<double> gradient(n, 0.0);
@@ -220,12 +223,13 @@ ExprTkCoefficient::GradientF() {
 /**
  * @brief Function used to evaluate the Hessian
  *
- * @return std::function<std::vector<double>(const std::vector<double>&)>
+ * @return std::function<std::vector<double>(const std::span<const double>&)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 ExprTkCoefficient::HessianF() {
-  auto func = [&](const std::vector<double>& values, [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& values,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     const auto n = values.size();
     std::vector<double> hessian(n * n, 0.0);

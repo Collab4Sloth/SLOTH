@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -62,9 +63,9 @@ class BlockAllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   bool scale_mobility_by_temperature_{false};
 
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::vector<double>& values);
+                                              const std::span<const double>& values);
   virtual double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                             const std::vector<double>& values);
+                                             const std::span<const double>& values);
   void get_coefficients() override;
 
  public:
@@ -232,8 +233,9 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       gradU *= xx * lambda[blk].compute();
       gradPsi.AddMult(gradU, *elvect[blk]);
 
-      const double ww = xx * (eta + this->compute_gradient_coefficient(double_well_energy[blk], blk,
-                                                                       {phi, phin}));
+      const double ww =
+          xx * (eta + this->compute_gradient_coefficient(double_well_energy[blk], blk,
+                                                         std::span<const double>({phi, phin})));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -327,8 +329,8 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       AddMult_a_AAt(xx * coef_lambda, gradPsi, *elmats(blk, blk));
 
-      double fun_val =
-          xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk, {phi, phin});
+      double fun_val = xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
+                                                              std::span<const double>({phi, phin}));
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -455,9 +457,9 @@ void BlockAllenCahnNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 double BlockAllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::vector<double>& values) {
-  const double u = values[0];
-  const double un = values[1];
+    Coefficient coef, const int blk, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
     coef_value = coef.compute_gradient(blk, {u});
@@ -489,11 +491,12 @@ double BlockAllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
  */
 template <class VARS>
 double BlockAllenCahnNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values) {
-  const double u = values[0];
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_hessian(iblk, jblk, {u});
+    coef_value = coef.compute_hessian(iblk, jblk, u);
   }
   return coef_value;
 }

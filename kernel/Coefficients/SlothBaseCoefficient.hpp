@@ -28,6 +28,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -57,20 +58,22 @@ class SlothBaseCoefficient {
   virtual ~SlothBaseCoefficient() = default;
 
   double compute();
-  double compute(const std::vector<double>& values, std::optional<int> dimension = std::nullopt);
-  double compute(const std::vector<double>& values, const std::vector<double>& auxiliary_values,
+  double compute(const std::span<const double>& values,
+                 std::optional<int> dimension = std::nullopt);
+  double compute(const std::span<const double>& values,
+                 const std::span<const double>& auxiliary_values,
                  std::optional<int> dimension = std::nullopt);
 
-  double compute_gradient(const int i, const std::vector<double>& values,
+  double compute_gradient(const int i, const std::span<const double>& values,
                           std::optional<int> dimension = std::nullopt);
-  double compute_gradient(const int i, const std::vector<double>& values,
-                          const std::vector<double>& auxiliary_values,
+  double compute_gradient(const int i, const std::span<const double>& values,
+                          const std::span<const double>& auxiliary_values,
                           std::optional<int> dimension = std::nullopt);
 
-  double compute_hessian(const int i, const int j, const std::vector<double>& values,
+  double compute_hessian(const int i, const int j, const std::span<const double>& values,
                          std::optional<int> dimension = std::nullopt);
-  double compute_hessian(const int i, const int j, const std::vector<double>& values,
-                         const std::vector<double>& auxiliary_values,
+  double compute_hessian(const int i, const int j, const std::span<const double>& values,
+                         const std::span<const double>& auxiliary_values,
                          std::optional<int> dimension = std::nullopt);
 
   GlossaryType get_type() const;
@@ -124,7 +127,7 @@ double SlothBaseCoefficient::compute() {
  *
  * @return Value of the coefficient.
  */
-double SlothBaseCoefficient::compute(const std::vector<double>& values,
+double SlothBaseCoefficient::compute(const std::span<const double>& values,
                                      std::optional<int> dimension) {
   if (dimension.has_value()) {
     return this->coefficient_->eval_f(values, dimension);
@@ -145,8 +148,8 @@ double SlothBaseCoefficient::compute(const std::vector<double>& values,
  *
  * @return Value of the coefficient.
  */
-double SlothBaseCoefficient::compute(const std::vector<double>& values,
-                                     const std::vector<double>& auxiliary_values,
+double SlothBaseCoefficient::compute(const std::span<const double>& values,
+                                     const std::span<const double>& auxiliary_values,
                                      std::optional<int> dimension) {
   if (dimension.has_value()) {
     return this->coefficient_->eval_f(values, auxiliary_values, dimension);
@@ -166,7 +169,7 @@ double SlothBaseCoefficient::compute(const std::vector<double>& values,
  *
  * @return Value of the gradient component id.
  */
-double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<double>& values,
+double SlothBaseCoefficient::compute_gradient(const int id, const std::span<const double>& values,
                                               std::optional<int> dimension) {
   if (dimension.has_value()) {
     return this->coefficient_->eval_gradient(id, values, dimension);
@@ -188,8 +191,8 @@ double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<do
  *
  * @return Value of the gradient component id.
  */
-double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<double>& values,
-                                              const std::vector<double>& auxiliary_values,
+double SlothBaseCoefficient::compute_gradient(const int id, const std::span<const double>& values,
+                                              const std::span<const double>& auxiliary_values,
                                               std::optional<int> dimension) {
   if (dimension.has_value()) {
     return this->coefficient_->eval_gradient(id, values, auxiliary_values, dimension);
@@ -211,7 +214,7 @@ double SlothBaseCoefficient::compute_gradient(const int id, const std::vector<do
  * @return Value of the Hessian component (id, jd).
  */
 double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
-                                             const std::vector<double>& values,
+                                             const std::span<const double>& values,
                                              std::optional<int> dimension) {
   if (dimension.has_value()) {
     return this->coefficient_->eval_hessian(id, jd, values, dimension);
@@ -235,8 +238,8 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
  * @return Value of the Hessian component (id, jd).
  */
 double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
-                                             const std::vector<double>& values,
-                                             const std::vector<double>& auxiliary_values,
+                                             const std::span<const double>& values,
+                                             const std::span<const double>& auxiliary_values,
                                              std::optional<int> dimension) {
   if (dimension.has_value()) {
     return this->coefficient_->eval_hessian(id, jd, values, auxiliary_values, dimension);

@@ -120,4 +120,8 @@ std::shared_ptr<mfem::NewtonSolver> NLSolver::get_nl_solver() { return this->nl_
  * @brief Destroy the Solver::Solver object
  *
  */
-NLSolver::~NLSolver() {}
+NLSolver::~NLSolver() {
+  ss.reset();
+  pp.reset();
+  nl_solver_.reset();
+}

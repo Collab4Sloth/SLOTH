@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
+  setVerbosity(Verbosity::Verbose);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -240,6 +241,7 @@ int main(int argc, char* argv[]) {
       Profiling::getInstance().print();
     }
   }
+
   //---------------------------------------
   // Finalize MPI
   //---------------------------------------

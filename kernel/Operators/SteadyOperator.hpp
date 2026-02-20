@@ -51,6 +51,7 @@ template <class T, int DIM>
 class SteadyOperator : public OperatorBase<T, DIM> {
  private:
   SteadyPhaseFieldReducedOperator* steady_reduced_oper;
+  void free_memory();
 
  public:
   SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
@@ -216,15 +217,16 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
       if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
         mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, RHS);
-        delete RHS;
+        this->get_source_term(i, this->src_func_[i], src_i, SRC);
+        delete SRC;
       }
     }
   }
   this->newton_solver_->Mult(source_term, block_unk);
-  delete this->rhs_solver_;
+
+  this->free_memory();
 
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
@@ -240,9 +242,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
 
 /**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
- *solution_coef
- * @param dt time-step
- * @param u unknown vector
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param u_vect unknown vector
  */
 template <class T, int DIM>
 void SteadyOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::Vector>& u_vect) {
@@ -256,10 +259,10 @@ void SteadyOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::Vect
   ////////////////////////////////////////////
   // Build Newton Linear system
   ////////////////////////////////////////////
-  if (steady_reduced_oper != nullptr) {
-    delete steady_reduced_oper;
+  if (this->steady_reduced_oper != nullptr) {
+    delete this->steady_reduced_oper;
   }
-  steady_reduced_oper = new SteadyPhaseFieldReducedOperator(this->RHS, this->ess_tdof_list_);
+  this->steady_reduced_oper = new SteadyPhaseFieldReducedOperator(this->RHS, this->ess_tdof_list_);
 
   ////////////////////////////////////////////
   // Newton Solver
@@ -267,6 +270,17 @@ void SteadyOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::Vect
   this->SetNewtonAlgorithm(steady_reduced_oper);
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief Free memory
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void SteadyOperator<T, DIM>::free_memory() {
+  delete this->rhs_solver_;
+  delete this->RHS;
+  this->RHS = nullptr;
+  delete this->steady_reduced_oper;
+  this->steady_reduced_oper = nullptr;
+}

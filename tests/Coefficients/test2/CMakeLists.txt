@@ -18,5 +18,14 @@ set_tests_properties(CoefficientTest21 PROPERTIES WILL_FAIL FALSE LABELS "Coeffi
 add_test(NAME CoefficientTest22 COMMAND mpirun -np 1 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} --test-case 2)
 set_tests_properties(CoefficientTest22 PROPERTIES WILL_FAIL FALSE LABELS "Coefficient")
 
+add_test(NAME CoefficientTest23 COMMAND mpirun -np 1 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} --test-case 3)
+set_tests_properties(CoefficientTest23 PROPERTIES WILL_FAIL FALSE LABELS "Coefficient")
+
+add_test(NAME CoefficientTest24 COMMAND mpirun -np 1 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} --test-case 4)
+set_tests_properties(CoefficientTest24 PROPERTIES WILL_FAIL FALSE LABELS "Coefficient")
+
+add_test(NAME CoefficientTest25 COMMAND mpirun -np 1 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} --test-case 5)
+set_tests_properties(CoefficientTest25 PROPERTIES WILL_FAIL FALSE LABELS "Coefficient")
+
 set_compile_options(${CURRENT_EXE})
 

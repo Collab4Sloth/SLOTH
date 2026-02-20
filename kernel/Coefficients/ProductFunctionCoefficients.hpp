@@ -50,13 +50,13 @@ class ProductCoefficient : public FunctionCoefficient {
   std::vector<FunctionCoefficient*> vect_coefficients_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -79,14 +79,14 @@ ProductCoefficient::ProductCoefficient(std::initializer_list<FunctionCoefficient
 /**
  * @brief  Compute the value of the coefficient as a summation of the value of coefficients
  *
- * @return std::function<double(const std::vector<double>&, const std::vector<double>&,
+ * @return std::function<double(const std::span<const double>&, const std::span<const double>&,
  * const unsigned int dimension)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 ProductCoefficient::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  const std::vector<double>& auxiliary_vector,
+  auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     double prod_F = 1.0;
     for (const auto& coef : this->vect_coefficients_) {
@@ -102,14 +102,14 @@ ProductCoefficient::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 ProductCoefficient::GradientF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  const std::vector<double>& auxiliary_vector,
+  auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     const double prod_F = this->F()(input_vector, auxiliary_vector, dimension);
     std::vector<double> gradient(input_vector.size(), 0.0);
@@ -132,14 +132,14 @@ ProductCoefficient::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 ProductCoefficient::HessianF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  const std::vector<double>& auxiliary_vector,
+  auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     const int size = input_vector.size();
     std::vector<double> hessian(size * size, 0.0);

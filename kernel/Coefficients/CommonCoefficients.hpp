@@ -23,6 +23,7 @@
 #include <cmath>
 #include <functional>
 #include <numeric>
+#include <span>
 #include <vector>
 
 #include "kernel/Coefficients/FunctionCoefficient.hpp"
@@ -39,13 +40,13 @@ class W : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -59,13 +60,13 @@ class W : public FunctionCoefficient {
  *
  * @brief C++ function of the expression: x*x*(1.0-x) * (1.0-x)
  *
- * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 W::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     double F = std::pow(x, 2) * std::pow(1 - x, 2);
@@ -78,14 +79,14 @@ W::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 W::GradientF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> gradient(1);
@@ -100,14 +101,14 @@ W::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 W::HessianF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> hessian(1);
@@ -128,13 +129,13 @@ class Fw : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -148,13 +149,13 @@ class Fw : public FunctionCoefficient {
  *
  * @brief C++ function of the expression: 0.25 * (x * x - 1.0) * (x * x - 1.0)
  *
- * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 Fw::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     double F = ((1.0 / 4.0) * std::pow(x, 2) - 1.0 / 4.0) * (std::pow(x, 2) - 1);
@@ -167,14 +168,14 @@ Fw::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 Fw::GradientF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> gradient(1);
@@ -190,14 +191,14 @@ Fw::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 Fw::HessianF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> hessian(1);
@@ -217,13 +218,13 @@ class H : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -237,13 +238,13 @@ class H : public FunctionCoefficient {
  *
  * @brief C++ function of the expression: x * x * x * (6.0 * x * x - 15.0 * x + 10.0)
  *
- * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 H::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     double F = std::pow(x, 3) * (6 * std::pow(x, 2) - 15 * x + 10);
@@ -256,14 +257,14 @@ H::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 H::GradientF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> gradient(1);
@@ -279,14 +280,14 @@ H::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 H::HessianF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
     std::vector<double> hessian(1);
@@ -307,13 +308,13 @@ class Log : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -327,13 +328,13 @@ class Log : public FunctionCoefficient {
  *
  * @brief C++ function of the expression: x * log(x) + (1.0 - x)*log(1.0 - x)
  *
- * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 Log::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
     double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
@@ -347,14 +348,14 @@ Log::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 Log::GradientF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
     double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
@@ -370,14 +371,14 @@ Log::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 Log::HessianF() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
     double x = std::min(1.0 - epsilon, std::max(epsilon, input_vector[0]));
@@ -398,13 +399,13 @@ class GradientEnergy : public FunctionCoefficient {
   double prefactor_;
 
  protected:
-  std::function<double(const std::vector<double>&, const std::vector<double>&,
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
   F() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   GradientF() final;
-  std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
   HessianF() final;
 
@@ -418,13 +419,13 @@ class GradientEnergy : public FunctionCoefficient {
  *
  * @brief C++ function of the expression: 0.5*dot(x,x)
  *
- * @return std::function<double(const std::vector<double>&,const std::vector<double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
-std::function<double(const std::vector<double>&, const std::vector<double>&,
+std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const unsigned int dimension)>
 GradientEnergy::F() {
-  auto func = [&](const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&, const unsigned int dimension) {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {
     std::vector<double> x;
     for (unsigned int i = 0; i < dimension; i++) x.push_back(input_vector[0 * dimension + i]);
     double F = 0.5 * std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
@@ -437,14 +438,14 @@ GradientEnergy::F() {
  *
  * @brief Gradient
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 GradientEnergy::GradientF() {
-  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> gradient(1, 0.0);
     return gradient;
@@ -457,14 +458,14 @@ GradientEnergy::GradientF() {
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
- * @return std::function<std::vector<double>(const std::vector<double>&,const std::vector<double>&,
- * const unsigned int dimension)>
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::vector<double>&, const std::vector<double>&,
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const unsigned int dimension)>
 GradientEnergy::HessianF() {
-  auto func = [&]([[maybe_unused]] const std::vector<double>& input_vector,
-                  [[maybe_unused]] const std::vector<double>&,
+  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> hessian(1, 0.0);
     return hessian;

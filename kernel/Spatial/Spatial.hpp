@@ -976,4 +976,8 @@ bool SpatialDiscretization<T, DIM>::is_periodic() {
  * @tparam T
  */
 template <class T, int DIM>
-SpatialDiscretization<T, DIM>::~SpatialDiscretization() {}
+SpatialDiscretization<T, DIM>::~SpatialDiscretization() {
+  delete fespace_;
+  delete mesh_;
+  delete fecollection_;
+}

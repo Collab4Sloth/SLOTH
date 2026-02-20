@@ -438,19 +438,13 @@ void Problem<OPE, VAR, PST>::do_time_step(
     double& next_time, const double& current_time, double current_time_step, const int iter,
     std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
     [[maybe_unused]] const std::vector<std::vector<std::string>>& unks_info) {
-  // auto& unk = *(vect_unk[0]);
-
   const size_t unk_size = vect_unk.size();
 
-  // this->oper_.solve(unk, next_time, current_time, current_time_step, iter);
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
   // calculation converges
-  // this->unknown_.emplace_back(unk);
-
   for (size_t i = 0; i < unk_size; i++) {
-    auto& unk_i = *(vect_unk[i]);
-    this->unknown_.emplace_back(unk_i);
+    this->unknown_.emplace_back(*(vect_unk[i]));
   }
 }

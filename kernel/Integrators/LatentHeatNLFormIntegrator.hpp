@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -63,7 +64,7 @@ class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   double get_latent_heat_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
                                unsigned int blk);
 
-  double compute_coefficient(Coefficient coef, const std::vector<double>& values);
+  double compute_coefficient(Coefficient coef, const std::span<const double>& values);
 
   void get_coefficients() override;
   void check_variables_consistency();
@@ -184,7 +185,8 @@ void LatentHeatNLFormIntegrator<VARS>::init() {
 template <class VARS>
 void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+    [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
+    const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
@@ -229,10 +231,10 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
  */
 template <class VARS>
 void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
-    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::Array<const mfem::Vector*>& elfun,
+    const mfem::Array<const mfem::FiniteElement*>& el,
+    [[maybe_unused]] mfem::ElementTransformation& Tr,
+    [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Catch_Time_Section("LatentHeatNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
@@ -240,7 +242,6 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
 
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
-    // elmat.SetSize(nd);
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
   }
@@ -284,15 +285,16 @@ void LatentHeatNLFormIntegrator<VARS>::get_coefficients() {
  * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
-double LatentHeatNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                             const std::vector<double>& values) {
-  const double u = values[0];
-  const double un = values[1];
+double LatentHeatNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::span<const double>& values) {
+  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute({u});
+    coef_value = coef.compute(u);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute({un});
+    coef_value = coef.compute(un);
   }
   return coef_value;
 }
@@ -320,9 +322,9 @@ double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(mfem::ElementTran
     mobility_value = coef.compute();
   } else {
     if (coef.is_implicit()) {
-      mobility_value = coef.compute({phi});
+      mobility_value = coef.compute(std::span<const double>({phi}));
     } else if (coef.is_explicit()) {
-      mobility_value = coef.compute({phin});
+      mobility_value = coef.compute(std::span<const double>({phin}));
     }
   }
 
