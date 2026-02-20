@@ -56,13 +56,6 @@ jobs:
           # spack install exprtk
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
-    - name: Download and extract libtorch
-      run: |
-        wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
-        unzip libtorch-shared-with-deps-latest.zip
-        LIBTORCH_DIR=$(realpath libtorch)
-        echo "LIBTORCH_DIR=$LIBTORCH_DIR" >> $GITHUB_ENV
-        
     - name: Setup Python 
       uses: actions/setup-python@v5
       with:
@@ -76,7 +69,7 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage --libtorch=$LIBTORCH_DIR --exprtk=$ExprTk_INCLUDE_DIR
+        bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR
         make -j${{ env.CORES }}
         
 
