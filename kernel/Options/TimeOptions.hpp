@@ -53,11 +53,13 @@ enum Scheme { Implicit, Explicit, SemiImplicit, Constant };
 //////// ODE SOLVER
 ///////////////////////////////////////////////////
 struct TimeScheme {
-  enum value { EulerImplicit, EulerExplicit, RungeKutta4 };
+  enum value { EulerImplicit, SDIRK23, SDIRK33, EulerExplicit, RungeKutta4 };
   static value from(const std::string&);
 };
 TimeScheme::value TimeScheme::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<TimeScheme::value> m{{"EulerImplicit", TimeScheme::EulerImplicit},
+                                                      {"SDIRK23", TimeScheme::SDIRK23},
+                                                      {"SDIRK33", TimeScheme::SDIRK33},
                                                       {"EulerExplicit", TimeScheme::EulerExplicit},
                                                       {"RungeKutta4", TimeScheme::RungeKutta4}};
   return m.find("TimeScheme", v);

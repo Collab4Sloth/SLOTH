@@ -252,6 +252,17 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
       break;
     }
     case TimeScheme::RungeKutta4: {
+      // explicit forth-order Runge-Kutta
+      this->ode_solver_ = new mfem::RK4Solver;
+      break;
+    }
+    case TimeScheme::SDIRK23: {
+      //  two-step third-order Singly-diagonal implicit Runge-Kutta scheme (SDIRK23)
+      this->ode_solver_ = new mfem::SDIRK23Solver;
+      break;
+    }
+    case TimeScheme::SDIRK33: {
+      //  three-step third-order Singly-diagonal implicit Runge-Kutta scheme (SDIRK23)
       this->ode_solver_ = new mfem::SDIRK33Solver;
       break;
     }
