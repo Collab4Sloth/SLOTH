@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
   Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
   Coefficients coef_inter(Dstab);
   TransientOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
-                                                       TimeScheme::RungeKutta4, "TimeDerivative");
+                                                       TimeScheme::SDIRK33, "TimeDerivative");
 
   //==========================================
   //======      CALPHAD Analytical      ======
