@@ -1,0 +1,66 @@
+[
+  {
+    "expressions": [
+      {
+        "expression": "x+1",
+        "range_variable": "x",
+        "lower": 0,
+        "upper": 1
+      },
+      {
+        "expression": "y+1",
+        "range_variable": "t",
+        "lower_strict": 10.0,
+        "upper": 11.0
+      },
+      {
+        "expression": "y+1",
+        "range_variable": "t",
+        "lower": 10.0,
+        "upper_strict": 11.0
+      },
+      {
+        "expression": "z+1",
+        "default": true
+      }
+    ],
+    "variables": "x y z t",
+    "class_name": "FunctionB",
+    "outputfile": "OtherFunction"
+  },
+  {
+    "expressions": [
+      {
+    	"expression":"Sum( -(x[i]*x[i])/2.0  + (x[i]*x[i]*x[i]*x[i])/4.0 , (i, 1, 30)) +  Sum( (x[i]*x[i])*(x[j]*x[j]),(i, 1, 30),(j, 1, 30)) - Sum( (x[i]*x[i]),(i, 1, 30))",
+        "range_variable": "x1",
+        "lower": 0,
+        "upper": 1
+      },
+      {
+        "expression": "3",
+        "default": true
+      }
+    ],
+	"variables":"x(1..30)",
+    "class_name":"Gw",
+    "outputfile":"GrainsCoefficients"
+  },
+    {
+    "expressions": [
+      {
+    	"expression":"dot(x,x)",
+        "range_variable": "x",
+        "lower": 0,
+        "upper": 1
+      },
+      {
+        "expression": "3",
+        "default": true
+      }
+    ],
+    "variables":"x",
+    "class_name":"GradEnergy",
+    "outputfile":"GradientCoefficients",
+    "gradient":true
+    }
+]
