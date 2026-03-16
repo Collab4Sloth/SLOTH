@@ -29,3 +29,5 @@ set_tests_properties(CoefficientTest25 PROPERTIES WILL_FAIL FALSE LABELS "Coeffi
 
 set_compile_options(${CURRENT_EXE})
 
+# TODO(CCI) Uncomment?
+# install(TARGETS ${CURRENT_EXE} DESTINATION tests)

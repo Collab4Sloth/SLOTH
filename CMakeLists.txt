@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS NO)
 
-set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
 
 ## Force Release Mode
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
@@ -17,30 +16,22 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
-## Debug option
-option(MATOOLS_VERBOSITY_LEVEL_1 "add verbosity level 1" OFF)
 
-if(MATOOLS_VERBOSITY_LEVEL_1)
-	add_definitions(-DMATIMERS_VEROBSITY_LEVEL_1)
-endif()
 
-# Check GCC version
+# Check GCC version for including filesystem
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-
-  if(GCC_VERSION VERSION_LESS 9)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
     find_package(Filesystem REQUIRED)
-    set(ENV{FILESYSTEM_VAR} std::filesystem)
-  else()
-    set(ENV{FILESYSTEM_VAR})
+    set(FILESYSTEM_LIB stdc++fs)
   endif()
 endif()
+
 
 # ########################
 # # Global Configuration
 # ########################
-# install
-set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/INSTALL)
+# SlothInstall : name of the repository for installtion
+set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/SlothInstall)
 
 # ########################
 # # MFEM Configuration
@@ -90,12 +81,14 @@ file(COPY ${SCRIPT_FILE} DESTINATION ${BUILD_SCRIPT_DIR})
 # ########################
 # Tests
 # ########################
+add_custom_target(sloth DEPENDS Sloth)
 include(TEST4SLOTH)
 
 include(CTest)
 enable_testing()
 
 add_subdirectory(tests)
+
 
 # ########################
 # # Code Coverage
