@@ -1,46 +1,37 @@
 # Create the library
-
-add_library(Sloth INTERFACE)
-
-file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/kernel/sloth.hpp 
-                            ${CMAKE_SOURCE_DIR}/kernel/BCs/*.hpp               
-                            ${CMAKE_SOURCE_DIR}/kernel/Coefficients/*.hpp          
-                            ${CMAKE_SOURCE_DIR}/kernel/Convergence/*.hpp    
-                            ${CMAKE_SOURCE_DIR}/kernel/Couplings/*.hpp  
-                            ${CMAKE_SOURCE_DIR}/kernel/Integrators/*.hpp       
-                            ${CMAKE_SOURCE_DIR}/kernel/Options/*.hpp           
-                            ${CMAKE_SOURCE_DIR}/kernel/Operators/*.hpp         
-                            ${CMAKE_SOURCE_DIR}/kernel/Parameters/*.hpp   
-                            ${CMAKE_SOURCE_DIR}/kernel/PostProcessing/*.hpp      
-                            ${CMAKE_SOURCE_DIR}/kernel/Problems/*.hpp        
-                            ${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling/*.hxx    
-                            ${CMAKE_SOURCE_DIR}/kernel/Solvers/*.hpp          
-                            ${CMAKE_SOURCE_DIR}/kernel/Spatial/*.hpp        
-                            ${CMAKE_SOURCE_DIR}/kernel/Time/*.hpp               
-                            ${CMAKE_SOURCE_DIR}/kernel/Utils/*.hpp             
-                            ${CMAKE_SOURCE_DIR}/kernel/Variables/*.hpp         
-                            ${CMAKE_SOURCE_DIR}/tests/tests.hpp  )
-
-target_sources(Sloth INTERFACE ${SRC_FILES})
+add_library(Sloth SHARED)
 
 
-# target_compile_features(Sloth INTERFACE cxx_std_20)
-set_target_properties(Sloth PROPERTIES LINKER_LANGUAGE CXX)
+file(GLOB_RECURSE SLOTH_SRC CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/kernel/src/*.cpp
+)
+
+target_sources(Sloth PRIVATE ${SLOTH_SRC})
+
+set_target_properties(Sloth PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
 
 # And the most important part set the include directories
-target_include_directories(Sloth INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(Sloth
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/kernel/include>
+        $<INSTALL_INTERFACE:include>
+)
+
 
 # Include MFEM + ExprTk
-target_include_directories(Sloth SYSTEM INTERFACE ${MFEM_DIR}/include $ENV{ExprTk_INCLUDE_DIR})
+target_include_directories(Sloth SYSTEM PUBLIC ${MFEM_DIR}/include $ENV{ExprTk_INCLUDE_DIR})
 
-target_link_directories(Sloth INTERFACE ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
+target_link_directories(Sloth PUBLIC ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
 
-target_link_libraries(Sloth INTERFACE ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} $ENV{FILESYSTEM_VAR})
+target_link_libraries(Sloth PUBLIC ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} ${FILESYSTEM_LIB})
 
 
 # PETSC ??
 if(MFEM_USE_PETSC)
-    target_link_libraries(Sloth INTERFACE petsc )
+    target_link_libraries(Sloth PUBLIC petsc )
 endif(MFEM_USE_PETSC)
 
 
@@ -49,10 +40,10 @@ option(SLOTH_USE_EXTERNAL "Enable the use of an external package that requires l
 option(SLOTH_USE_AUTO_EXTERNAL "Enable the use of an autonomous external package" OFF)
 if(SLOTH_USE_EXTERNAL OR SLOTH_USE_AUTO_EXTERNAL)
     file(GLOB_RECURSE EXT_SRC_FILES $ENV{EXT_SRC}/*.hpp)
-    add_library(SlothExternal INTERFACE ${EXT_SRC_FILES})
+    add_library(SlothExternal PUBLIC ${EXT_SRC_FILES})
     if(SLOTH_USE_EXTERNAL)
-        target_link_directories(Sloth INTERFACE $ENV{EXT_LIBDIR} )
-        target_link_libraries(Sloth INTERFACE SlothExternal $ENV{EXT_LIBNAME})
+        target_link_directories(Sloth PUBLIC $ENV{EXT_LIBDIR} )
+        target_link_libraries(Sloth PUBLIC SlothExternal $ENV{EXT_LIBNAME})
     endif(SLOTH_USE_EXTERNAL)
 endif()
 
@@ -61,9 +52,9 @@ endif()
 if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
     MESSAGE(STATUS "Sloth use libTorch API ")
-    target_include_directories(Sloth INTERFACE ${TORCH_INCLUDE_DIRS} )
-    target_link_libraries(Sloth INTERFACE ${TORCH_LIBRARIES})
-    target_compile_definitions(Sloth INTERFACE SLOTH_USE_LIBTORCH=1)
+    target_include_directories(Sloth PUBLIC ${TORCH_INCLUDE_DIRS} )
+    target_link_libraries(Sloth PUBLIC ${TORCH_LIBRARIES})
+    target_compile_definitions(Sloth PUBLIC SLOTH_USE_LIBTORCH=1)
 endif(SLOTH_USE_LIBTORCH)
 
 
@@ -71,5 +62,48 @@ endif(SLOTH_USE_LIBTORCH)
 option(SLOTH_USE_EXPRTK "Sloth use ExprTk" OFF)
 
 if(SLOTH_USE_EXPRTK)
-    target_compile_definitions(Sloth INTERFACE SLOTH_USE_EXPRTK=1)
+    target_compile_definitions(Sloth PUBLIC SLOTH_USE_EXPRTK=1)
 endif()
+
+## Debug option
+option(MATOOLS_VERBOSITY_LEVEL_1 "add verbosity level 1" OFF)
+
+if(MATOOLS_VERBOSITY_LEVEL_1)
+  target_compile_definitions(Sloth PUBLIC MATIMERS_VEROBSITY_LEVEL_1)
+endif()
+
+
+# ########################
+# # Installation 
+# ########################
+# SlothTargets.cmake creation
+
+install(
+    TARGETS Sloth
+    EXPORT SlothTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    DESTINATION include
+)
+install(
+    EXPORT SlothTargets
+    FILE SlothTargets.cmake
+    NAMESPACE Sloth::
+    DESTINATION lib/cmake/Sloth
+)
+
+
+install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
+    DESTINATION scripts
+)
+
+
+install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/tests/
+    DESTINATION tests
+)

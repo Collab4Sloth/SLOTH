@@ -15,9 +15,8 @@
 #include <string>
 #include <vector>
 
-#include "kernel/sloth.hpp"
-#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-#include "tests/tests.hpp"
+#include "Sloth/sloth.hpp"  // NOLINT [no include the directory when naming sloth include file]
+#include "Sloth/tests.hpp"  // NOLINT [no include the directory when naming tests include file]
 
 ///---------------
 /// Main program
