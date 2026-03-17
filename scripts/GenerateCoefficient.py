@@ -771,22 +771,24 @@ if __name__ == "__main__":
                     constants = ""
 
                 expressions = []
+                
+                cond_var = item.get("range_variable")
                 is_conditional_expression = False
                 if "expression" in item:
                     expressions.append( (item["expression"], None, None, None, None, None) )
                 elif "expressions" in item:
                     is_conditional_expression = True
+                    found_default = False
+                    if cond_var is None:
+                        raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")   
                     if gradient:
                         raise ValueError("Error: conditional expression not extended to gradient expression.")   
                     nb_expression = 0
-                    nb_condition = 0
+                    nb_range = 0
                     for expr_item in item["expressions"]:
                         expr = expr_item.get("expression")
                         if expr is not None:
                             nb_expression= nb_expression +1
-                        cond_var = expr_item.get("range_variable")
-                        if cond_var is not None:
-                            nb_condition= nb_condition +1
                         lower = expr_item.get("lower")
                         upper = expr_item.get("upper")
                         lower_strict = expr_item.get("lower_strict")
@@ -803,14 +805,20 @@ if __name__ == "__main__":
                                 raise ValueError("Error: either upper or upper_strict must be defined. Please make a choice.")
                             if (upper is None) and (upper_strict is None):
                                 raise ValueError("Error: either upper or upper_strict must be defined.")
+                            nb_range= nb_range +1
+                        else:
+                            found_default = True
 
                         expressions.append( (expr, cond_var, lower, lower_strict, upper, upper_strict) )
-                        
+                     
+                    if not found_default:
+                        raise ValueError("Error: a default expression must be defined for each conditional expression .Use the 'default' attribute in the JSON file.")
+
                     if nb_expression < 2:
                         raise ValueError("Error: at least two expression expressions are expected.")  
                         
-                    if nb_condition < 1:
-                        raise ValueError("Error: at least one condition is expected.")
+                    if nb_range != nb_expression - 1:
+                        raise ValueError("Error: the number of ranges must be equal to the number of expressions + 1")
 
                     check_bounds_consistency(expressions)
 
