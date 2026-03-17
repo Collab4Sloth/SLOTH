@@ -131,13 +131,18 @@ def print_header(f, list_expr, is_conditional_expression):
             elif lower_strict is not None and upper is not None:
                 cond_str = f"{lower_strict} < {var} <= {upper}"
 
-            f.write(f" *  {if_cond} ({cond_str}){{ \n")
-            f.write(f" *       F = {sp.cxxcode(expr)}\n")
-            f.write(" *}}\n")
+            f.write(f" *  {if_cond} ({cond_str})\n")
+            f.write(f" *  {{ \n")
+            f.write(f" *       F = {expr}\n")
+            f.write(f" *  }}\n")
       
-        f.write(f" *  else {{")
-        f.write(f" *       F = {sp.cxxcode(default_expr)}\n")
-        f.write("  * }}\n")  
+        f.write(f" *  else\n")
+        f.write(f" *  {{ \n")
+        f.write(f" *       F = {default_expr}\n")
+        f.write(f" *  }}\n")
+    else:
+        f.write(f" *       F = {default_expr}\n")
+
 
     f.write(" */\n")
     
@@ -345,11 +350,6 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
 
     with open(cpp_file, "a") as f:
 
-        f.write("/**\n")
-        f.write(" *\n")
-        f.write(f" * @brief C++ function of the expression\n")
-        f.write(" *\n")
-
         print_header(f, list_expr, is_conditional_expression)
  
         # Class
@@ -375,37 +375,39 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
         # Expression par défaut
         default_expr = list_expr[-1][0]
         f.write(f" *\n")
-        if_cond = "if "
-        for i in range(0, len(list_expr)-1):
-            if i != 0:
-                if_cond = "else if "
-            expr, var, lower, lower_strict, upper, upper_strict = list_expr[i]
+        if is_conditional_expression:
+            if_cond = "if "
+            for i in range(0, len(list_expr)-1):
+                if i != 0:
+                    if_cond = "else if "
+                expr, var, lower, lower_strict, upper, upper_strict = list_expr[i]
 
-            cond_str = ""
+                cond_str = ""
 
-            # <= && >=
-            if lower is not None and upper is not None:
-                cond_str = f"{lower} <= {var} <= {upper}"
+                # <= && >=
+                if lower is not None and upper is not None:
+                    cond_str = f"{lower} <= {var} <= {upper}"
 
-            # < && >
-            elif lower_strict is not None and upper_strict is not None:
-                cond_str = f"{lower_strict} < {var} < {upper_strict}"
+                # < && >
+                elif lower_strict is not None and upper_strict is not None:
+                    cond_str = f"{lower_strict} < {var} < {upper_strict}"
 
-            # <= && >
-            elif lower is not None and upper_strict is not None:
-                cond_str = f"{lower} <= {var} < {upper_strict}"
+                # <= && >
+                elif lower is not None and upper_strict is not None:
+                    cond_str = f"{lower} <= {var} < {upper_strict}"
 
-            # < && >=
-            elif lower_strict is not None and upper is not None:
-                cond_str = f"{lower_strict} < {var} <= {upper}"
+                # < && >=
+                elif lower_strict is not None and upper is not None:
+                    cond_str = f"{lower_strict} < {var} <= {upper}"
 
-            f.write(f" *  {if_cond} ({cond_str}){{\n")
-            f.write(f" *       F = {sp.cxxcode(expr)}\n")
-            f.write(f" * }}\n")
-      
-        f.write(f" *  else {{")
-        f.write(f" *       F = {sp.cxxcode(default_expr)}\n")
-        f.write("  * }}\n")  
+                f.write(f" *  {if_cond} ({cond_str})\n")
+                f.write(f" *  {{\n")
+                f.write(f" *       F = {sp.cxxcode(expr)}\n")
+                f.write(f" *  }}\n")
+            f.write(f" *  else\n")
+            f.write(f" *  {{\n")
+            f.write(f" *       F = {sp.cxxcode(default_expr)}\n")
+            f.write(f" *  }}\n")  
         
         f.write(f" * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>\n")
         f.write(f" */\n ")  
@@ -433,8 +435,8 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
             #====================================================
             # single expression or the default one in case "conditional expression"
             expr_0 = list_expr[-1][0]
-            f.write(f"    double F = 0.0;\n")
             if is_conditional_expression:
+                f.write(f"    double F = 0.0;\n")
                 if_cond = "if "
                 for i in range(0,len(list_expr)-1):
                     if i != 0:
@@ -472,6 +474,9 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
                 f.write("{ \n")
                 f.write(f"    F = {sp.cxxcode(expr_0)};\n")
                 f.write("} \n")
+            else:
+                f.write(f" double   F = {sp.cxxcode(expr_0)};\n")
+
                 
         else:
             if(has_auxiliary_variables):
@@ -574,6 +579,9 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
                 f.write("{ \n")
                 print_gradient(f, gradient_0, n)
                 f.write("} \n")
+            else:
+                print_gradient(f, gradient_0, n)
+
         else: 
             f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> gradient({n},0.0);\n")
@@ -654,6 +662,9 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
                 f.write("{ \n")
                 print_hessian(f, hessian_0, n)
                 f.write("} \n")
+            else:
+                print_hessian(f, hessian_0, n)
+
 
         else:
             f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
