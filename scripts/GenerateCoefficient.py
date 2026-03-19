@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import subprocess
 import json
 from argparse import ArgumentParser, ArgumentTypeError, Namespace, RawTextHelpFormatter
 from pathlib import Path
@@ -19,6 +19,41 @@ logging.basicConfig(
     format="[%(asctime)s][%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
+
+
+# ======================
+#    Constant Regex
+# ======================
+
+RANGE_PATTERN = re.compile(r'^([a-zA-Z_]\w*)\((\d+)\.\.(\d+)\)$')
+SDOT_PATTERN = re.compile(r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)")
+DOT_PATTERN = re.compile(r"dot\(\s*(\w+)\s*,\s*(\w+)\s*\)")
+
+def print_hessian(f, hessian, n):
+    for i in range(n):
+        for j in range(n):
+            f.write(f"    hessian[{i*n + j}] = this->prefactor_ * ({sp.cxxcode(hessian[i,j])});\n")
+            
+def print_gradient(f, gradient, n):
+    for k in range(n):
+        f.write(f"    gradient[{k}] = this->prefactor_ * ({sp.cxxcode(gradient[k])});\n")
+
+def check_bounds_consistency(expressions):
+    for i in range(1, len(expressions)):
+        _, _, _, _, upper_prev, upper_strict_prev = expressions[i-1]
+        _, _, lower_curr, lower_strict_curr, _, _ = expressions[i]
+
+        if (lower_curr is not None) and (upper_prev is not None) and (lower_curr < upper_prev):
+            raise ValueError("Error: invalid bounds, intersection must not be empty. Please check your data.")
+
+        if (lower_curr is not None) and (upper_strict_prev is not None) and (lower_curr < upper_strict_prev):
+            raise ValueError("Error: invalid bounds, intersection must not be empty. Please check your data.")
+
+        if (lower_strict_curr is not None) and (upper_prev is not None) and (lower_strict_curr < upper_prev):
+            raise ValueError("Error: invalid bounds, intersection must not be empty. Please check your data.")
+
+        if (lower_strict_curr is not None) and (upper_strict_prev is not None) and (lower_strict_curr < upper_strict_prev):
+            raise ValueError("Error: invalid bounds, intersection must not be empty. Please check your data.")
 
 
 def get_constants(constants):
@@ -62,9 +97,55 @@ def expand_sdot(expr: str) -> str:
     Parse a string composed of symbols and expand sdot .
     Return the expanded expression
     """
-    pattern = re.compile(r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)")
-    return re.sub(pattern, sdot_replace_fct, expr)
+    return re.sub(SDOT_PATTERN, sdot_replace_fct, expr)
 
+
+def print_header(f, list_expr, is_conditional_expression):
+    f.write("/**\n")
+    f.write(" *\n")
+    f.write(" * @brief C++ function of the analytical expression\n")
+    f.write(" *\n")
+
+    # expression par défaut
+    default_expr = list_expr[-1][0]
+    if is_conditional_expression:
+        f.write(" * Conditional definitions:\n")
+        if_cond = "if "
+
+        for i in range(len(list_expr) - 1):
+            if i != 0:
+                if_cond = "else if "
+            expr, var, lower, lower_strict, upper, upper_strict = list_expr[i]
+
+            cond_str = ""
+
+            if lower is not None and upper is not None:
+                cond_str = f"{lower} <= {var} <= {upper}"
+
+            elif lower_strict is not None and upper_strict is not None:
+                cond_str = f"{lower_strict} < {var} < {upper_strict}"
+
+            elif lower is not None and upper_strict is not None:
+                cond_str = f"{lower} <= {var} < {upper_strict}"
+
+            elif lower_strict is not None and upper is not None:
+                cond_str = f"{lower_strict} < {var} <= {upper}"
+
+            f.write(f" *  {if_cond} ({cond_str})\n")
+            f.write(f" *  {{ \n")
+            f.write(f" *       F = {expr}\n")
+            f.write(f" *  }}\n")
+      
+        f.write(f" *  else\n")
+        f.write(f" *  {{ \n")
+        f.write(f" *       F = {default_expr}\n")
+        f.write(f" *  }}\n")
+    else:
+        f.write(f" *       F = {default_expr}\n")
+
+
+    f.write(" */\n")
+    
 # -------------------
 # -------------------
 
@@ -79,10 +160,8 @@ def expand_ranges(expr: str,count: int = 0):
     tokens = [t.strip() for t in expr.split(',')]
     result = []
 
-    pattern = re.compile(r'^([a-zA-Z_]\w*)\((\d+)\.\.(\d+)\)$')
-
     for token in tokens:
-        match = pattern.match(token)
+        match = RANGE_PATTERN.match(token)
         if match:
             count += 1
             name, start, end = match.groups()
@@ -106,18 +185,13 @@ def dot_to_inner_product(code: str) -> str:
     """
     Replace Sum(a[i]*b[i], (i, 0, n)) by std::inner_product(a.begin(), a.end(), b.begin(), 0)
     """
-    pattern = re.compile(
-        r"dot\(\s*"        # dot(
-        r"(\w+)\s*,\s*"    # première variable
-        r"(\w+)\s*\)"      # deuxième variable
-    )
 
     def repl(match):
         var1 = match.group(1)
         var2 = match.group(2)
         return f"std::inner_product({var1}.begin(), {var1}.end(), {var2}.begin(), 0.0)"
 
-    return pattern.sub(repl, code)
+    return DOT_PATTERN.sub(repl, code)
 
 
 # -------------------
@@ -162,7 +236,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
         # Header 
         f.write("""/**
  *
- * Copyright CEA (C) 2025
+ * Copyright CEA (C) 2026
  *
  * This file is part of SLOTH.
  *
@@ -191,10 +265,8 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 #pragma once\n
 """)
         
-        
-
-
-def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient):
+    
+def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression):
     
     # Get constants
     has_constants = False
@@ -209,8 +281,8 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
     nb_var_expanded = 0
     var_names, nb_var_expanded = expand_ranges(var_names, nb_var_expanded)
     var_names+=","
-    vars = sp.symbols(var_names)
-    n = len(vars)
+    spvars = sp.symbols(var_names)
+    n = len(spvars)
     has_auxiliary_variables = False
     if(len(auxiliary_var_names)>0):
         auxiliary_var_names, nb_var_expanded = expand_ranges(auxiliary_var_names, nb_var_expanded)
@@ -219,42 +291,57 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
         auxiliary_vars = sp.symbols(auxiliary_var_names)
 
     # translate sdot contributions before managing expressions with sympy    
-    pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
-    expr_str = expand_sdot(expr_str1)
+    # pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
 
-    locals_dict={}
-    
-    # Check if the expression is of type gradient 
-    has_dot = bool(re.search(r"\bdot\s*\(", expr_str))
-    if has_dot and (not is_gradient_coefficient):
-        raise ValueError(f"Analytical expression contains at least a dot(...) term but "
-                        "is not declared as a gradient expression."
-                        "Expression of type gradient are differentiated.")
+    # ==========================================================
+    # ========================================================== 
+    # List of expressions and associated derivatives 
+    list_expr = []
+    list_gradient = []
+    list_hessian = []
+    # Get all expressions even for those of type gradient (simpler approach)
+    for expr_str1 in list_expr_str1:
+        
+        expr_str = expand_sdot(expr_str1[0])
+        locals_dict={}
+        
+        # Check if the expression is of type gradient 
+        has_dot = bool(re.search(r"\bdot\s*\(", expr_str))
+        if has_dot and (not is_gradient_coefficient):
+            raise ValueError(f"Analytical expression contains at least a dot(...) term but "
+                            "is not declared as a gradient expression."
+                            "Expression of type gradient are differentiated.")
 
-    if(is_gradient_coefficient):
-        dot = sp.Function('dot')
-        locals_dict["dot"]=dot
+        if(is_gradient_coefficient):
+            dot = sp.Function('dot')
+            locals_dict["dot"]=dot
+            
+        # Check presence of Sum terms in the expression
+        bad_sum_term = bool(re.search(r"\bsum\s*\(", expr_str))
+        if bad_sum_term:
+            raise ValueError(f"Analytical expression contains at least a sum term but is incorrectly written."
+                            "Summation is defined Sum(...)")
+            
+        has_sum = "Sum(" in expr_str
+        if has_sum:
+            expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
+        else:
+            expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
         
-    # Check presence of Sum terms in the expression
-    
-    bad_sum_term = bool(re.search(r"\bsum\s*\(", expr_str))
-    if bad_sum_term:
-        raise ValueError(f"Analytical expression contains at least a sum term but is incorrectly written."
-                         "Summation is defined Sum(...)")
+        # Int to float
+        expr = expr_tmp
+        # expr = sp.N(expr_tmp)
+        # Gradient
+        gradient = [sp.diff(expr, v) for v in spvars]
+        # Hessian (n x n)
+        hessian = sp.hessian(expr, spvars)
+
+        list_expr.append([expr]+ list(expr_str1[1:]))
+        list_gradient.append([gradient]+ list(expr_str1[1:]))
+        list_hessian.append([hessian]+ list(expr_str1[1:]))
         
-    has_sum = "Sum(" in expr_str
-    if has_sum:
-        expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
-    else:
-        expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
-    
-    # Int to float
-    expr = expr_tmp
-    # expr = sp.N(expr_tmp)
-    # Gradient
-    gradient = [sp.diff(expr, v) for v in vars]
-    # Hessian (n x n)
-    hessian = sp.hessian(expr, vars)
+    # ==========================================================
+    # ========================================================== 
 
     cpp_file = f"{output_file}.hpp"
     path = Path(cpp_file).resolve()
@@ -263,13 +350,8 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
 
     with open(cpp_file, "a") as f:
 
-        f.write(f"""
-/**
- *
- * @brief Coefficient based on expression: {expr_str}
- *
- */
-""")
+        print_header(f, list_expr, is_conditional_expression)
+ 
         # Class
         f.write(f"class {class_name} : public FunctionCoefficient {{\n")
         f.write(" private:\n")
@@ -285,13 +367,51 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
         f.write("};\n\n")
 
 
-        f.write(f"""/**
- *
- * @brief C++ function of the expression: {expr_str}
- * 
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&)> 
- */
-""")
+        f.write("/**\n")
+        f.write(" *\n")
+        f.write(f" * @brief C++ function of the expression\n")
+        f.write(" *\n")
+
+        # Expression par défaut
+        default_expr = list_expr[-1][0]
+        f.write(f" *\n")
+        if is_conditional_expression:
+            if_cond = "if "
+            for i in range(0, len(list_expr)-1):
+                if i != 0:
+                    if_cond = "else if "
+                expr, var, lower, lower_strict, upper, upper_strict = list_expr[i]
+
+                cond_str = ""
+
+                # <= && >=
+                if lower is not None and upper is not None:
+                    cond_str = f"{lower} <= {var} <= {upper}"
+
+                # < && >
+                elif lower_strict is not None and upper_strict is not None:
+                    cond_str = f"{lower_strict} < {var} < {upper_strict}"
+
+                # <= && >
+                elif lower is not None and upper_strict is not None:
+                    cond_str = f"{lower} <= {var} < {upper_strict}"
+
+                # < && >=
+                elif lower_strict is not None and upper is not None:
+                    cond_str = f"{lower_strict} < {var} <= {upper}"
+
+                f.write(f" *  {if_cond} ({cond_str})\n")
+                f.write(f" *  {{\n")
+                f.write(f" *       F = {sp.cxxcode(expr)}\n")
+                f.write(f" *  }}\n")
+            f.write(f" *  else\n")
+            f.write(f" *  {{\n")
+            f.write(f" *       F = {sp.cxxcode(default_expr)}\n")
+            f.write(f" *  }}\n")  
+        
+        f.write(f" * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>\n")
+        f.write(f" */\n ")  
+        
         # Fonction F()
         f.write(f"std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::F() {{\n")
 
@@ -301,7 +421,7 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
             else:
                 f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
 
-            for i, v in enumerate(vars):
+            for i, v in enumerate(spvars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
@@ -310,15 +430,61 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
             if(has_constants):
                 for const in dict_constants:
                     f.write(f"    double {const} = {dict_constants[const]};\n")
-                    
-            f.write(f"    double F = {sp.cxxcode(expr)};\n")
+   
+            #====================================================
+            #====================================================
+            # single expression or the default one in case "conditional expression"
+            expr_0 = list_expr[-1][0]
+            if is_conditional_expression:
+                f.write(f"    double F = 0.0;\n")
+                if_cond = "if "
+                for i in range(0,len(list_expr)-1):
+                    if i != 0:
+                        if_cond = "else if "
+                    expr = list_expr[i][0]
+                    # ===============
+                    # <= && >=
+                    if list_expr[i][2] is not None and list_expr[i][4] is not None:
+                        f.write(f"  {if_cond}(({list_expr[i][2]}<={list_expr[i][1]}) && ({list_expr[i][1]}<={list_expr[i][4]}))  \n")
+                        f.write("{ \n")
+                        f.write(f"    F = {sp.cxxcode(expr)};\n")
+                        f.write("} \n")
+                    # ===============
+                    # < && >
+                    if list_expr[i][3] is not None and list_expr[i][5] is not None:
+                        f.write(f"   {if_cond}(({list_expr[i][3]}<{list_expr[i][1]}) && ({list_expr[i][1]}<{list_expr[i][5]}))  \n")
+                        f.write("{ \n")
+                        f.write(f"    F = {sp.cxxcode(expr)};\n")
+                        f.write("} \n")
+                    # ===============
+                    # <= && >
+                    if list_expr[i][2] is not None and list_expr[i][5] is not None:
+                        f.write(f"   {if_cond}(({list_expr[i][2]}<={list_expr[i][1]}) && ({list_expr[i][1]}<{list_expr[i][5]}))  \n")
+                        f.write("{ \n")
+                        f.write(f"    F = {sp.cxxcode(expr)};\n")
+                        f.write("} \n")
+                    # ===============
+                    # < && >=
+                    if list_expr[i][3] is not None and list_expr[i][4] is not None:
+                        f.write(f"   {if_cond}(({list_expr[i][3]}<{list_expr[i][1]}) && ({list_expr[i][1]}<={list_expr[i][4]}))  \n")
+                        f.write("{ \n")
+                        f.write(f"    F = {sp.cxxcode(expr)};\n")
+                        f.write("} \n")
+                f.write(f" else \n")
+                f.write("{ \n")
+                f.write(f"    F = {sp.cxxcode(expr_0)};\n")
+                f.write("} \n")
+            else:
+                f.write(f" double   F = {sp.cxxcode(expr_0)};\n")
+
+                
         else:
             if(has_auxiliary_variables):
                 f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, const unsigned int dimension) {\n")
             else:
                 f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {\n")
 
-            for i, v in enumerate(vars):
+            for i, v in enumerate(spvars):
                 f.write(f"    std::vector<double> {v};\n")
                 f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(input_vector[{i}*dimension+i]);\n")
 
@@ -330,8 +496,10 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
             if(has_constants):
                 for const in dict_constants:
                     f.write(f"    double {const} = {dict_constants[const]};\n")
-
-            f.write(f"    double F = {dot_to_inner_product(str(sp.N(expr)))};\n")
+            expr_0 = list_expr[-1][0]
+            f.write(f"    double F = {dot_to_inner_product(str(sp.N(expr_0)))};\n")
+            if is_conditional_expression:
+                raise ValueError("Error: conditional expression not extended to gradient expression.")  
 
    
         f.write("    return this->prefactor_ * F;\n")
@@ -356,7 +524,7 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
             else:
                 f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
 
-            for i, v in enumerate(vars):
+            for i, v in enumerate(spvars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
@@ -367,12 +535,56 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
                     f.write(f"    double {const} = {dict_constants[const]};\n")
                     
             f.write(f"    std::vector<double> gradient({n});\n")
-            for i in range(n):
-                f.write(f"    gradient[{i}] = this->prefactor_ * ({sp.cxxcode(gradient[i])});\n")
+
+            #====================================================
+            #====================================================
+            # single gradient or the default one in case "conditional expression"
+            gradient_0 = list_gradient[-1][0]
+
+            if is_conditional_expression:
+                if_cond = "if "
+                for i in range(0,len(list_gradient)-1):
+                    if i != 0:
+                        if_cond = "else if "
+                    gradient = list_gradient[i][0]
+                    # ===============
+                    # <= && >=
+                    if list_gradient[i][2] is not None and list_gradient[i][4] is not None:
+                        f.write(f"  {if_cond}(({list_gradient[i][2]}<={list_gradient[i][1]}) && ({list_gradient[i][1]}<={list_gradient[i][4]}))  \n")
+                        f.write("{ \n")
+                        print_gradient(f, gradient, n)
+                        f.write("} \n")
+                    # ===============
+                    # < && >
+                    if list_gradient[i][3] is not None and list_gradient[i][5] is not None:
+                        f.write(f"  {if_cond}(({list_gradient[i][3]}<{list_gradient[i][1]}) && ({list_gradient[i][1]}<{list_gradient[i][5]}))  \n")
+                        f.write("{ \n")
+                        print_gradient(f, gradient, n)
+                        f.write("} \n")
+                    # ===============
+                    # <= && >
+                    if list_gradient[i][2] is not None and list_gradient[i][5] is not None:
+                        f.write(f"  {if_cond}(({list_gradient[i][2]}<={list_gradient[i][1]}) && ({list_gradient[i][1]}<{list_gradient[i][5]}))  \n")
+                        f.write("{ \n")
+                        print_gradient(f, gradient, n)
+                        f.write("} \n")
+                    # ===============
+                    # < && >=
+                    if list_gradient[i][3] is not None and list_gradient[i][4] is not None:
+                        f.write(f"  {if_cond}(({list_gradient[i][3]}<{list_gradient[i][1]}) && ({list_gradient[i][1]}<={list_gradient[i][4]}))  \n")
+                        f.write("{ \n")
+                        print_gradient(f, gradient, n)
+                        f.write("} \n")
+                f.write(f" else \n")
+                f.write("{ \n")
+                print_gradient(f, gradient_0, n)
+                f.write("} \n")
+            else:
+                print_gradient(f, gradient_0, n)
+
         else: 
             f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> gradient({n},0.0);\n")
-
 
         f.write("    return gradient;\n")
         f.write("  };\n")
@@ -395,7 +607,7 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
                 f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
             else:
                 f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
-            for i, v in enumerate(vars):
+            for i, v in enumerate(spvars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
@@ -406,20 +618,83 @@ def generate_class_with_functions(expr_str1, var_names, auxiliary_var_names, con
                     f.write(f"    double {const} = {dict_constants[const]};\n")
                     
             f.write(f"    std::vector<double> hessian({n*n});\n")
-            for i in range(n):
-                for j in range(n):
-                    f.write(f"    hessian[{i*n + j}] = this->prefactor_ * ({sp.cxxcode(hessian[i,j])});\n")
+       
+            #====================================================
+            #====================================================
+            # single hessian or the default one in case "conditional expression"
+            hessian_0 = list_hessian[-1][0]
+                        
+            if is_conditional_expression:
+                if_cond = "if "
+                for i in range(0,len(list_hessian)-1):
+                    if i != 0:
+                        if_cond = "else if "
+                    hessian = list_hessian[i][0]
+                    # ===============
+                    # <= && >=
+                    if list_hessian[i][2] is not None and list_hessian[i][4] is not None:
+                        f.write(f"  {if_cond}(({list_hessian[i][2]}<={list_hessian[i][1]}) && ({list_hessian[i][1]}<={list_hessian[i][4]}))  \n")
+                        f.write("{ \n")
+                        print_hessian(f, hessian, n)
+                        f.write("} \n")
+                    # ===============
+                    # < && >
+                    if list_hessian[i][3] is not None and list_hessian[i][5] is not None:
+                        f.write(f"  {if_cond}(({list_hessian[i][3]}<{list_hessian[i][1]}) && ({list_hessian[i][1]}<{list_hessian[i][5]}))  \n")
+                        f.write("{ \n")
+                        print_hessian(f, hessian, n)
+                        f.write("} \n")
+                    # ===============
+                    # <= && >
+                    if list_hessian[i][2] is not None and list_hessian[i][5] is not None:
+                        f.write(f" {if_cond}(({list_hessian[i][2]}<={list_hessian[i][1]}) && ({list_hessian[i][1]}<{list_hessian[i][5]}))  \n")
+                        f.write("{ \n")
+                        print_hessian(f, hessian, n)
+                        f.write("} \n")
+                    # ===============
+                    # < && >=
+                    if list_hessian[i][3] is not None and list_hessian[i][4] is not None:
+                        f.write(f"  {if_cond}(({list_hessian[i][3]}<{list_hessian[i][1]}) && ({list_hessian[i][1]}<={list_hessian[i][4]}))  \n")
+                        f.write("{ \n")
+                        print_hessian(f, hessian, n)
+                        f.write("} \n")
+                f.write(f" else \n")
+                f.write("{ \n")
+                print_hessian(f, hessian_0, n)
+                f.write("} \n")
+            else:
+                print_hessian(f, hessian_0, n)
+
+
         else:
             f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> hessian({n*n},0.0);\n")
-
 
         f.write("    return hessian;\n")
         f.write("  };\n")
         f.write("  return func;\n")
         f.write("}\n")
 
-    print(f"Class {class_name} generated in {cpp_file}")
+
+    logging.info(f"Class {class_name} generated in {cpp_file}")
+    # ======================
+    # clang-format if found
+    # ======================
+    clang_format_options = [
+        "clang-format",
+        "-i",  # Formater le fichier en place
+        f"-style={{BasedOnStyle: Google, ColumnLimit: 100, Cpp11BracedListStyle: true, IncludeBlocks: Preserve}}",  
+        cpp_file
+    ]
+    try:
+        subprocess.run(clang_format_options, check=True)
+        print(f"{cpp_file} is formatted with clang-format")
+    except subprocess.CalledProcessError as e:
+        print(f"Error when running clang-format: {e}")
+    except FileNotFoundError:
+        print("clang-format is not found. C++ file not formatted.")
+    # ======================
+
 
 ########################################################################################
 ########################################################################################
@@ -505,8 +780,63 @@ if __name__ == "__main__":
                     constants = item["constants"]
                 else:
                     constants = ""
+
+                expressions = []
                 
-                coefficients.append((item["expression"], item["variables"], auxiliaries, constants, item["class_name"], item["outputfile"], gradient))
+                cond_var = item.get("range_variable")
+                is_conditional_expression = False
+                if "expression" in item:
+                    expressions.append( (item["expression"], None, None, None, None, None) )
+                elif "expressions" in item:
+                    is_conditional_expression = True
+                    found_default = False
+                    if cond_var is None:
+                        raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")   
+                    if gradient:
+                        raise ValueError("Error: conditional expression not extended to gradient expression.")   
+                    nb_expression = 0
+                    nb_range = 0
+                    for expr_item in item["expressions"]:
+                        expr = expr_item.get("expression")
+                        if expr is not None:
+                            nb_expression= nb_expression +1
+                        lower = expr_item.get("lower")
+                        upper = expr_item.get("upper")
+                        lower_strict = expr_item.get("lower_strict")
+                        upper_strict = expr_item.get("upper_strict")
+                        
+                        if expr is None:
+                            raise ValueError("Error: expression is expected.")    
+                        if not expr_item.get("default"):                  
+                            if (lower is not None) and (lower_strict is not None):
+                                raise ValueError("Error: either lower or lower_strict must be defined. Please make a choice.")
+                            if (lower is None) and (lower_strict is None):
+                                raise ValueError("Error: either lower or lower_strict must be defined.")
+                            if (upper is not None) and (upper_strict is not None):
+                                raise ValueError("Error: either upper or upper_strict must be defined. Please make a choice.")
+                            if (upper is None) and (upper_strict is None):
+                                raise ValueError("Error: either upper or upper_strict must be defined.")
+                            nb_range= nb_range +1
+                        else:
+                            found_default = True
+
+                        expressions.append( (expr, cond_var, lower, lower_strict, upper, upper_strict) )
+                     
+                    if not found_default:
+                        raise ValueError("Error: a default expression must be defined for each conditional expression .Use the 'default' attribute in the JSON file.")
+
+                    if nb_expression < 2:
+                        raise ValueError("Error: at least two expression expressions are expected.")  
+                        
+                    if nb_range != nb_expression - 1:
+                        raise ValueError("Error: the number of ranges must be equal to the number of expressions + 1")
+
+                    check_bounds_consistency(expressions)
+
+                else:
+                    raise ValueError("Error: either expression or expressions must be defined.")
+
+                coefficients.append((expressions, item["variables"], auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression))
             
         except json.JSONDecodeError:
             print("Error: Failed to decode JSON from the file.")         
@@ -514,7 +844,7 @@ if __name__ == "__main__":
     # Remove existing Cpp files
     if args.remove:
         for coef in coefficients:
-            output_cpp_file = coef[-2]        
+            output_cpp_file = coef[-3]        
             cpp_file = f"{output_cpp_file}.hpp"
             path = Path(cpp_file).resolve()
             if path.is_file():
@@ -522,6 +852,6 @@ if __name__ == "__main__":
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient] = coef
-        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient)
+        [expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression] = coef
+        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression)
     
