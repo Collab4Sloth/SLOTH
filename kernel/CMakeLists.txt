@@ -43,7 +43,7 @@ endif(MFEM_USE_PETSC)
 option(SLOTH_USE_EXTERNAL "Enable the use of an external package that requires linking with external library" OFF)
 if(SLOTH_USE_EXTERNAL)
         target_link_directories(Sloth PUBLIC $ENV{EXT_LIBDIR} )
-        target_link_libraries(Sloth PUBLIC SlothExternal $ENV{EXT_LIBNAME})
+        target_link_libraries(Sloth PUBLIC $ENV{EXT_LIBNAME})
 endif(SLOTH_USE_EXTERNAL)
 
 
