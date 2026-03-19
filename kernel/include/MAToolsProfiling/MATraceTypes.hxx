@@ -109,7 +109,7 @@ class MATrace_section {
 
 typedef std::vector<MATrace_section> Trace;
 
-MATrace_point::MATrace_point() : m_time(std::chrono::steady_clock::now()) {}
+MATrace_point::MATrace_point() : m_time(std::chrono::system_clock::now()) {}
 
 time_point& MATrace_point::data() { return m_time; }
 
