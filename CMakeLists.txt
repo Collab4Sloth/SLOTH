@@ -7,16 +7,13 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS NO)
-
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 ## Force Release Mode
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
-
-
 
 # Check GCC version for including filesystem
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -30,7 +27,7 @@ endif()
 # ########################
 # # Global Configuration
 # ########################
-# SlothInstall : name of the repository for installtion
+# SlothInstall : name of the repository for installation
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/SlothInstall)
 
 # ########################
@@ -42,12 +39,8 @@ include(MFEM4SLOTH)
 # # Sloth header's only
 # # library (interface)
 # ########################
-include_directories(${CMAKE_SOURCE_DIR})
+# include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
-
-if(SLOTH_USE_EXTERNAL)
-include(HEADER4SLOTH)
-endif(SLOTH_USE_EXTERNAL)
 
 # ########################
 # # Doc Configuration
@@ -60,8 +53,6 @@ endif(NOT TARGET doc)
 # # Test Configuration
 # ########################
 include(COMPILE4SLOTH)
-
-
 
 # ########################
 # LibTorch API ??
@@ -81,13 +72,19 @@ file(COPY ${SCRIPT_FILE} DESTINATION ${BUILD_SCRIPT_DIR})
 # ########################
 # Tests
 # ########################
-add_custom_target(sloth DEPENDS Sloth)
+# By default, make command without target only builds Sloth
+add_custom_target(sloth COMMENT "Build Sloth " DEPENDS Sloth)
+
 include(TEST4SLOTH)
 
 include(CTest)
 enable_testing()
+add_subdirectory(tests EXCLUDE_FROM_ALL)
 
-add_subdirectory(tests)
+# By default, build all tests only after Sloth has been compiled.
+# Otherwise, Sloth is compiled and then, all tests are built.
+add_custom_target(sloth_tests COMMENT "Build Sloth + all tests " DEPENDS Sloth tests)
+
 
 
 # ########################

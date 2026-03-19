@@ -1,5 +1,6 @@
-
-
+add_custom_target(tests
+    COMMENT "Build all tests " DEPENDS Sloth
+)
 # COMPARISON test
 function(create_col_comparison test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label)
   set(DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/ref_${test_name})
@@ -61,5 +62,6 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
   set_compile_options(${CURRENT_EXE})
   # TODO(CCI): uncomment? 
   # install(TARGETS ${CURRENT_EXE} DESTINATION tests)
+  add_dependencies(tests ${CURRENT_EXE})
 
 endfunction(create_test)

@@ -43,7 +43,7 @@ endif(MFEM_USE_SUITESPARSE)
 find_package(METIS REQUIRED)
 
 # HYPRE version
-include(cmake/modules/hypre.cmake)
+include(hypre)
 set(MFEM_HYPRE_VERSION ${HYPRE_VERSION}) 
 
 add_compile_definitions(MFEM_HYPRE_VERSION=${MFEM_HYPRE_VERSION})

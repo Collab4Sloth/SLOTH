@@ -1,6 +1,10 @@
 # Create the library
-add_library(Sloth SHARED)
-
+option(SLOTH_USE_STATIC "Enable static library for Sloth" OFF)
+if(SLOTH_USE_STATIC)
+    add_library(Sloth STATIC)
+else()
+    add_library(Sloth SHARED)
+endif(SLOTH_USE_STATIC)
 
 file(GLOB_RECURSE SLOTH_SRC CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/kernel/src/*.cpp
@@ -11,6 +15,7 @@ target_sources(Sloth PRIVATE ${SLOTH_SRC})
 set_target_properties(Sloth PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
+    CMAKE_CXX_EXTENSIONS OFF
 )
 
 # And the most important part set the include directories
@@ -19,7 +24,6 @@ target_include_directories(Sloth
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/kernel/include>
         $<INSTALL_INTERFACE:include>
 )
-
 
 # Include MFEM + ExprTk
 target_include_directories(Sloth SYSTEM PUBLIC ${MFEM_DIR}/include $ENV{ExprTk_INCLUDE_DIR})
@@ -37,15 +41,10 @@ endif(MFEM_USE_PETSC)
 
 # EXTERNAL??
 option(SLOTH_USE_EXTERNAL "Enable the use of an external package that requires linking with external library" OFF)
-option(SLOTH_USE_AUTO_EXTERNAL "Enable the use of an autonomous external package" OFF)
-if(SLOTH_USE_EXTERNAL OR SLOTH_USE_AUTO_EXTERNAL)
-    file(GLOB_RECURSE EXT_SRC_FILES $ENV{EXT_SRC}/*.hpp)
-    add_library(SlothExternal PUBLIC ${EXT_SRC_FILES})
-    if(SLOTH_USE_EXTERNAL)
+if(SLOTH_USE_EXTERNAL)
         target_link_directories(Sloth PUBLIC $ENV{EXT_LIBDIR} )
         target_link_libraries(Sloth PUBLIC SlothExternal $ENV{EXT_LIBNAME})
-    endif(SLOTH_USE_EXTERNAL)
-endif()
+endif(SLOTH_USE_EXTERNAL)
 
 
 # LibTorch API ??
@@ -76,34 +75,30 @@ endif()
 # ########################
 # # Installation 
 # ########################
-# SlothTargets.cmake creation
-
-install(
-    TARGETS Sloth
-    EXPORT SlothTargets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-)
-
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
     DESTINATION include
 )
-install(
-    EXPORT SlothTargets
-    FILE SlothTargets.cmake
-    NAMESPACE Sloth::
-    DESTINATION lib/cmake/Sloth
-)
-
 
 install(
     DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
     DESTINATION scripts
 )
+# SlothTargets.cmake creation
+install(
+    TARGETS Sloth
+    EXPORT SlothTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+)
+
 
 
 install(
-    DIRECTORY ${CMAKE_SOURCE_DIR}/tests/
-    DESTINATION tests
+    EXPORT SlothTargets
+    FILE SlothTargets.cmake
+    NAMESPACE Sloth::
+    DESTINATION cmake/Sloth
 )
+
