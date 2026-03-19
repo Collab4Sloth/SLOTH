@@ -26,9 +26,16 @@ target_include_directories(Sloth
 )
 
 # Include MFEM + ExprTk
-target_include_directories(Sloth SYSTEM PUBLIC ${MFEM_DIR}/include $ENV{ExprTk_INCLUDE_DIR})
+# target_include_directories(Sloth SYSTEM PUBLIC ${MFEM_DIR}/include $ENV{ExprTk_INCLUDE_DIR})
 
-target_link_directories(Sloth PUBLIC ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
+target_include_directories(Sloth SYSTEM PUBLIC
+    $<BUILD_INTERFACE:${MFEM_DIR}/include>
+)
+target_include_directories(Sloth SYSTEM PUBLIC
+    $<BUILD_INTERFACE:$ENV{ExprTk_INCLUDE_DIR}>
+)
+
+# target_link_directories(Sloth PUBLIC ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
 
 target_link_libraries(Sloth PUBLIC ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY} ${FILESYSTEM_LIB})
 
@@ -51,8 +58,11 @@ endif(SLOTH_USE_EXTERNAL)
 if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
     MESSAGE(STATUS "Sloth use libTorch API ")
-    target_include_directories(Sloth PUBLIC ${TORCH_INCLUDE_DIRS} )
+    target_include_directories(Sloth PUBLIC
+        $<BUILD_INTERFACE:${TORCH_INCLUDE_DIRS}>
+    )    
     target_link_libraries(Sloth PUBLIC ${TORCH_LIBRARIES})
+    
     target_compile_definitions(Sloth PUBLIC SLOTH_USE_LIBTORCH=1)
 endif(SLOTH_USE_LIBTORCH)
 
