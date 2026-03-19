@@ -21,8 +21,8 @@ function to_absolute_path() {
 #=============================================
 built_code="Release"
 use_external="OFF"
-use_auto_external="OFF"
 use_libtorch="OFF"
+use_static="OFF"
 use_exprtk="OFF"
 local_mfem_version="No"
 ADDITIONAL_OPTION=""
@@ -49,6 +49,10 @@ for argument; do
             Print "Sloth built with a local MFEM version: $MFEM4SLOTH"
             export MFEM4SLOTH=$MFEM4SLOTH
         fi
+        ;;
+    --static)
+        use_static="ON"
+        Print "Static library of Sloth will be created"
         ;;
     --release)
         built_code="Release"
@@ -109,62 +113,6 @@ for argument; do
         fi
 
         ;;
-    --auto_external)
-        Print "Sloth built with an autonomous external package"
-        count=$(echo "$value" | grep -o ',' | wc -l)
-
-        if [[ "${count}" -eq 0 ]]; then
-            export EXT_SRC=$(echo "$value")
-        elif [[ "${count}" -eq 1 ]]; then
-            export EXT_SRC=$(echo "$value" | cut -f1 -d',')
-            export EXT_TEST=$(echo "$value" | cut -f2 -d',')
-        else
-            Print "\nError: --external must contain 1 or 2 values separated by a comma."
-            Print " --auto_external=EXT_SRC,EXT_TEST "
-            Print " EXT_SRC : path of the source files of the interface between the external package and SLOTH"
-            Print " EXT_TEST : path of the SLOTH tests involving the external package"
-
-            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1
-            else
-                exit 1
-            fi
-        fi
-        EXT_SRC=$(to_absolute_path "$EXT_SRC")
-        if [[ -n "$EXT_TEST" ]]; then
-            EXT_TEST=$(to_absolute_path "$EXT_TEST")
-        fi
-
-        # Validate EXT_SRC
-        if [[ ! -d "$EXT_SRC" ]]; then
-            Print "\nError: Source files directory does not exist. Please check the data!"
-
-            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1
-            else
-                exit 1
-            fi
-        fi
-
-        # Validate EXT_TEST if present
-        if [[ -n "$EXT_TEST" && ! -d "$EXT_TEST" ]]; then
-            Print "\nError: Tests directory does not exist. Please check the data!"
-
-            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1
-            else
-                exit 1
-            fi
-        fi
-
-        # Set external flag
-        use_auto_external='ON'
-
-        Print "\nConfiguration successful:"
-        Print " EXT_SRC=$EXT_SRC"
-        Print " EXT_TEST=${EXT_TEST:-'Not Provided'}"
-
-        ;;
     --external)
         Print "Sloth built with an external package that requires linking to an external library."
         count=$(echo "$value" | grep -o ',' | wc -l)
@@ -174,8 +122,6 @@ for argument; do
             Print " --external=EXT_LIBDIR,EXT_LIBNAME,EXT_SRC,EXT_TEST "
             Print " EXT_LIBDIR : path towards the external package "
             Print " EXT_LIBNAME : path of the external dynamic library linked to SLOTH"
-            Print " EXT_SRC : path of the source files of the interface between the external package and SLOTH"
-            Print " EXT_TEST : path of the SLOTH tests involving the external package"
 
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
                 return 1
@@ -185,39 +131,12 @@ for argument; do
         fi
         export EXT_LIBDIR=$(echo "$value" | cut -f1 -d',')
         export EXT_LIBNAME=$(echo "$value" | cut -f2 -d',')
-        export EXT_SRC=$(echo "$value" | cut -f3 -d',')
-        export EXT_TEST=$(echo "$value" | cut -f4 -d',')
 
         EXT_LIBDIR=$(to_absolute_path "$EXT_LIBDIR")
-        EXT_SRC=$(to_absolute_path "$EXT_SRC")
-        if [[ -n "$EXT_TEST" ]]; then
-            EXT_TEST=$(to_absolute_path "$EXT_TEST")
-        fi
+
         # Validate EXT_LIBDIR
         if [[ ! -d "$EXT_LIBDIR" ]]; then
             Print "\nError: External package directory does not exist. Please check the data!"
-
-            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1
-            else
-                exit 1
-            fi
-        fi
-
-        # Validate EXT_SRC
-        if [[ ! -d "$EXT_SRC" ]]; then
-            Print "\nError: Source files directory does not exist. Please check the data!"
-
-            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-                return 1
-            else
-                exit 1
-            fi
-        fi
-
-        # Validate EXT_TEST if present
-        if [[ -n "$EXT_TEST" && ! -d "$EXT_TEST" ]]; then
-            Print "\nError: Tests directory does not exist. Please check the data!"
 
             if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
                 return 1
@@ -232,8 +151,6 @@ for argument; do
         Print "\nConfiguration successful:"
         Print " EXT_LIBDIR=$EXT_LIBDIR"
         Print " EXT_LIBNAME=$EXT_LIBNAME"
-        Print " EXT_SRC=$EXT_SRC"
-        Print " EXT_TEST=${EXT_TEST:-'Not Provided'}"
 
         ;;
     *)
@@ -263,6 +180,7 @@ else
     #=============================================
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         spack load mfem
+        export MFEM_DIR=$(spack location -i mfem)
         export HYPRE_DIR=$(spack location -i hypre)
         export MPI_DIR=$(spack location -i mpi)
         export METIS_DIR=$(spack location -i metis)
@@ -286,7 +204,7 @@ Print "Create a new build..."
 
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
-cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_AUTO_EXTERNAL=$use_auto_external -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk 
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_STATIC=$use_static -DSLOTH_USE_EXTERNAL=$use_external  -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk 
 
 
 Print "Done!"
