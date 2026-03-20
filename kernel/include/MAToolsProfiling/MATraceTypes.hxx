@@ -36,7 +36,8 @@
 
 namespace MATools {
 namespace MATrace {
-using high_resolution_clock = std::chrono::high_resolution_clock;
+// using high_resolution_clock = std::chrono::high_resolution_clock;
+using high_resolution_clock = std::chrono::steady_clock;
 using time_point = std::chrono::time_point<high_resolution_clock>;
 
 struct MATrace_point {
@@ -109,7 +110,7 @@ class MATrace_section {
 
 typedef std::vector<MATrace_section> Trace;
 
-MATrace_point::MATrace_point() : m_time(std::chrono::system_clock::now()) {}
+MATrace_point::MATrace_point() : m_time(high_resolution_clock::now()) {}
 
 time_point& MATrace_point::data() { return m_time; }
 

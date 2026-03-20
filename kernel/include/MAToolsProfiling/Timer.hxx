@@ -25,15 +25,16 @@
  */
 
 #pragma once
+#include <MAToolsProfiling/MATrace.hxx>
 #include <chrono>  // NOLINT [unapproved C++11]
 #include <string>
 
 #include "MAToolsProfiling/MATimerNode.hxx"
-#include <MAToolsProfiling/MATrace.hxx>
 namespace MATools {
 namespace MATimer {
 using duration = std::chrono::duration<double>;
-using high_resolution_clock = std::chrono::high_resolution_clock;
+// using high_resolution_clock = std::chrono::high_resolution_clock;
+using high_resolution_clock = std::chrono::steady_clock;
 using MATime_point = std::chrono::time_point<high_resolution_clock>;
 
 /**
