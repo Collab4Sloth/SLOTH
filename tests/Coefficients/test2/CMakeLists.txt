@@ -28,6 +28,7 @@ add_test(NAME CoefficientTest25 COMMAND mpirun -np 1 ${CMAKE_CURRENT_BINARY_DIR}
 set_tests_properties(CoefficientTest25 PROPERTIES WILL_FAIL FALSE LABELS "Coefficient")
 
 set_compile_options(${CURRENT_EXE})
+add_dependencies(tests ${CURRENT_EXE})
 
 # TODO(CCI) Uncomment?
 # install(TARGETS ${CURRENT_EXE} DESTINATION tests)

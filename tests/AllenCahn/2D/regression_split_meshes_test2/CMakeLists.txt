@@ -14,6 +14,7 @@ add_test(NAME SplitMeshAllenCahn2Dtest2 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_
 set_tests_properties(SplitMeshAllenCahn2Dtest2 PROPERTIES WILL_FAIL FALSE LABELS "EXE AC" RUN_SERIAL TRUE)
 
 set_compile_options(${CURRENT_EXE})
+add_dependencies(tests ${CURRENT_EXE})
 # TODO(CCI) uncomment?
 # install(TARGETS ${CURRENT_EXE} DESTINATION tests)
 
