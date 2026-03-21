@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-09-05
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -23,14 +23,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 #include <unistd.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
-
-//
-
-#include <algorithm>
 #include <filesystem>  // NOLINT [avoid  <filesystem> is an unapproved C++17 header.]
 #include <functional>
 #include <iostream>
@@ -41,8 +39,6 @@
 #include <vector>
 
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-
-#pragma once
 
 using FuncType = std::function<double(const double&, const double&)>;
 using FType = std::function<double(const double&)>;

@@ -7,7 +7,7 @@
  *
  * @anchor coefficients
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *

@@ -10,8 +10,6 @@
  *
  * @anchor PropertyBase
  *
- *
- *
  * This file is part of SLOTH.
  *
  * SLOTH is free software: you can redistribute it and/or modify

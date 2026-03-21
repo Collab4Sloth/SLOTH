@@ -5,7 +5,6 @@
  * @version 0.1
  * @date 2025-09-05
  *
- *
  * @copyright CEA (C) 2025
  *
  * @anchor Convergence

@@ -4,8 +4,8 @@
  * @brief Base class defining analytical expression, first and second derivatives of a Coefficient
  * @version 0.1
  * @date 2025-11-06
- *
- * Copyright CEA (C) 2025
+
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -23,6 +23,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
 #include "Coefficients/FunctionCoefficient.hpp"
 
 #include <any>
