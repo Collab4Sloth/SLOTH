@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-09-05
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -23,6 +23,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 #include <algorithm>
 #include <list>
 #include <span>
@@ -36,8 +37,6 @@
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-
-#pragma once
 
 /**
  * @brief Class dedicated to the VF of the time-derivative (eg. LHS of Allen-Cahn  equation)

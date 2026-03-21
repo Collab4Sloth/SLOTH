@@ -7,7 +7,7 @@
  *
  * @anchor bcs
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -25,6 +25,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
+
 #include <limits>
 #include <map>
 #include <string>

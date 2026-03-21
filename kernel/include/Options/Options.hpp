@@ -7,7 +7,7 @@
  *
  * @anchor Options
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -25,6 +25,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 #include "Options/AnalyticalFunctionOptions.hpp"
 #include "Options/CalphadOptions.hpp"
@@ -38,5 +39,3 @@
 #include "Options/SpatialOptions.hpp"
 #include "Options/TimeOptions.hpp"
 #include "Utils/Utils.hpp"
-
-#pragma once

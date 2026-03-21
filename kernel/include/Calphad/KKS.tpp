@@ -6,7 +6,7 @@
  * @version 0.1
  * @date 2025-09-05
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -24,6 +24,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
+#pragma once
 #include <algorithm>
 #include <functional>
 #include <limits>
@@ -43,8 +45,6 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-
-#pragma once
 
 /**
  * @brief Construct a new Calphad Base< T>:: Calphad Base object

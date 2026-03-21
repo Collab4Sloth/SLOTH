@@ -6,7 +6,7 @@
  * @version 0.1
  * @date 2025-09-05
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -31,10 +31,6 @@
 #include <utility>
 #include <vector>
 
-#include "Coefficients/LambdaCoefficient.hpp"
-#include "Coefficients/MobilityCoefficient.hpp"
-#include "Coefficients/OmegaCoefficient.hpp"
-#include "Coefficients/PhaseFieldPotentials.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameters.hpp"

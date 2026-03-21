@@ -7,7 +7,7 @@
  *
  * @anchor coefficients
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -26,6 +26,7 @@
  *
  */
 
+#pragma once
 #include <any>
 #include <functional>
 #include <limits>
@@ -38,7 +39,6 @@
 
 #include "Coefficients/Coefficient.hpp"
 #include "Glossary/Glossary.hpp"
-#pragma once
 
 template <class T, class Coefficient>
 concept CoeffVar = std::same_as<std::remove_cvref_t<T>, Coefficient>;

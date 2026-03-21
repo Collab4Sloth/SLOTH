@@ -7,7 +7,7 @@
  *
  * @anchor Utils
  *
- * Copyright CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *
@@ -26,10 +26,9 @@
  *
  */
 
+#pragma once
 #include "Utils/UtilsForData.hpp"
 #include "Utils/UtilsForDebug.hpp"
 #include "Utils/UtilsForOptions.hpp"
 #include "Utils/UtilsForPostProcessing.hpp"
 #include "Utils/UtilsForVariants.hpp"
-
-#pragma once

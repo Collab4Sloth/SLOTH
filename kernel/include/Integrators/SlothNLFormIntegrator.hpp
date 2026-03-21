@@ -26,6 +26,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 #include <algorithm>
 #include <list>
 #include <optional>
@@ -40,8 +41,6 @@
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-
-#pragma once
 
 /**
  * @brief Class prodiving common methods to all NLFormIntegrators
