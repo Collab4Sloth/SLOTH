@@ -59,6 +59,9 @@ class Problem : public ProblemBase<VAR, PST> {
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
   void save_specialized(bool must_be_saved);
 
+ protected:
+  void set_time_coefficients(double time) override;
+
  public:
   template <PbVar<VAR>... Args>
   Problem(const OPE& oper, VAR& variables, const std::vector<Coefficients>& Coeff,

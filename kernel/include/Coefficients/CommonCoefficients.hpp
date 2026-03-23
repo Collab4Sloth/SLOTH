@@ -81,8 +81,8 @@ class Fw : public FunctionCoefficient {
   HessianF() override final;
 
  public:
-  Fw() { this->prefactor_ = 1.0; }
-  explicit Fw(const double prefactor) { this->prefactor_ = prefactor; }
+  Fw() : prefactor_(1.0) {}
+  explicit Fw(const double prefactor) : prefactor_(prefactor) {}
   virtual ~Fw() = default;
 };
 
@@ -107,8 +107,8 @@ class H : public FunctionCoefficient {
   HessianF() override final;
 
  public:
-  H() { this->prefactor_ = 1.0; }
-  explicit H(const double prefactor) { this->prefactor_ = prefactor; }
+  H() : prefactor_(1.0) {}
+  explicit H(const double prefactor) : prefactor_(prefactor) {}
   virtual ~H() = default;
 };
 
@@ -133,8 +133,8 @@ class Log : public FunctionCoefficient {
   HessianF() override final;
 
  public:
-  Log() { this->prefactor_ = 1.0; }
-  explicit Log(const double prefactor) { this->prefactor_ = prefactor; }
+  Log() : prefactor_(1.0) {}
+  explicit Log(const double prefactor) : prefactor_(prefactor) {}
   virtual ~Log() = default;
 };
 
@@ -159,7 +159,7 @@ class GradientEnergy : public FunctionCoefficient {
   HessianF() override final;
 
  public:
-  GradientEnergy() { this->prefactor_ = 1.0; }
-  explicit GradientEnergy(const double prefactor) { this->prefactor_ = prefactor; }
+  GradientEnergy() : prefactor_(1.0) {}
+  explicit GradientEnergy(const double prefactor) : prefactor_(prefactor) {}
   virtual ~GradientEnergy() = default;
 };
