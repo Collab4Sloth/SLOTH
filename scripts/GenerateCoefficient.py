@@ -74,6 +74,8 @@ def get_constants(constants):
             dict_constants[k]="Physical::H"
         elif v == 'R':
             dict_constants[k]="Physical::R"
+        elif v == 'T':
+            dict_constants[k]="this->time_"
     return dict_constants
 
 
@@ -829,7 +831,7 @@ if __name__ == "__main__":
                         raise ValueError("Error: at least two expression expressions are expected.")  
                         
                     if nb_range != nb_expression - 1:
-                        raise ValueError("Error: the number of ranges must be equal to the number of expressions + 1")
+                        raise ValueError("Error: the number of ranges must be equal to the number of expressions - 1")
 
                     check_bounds_consistency(expressions)
 

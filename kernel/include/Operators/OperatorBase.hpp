@@ -178,5 +178,6 @@ class OperatorBase : public mfem::Operator {
                      const double& current_time, double current_time_step, const int iter) = 0;
   SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const std::string nlfi,
                                                          const std::vector<mfem::Vector>& u);
+  void set_time_coefficients(double time);
 };
 #include "Operators/OperatorBase.tpp"

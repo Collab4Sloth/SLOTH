@@ -66,6 +66,8 @@ class Coefficients {
   Coefficient operator[](size_t i);
 
   std::vector<GlossaryType> get_types() const;
+
+  void set_time(double time);
 };
 
 /**

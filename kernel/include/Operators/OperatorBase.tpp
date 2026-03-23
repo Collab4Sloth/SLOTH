@@ -940,3 +940,23 @@ void OperatorBase<T, DIM>::overload_preconditioner(VSolverType PRECOND,
   this->precond_ = PRECOND;
   this->precond_params_ = p_params;
 }
+
+/**
+ * @brief Set the time for all coefficients
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param time current time
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::set_time_coefficients(double time) {
+  for (auto& coefs : this->coefficients_) {
+    coefs.set_time(time);
+  }
+  if (this->energy_coefficient_.has_value()) {
+    (*this->energy_coefficient_).set_time(time);
+  }
+  if (this->grad_energy_coefficient_.has_value()) {
+    (*this->grad_energy_coefficient_).set_time(time);
+  }
+}

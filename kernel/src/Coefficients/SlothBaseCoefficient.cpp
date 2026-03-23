@@ -257,3 +257,10 @@ bool SlothBaseCoefficient::is_semi_implicit() const {
  *         false otherwise.
  */
 bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Constant; }
+
+/**
+ * @brief Update the time associated with the coefficient
+ *
+ * @note this->time_ is the variable used to define time in FunctionCoefficients
+ */
+void SlothBaseCoefficient::set_time(double time) { this->coefficient_->set_time(time); }

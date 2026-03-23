@@ -116,6 +116,7 @@ class ProblemBase {
   void save(const int& iter, const double& current_time);
 
   virtual void finalize();
+  virtual void set_time_coefficients(double) {};
 };
 
 #include "Problems/ProblemBase.tpp"

@@ -44,6 +44,7 @@
  */
 class FunctionCoefficient {
  protected:
+  double time_;
   virtual std::function<double(const std::span<const double>& values,
                                const std::span<const double>& aux_values,
                                const unsigned int dimension)>
@@ -58,7 +59,7 @@ class FunctionCoefficient {
   HessianF() = 0;
 
  public:
-  FunctionCoefficient() = default;
+  FunctionCoefficient();
   virtual ~FunctionCoefficient() = default;
 
   double eval_f(const std::span<const double>& input_vector,
@@ -77,4 +78,6 @@ class FunctionCoefficient {
   double eval_hessian(const int i, const int j, const std::span<const double>& input_vector,
                       const std::span<const double>& auxiliary_vector,
                       std::optional<int> dimension = std::nullopt);
+
+  void set_time(double time);
 };
