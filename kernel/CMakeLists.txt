@@ -1,14 +1,21 @@
 # Create the library
-option(SLOTH_USE_STATIC "Enable static library for Sloth" OFF)
-if(SLOTH_USE_STATIC)
-    add_library(Sloth STATIC)
-else()
+option(SLOTH_USE_SHARED "Enable static library for Sloth" OFF)
+if(SLOTH_USE_SHARED)
     add_library(Sloth SHARED)
-endif(SLOTH_USE_STATIC)
+else()
+    add_library(Sloth STATIC)
+endif(SLOTH_USE_SHARED)
 
+
+# Get all cpp files
 file(GLOB_RECURSE SLOTH_SRC CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/kernel/src/*.cpp
 )
+
+# Exclude specific cpp files if not required 
+if(NOT SLOTH_USE_EXPRTK)
+    list(REMOVE_ITEM SLOTH_SRC ${CMAKE_SOURCE_DIR}/kernel/src/Coefficients/ExprTkSloth.cpp)
+endif()
 
 target_sources(Sloth PRIVATE ${SLOTH_SRC})
 

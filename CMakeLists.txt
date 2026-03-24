@@ -27,8 +27,23 @@ endif()
 # ########################
 # # Global Configuration
 # ########################
-# SlothInstall : name of the repository for installation
-set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/SlothInstall)
+# SlothInstall : default name of the repository for installation
+if("$ENV{USER_INSTALL_PATH}" STREQUAL "")
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../SlothInstall" )
+else()
+    set(CMAKE_INSTALL_PREFIX "$ENV{USER_INSTALL_PATH}")
+endif()
+
+# ########################
+# # SymPy 
+# ########################
+include(SYMPY4SLOTH)
+
+check_python_module(sympy SYMPY_FOUND)
+if(NOT SYMPY_FOUND)
+    message(FATAL_ERROR "SymPy is required to build Sloth. Please install SymPy before building Sloth.")
+endif()
+
 
 # ########################
 # # MFEM Configuration

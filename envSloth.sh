@@ -22,10 +22,12 @@ function to_absolute_path() {
 built_code="Release"
 use_external="OFF"
 use_libtorch="OFF"
-use_static="OFF"
+use_shared="OFF"
 use_exprtk="OFF"
 local_mfem_version="No"
+export USER_INSTALL_PATH=""
 ADDITIONAL_OPTION=""
+np="4"
 
 for argument; do
 
@@ -33,6 +35,16 @@ for argument; do
     value=$(echo $argument | cut -f2 -d'=')
 
     case "$arg" in
+    --np)
+        if echo "$value" | grep -qE '^[0-9]+$'; then
+            np="$value"
+            echo "Compilation will be done in parallel with ${np} CPU"
+        else
+            echo "Invalid value for --np: must be an integer"
+            exit 1
+        fi
+        
+        ;;
     --mfem)
         local_mfem_version="Yes"
         MFEM4SLOTH=$(echo "$value")
@@ -50,9 +62,9 @@ for argument; do
             export MFEM4SLOTH=$MFEM4SLOTH
         fi
         ;;
-    --static)
-        use_static="ON"
-        Print "Static library of Sloth will be created"
+    --shared)
+        use_shared="ON"
+        Print "Shared library of Sloth will be created"
         ;;
     --release)
         built_code="Release"
@@ -153,6 +165,15 @@ for argument; do
         Print " EXT_LIBNAME=$EXT_LIBNAME"
 
         ;;
+    --install)
+        if [ -z "$value" ] || [ "${value#--}" != "$value" ]; then
+            echo "Error: --install requires a valid path"
+            exit 1
+        fi
+        export USER_INSTALL_PATH=$(to_absolute_path "$value")
+        Print "Sloth wil be installed in ${USER_INSTALL_PATH}"
+
+        ;;
     *)
         Print "\nERROR with $arg in shell script options"
 
@@ -203,8 +224,22 @@ fi
 Print "Create a new build..."
 
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
+CURRENT_PATH=$(pwd)
 
-cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_STATIC=$use_static -DSLOTH_USE_EXTERNAL=$use_external  -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk 
+if [ "$SCRIPT_PATH" = "$CURRENT_PATH" ] || [ "$CURRENT_PATH" = "/" ]; then
+    echo "Error: Do not run the build from the root directory."
+    echo "Please create a new directory to build SLOTH."
+    exit 1
+else
+    echo "SLOTH root path: $SCRIPT_PATH"
+    echo "Current build path: $CURRENT_PATH"
+fi
 
+Print "Run CMake configuration..."
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_SHARED=$use_shared -DSLOTH_USE_EXTERNAL=$use_external  -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk 
+
+Print "Compile SLOTH..."
+
+make -j ${np}
 
 Print "Done!"
