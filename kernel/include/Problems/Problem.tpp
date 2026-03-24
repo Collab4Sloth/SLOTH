@@ -392,7 +392,7 @@ void Problem<OPE, VAR, PST>::do_time_step(
     [[maybe_unused]] const std::vector<std::vector<std::string>>& unks_info) {
   const size_t unk_size = vect_unk.size();
 
-  this->set_time_coefficients(current_time);
+  this->set_time_coefficients(next_time);
 
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
 
