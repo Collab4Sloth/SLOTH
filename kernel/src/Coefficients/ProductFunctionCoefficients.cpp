@@ -148,3 +148,16 @@ ProductCoefficient::HessianF() {
   };
   return func;
 }
+
+/**
+ * @brief Set time for all FunctionCoefficients
+ *
+ * @param time
+ */
+void ProductCoefficient::set_time(double time) {
+  this->time_ = time;
+
+  for (auto* coef : vect_coefficients_) {
+    coef->set_time(time);
+  }
+}

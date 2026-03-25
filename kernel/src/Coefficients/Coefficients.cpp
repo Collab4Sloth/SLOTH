@@ -81,3 +81,13 @@ Coefficient Coefficients::operator[](size_t i) {
  * @return Vector of glossary types.
  */
 std::vector<GlossaryType> Coefficients::get_types() const { return this->vect_coefficient_types_; }
+
+/**
+ * @brief Set the time value to each coefficients
+ *
+ */
+void Coefficients::set_time(double time) {
+  for (auto& coef : this->vect_coefficients_) {
+    coef.set_time(time);
+  }
+}

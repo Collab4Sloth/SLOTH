@@ -41,6 +41,12 @@
 #include <vector>
 
 /**
+ * @brief Construct a new FunctionCoefficient::FunctionCoefficient object
+ *
+ */
+FunctionCoefficient::FunctionCoefficient() : time_(0.0) {}
+
+/**
  * @brief Evaluates the coefficient.
  *
  * The coefficient is computed from the current variables.
@@ -157,3 +163,9 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
 
   return HessianF()(input_vector, auxiliary_vector, dim)[i * size + j];
 }
+
+/**
+ * @brief Update the time associated with the coefficient
+ *
+ */
+void FunctionCoefficient::set_time(double time) { this->time_ = time; }

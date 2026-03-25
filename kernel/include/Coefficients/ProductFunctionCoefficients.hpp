@@ -64,4 +64,6 @@ class ProductCoefficient : public FunctionCoefficient {
   ProductCoefficient() = default;
 
   virtual ~ProductCoefficient() = default;
+
+  void set_time(double time) override;
 };

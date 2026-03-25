@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-09-05
  *
- * @cite label CEA (C) 2025
+ * @copyright CEA (C) 2025
  *
  * This file is part of SLOTH.
  *

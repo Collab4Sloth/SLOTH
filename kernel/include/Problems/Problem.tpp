@@ -392,6 +392,8 @@ void Problem<OPE, VAR, PST>::do_time_step(
     [[maybe_unused]] const std::vector<std::vector<std::string>>& unks_info) {
   const size_t unk_size = vect_unk.size();
 
+  this->set_time_coefficients(next_time);
+
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if
@@ -399,4 +401,20 @@ void Problem<OPE, VAR, PST>::do_time_step(
   for (size_t i = 0; i < unk_size; i++) {
     this->unknown_.emplace_back(*(vect_unk[i]));
   }
+}
+
+/**
+ * @brief Call OperatorBase method to set the time to coefficients
+ *
+ * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
+ * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *
+ * @param time current time
+ */
+template <class OPE, class VAR, class PST>
+void Problem<OPE, VAR, PST>::set_time_coefficients(double time) {
+  this->oper_.set_time_coefficients(time);
 }

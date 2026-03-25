@@ -74,6 +74,8 @@ def get_constants(constants):
             dict_constants[k]="Physical::H"
         elif v == 'R':
             dict_constants[k]="Physical::R"
+        elif v == 'T':
+            dict_constants[k]="this->time_"
     return dict_constants
 
 
@@ -363,8 +365,8 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
         f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> GradientF() final;\n")
         f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;\n\n")
         f.write(" public:\n")
-        f.write(f"  {class_name}() {{this->prefactor_ = 1.0; }}\n")
-        f.write(f" explicit {class_name}(const double prefactor) {{this->prefactor_ = prefactor; }}\n")
+        f.write(f"  {class_name}() : prefactor_(1.0) {{}}\n")
+        f.write(f" explicit {class_name}(const double prefactor): prefactor_(prefactor) {{}}\n")
         f.write(f"  virtual ~{class_name}() = default;\n")
         f.write("};\n\n")
 
@@ -831,7 +833,7 @@ if __name__ == "__main__":
                         raise ValueError("Error: at least two expression expressions are expected.")  
                         
                     if nb_range != nb_expression - 1:
-                        raise ValueError("Error: the number of ranges must be equal to the number of expressions + 1")
+                        raise ValueError("Error: the number of ranges must be equal to the number of expressions - 1")
 
                     check_bounds_consistency(expressions)
 
