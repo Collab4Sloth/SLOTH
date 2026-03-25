@@ -1,0 +1,325 @@
+/**
+ * @file PropertyProblem.tpp
+ * @author Clément Introïni (clement.introini@cea.fr)
+ * @brief  Class used to compute primary variables as a function of auxialiary variables
+ * @version 0.1
+ * @date 2025-09-05
+ *
+ * @copyright CEA (C) 2025
+ *
+ * This file is part of SLOTH.
+ *
+ * SLOTH is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SLOTH is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#pragma once
+#include <algorithm>
+#include <functional>
+#include <list>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include "Convergence/Convergence.hpp"
+#include "Convergence/PhysicalConvergence.hpp"
+#include "Parameters/Parameter.hpp"
+#include "Problems/ProblemBase.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+////////////////////////////////
+////////////////////////////////
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param convergence Convergence object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       Convergence& convergence, PST& pst,
+                                                       Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, Coeff, convergence, pst,
+                            auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, Coeff, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name User-defined name of the property problem
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param convergence Convergence object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       Convergence& convergence, PST& pst,
+                                                       Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name User-defined name of the property problem
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       const std::vector<Coefficients>& Coeff,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param convergence Convergence object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       Convergence& convergence, PST& pst,
+                                                       Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, convergence, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const Parameters& params, VAR& variables,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("PropertyProblem", variables, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name User-defined name of the property problem
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param convergence Convergence object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       Convergence& convergence, PST& pst,
+                                                       Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, convergence, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Construct a new Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name User-defined name of the property problem
+ * @param params Parameters of the problem
+ * @param variables Variables of the problem
+ * @param pst Post-processing object of the problem
+ * @param auxvariables Auxiliary variables of the problem
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
+                                                       const Parameters& params, VAR& variables,
+                                                       PST& pst, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...) {
+  this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief  Do a time-step by calling the compute method of the property
+
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @param next_time The next time step of the simulation t+dt.
+ * @param current_time The current time of the simulation t.
+ * @param current_time_step The current time-step of the simulation dt.
+ * @param iter The current iteration of the simulation.
+ * @param vect_unk The vector of unknowns associated with the Variables of the problem.
+ * @param unks_info The vector of additional informations associated with the Variables of the
+ problem.
+ */
+template <class PROPERTY, class VAR, class PST>
+void Property_problem<PROPERTY, VAR, PST>::do_time_step(
+    double& next_time, const double& current_time, double current_time_step,
+    [[maybe_unused]] const int iter, std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
+    const std::vector<std::vector<std::string>>& unks_info) {
+  // Get outputs (primary variables)
+  std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+      output_system = this->get_output_system(unks_info, vect_unk);
+  // Get inputs (auxiliary variables)
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system =
+      this->get_input_system();
+
+  // Apply the compute method of the property
+  this->PP_->compute(output_system, input_system);
+
+  // Recover the unknowns from outputs
+  const size_t unk_size = vect_unk.size();
+
+  for (size_t i = 0; i < unk_size; i++) {
+    auto& unk_i = *(vect_unk[i]);
+    this->unknown_.emplace_back(unk_i);
+  }
+  // Update the time of the simulation
+  next_time = current_time + current_time_step;
+}
+
+/**
+ * @brief Get outputs (primary variables)
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @param unks_info The vector of additional informations associated with the Variables of the
+ problem.
+ * @param vect_unk The vector of unknowns associated with the Variables of the problem.
+ * @return std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+ */
+template <class PROPERTY, class VAR, class PST>
+std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+Property_problem<PROPERTY, VAR, PST>::get_output_system(
+    const std::vector<std::vector<std::string>>& unks_info,
+    std::vector<std::unique_ptr<mfem::Vector>>& vect_unk) {
+  std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>
+      output_system;
+  for (size_t i = 0; i < vect_unk.size(); ++i) {
+    output_system.emplace_back(unks_info[i], *vect_unk[i]);
+  }
+
+  return output_system;
+}
+
+/**
+ * @brief Get inputs (auxiliary variables)
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ * @return std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+ */
+template <class PROPERTY, class VAR, class PST>
+std::vector<std::tuple<std::vector<std::string>, mfem::Vector>>
+Property_problem<PROPERTY, VAR, PST>::get_input_system() {
+  std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system;
+
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      const auto gf = auxvar.get_unknown();
+
+      auto variable_info = auxvar.get_additional_variable_info();
+      input_system.emplace_back(std::make_tuple(variable_info, gf));
+    }
+  }
+
+  return input_system;
+}
+
+/**
+ * @brief Destroy the Property_problem<PROPERTY, VAR, PST>::Property_problem object
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ * @tparam PST
+ */
+template <class PROPERTY, class VAR, class PST>
+Property_problem<PROPERTY, VAR, PST>::~Property_problem() {}

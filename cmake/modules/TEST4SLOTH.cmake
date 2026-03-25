@@ -1,5 +1,6 @@
-
-
+add_custom_target(tests
+    COMMENT "Build all tests " DEPENDS Sloth
+)
 # COMPARISON test
 function(create_col_comparison test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label)
   set(DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/ref_${test_name})
@@ -38,10 +39,29 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
   add_executable(${CURRENT_EXE} main.cpp)
   target_link_libraries(${CURRENT_EXE} Sloth)
 
+  target_include_directories(${CURRENT_EXE}
+      PUBLIC
+          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/tests>
+          $<INSTALL_INTERFACE:tests>
+  )
+  # RPATH depending on OS
+  if(APPLE)
+      set_target_properties(${CURRENT_EXE} PROPERTIES
+          INSTALL_RPATH "@loader_path/../lib"
+      )
+  elseif(UNIX)
+      set_target_properties(${CURRENT_EXE} PROPERTIES
+          INSTALL_RPATH "$ORIGIN/../lib"
+      )
+  endif()
+
   add_test(NAME ${test_name} COMMAND mpirun -np ${test_cpu} ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE})
   set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 
   set_compile_options(${CURRENT_EXE})
-  install(TARGETS ${CURRENT_EXE})
+  # TODO(CCI): uncomment? 
+  # install(TARGETS ${CURRENT_EXE} DESTINATION tests)
+  add_dependencies(tests ${CURRENT_EXE})
+
 endfunction(create_test)

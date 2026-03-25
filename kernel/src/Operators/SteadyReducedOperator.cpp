@@ -1,0 +1,104 @@
+/**
+ * @file SteadyReducedOperator.cpp
+ * @author Clément Introïni (clement.introini@cea.fr)
+ * @brief Steady version of the linear system resulting from the NonLinear algorithm
+ * @version 0.1
+ * @date 2025-09-05
+ *
+ * @copyright CEA (C) 2025
+ *
+ * This file is part of SLOTH.
+ *
+ * SLOTH is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SLOTH is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#include "Operators/SteadyReducedOperator.hpp"
+
+#include <memory>
+#include <vector>
+
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+/**
+ * @brief Construct a new Steady Phase Field Reduced Operator:: Steady Phase Field Reduced Operator
+ * object
+ *
+ * @param RHS
+ * @param ess_tdof
+ */
+SteadyPhaseFieldReducedOperator::SteadyPhaseFieldReducedOperator(
+    mfem::ParBlockNonlinearForm* RHS, const std::vector<mfem::Array<int>>& ess_tdof)
+    : Operator(RHS->Height()), RHS_(RHS), ess_tdof_list(ess_tdof) {
+  const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
+  this->fes_size_ = offsets.Size() - 1;
+  this->tmp_blocks_.SetSize(this->fes_size_, this->fes_size_);
+  this->blocks_to_delete_.resize(this->fes_size_ * this->fes_size_);
+}
+
+/**
+ * @brief  Compute y = N(unk + dt*k) + M k
+ *
+ * @param k
+ * @param y
+ */
+void SteadyPhaseFieldReducedOperator::Mult(const mfem::Vector& k, mfem::Vector& y) const {
+  this->RHS_->Mult(k, y);
+
+  // TODO(cci) simplify BCs
+  auto sc_1 = 0;
+  auto sc_2 = this->RHS_->Height() / this->fes_size_;
+  for (int i = 0; i < this->fes_size_; ++i) {
+    mfem::Vector y_i(y.GetData() + sc_1, sc_2);
+    y_i.SetSubVector(ess_tdof_list[i], 0.0);
+    sc_1 += sc_2;
+  }
+}
+
+/**
+ * @brief  Compute Jacobian
+ *
+ * @param k
+ * @return mfem::Operator&
+ */
+mfem::Operator& SteadyPhaseFieldReducedOperator::GetGradient(const mfem::Vector& z) const {
+  Jacobian.reset();
+
+  // Gets gradients of RHS_
+  mfem::BlockOperator& RHS_grad = this->RHS_->GetGradient(z);
+
+  for (int i = 0; i < this->fes_size_; ++i) {
+    for (int j = 0; j < this->fes_size_; ++j) {
+      const mfem::Operator& RHS_block = RHS_grad.GetBlock(i, j);
+
+      const mfem::HypreParMatrix* RHS_sparse_block =
+          dynamic_cast<const mfem::HypreParMatrix*>(&RHS_block);
+
+      if (!RHS_sparse_block) MFEM_ABORT("Failed to cast operator blocks to mfem::HypreParMatrix");
+
+      if (blocks_to_delete_[i * fes_size_ + j]) {
+        blocks_to_delete_[i * fes_size_ + j].reset();
+      }
+      blocks_to_delete_[i * fes_size_ + j] =
+          std::make_unique<mfem::HypreParMatrix>(*RHS_sparse_block);
+
+      std::unique_ptr<mfem::HypreParMatrix> bb(
+          blocks_to_delete_[i * fes_size_ + j]->EliminateRowsCols(ess_tdof_list[i]));
+      tmp_blocks_(i, j) = blocks_to_delete_[i * fes_size_ + j].get();
+    }
+  }
+  Jacobian.reset(mfem::HypreParMatrixFromBlocks(tmp_blocks_));
+
+  return *Jacobian;
+}

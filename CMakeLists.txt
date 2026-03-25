@@ -7,9 +7,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS NO)
-
-set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/INSTALL)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 ## Force Release Mode
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
@@ -17,30 +15,35 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
-## Debug option
-option(MATOOLS_VERBOSITY_LEVEL_1 "add verbosity level 1" OFF)
-
-if(MATOOLS_VERBOSITY_LEVEL_1)
-	add_definitions(-DMATIMERS_VEROBSITY_LEVEL_1)
-endif()
-
-# Check GCC version
+# Check GCC version for including filesystem
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-
-  if(GCC_VERSION VERSION_LESS 9)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
     find_package(Filesystem REQUIRED)
-    set(ENV{FILESYSTEM_VAR} std::filesystem)
-  else()
-    set(ENV{FILESYSTEM_VAR})
+    set(FILESYSTEM_LIB stdc++fs)
   endif()
 endif()
+
 
 # ########################
 # # Global Configuration
 # ########################
-# install
-set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/INSTALL)
+# SlothInstall : default name of the repository for installation
+if("$ENV{USER_INSTALL_PATH}" STREQUAL "")
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../SlothInstall" )
+else()
+    set(CMAKE_INSTALL_PREFIX "$ENV{USER_INSTALL_PATH}")
+endif()
+
+# ########################
+# # SymPy 
+# ########################
+include(SYMPY4SLOTH)
+
+check_python_module(sympy SYMPY_FOUND)
+if(NOT SYMPY_FOUND)
+    message(FATAL_ERROR "SymPy is required to build Sloth. Please install SymPy before building Sloth.")
+endif()
+
 
 # ########################
 # # MFEM Configuration
@@ -51,12 +54,8 @@ include(MFEM4SLOTH)
 # # Sloth header's only
 # # library (interface)
 # ########################
-include_directories(${CMAKE_SOURCE_DIR})
+# include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
-
-if(SLOTH_USE_EXTERNAL)
-include(HEADER4SLOTH)
-endif(SLOTH_USE_EXTERNAL)
 
 # ########################
 # # Doc Configuration
@@ -69,8 +68,6 @@ endif(NOT TARGET doc)
 # # Test Configuration
 # ########################
 include(COMPILE4SLOTH)
-
-
 
 # ########################
 # LibTorch API ??
@@ -90,12 +87,20 @@ file(COPY ${SCRIPT_FILE} DESTINATION ${BUILD_SCRIPT_DIR})
 # ########################
 # Tests
 # ########################
+# By default, make command without target only builds Sloth
+add_custom_target(sloth COMMENT "Build Sloth " DEPENDS Sloth)
+
 include(TEST4SLOTH)
 
 include(CTest)
 enable_testing()
+add_subdirectory(tests EXCLUDE_FROM_ALL)
 
-add_subdirectory(tests)
+# By default, build all tests only after Sloth has been compiled.
+# Otherwise, Sloth is compiled and then, all tests are built.
+add_custom_target(sloth_tests COMMENT "Build Sloth + all tests " DEPENDS Sloth tests)
+
+
 
 # ########################
 # # Code Coverage
