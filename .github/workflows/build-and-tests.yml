@@ -69,8 +69,7 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR
-        make -j${{ env.CORES }} 
+        bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR --np=${{ env.CORES }}
         make -j${{ env.CORES }} tests
         
 
