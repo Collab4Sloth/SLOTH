@@ -55,7 +55,7 @@ class W : public FunctionCoefficient {
   HessianF() override final;
 
  public:
-  W() { this->prefactor_ = 1.0; }
+  W() : prefactor_(1.0) {}
   explicit W(const double prefactor) { this->prefactor_ = prefactor; }
   virtual ~W() = default;
 };
