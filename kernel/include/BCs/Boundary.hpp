@@ -49,7 +49,7 @@ class Boundary {
   double boundary_value_{0.};
 
  public:
-  Boundary(const std::string &boundary_name, const int &boundary_index,
+  Boundary(const std::string &boundary_name, const int boundary_index,
            const std::string &boundary_type);
   Boundary(const std::string &boundary_name, const int boundary_index,
            const std::string &boundary_type, const double &boundary_value);
