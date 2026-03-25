@@ -65,4 +65,6 @@ class SumCoefficient : public FunctionCoefficient {
   SumCoefficient() = default;
 
   virtual ~SumCoefficient() = default;
+
+  void set_time(double time) override;
 };

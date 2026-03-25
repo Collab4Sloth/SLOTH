@@ -79,5 +79,5 @@ class FunctionCoefficient {
                       const std::span<const double>& auxiliary_vector,
                       std::optional<int> dimension = std::nullopt);
 
-  void set_time(double time);
+  virtual void set_time(double time);
 };
