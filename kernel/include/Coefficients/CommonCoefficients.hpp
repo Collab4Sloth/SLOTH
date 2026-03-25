@@ -83,6 +83,7 @@ class Fw : public FunctionCoefficient {
  public:
   Fw() : prefactor_(1.0) {}
   explicit Fw(const double prefactor) : prefactor_(prefactor) {}
+
   virtual ~Fw() = default;
 };
 
@@ -109,6 +110,7 @@ class H : public FunctionCoefficient {
  public:
   H() : prefactor_(1.0) {}
   explicit H(const double prefactor) : prefactor_(prefactor) {}
+
   virtual ~H() = default;
 };
 
@@ -135,6 +137,7 @@ class Log : public FunctionCoefficient {
  public:
   Log() : prefactor_(1.0) {}
   explicit Log(const double prefactor) : prefactor_(prefactor) {}
+
   virtual ~Log() = default;
 };
 
@@ -161,5 +164,6 @@ class GradientEnergy : public FunctionCoefficient {
  public:
   GradientEnergy() : prefactor_(1.0) {}
   explicit GradientEnergy(const double prefactor) : prefactor_(prefactor) {}
+
   virtual ~GradientEnergy() = default;
 };

@@ -262,8 +262,10 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 #include <numeric>
 #include <span>
 #include <vector>\n
+
 #include "Options/PhysicalPropertiesOptions.hpp"\n  
 #include "Coefficients/FunctionCoefficient.hpp"\n  
+
 #pragma once\n
 """)
         

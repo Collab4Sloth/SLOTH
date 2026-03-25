@@ -45,8 +45,8 @@
  *
  * @remark Robin BCs is not implemented yet
  */
-Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
-                   const std::string &boundary_type)
+Boundary::Boundary(const std::string& boundary_name, const int boundary_index,
+                   const std::string& boundary_type)
     : boundary_name_(boundary_name), boundary_index_(boundary_index) {
   switch (BoundaryConditionType::from(boundary_type)) {
     case BoundaryConditionType::Dirichlet:
@@ -78,8 +78,8 @@ Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
  * @param boundary_type Type of the boundary conditions (Dirichlet, Neumann, Periodic, Robin)
  * @param boundary_value Value of the boundary condition.
  */
-Boundary::Boundary(const std::string &boundary_name, const int &boundary_index,
-                   const std::string &boundary_type, const double &boundary_value)
+Boundary::Boundary(const std::string& boundary_name, const int boundary_index,
+                   const std::string& boundary_type, const double& boundary_value)
     : boundary_name_(boundary_name),
       boundary_index_(boundary_index),
       boundary_value_(boundary_value) {
