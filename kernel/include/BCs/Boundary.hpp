@@ -51,7 +51,7 @@ class Boundary {
  public:
   Boundary(const std::string &boundary_name, const int &boundary_index,
            const std::string &boundary_type);
-  Boundary(const std::string &boundary_name, const int &boundary_index,
+  Boundary(const std::string &boundary_name, const int boundary_index,
            const std::string &boundary_type, const double &boundary_value);
   int get_boundary_index() const;
   bool is_essential_boundary() const;
