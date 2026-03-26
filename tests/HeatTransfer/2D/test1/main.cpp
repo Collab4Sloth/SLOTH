@@ -58,9 +58,9 @@ int main(int argc, char* argv[]) {
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto Tboundaries = {Boundary("lower", 0, "Neumann", 0.),
+  auto Tboundaries = {Boundary("lower", 0, "Neumann"),
                       Boundary("external", 2, "Dirichlet", 750.),
-                      Boundary("upper", 1, "Neumann", 0.)};
+                      Boundary("upper", 1, "Neumann")};
   auto Tbcs = BCS(&spatial, Tboundaries);
   // ###########################################
   // ###########################################
