@@ -147,6 +147,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   this->current_time_ = current_time;
   this->current_dt_ = dt;
 
+  // Default iterative_mode to true for Steady Operators
+  // Important line if solvers parameters are overloaded.
+  this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
+
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
 
@@ -176,10 +180,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
       if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
         mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, SRC);
-        delete SRC;
+        this->get_source_term(i, this->src_func_[i], src_i, RHS);
+        delete RHS;
       }
     }
   }
