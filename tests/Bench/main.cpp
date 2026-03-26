@@ -162,13 +162,13 @@ int main(int argc, char* argv[]) {
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto boundaries = {Boundary("bottom", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("top", 2, "Neumann", 0.),    Boundary("left", 3, "Neumann", 0.),
-                     Boundary("front", 4, "Neumann", 0.),  Boundary("rear", 5, "Neumann", 0.)};
+  auto boundaries = {Boundary("bottom", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                     Boundary("top", 2, "Neumann"),    Boundary("left", 3, "Neumann"),
+                     Boundary("front", 4, "Neumann"),  Boundary("rear", 5, "Neumann")};
   auto bcs_phi = BCS(&spatial, boundaries);
-  auto boundaries_mu = {Boundary("bottom", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                        Boundary("top", 2, "Neumann", 0.),    Boundary("left", 3, "Neumann", 0.),
-                        Boundary("front", 4, "Neumann", 0.),  Boundary("rear", 5, "Neumann", 0.)};
+  auto boundaries_mu = {Boundary("bottom", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                        Boundary("top", 2, "Neumann"),    Boundary("left", 3, "Neumann"),
+                        Boundary("front", 4, "Neumann"),  Boundary("rear", 5, "Neumann")};
   auto bcs_mu = BCS(&spatial, boundaries_mu);
 
   // ###########################################

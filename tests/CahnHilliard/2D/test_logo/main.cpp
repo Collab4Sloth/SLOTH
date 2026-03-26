@@ -63,11 +63,11 @@ int main(int argc, char* argv[]) {
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.),
-                     Boundary("upper", 2, "Neumann", 0.), Boundary("left", 3, "Neumann", 0.),
-                     Boundary("upper", 4, "Neumann", 0.), Boundary("left", 5, "Neumann", 0.),
-                     Boundary("upper", 6, "Neumann", 0.), Boundary("upper", 7, "Neumann", 0.),
-                     Boundary("left", 8, "Neumann", 0.),  Boundary("left", 9, "Neumann", 0.)};
+  auto boundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                     Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"),
+                     Boundary("upper", 4, "Neumann"), Boundary("left", 5, "Neumann"),
+                     Boundary("upper", 6, "Neumann"), Boundary("upper", 7, "Neumann"),
+                     Boundary("left", 8, "Neumann"),  Boundary("left", 9, "Neumann")};
   auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################

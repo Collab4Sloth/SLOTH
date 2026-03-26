@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
   //     Coefficients  //
   // ####################
   std::vector<Coefficients> coeffs;
-  Coefficient D(Glossary::Diffusivity, Scheme::Implicit, "-1");
+  Coefficient D(Glossary::Diffusivity, -1.0);
   Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
   Coefficients CoeffDiffusion(D, FW);
   coeffs.emplace_back(CoeffDiffusion);
