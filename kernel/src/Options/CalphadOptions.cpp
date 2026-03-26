@@ -32,7 +32,7 @@
 
 #include "Utils/Utils.hpp"
 
-calphad_outputs::value calphad_outputs::from(const std::string &v) {
+calphad_outputs::value calphad_outputs::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<calphad_outputs::value> m{
       {"mu", calphad_outputs::mu},      {"dmu", calphad_outputs::dmu},
       {"x", calphad_outputs::x},        {"xp", calphad_outputs::xp},
@@ -45,7 +45,7 @@ calphad_outputs::value calphad_outputs::from(const std::string &v) {
   return m.find("calphad_outputs", v);
 }
 
-temperature_sort_method::value temperature_sort_method::from(const std::string &v) {
+temperature_sort_method::value temperature_sort_method::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<temperature_sort_method::value> m{
       {"Ascending", temperature_sort_method::ascending},
       {"Descending", temperature_sort_method::descending},
@@ -53,15 +53,15 @@ temperature_sort_method::value temperature_sort_method::from(const std::string &
   return m.find("temperature_sort_method", v);
 }
 
-pressure_sort_method::value pressure_sort_method::from(const std::string &v) {
+pressure_sort_method::value pressure_sort_method::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<pressure_sort_method::value> m{
       {"Ascending", pressure_sort_method::ascending},
       {"Descending", pressure_sort_method::descending},
       {"No", pressure_sort_method::no}};
-  return m.find("temperature_sort_method", v);
+  return m.find("pressure_sort_method", v);
 }
 
-KKS_nucleation_strategy::value KKS_nucleation_strategy::from(const std::string &v) {
+KKS_nucleation_strategy::value KKS_nucleation_strategy::from(const std::string& v) {
   static PhaseFieldPrivate::mmap<KKS_nucleation_strategy::value> m{
       {"LiquidFraction", KKS_nucleation_strategy::liquid_fraction},
       {"GivenMeltingTemperature", KKS_nucleation_strategy::given_melting_temperature}};
