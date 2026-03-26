@@ -42,19 +42,18 @@
 class Boundary {
  private:
   std::string boundary_name_;
-  std::string boundary_type_;
+  BoundaryConditionType::value boundary_type_;
   int boundary_index_;
   bool is_essential_boundary_{false};
   bool is_periodic_boundary_{false};
   double boundary_value_{0.};
 
  public:
-  Boundary(const std::string &boundary_name, const int boundary_index,
-           const std::string &boundary_type);
-  Boundary(const std::string &boundary_name, const int boundary_index,
-           const std::string &boundary_type, const double &boundary_value);
+  Boundary(const std::string& boundary_name, int boundary_index, const std::string& boundary_type);
+  Boundary(const std::string& boundary_name, int boundary_index, const std::string& boundary_type,
+           double boundary_value);
   int get_boundary_index() const;
-  bool is_essential_boundary() const;
+  BoundaryConditionType::value get_boundary_type() const;
   bool is_periodic_boundary() const;
   double get_boundary_value() const;
 

@@ -62,6 +62,8 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* sp
     mesh_max_bdr_attributes = spatial->get_max_bdr_attributes();
   }
 
+  Neumann_bdr_.SetSize(mesh_max_bdr_attributes);
+  Robin_bdr_.SetSize(mesh_max_bdr_attributes);
   Dirichlet_bdr_.SetSize(mesh_max_bdr_attributes);
   Dirichlet_value_.SetSize(mesh_max_bdr_attributes);
   bool exist_periodic_bdr = false;
@@ -106,12 +108,19 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* sp
         mfem::mfem_error(msg.c_str());
       }
 
-      if (bdr.is_essential_boundary()) {
+      // Create marker arrays
+      const auto& boundary_type_ = bdr.get_boundary_type();
+      Dirichlet_bdr_[id] = 0;
+      Neumann_bdr_[id] = 0;
+      Robin_bdr_[id] = 0;
+      if (boundary_type_ == BoundaryConditionType::Dirichlet) {
         Dirichlet_bdr_[id] = 1;
-      } else {
-        Dirichlet_bdr_[id] = 0;
+        Dirichlet_value_[id] = bdr.get_boundary_value();
+      } else if (boundary_type_ == BoundaryConditionType::Neumann) {
+        Neumann_bdr_[id] = 1;
+      } else if (boundary_type_ == BoundaryConditionType::Robin) {
+        Robin_bdr_[id] = 1;
       }
-      Dirichlet_value_[id] = bdr.get_boundary_value();
     }
     this->fespace_->GetEssentialTrueDofs(this->Dirichlet_bdr_, this->ess_tdof_list_);
   } else {
@@ -132,6 +141,25 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* sp
 template <class T, int DIM>
 mfem::Array<int> BoundaryConditions<T, DIM>::GetEssentialDofs() {
   return this->ess_tdof_list_;
+}
+
+/**
+ * @brief return the marker array for the boundary condition
+ *
+ * @return mfem::Array<int> marker array for the boundary condition
+ */
+template <class T, int DIM>
+mfem::Array<int> BoundaryConditions<T, DIM>::get_marker_array(const std::string& boundary_type) {
+  if (boundary_type == "Neumann") {
+    return this->Neumann_bdr_;
+  }
+  if (boundary_type == "Robin") {
+    return this->Robin_bdr_;
+  }
+
+  mfem::Array<int> null_bdr(this->Neumann_bdr_.Size());
+  null_bdr = 0;
+  return null_bdr;
 }
 
 /**

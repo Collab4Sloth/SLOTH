@@ -264,3 +264,17 @@ bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::C
  * @note this->time_ is the variable used to define time in FunctionCoefficients
  */
 void SlothBaseCoefficient::set_time(double time) { this->coefficient_->set_time(time); }
+
+/**
+ * @brief Set the boundary index for a coefficient.
+ *
+ * @param ids Vector of boundary ids where the coefficient should apply.
+ */
+void SlothBaseCoefficient::set_bdr_index_coef(std::vector<int> ids) { this->bdr_index_ = ids; }
+
+/**
+ * @brief Get the boundary index for a coefficient.
+ *
+ * @return Vector of boundary ids where the coefficient is applied.
+ */
+std::vector<int> SlothBaseCoefficient::get_bdr_index_coef() { return this->bdr_index_; }

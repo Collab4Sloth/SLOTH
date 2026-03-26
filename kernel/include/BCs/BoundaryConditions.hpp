@@ -49,6 +49,8 @@ class BoundaryConditions {
   mfem::ParFiniteElementSpace* fespace_;
   mfem::Array<int> Dirichlet_bdr_;
   mfem::Array<double> Dirichlet_value_;
+  mfem::Array<int> Neumann_bdr_;
+  mfem::Array<int> Robin_bdr_;
   mfem::Array<int> ess_tdof_list_;
   std::initializer_list<Boundary> boundaries_;
 
@@ -58,6 +60,7 @@ class BoundaryConditions {
   void SetBoundaryConditions(mfem::Vector& u);
   mfem::Array<int> GetEssentialDofs();
   ~BoundaryConditions();
+  mfem::Array<int> get_marker_array(const std::string& boundary_type);
 };
 
 #include "BCs/BoundaryConditions.tpp"

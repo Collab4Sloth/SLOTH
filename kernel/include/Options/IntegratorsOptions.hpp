@@ -47,7 +47,9 @@ struct Integrators {
     MeltingCalphad,
     MeltingConstant,
     MassFlux,
-    LatentHeat
+    LatentHeat,
+    Neumann,
+    Robin
   };
   static value from(const std::string&);
 };
