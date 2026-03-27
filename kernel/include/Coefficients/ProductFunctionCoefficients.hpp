@@ -51,13 +51,13 @@ class ProductCoefficient : public FunctionCoefficient {
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
-  F() override final;
+  F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  GradientF() override final;
+  GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  HessianF() override final;
+  HessianF() final;
 
  public:
   explicit ProductCoefficient(std::initializer_list<FunctionCoefficient*> coeffs);

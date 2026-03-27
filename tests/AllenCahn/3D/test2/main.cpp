@@ -60,9 +60,9 @@ int main(int argc, char* argv[]) {
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {
-      Boundary("InterPelletPlane", 1, "Neumann", 0.), Boundary("MidPelletPlane", 2, "Neumann", 0.),
-      Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 4, "Neumann", 0.),
-      Boundary("ExternalSurface", 0, "Neumann", 0.)};
+      Boundary("InterPelletPlane", 1, "Neumann"), Boundary("MidPelletPlane", 2, "Neumann"),
+      Boundary("FrontSurface", 3, "Neumann"), Boundary("BehindSurface", 4, "Neumann"),
+      Boundary("ExternalSurface", 0, "Neumann")};
   auto bcs = BCS(&spatial, boundaries);
 
   // ###########################################

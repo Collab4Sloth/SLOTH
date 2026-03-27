@@ -85,6 +85,48 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
   rhs_nlfi->init();
   return rhs_nlfi;
 }
+
+/**
+ * @brief Set the NonLinearFormIntegrator dedicated to boundary terms
+ *
+ * @tparam T
+ * @tparam DIM
+ * @tparam OPEBASE
+ * @param nlfi Name of integrator
+ * @param u Unknown
+ * @param block Block to which the boundary term is applied
+ * @param bdr_id Id of the boundary to which the boundary term is applied
+ * @return NLFI*
+ */
+template <class T, int DIM>
+SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr(
+    const std::string nlfi, const std::vector<mfem::Vector>& u, const unsigned int block,
+    const unsigned int bdr_id) {
+  Catch_Time_Section("OperatorBase::set_bdr_nlfi_ptr");
+
+  std::vector<mfem::ParGridFunction> vun;
+  std::vector<mfem::ParGridFunction> vauxn;
+  for (unsigned int i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u[i]);
+    vun.emplace_back(un);
+  }
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (auto auxvars : auxvar_vec->getVariables()) {
+      auto fes = auxvars.get_fespace();
+      mfem::ParGridFunction auxn(fes);
+      auto auxvar_n = auxvars.get_second_to_last();
+      auxn.SetFromTrueDofs(auxvar_n);
+      vauxn.emplace_back(auxn);
+    }
+  }
+
+  const Parameters& all_params = this->params_ - this->default_p_;
+  auto bdr_nlfi = this->get_bdr_integrator(nlfi, vun, vauxn, all_params, block, bdr_id);
+  bdr_nlfi->init();
+  return bdr_nlfi;
+}
+
 /**
  * @brief Return the total height (output=rows of Operator) of the PDE system
  *
@@ -358,6 +400,56 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
   for (const std::string& s_integrator : this->rhs_integrators_) {
     auto integrator_ptr = this->set_nlfi_ptr(s_integrator, u_vect);
     this->RHS->AddDomainIntegrator(integrator_ptr);
+  }
+
+  // Add boundary integrators
+  const int fes_size = this->block_trueOffsets_.Size() - 1;
+  mfem::Array<int> Robin_bdr;
+  mfem::Array<int> Neumann_bdr;
+  // Loop over variables
+  for (int i = 0; i < fes_size; ++i) {
+    Robin_bdr = this->bcs_[i]->get_marker_array("Robin");
+    Neumann_bdr = this->bcs_[i]->get_marker_array("Neumann");
+
+    const int nb_bdr = Robin_bdr.Size();
+    this->array_bdr_.SetSize(nb_bdr);
+    Coefficients coefficients = this->coefficients_[i];
+    const int coef_size = coefficients.size();
+
+    // Loop over boundaries
+    for (auto j = 0; j < nb_bdr; j++) {
+      // Add Neumann integrator
+      if (Neumann_bdr[j] > 0) {
+        // Check if a coefficient is given for this bc
+        // (else Homogeneous Neumann)
+        bool has_neumann_coeff = false;
+        for (unsigned int l = 0; l < coef_size; l++) {
+          auto coef = coefficients[l];
+          if (coef.get_type() == GlossaryType::Neumann) {
+            auto bdr_ids = coef.get_bdr_index_coef();
+            if (std::find(bdr_ids.begin(), bdr_ids.end(), j) != bdr_ids.end()) {
+              has_neumann_coeff = true;
+              break;
+            }
+          }
+        }
+        // If a Neumann coefficient is specified,
+        // add the Neumann integrator even if the coefficient is zero
+        if (has_neumann_coeff) {
+          this->array_bdr_ = 0;
+          this->array_bdr_[j] = 1;
+          auto integrator_ptr = this->set_bdr_nlfi_ptr("Neumann", u_vect, i, j);
+          this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_);
+        }
+      }
+      // Add Robin integrator
+      if (Robin_bdr[j] > 0) {
+        this->array_bdr_ = 0;
+        this->array_bdr_[j] = 1;
+        auto integrator_ptr = this->set_bdr_nlfi_ptr("Robin", u_vect, i, j);
+        this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_);
+      }
+    }
   }
 }
 
@@ -798,8 +890,9 @@ void OperatorBase<T, DIM>::set_default_solver() {
   this->precond_ = HyprePreconditionerType::HYPRE_ILU;
   this->precond_params_ = p_params;
 }
+
 /**
- * @brief
+ * @brief Return a RHS NLFormIntegrator
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
@@ -855,6 +948,40 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");
+  }
+}
+
+/**
+ * @brief Return a boundary NLFormIntegrator
+ *
+ * @tparam T
+ * @tparam DIM
+ * @param integrator
+ * @param vun
+ * @param vauxn
+ * @param all_params
+ * @param block
+ * @param bdr_id
+ * @return SlothNLFormIntegrator<Variables<T, DIM>>*
+ */
+template <class T, int DIM>
+SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_bdr_integrator(
+    const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+    const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params,
+    const unsigned int block, const unsigned int bdr_id) {
+  switch (Integrators::from(integrator)) {
+    case Integrators::Neumann: {
+      return new NeumannNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_, block, bdr_id);
+      break;
+    }
+    case Integrators::Robin: {
+      return new RobinNLFormIntegrator<Variables<T, DIM>>(
+          vun, vauxn, all_params, this->auxvariables_, this->coefficients_, block, bdr_id);
+      break;
+    }
+    default:
+      mfem::mfem_error("Boundary Integrators not found. Please check your data.");
   }
 }
 

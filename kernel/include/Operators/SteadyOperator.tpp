@@ -147,6 +147,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   this->current_time_ = current_time;
   this->current_dt_ = dt;
 
+  // Default iterative_mode to true for Steady Operators
+  // Important line if solvers parameters are overloaded.
+  this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
+
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
 

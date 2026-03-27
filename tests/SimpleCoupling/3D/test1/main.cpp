@@ -68,15 +68,15 @@ int main(int argc, char* argv[]) {
   // ##############################
   // ALLEN-CAHN
   auto boundaries = {
-      Boundary("InterPelletPlane", 0, "Neumann", 0.), Boundary("MidPelletPlane", 1, "Neumann", 0.),
-      Boundary("FrontSurface", 3, "Neumann", 0.), Boundary("BehindSurface", 2, "Neumann", 0.),
-      Boundary("ExternalSurface", 4, "Neumann", 0.)};
+      Boundary("InterPelletPlane", 0, "Neumann"), Boundary("MidPelletPlane", 1, "Neumann"),
+      Boundary("FrontSurface", 3, "Neumann"), Boundary("BehindSurface", 2, "Neumann"),
+      Boundary("ExternalSurface", 4, "Neumann")};
 
-  auto Tboundaries = {Boundary("InterPelletPlane", 0, "Neumann", 0.),
-                      Boundary("MidPelletPlane", 1, "Neumann", 0.),
-                      Boundary("FrontSurface", 3, "Neumann", 0.),
+  auto Tboundaries = {Boundary("InterPelletPlane", 0, "Neumann"),
+                      Boundary("MidPelletPlane", 1, "Neumann"),
+                      Boundary("FrontSurface", 3, "Neumann"),
                       Boundary("ExternalSurface", 4, "Dirichlet", 1073.15),
-                      Boundary("BehindSurface", 2, "Neumann", 0.)};
+                      Boundary("BehindSurface", 2, "Neumann")};
   auto bcs = BCS(&spatial, boundaries);
   auto Tbcs = BCS(&spatial, Tboundaries);
 

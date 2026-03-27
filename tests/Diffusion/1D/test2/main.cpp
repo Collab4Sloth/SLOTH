@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
     // ##############################
     //     Boundary conditions     //
     // // ##############################
-    auto boundaries = {Boundary("left", 0, "Neumann", 0.), Boundary("right", 1, "Neumann", 0.)};
+    auto boundaries = {Boundary("left", 0, "Neumann"), Boundary("right", 1, "Neumann")};
     auto bcs = BCS(&spatial, boundaries);
 
     // ###########################################

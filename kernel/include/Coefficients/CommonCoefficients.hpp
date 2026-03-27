@@ -46,13 +46,13 @@ class W : public FunctionCoefficient {
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
-  F() override final;
+  F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  GradientF() override final;
+  GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  HessianF() override final;
+  HessianF() final;
 
  public:
   W() : prefactor_(1.0) {}
@@ -72,13 +72,13 @@ class Fw : public FunctionCoefficient {
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
-  F() override final;
+  F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  GradientF() override final;
+  GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  HessianF() override final;
+  HessianF() final;
 
  public:
   Fw() : prefactor_(1.0) {}
@@ -99,13 +99,13 @@ class H : public FunctionCoefficient {
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
-  F() override final;
+  F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  GradientF() override final;
+  GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  HessianF() override final;
+  HessianF() final;
 
  public:
   H() : prefactor_(1.0) {}
@@ -126,13 +126,13 @@ class Log : public FunctionCoefficient {
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
-  F() override final;
+  F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  GradientF() override final;
+  GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  HessianF() override final;
+  HessianF() final;
 
  public:
   Log() : prefactor_(1.0) {}
@@ -153,13 +153,13 @@ class GradientEnergy : public FunctionCoefficient {
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
                        const unsigned int dimension)>
-  F() override final;
+  F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  GradientF() override final;
+  GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const unsigned int dimension)>
-  HessianF() override final;
+  HessianF() final;
 
  public:
   GradientEnergy() : prefactor_(1.0) {}

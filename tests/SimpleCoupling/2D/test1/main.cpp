@@ -67,11 +67,11 @@ int main(int argc, char* argv[]) {
   //     Boundary conditions     //
   // ##############################
   // ALLEN-CAHN
-  auto boundaries = {Boundary("lower", 0, "Neumann", 0.), Boundary("external", 2, "Neumann", 0.),
-                     Boundary("upper", 1, "Neumann", 0.)};
-  auto Tboundaries = {Boundary("lower", 0, "Neumann", 0.),
+  auto boundaries = {Boundary("lower", 0, "Neumann"), Boundary("external", 2, "Neumann"),
+                     Boundary("upper", 1, "Neumann")};
+  auto Tboundaries = {Boundary("lower", 0, "Neumann"),
                       Boundary("external", 2, "Dirichlet", 1073.15),
-                      Boundary("upper", 1, "Neumann", 0.)};
+                      Boundary("upper", 1, "Neumann")};
   auto bcs = BCS(&spatial, boundaries);
   auto Tbcs = BCS(&spatial, Tboundaries);
 

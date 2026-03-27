@@ -1,0 +1,9 @@
+[
+    {
+    "expression":"h + epsilon * sigma * T*T*T",
+    "variables":"T",
+    "constants":"(h:50.0),(epsilon:0.7),(sigma:5.669e-8)",
+    "class_name":"RobinCoefficient",
+    "outputfile":"RobinCoefficient"
+    }
+]

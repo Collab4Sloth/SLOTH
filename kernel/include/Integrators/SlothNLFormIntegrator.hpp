@@ -27,6 +27,7 @@
  *
  */
 #pragma once
+
 #include <algorithm>
 #include <list>
 #include <optional>
@@ -81,7 +82,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::vector<std::vector<std::string>> get_aux_infos();
 
   void check_coefficient_types(std::list<GlossaryType> expected_type);
-  std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);
+  std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id,
+                                             std::optional<int> bdr_id = std::nullopt);
 
  public:
   virtual void init() = 0;
@@ -195,14 +197,15 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
  * @brief Retrieve a coefficient by type and identifier.
  *
  * This function searches the list of coefficients associated with the
- * specified block (blk) and returns the first coefficient that matches both
- * the given glossary type and identifier.
+ * specified block (blk) and returns the coefficient that matches
+ * the given glossary type, identifier and if given, the boundary id.
  *
  * @tparam VARS Template parameter defining the variables.
  *
- * @param blk  Index of the block.
- * @param type type of coefficient.
- * @param id   Identifier of the coefficient.
+ * @param blk     Index of the block.
+ * @param type    Type of coefficient.
+ * @param id      Identifier of the coefficient.
+ * @param bdr_id  Optional boundary id for boundary coefficients.
  *
  * @return An std::optional containing the matching Coefficient if found;
  *         std::nullopt otherwise.
@@ -210,12 +213,22 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
 template <class VARS>
 std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const int blk,
                                                                         GlossaryType type,
-                                                                        unsigned int id) {
+                                                                        unsigned int id,
+                                                                        std::optional<int> bdr_id) {
   Coefficients coefficients = this->coefficients_[blk];
 
   for (unsigned int i = 0; i < coefficients.size(); i++) {
     auto coef = coefficients[i];
-    if (coef.get_type() == type && coef.get_id() == id) return coef;
+    if (coef.get_type() == type && coef.get_id() == id) {
+      if (bdr_id.has_value()) {
+        auto bdr_index = coef.get_bdr_index_coef();
+        bool bdr_id_found =
+            std::find(bdr_index.begin(), bdr_index.end(), bdr_id) != bdr_index.end();
+        if (bdr_id_found) return coef;
+      } else {
+        return coef;
+      }
+    }
   }
   return std::nullopt;
 }

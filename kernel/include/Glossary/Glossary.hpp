@@ -116,7 +116,10 @@ enum class GlossaryType {
   PhaseFieldPotential,
   PhaseField,
   Thickness,
-  System
+  System,
+  Neumann,
+  RobinA,
+  RobinB
 };
 
 struct GlossaryQuantity {
@@ -333,6 +336,27 @@ static const GlossaryQuantity Cp =
 static const GlossaryQuantity Cpm =
     GlossaryQuantity(GlossaryType::HeatCapacity, GlossaryUnit::JoulesPerMolePerKelvin,
                      "Heat capacity in " + toString(GlossaryUnit::JoulesPerMolePerKelvin));
+
+/**
+ * @brief Quantity associated with the Neumann boundary condition
+ *
+ */
+static const GlossaryQuantity Neumann =
+    GlossaryQuantity(GlossaryType::Neumann, GlossaryUnit::None, "Neumann boundary condition");
+
+/**
+ * @brief Quantity associated with the Robin boundary condition
+ *
+ */
+static const GlossaryQuantity Robin_a =
+    GlossaryQuantity(GlossaryType::RobinA, GlossaryUnit::None, "A-Robin boundary condition");
+
+/**
+ * @brief Quantity associated with the Robin boundary condition
+ *
+ */
+static const GlossaryQuantity Robin_b =
+    GlossaryQuantity(GlossaryType::RobinB, GlossaryUnit::None, "B-Robin boundary condition");
 
 /**
  * @brief Quantity associated with the MPI rank

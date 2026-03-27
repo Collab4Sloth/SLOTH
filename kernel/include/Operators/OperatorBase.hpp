@@ -64,12 +64,12 @@ class OperatorBase : public mfem::Operator {
   NLSolverType nl_solver_;
   VSolverType solver_;
   VSolverType precond_;
-  Parameters nl_solver_params_;
   Parameters solver_params_;
   Parameters precond_params_;
   void set_default_solver();
 
  protected:
+  Parameters nl_solver_params_;
   std::optional<Coefficient> energy_coefficient_;
   std::optional<Coefficient> grad_energy_coefficient_;
   std::vector<Coefficients> coefficients_;
@@ -94,6 +94,7 @@ class OperatorBase : public mfem::Operator {
 
   /// Boundary conditions
   std::vector<BoundaryConditions<T, DIM>*> bcs_;
+  mfem::Array<int> array_bdr_;
 
   std::vector<std::function<double(const mfem::Vector&, double)>> src_func_;
 
@@ -112,6 +113,10 @@ class OperatorBase : public mfem::Operator {
   SlothNLFormIntegrator<Variables<T, DIM>>* get_rhs_integrator(
       const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
+  SlothNLFormIntegrator<Variables<T, DIM>>* get_bdr_integrator(
+      const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+      const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params,
+      const unsigned int block, const unsigned int bdr_id);
 
  public:
   OperatorBase(const std::vector<std::string>& integrators,
@@ -178,6 +183,10 @@ class OperatorBase : public mfem::Operator {
                      const double& current_time, double current_time_step, const int iter) = 0;
   SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const std::string nlfi,
                                                          const std::vector<mfem::Vector>& u);
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_bdr_nlfi_ptr(const std::string nlfi,
+                                                             const std::vector<mfem::Vector>& u,
+                                                             const unsigned int block,
+                                                             const unsigned int bdr_id);
   void set_time_coefficients(double time);
 };
 #include "Operators/OperatorBase.tpp"

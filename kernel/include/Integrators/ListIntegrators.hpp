@@ -37,5 +37,7 @@
 #include "Integrators/MeltingCalphadNLFormIntegrator.hpp"
 #include "Integrators/MeltingConstantNLFormIntegrator.hpp"
 #include "Integrators/MeltingTemperatureNLFormIntegrator.hpp"
+#include "Integrators/NeumannNLFormIntegrator.hpp"
+#include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"

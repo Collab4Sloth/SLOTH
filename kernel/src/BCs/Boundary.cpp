@@ -43,30 +43,25 @@
  * @param boundary_type Type of the boundary conditions (Dirichlet, Neumann, Periodic,
  * Robin)
  *
- * @remark Robin BCs is not implemented yet
  */
-Boundary::Boundary(const std::string& boundary_name, const int boundary_index,
+Boundary::Boundary(const std::string& boundary_name, int boundary_index,
                    const std::string& boundary_type)
-    : boundary_name_(boundary_name), boundary_index_(boundary_index) {
-  switch (BoundaryConditionType::from(boundary_type)) {
+    : boundary_name_(boundary_name),
+      boundary_index_(boundary_index),
+      boundary_type_(BoundaryConditionType::from(boundary_type)) {
+  switch (boundary_type_) {
     case BoundaryConditionType::Dirichlet:
-      this->is_essential_boundary_ = true;
-      this->is_periodic_boundary_ = false;
-      break;
     case BoundaryConditionType::Neumann:
     case BoundaryConditionType::Robin:
-      this->is_essential_boundary_ = false;
       this->is_periodic_boundary_ = false;
       break;
     case BoundaryConditionType::Periodic:
       this->is_periodic_boundary_ = true;
-      this->is_essential_boundary_ = false;
       break;
     default:
       mfem::mfem_error(
           "Boundary::Boundary(): only Dirichlet, Neumann, Periodic and Robin BoundaryConditionType "
           "are available");
-      break;
   }
 }
 
@@ -78,30 +73,20 @@ Boundary::Boundary(const std::string& boundary_name, const int boundary_index,
  * @param boundary_type Type of the boundary conditions (Dirichlet, Neumann, Periodic, Robin)
  * @param boundary_value Value of the boundary condition.
  */
-Boundary::Boundary(const std::string& boundary_name, const int boundary_index,
-                   const std::string& boundary_type, const double& boundary_value)
+Boundary::Boundary(const std::string& boundary_name, int boundary_index,
+                   const std::string& boundary_type, double boundary_value)
     : boundary_name_(boundary_name),
       boundary_index_(boundary_index),
-      boundary_value_(boundary_value) {
-  switch (BoundaryConditionType::from(boundary_type)) {
-    case BoundaryConditionType::Dirichlet:
-      this->is_essential_boundary_ = true;
-      this->is_periodic_boundary_ = false;
-      break;
-    case BoundaryConditionType::Neumann:
-    case BoundaryConditionType::Robin:
-      this->is_essential_boundary_ = false;
-      this->is_periodic_boundary_ = false;
-      break;
-    case BoundaryConditionType::Periodic:
-      this->is_periodic_boundary_ = true;
-      this->is_essential_boundary_ = false;
-      break;
-    default:
-      mfem::mfem_error(
-          "Boundary::Boundary(): only Dirichlet, Neumann, Periodic and Robin BoundaryConditionType "
-          "are available");
-      break;
+      boundary_value_(boundary_value),
+      boundary_type_(BoundaryConditionType::from(boundary_type)) {
+  this->is_periodic_boundary_ = false;
+  if (boundary_type_ != BoundaryConditionType::Dirichlet) {
+    mfem::mfem_error(
+        "Boundary::Boundary(): only Dirichlet BoundaryConditionType can be associated with a "
+        "constant value.\n"
+        "Robin and non-homogeneous Neumann BoundaryConditionType are managed with Coefficients "
+        "and BoundaryIntegrators.\n"
+        "Periodic and Homogeneous Neumann BoundaryConditionType do not need a value.\n");
   }
 }
 
@@ -113,12 +98,11 @@ Boundary::Boundary(const std::string& boundary_name, const int boundary_index,
 int Boundary::get_boundary_index() const { return this->boundary_index_; }
 
 /**
- * @brief Flag to identify essential boundary
+ * @brief Return the boundary type associated to the boundary
  *
- * @return true
- * @return false
+ * @return BoundaryConditionType::value The type of the boundary.
  */
-bool Boundary::is_essential_boundary() const { return this->is_essential_boundary_; }
+BoundaryConditionType::value Boundary::get_boundary_type() const { return this->boundary_type_; }
 
 /**
  * @brief Flag to identify periodic boundary

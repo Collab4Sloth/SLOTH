@@ -213,17 +213,14 @@ int main(int argc, char* argv[]) {
           const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - gradient_solution[i]) > epsilon) {
-            throw std::runtime_error("Wrong gradient evaluation " +
-                                     std::format("{:.14f}", gradient_i - gradient_solution[i]));
+            throw std::runtime_error("Wrong gradient evaluation ");
           }
 
           for (int j = 0; j < 3; j++) {
             const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - hessian_solution[i * 3 + j]) > epsilon) {
-              throw std::runtime_error(
-                  "Wrong hessian evaluation " +
-                  std::format("{:.14f}", hessian_ij - hessian_solution[i * 3 + j]));
+              throw std::runtime_error("Wrong hessian evaluation");
             }
           }
         }
@@ -252,24 +249,20 @@ int main(int argc, char* argv[]) {
         auto coeff = coeffAB[0];
         const double value = coeff.compute(std::array{2.0, 3.0, 1.0});
         if (std::abs(value - 2.0 * 17747.26) > epsilon) {
-          throw std::runtime_error("Wrong value evaluation " + std::format("{:.14f}", value));
+          throw std::runtime_error("Wrong value evaluation ");
         }
         for (int i = 0; i < 3; i++) {
           const double gradient_i = coeff.compute_gradient(i, std::array{2.0, 3.0, 1.0});
 
           if (std::abs(gradient_i - 2.0 * gradient_solution[i]) > epsilon) {
-            throw std::runtime_error(
-                "Wrong gradient evaluation " +
-                std::format("{:.14f}", gradient_i - 2.0 * gradient_solution[i]));
+            throw std::runtime_error("Wrong gradient evaluation ");
           }
 
           for (int j = 0; j < 3; j++) {
             const double hessian_ij = coeff.compute_hessian(i, j, std::array{2.0, 3.0, 1.0});
 
             if (std::abs(hessian_ij - 2.0 * hessian_solution[i * 3 + j]) > epsilon) {
-              throw std::runtime_error(
-                  "Wrong hessian evaluation " +
-                  std::format("{:.14f}", hessian_ij - 2.0 * hessian_solution[i * 3 + j]));
+              throw std::runtime_error("Wrong hessian evaluation ");
             }
           }
         }

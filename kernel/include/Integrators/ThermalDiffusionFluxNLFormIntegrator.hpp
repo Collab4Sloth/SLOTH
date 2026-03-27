@@ -52,7 +52,7 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
   void get_parameters() override;
   std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr, const int nElement,
                                               const mfem::IntegrationPoint& ip,
-                                              const int dim) override final;
+                                              const int dim) final;
 
   std::vector<double> get_flux_coefficient(const int nElement,
                                            const mfem::IntegrationPoint& ip) override;
