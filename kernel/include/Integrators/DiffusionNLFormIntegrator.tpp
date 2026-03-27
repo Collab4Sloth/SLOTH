@@ -256,18 +256,15 @@ template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_coefficient(
     Coefficient coef, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+  if (coef.is_scalar()) {
+    return coef.compute();
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
 
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute(u, aux_values);
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un, aux_values);
-  } else if (coef.is_scalar()) {
-    coef_value = coef.compute();
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute(input, aux_values);
   }
-  return coef_value;
 }
 
 /**
@@ -289,12 +286,15 @@ double DiffusionNLFormIntegrator<VARS>::compute_coefficient(
  */
 template <class VARS>
 double DiffusionNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int iblk, const std::span<const double>& values,
+    Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(iblk, u, aux_values);
+  if (coef.is_scalar()) {
+    return 0.0;
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute_gradient(blk, input, aux_values);
   }
-  return coef_value;
 }

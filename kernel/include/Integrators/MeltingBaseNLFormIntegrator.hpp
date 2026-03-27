@@ -57,6 +57,7 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  protected:
   Coefficients mobility;
   Coefficients interpolation_potential;
+  std::vector<mfem::ParGridFunction> vaux_gf_;
 
   virtual double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
                                         const mfem::IntegrationPoint& ir, unsigned int blk,
@@ -65,13 +66,16 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   virtual double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
                                 unsigned int blk, const double u, const double un);
 
-  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values);
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
+                                     const std::span<const double>& aux_values);
 
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::span<const double>& values);
+                                              const std::span<const double>& values,
+                                              const std::span<const double>& aux_values);
 
   virtual double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                             const std::span<const double>& values);
+                                             const std::span<const double>& values,
+                                             const std::span<const double>& aux_values);
 
   void get_coefficients() override;
 

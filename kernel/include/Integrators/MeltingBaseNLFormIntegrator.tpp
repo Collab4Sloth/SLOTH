@@ -106,6 +106,9 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+
+  std::vector<double> vaux_gf_at_ip;
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("MeltingBaseNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -125,15 +128,25 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& u = *elfun[blk] * Psi;
+      const auto& u = *elfun[blk] * Psi;  // Get aux values at ip TODO(cci) (move in method)
+
       const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
 
       const double coef_mobi = mobility[blk].compute() * ip.weight * Tr.Weight();
       const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
       const double seed = this->get_seed_at_ip(Tr, ip, blk, u, un);
       const double ww = coef_mobi * (alpha * this->compute_gradient_coefficient(
                                                  interpolation_potential[blk], blk,
-                                                 std::span<const double>({u, un})) +
+                                                 std::span<const double>(u_values),
+                                                 std::span<const double>(vaux_gf_at_ip)) +
                                      seed);
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -163,6 +176,9 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("MeltingBaseNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+
+  std::vector<double> vaux_gf_at_ip;
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
@@ -183,14 +199,23 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcShape(ip, Psi);
       const auto& u = *elfun[blk] * Psi;
       const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
 
       const double coef_mobi = mobility[blk].compute() * ip.weight * Tr.Weight();
       const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
       double fun_val =
           coef_mobi * alpha *
           this->compute_hessian_coefficient(
-              interpolation_potential[blk], blk, blk,
-              std::span<const double>({u, un}));  // this->energy_derivatives(2, Tr, ip)(u);
+              interpolation_potential[blk], blk, blk, std::span<const double>(u_values),
+              std::span<const double>(vaux_gf_at_ip));  // this->energy_derivatives(2, Tr, ip)(u);
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
@@ -240,16 +265,17 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(
-    Coefficient coef, const std::span<const double>& values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute(u);
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un);
+    Coefficient coef, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  if (coef.is_scalar()) {
+    return coef.compute();
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute(input, aux_values);
   }
-  return coef_value;
 }
 
 /**
@@ -271,14 +297,15 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_coefficient(
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values) {
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(blk, u);
+    coef_value = coef.compute_gradient(blk, u, aux_values);
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute_gradient(blk, un);
+    coef_value = coef.compute_gradient(blk, un, aux_values);
   }
   return coef_value;
 }
@@ -304,12 +331,13 @@ double MeltingBaseNLFormIntegrator<VARS>::compute_gradient_coefficient(
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values) {
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
   if (coef.is_implicit()) {
-    coef_value = coef.compute_hessian(iblk, jblk, u);
+    coef_value = coef.compute_hessian(iblk, jblk, u, aux_values);
   }
   return coef_value;
 }

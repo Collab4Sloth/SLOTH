@@ -440,19 +440,15 @@ template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_coefficient(
     Coefficient coef, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  double coef_value = 0.0;
   if (coef.is_scalar()) {
-    coef_value = coef.compute();
+    return coef.compute();
   } else {
-    std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
-    std::vector<double> un(values.begin() + this->nb_blk_ - 1, values.end());
-    if (coef.is_implicit()) {
-      coef_value = coef.compute(u, aux_values);
-    } else if (coef.is_explicit()) {
-      coef_value = coef.compute(un, aux_values);
-    }
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
+    std::span<const double> un(values.begin() + this->nb_blk_ - 1, values.end());
+
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute(input, aux_values);
   }
-  return coef_value;
 }
 
 /**
@@ -476,15 +472,15 @@ template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
     Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
-  std::vector<double> un(values.begin() + this->nb_blk_ - 1, values.end());
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute_gradient(blk, u, aux_values);
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute_gradient(blk, un, aux_values);
+  if (coef.is_scalar()) {
+    return 0.0;
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
+    std::span<const double> un(values.begin() + this->nb_blk_ - 1, values.end());
+
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute_gradient(blk, input, aux_values);
   }
-  return coef_value;
 }
 
 /**
@@ -511,10 +507,13 @@ template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute_hessian(iblk, jblk, u, aux_values);
+  if (coef.is_scalar()) {
+    return 0.0;
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
+    std::span<const double> un(values.begin() + this->nb_blk_ - 1, values.end());
+
+    const std::span<const double>& input = coef.is_implicit() ? u : un;
+    return coef.compute_hessian(iblk, jblk, input, aux_values);
   }
-  return coef_value;
 }
