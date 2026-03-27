@@ -219,12 +219,15 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
 
-      gradU *= -xx * this->compute_coefficient(lambda[blk], {phi, phin}, vaux_gf_at_ip);
+      gradU *= -xx * this->compute_coefficient(lambda[blk], std::span<const double>({phi, phin}),
+                                               std::span<const double>(vaux_gf_at_ip));
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // Given u, compute (w'(u), psi), psi is shape function
-      const double ww = xx * (mu - this->compute_gradient_coefficient(double_well_energy[blk], blk,
-                                                                      {phi, phin}, vaux_gf_at_ip));
+      const double ww =
+          xx * (mu - this->compute_gradient_coefficient(double_well_energy[blk], blk,
+                                                        std::span<const double>({phi, phin}),
+                                                        std::span<const double>(vaux_gf_at_ip)));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -261,7 +264,8 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      gradU *= this->compute_coefficient(mobility[off_blk], {phi, phin}, vaux_gf_at_ip) *
+      gradU *= this->compute_coefficient(mobility[off_blk], std::span<const double>({phi, phin}),
+                                         std::span<const double>(vaux_gf_at_ip)) *
                ip.weight * Tr.Weight();
       gradPsi.AddMult(gradU, *elvect[blk]);
     }
@@ -325,12 +329,16 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
-      const double coef_lambda = this->compute_coefficient(lambda[blk], {phi, phin}, vaux_gf_at_ip);
+      const double coef_lambda =
+          this->compute_coefficient(lambda[blk], std::span<const double>({phi, phin}),
+                                    std::span<const double>(vaux_gf_at_ip));
 
       AddMult_a_AAt(xx * coef_lambda, gradPsi, *elmats(blk, blk));
 
-      double fun_val = xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
-                                                              {phi, phin}, vaux_gf_at_ip);
+      double fun_val =
+          xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
+                                                 std::span<const double>({phi, phin}),
+                                                 std::span<const double>(vaux_gf_at_ip));
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -405,8 +413,10 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
       const auto& phi = *elfun[off_blk] * Psi;
       const auto& phin = this->u_old_[off_blk].GetValue(Tr, ip);
 
-      const double coef_mob = this->compute_coefficient(mobility[blk], {phi, phin}, vaux_gf_at_ip) *
-                              ip.weight * Tr.Weight();
+      const double coef_mob =
+          this->compute_coefficient(mobility[blk], std::span<const double>({phi, phin}),
+                                    std::span<const double>(vaux_gf_at_ip)) *
+          ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
       AddMult_a_AAt(coef_mob, gradPsi, *elmats(blk, blk));
@@ -428,7 +438,8 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
  */
 template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_coefficient(
-    Coefficient coef, const std::vector<double>& values, const std::vector<double>& aux_values) {
+    Coefficient coef, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   double coef_value = 0.0;
   if (coef.is_scalar()) {
     coef_value = coef.compute();
@@ -463,8 +474,8 @@ double CahnHilliardNLFormIntegrator<VARS>::compute_coefficient(
  */
 template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::vector<double>& values,
-    const std::vector<double>& aux_values) {
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
   std::vector<double> un(values.begin() + this->nb_blk_ - 1, values.end());
   double coef_value = 0.0;
@@ -498,8 +509,8 @@ double CahnHilliardNLFormIntegrator<VARS>::compute_gradient_coefficient(
  */
 template <class VARS>
 double CahnHilliardNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::vector<double>& values,
-    const std::vector<double>& aux_values) {
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::vector<double> u(values.begin(), values.begin() + this->nb_blk_ - 1);
   double coef_value = 0.0;
   if (coef.is_implicit()) {
