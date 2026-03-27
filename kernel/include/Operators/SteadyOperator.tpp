@@ -180,10 +180,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   if (!this->src_func_.empty()) {
     for (int i = 0; i < fes_size; ++i) {
       if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* RHS = new mfem::ParLinearForm(this->fes_[i]);
+        mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
         mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, RHS);
-        delete RHS;
+        this->get_source_term(i, this->src_func_[i], src_i, SRC);
+        delete SRC;
       }
     }
   }
