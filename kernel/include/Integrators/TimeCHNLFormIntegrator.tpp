@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
@@ -158,6 +159,9 @@ template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
   //////////////////////
   // Block 0 R(phi) on mu term
   {
@@ -191,10 +195,19 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
       Tr.SetIntPoint(&ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
 
       double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({phi, phin}));
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip));
       const double ww = coef_a * phi * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -222,6 +235,9 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
+  int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
   // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
   // loop over diagonal entries
   // block 0 0  dR(phi)dphi
@@ -277,10 +293,19 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcPhysShape(Tr, Psi);
 
       const auto& phi = *elfun[blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
 
       double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({phi, phin}));
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip));
       double w = coef_a * Tr.Weight() * ip.weight;
       AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }
@@ -311,8 +336,9 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
  * @return double
  */
 template <class VARS>
-double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                         const std::span<const double>& values) {
+double TimeCHNLFormIntegrator<VARS>::compute_coefficient(
+    Coefficient coef, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
@@ -322,7 +348,7 @@ double TimeCHNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                 "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
                 "check your data.");
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un);
+    coef_value = coef.compute(un, aux_values);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }
