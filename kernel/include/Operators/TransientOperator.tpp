@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
+#include "Coefficients/MfemCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Operators/OperatorBase.hpp"
@@ -211,6 +212,11 @@ void TransientOperator<T, DIM>::initialize(const double& initial_time, Variables
   OperatorBase<T, DIM>::initialize(initial_time, vars, auxvars);
 
   this->ode_solver_->Init(*this);
+
+  // Get coefficients for time-derivative in case of explicit solvers
+  if (this->isExplicit()) {
+    this->get_explicit_time_coefficients();
+  }
 }
 
 /**
@@ -260,6 +266,17 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
+  std::vector<mfem::ParGridFunction> vauxn;
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (auto auxvars : auxvar_vec->getVariables()) {
+      auto fes = auxvars.get_fespace();
+      mfem::ParGridFunction auxn(fes);
+      auto auxvar_n = auxvars.get_second_to_last();
+      auxn.SetFromTrueDofs(auxvar_n);
+      vauxn.emplace_back(auxn);
+    }
+  }
+
   this->M_solver_.clear();
 
   for (unsigned int i = 0; i < u_vect.size(); i++) {
@@ -270,13 +287,14 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     // Mass matrix (constant)
     ////////////////
     M = new mfem::ParBilinearForm(this->fes_[i]);
-    // Works only with constants. To extend ?
-    double a_exp =
-        this->params_.template get_param_value_or_default<double>("prefactor_a_explicit", 1.0);
-    double b_exp =
-        this->params_.template get_param_value_or_default<double>("prefactor_b_explicit", 1.0);
-    auto coef_a_exp = mfem::ConstantCoefficient(a_exp);
-    auto coef_b_exp = mfem::ConstantCoefficient(b_exp);
+
+    // Build Mfem Coefficient from Sloth Coefficient
+    // Sloth coefficients are either scalar or explicit (variable + {auxiliary variables})
+    mfem::ParGridFunction un(this->fes_[i]);
+    un.SetFromTrueDofs(u_vect[i]);
+    auto coef_a_exp = MfemCoefficient(0, this->explicit_time_coefficients_, un, vauxn);
+    auto coef_b_exp = MfemCoefficient(1, this->explicit_time_coefficients_, un, vauxn);
+
     mfem::ProductCoefficient mass_coefficient = mfem::ProductCoefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
@@ -675,4 +693,65 @@ void TransientOperator<T, DIM>::free_memory() {
   this->LHS = nullptr;
   delete this->reduced_oper;
   this->reduced_oper = nullptr;
+}
+
+/**
+ * @brief Retrieve a coefficient by type and identifier.
+ *
+ * This function searches the list of coefficients associated with the
+ * specified block (blk) and returns the coefficient that matches
+ * the given glossary type, identifier and if given, the boundary id.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ *
+ * @param blk     Index of the block.
+ * @param type    Type of coefficient.
+ * @param id      Identifier of the coefficient.
+ * @param bdr_id  Optional boundary id for boundary coefficients.
+ *
+ * @return An std::optional containing the matching Coefficient if found;
+ *         std::nullopt otherwise.
+ */
+template <class T, int DIM>
+std::optional<Coefficient> TransientOperator<T, DIM>::get_coefficient(const int blk,
+                                                                      GlossaryType type,
+                                                                      unsigned int id) {
+  Coefficients coefficients = this->coefficients_[blk];
+
+  for (unsigned int i = 0; i < coefficients.size(); i++) {
+    auto coef = coefficients[i];
+    if (coef.get_type() == type && coef.get_id() == id) {
+      return coef;
+    }
+  }
+  return std::nullopt;
+}
+
+/**
+ * @brief Get the explicit time Coefficients object
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::get_explicit_time_coefficients() {
+  for (int k = 0; k < 2; ++k) {
+    auto coef = this->get_coefficient(0, GlossaryType::ExplicitTime, k);
+
+    if (!coef.has_value()) {
+      mfem::mfem_error(("Missing Coefficient object of type ExplicitTime at index " +
+                        std::to_string(k) +
+                        ". Explicit solver requires two Coefficient objects of type "
+                        "GlossaryType::ExplicitTime. Please check your data.")
+                           .c_str());
+    }
+    if (!(*coef).is_scalar() && !(*coef).is_explicit()) {
+      mfem::mfem_error(
+          ("Coefficient objects of type ExplicitTime for Explicit solver are either "
+           "scalar or explicit. Please check your data."));
+    }
+
+    this->explicit_time_coefficients_.add(*coef);
+  }
 }

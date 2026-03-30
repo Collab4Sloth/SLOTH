@@ -67,6 +67,10 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
 
   void free_memory();
 
+  Coefficients explicit_time_coefficients_;
+  std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);
+  void get_explicit_time_coefficients();
+
  protected:
   /// Mass operator
 
