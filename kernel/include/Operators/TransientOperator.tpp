@@ -56,11 +56,10 @@
  * @param ode
  */
 template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(
-
-    std::vector<SpatialDiscretization<T, DIM>*> spatials,
-    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
-    const std::string lhs_integrator)
+TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                                             const std::vector<std::string>& rhs_integrators,
+                                             TimeScheme::value ode,
+                                             const std::string lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
@@ -165,25 +164,30 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
       this->ode_solver_ = new mfem::ForwardEulerSolver;
+      this->is_explicit_ = true;
       break;
     }
     case TimeScheme::EulerImplicit: {
       this->ode_solver_ = new mfem::BackwardEulerSolver;
+      this->is_explicit_ = false;
       break;
     }
     case TimeScheme::RungeKutta4: {
       // explicit forth-order Runge-Kutta
       this->ode_solver_ = new mfem::RK4Solver;
+      this->is_explicit_ = true;
       break;
     }
     case TimeScheme::SDIRK23: {
       //  two-step third-order Singly-diagonal implicit Runge-Kutta scheme (SDIRK23)
       this->ode_solver_ = new mfem::SDIRK23Solver;
+      this->is_explicit_ = false;
       break;
     }
     case TimeScheme::SDIRK33: {
       //  three-step third-order Singly-diagonal implicit Runge-Kutta scheme (SDIRK23)
       this->ode_solver_ = new mfem::SDIRK33Solver;
+      this->is_explicit_ = false;
       break;
     }
     default:
@@ -214,7 +218,7 @@ void TransientOperator<T, DIM>::initialize(const double& initial_time, Variables
   this->ode_solver_->Init(*this);
 
   // Get coefficients for time-derivative in case of explicit solvers
-  if (this->isExplicit()) {
+  if (this->is_explicit_) {
     this->get_explicit_time_coefficients();
   }
 }
@@ -294,7 +298,6 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     un.SetFromTrueDofs(u_vect[i]);
     auto coef_a_exp = MfemCoefficient(0, this->explicit_time_coefficients_, un, vauxn);
     auto coef_b_exp = MfemCoefficient(1, this->explicit_time_coefficients_, un, vauxn);
-
     mfem::ProductCoefficient mass_coefficient = mfem::ProductCoefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
@@ -740,16 +743,20 @@ void TransientOperator<T, DIM>::get_explicit_time_coefficients() {
     auto coef = this->get_coefficient(0, GlossaryType::ExplicitTime, k);
 
     if (!coef.has_value()) {
-      mfem::mfem_error(("Missing Coefficient object of type ExplicitTime at index " +
-                        std::to_string(k) +
-                        ". Explicit solver requires two Coefficient objects of type "
-                        "GlossaryType::ExplicitTime. Please check your data.")
-                           .c_str());
+      mfem::mfem_warning(
+          ("Missing Coefficient object of type ExplicitTime at index " + std::to_string(k) +
+           ". Explicit solver requires two Coefficient objects of type "
+           "GlossaryType::ExplicitTime. Default constant coefficient equal to one is used.")
+              .c_str());
+    } else {
+      coef = Coefficient(Glossary::Default, 1.0);
     }
     if (!(*coef).is_scalar() && !(*coef).is_explicit()) {
-      mfem::mfem_error(
+      mfem::mfem_warning(
           ("Coefficient objects of type ExplicitTime for Explicit solver are either "
-           "scalar or explicit. Please check your data."));
+           "scalar or explicit. Default constant coefficient equal to one is used."));
+    } else {
+      coef = Coefficient(Glossary::Default, 1.0);
     }
 
     this->explicit_time_coefficients_.add(*coef);

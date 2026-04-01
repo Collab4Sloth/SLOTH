@@ -127,7 +127,9 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
  *
  *
  * @remark By default, A and B are equal to one. This method can be overridden in derived classes to
- * provide custom behavior for retrieving coefficients (see HeatTimeDerivative)
+ * provide custom behavior for retrieving coefficients (see HeatTimeDerivative). Coefficient objects
+ * of type GlossaryType::ExplicitTime can be also used for this class (see Glossary::ExplicitTime_A
+ * and Glossary::ExplicitTime_B used wth explicit solver)
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
@@ -135,8 +137,20 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::get_coefficients() {
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
-    this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
-    this->coefficient_B.add(Coefficient(Glossary::Default, 1.0));
+    auto coef_A = this->get_coefficient(i, GlossaryType::ExplicitTime, 0);
+
+    if (!coef_A.has_value()) {
+      this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
+    } else {
+      this->coefficient_A.add(*coef_A);
+    }
+    auto coef_B = this->get_coefficient(i, GlossaryType::ExplicitTime, 1);
+
+    if (!coef_B.has_value()) {
+      this->coefficient_B.add(Coefficient(Glossary::Default, 1.0));
+    } else {
+      this->coefficient_B.add(*coef_B);
+    }
   }
 }
 
@@ -266,6 +280,7 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       double coef_b =
           this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
                                     std::span<const double>(vaux_gf_at_ip));
+
       double fun_val = coef_a * coef_b * ip.weight * Tr.Weight();
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }

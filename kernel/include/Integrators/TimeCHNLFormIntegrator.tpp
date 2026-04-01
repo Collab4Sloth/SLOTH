@@ -126,7 +126,9 @@ void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
  *
  *
  * @remark By default, A is equal to one. This method can be overridden in derived classes to
- * provide custom behavior for retrieving coefficients.
+ * provide custom behavior for retrieving coefficients. Coefficient object
+ * of type GlossaryType::ExplicitTime can be also used for this class (see Glossary::ExplicitTime_A
+ * used wth explicit solver)
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
@@ -134,7 +136,13 @@ void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
 template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
-    this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
+    auto coef_A = this->get_coefficient(i, GlossaryType::ExplicitTime, 0);
+
+    if (!coef_A.has_value()) {
+      this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
+    } else {
+      this->coefficient_A.add(*coef_A);
+    }
   }
 }
 
