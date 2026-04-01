@@ -119,7 +119,8 @@ enum class GlossaryType {
   System,
   Neumann,
   RobinA,
-  RobinB
+  RobinB,
+  ExplicitTime
 };
 
 struct GlossaryQuantity {
@@ -378,5 +379,21 @@ static const GlossaryQuantity Coordinate = GlossaryQuantity(
  */
 static const GlossaryQuantity Default =
     GlossaryQuantity(GlossaryType::System, GlossaryUnit::None, "Default quantity (dimensionless)");
+
+/**
+ * @brief Quantity used for coefficients associated with time derivative with explicit solvers
+ *
+ */
+static const GlossaryQuantity ExplicitTime_A = GlossaryQuantity(
+    GlossaryType::ExplicitTime, GlossaryUnit::None,
+    "Quantity used for coefficients associated with time derivative with explicit solvers", 0);
+
+/**
+ * @brief Quantity used for coefficients associated with time derivative with explicit solvers
+ *
+ */
+static const GlossaryQuantity ExplicitTime_B = GlossaryQuantity(
+    GlossaryType::ExplicitTime, GlossaryUnit::None,
+    "Quantity used for coefficients associated with time derivative with explicit solvers", 1);
 
 }  // namespace Glossary

@@ -50,6 +50,7 @@ template <class T, int DIM>
 class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependentOperator {
  private:
   mfem::ODESolver* ode_solver_;
+  bool is_explicit_;
   void set_ODE_solver(const TimeScheme::value& ode_solver);
 
   VSolverType mass_solver_;
@@ -66,6 +67,10 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   std::string lhs_integrator_;
 
   void free_memory();
+
+  Coefficients explicit_time_coefficients_;
+  std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);
+  void get_explicit_time_coefficients();
 
  protected:
   /// Mass operator

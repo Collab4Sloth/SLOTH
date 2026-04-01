@@ -148,6 +148,8 @@ template <class VARS>
 void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  std::vector<double> vaux_gf_at_ip;
+
   //
   // Block 0 R(phi)=eta psi + w'psi + lambda grad phi grad psi
   //
@@ -175,6 +177,10 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       const auto& phi = *elfun[blk] * Psi;
       const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      vaux_gf_at_ip.clear();
+      for (const auto& aux_gf : vaux_gf_) {
+        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      }
 
       const double xx = ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
@@ -185,7 +191,8 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       const double ww =
           xx * (eta + this->compute_gradient_coefficient(double_well_energy[blk], blk,
-                                                         std::span<const double>({phi, phin})));
+                                                         std::span<const double>({phi, phin}),
+                                                         std::span<const double>(vaux_gf_at_ip)));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -248,8 +255,9 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Block 0  0 dR(phi)dphi = d(eta psi + w'psi + lambda grad phi grad psi)/dphi
+  std::vector<double> vaux_gf_at_ip;
 
+  // Block 0  0 dR(phi)dphi = d(eta psi + w'psi + lambda grad phi grad psi)/dphi
   {
     int blk = 0;
     mfem::DenseMatrix gradPsi;
@@ -271,6 +279,11 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       Tr.SetIntPoint(&ip);
       const auto& phi = *elfun[blk] * Psi;
       const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
+      // Get aux values at ip TODO(cci) (move in method)
+      vaux_gf_at_ip.clear();
+      for (const auto& aux_gf : vaux_gf_) {
+        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+      }
 
       const double xx = ip.weight * Tr.Weight();
       el[blk]->CalcPhysDShape(Tr, gradPsi);
@@ -279,8 +292,10 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       AddMult_a_AAt(xx * coef_lambda, gradPsi, *elmats(blk, blk));
 
-      double fun_val = xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
-                                                              std::span<const double>({phi, phin}));
+      double fun_val =
+          xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
+                                                 std::span<const double>({phi, phin}),
+                                                 std::span<const double>(vaux_gf_at_ip));
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -407,7 +422,8 @@ void BlockAllenCahnNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 double BlockAllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values) {
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
@@ -441,7 +457,8 @@ double BlockAllenCahnNLFormIntegrator<VARS>::compute_gradient_coefficient(
  */
 template <class VARS>
 double BlockAllenCahnNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values) {
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;

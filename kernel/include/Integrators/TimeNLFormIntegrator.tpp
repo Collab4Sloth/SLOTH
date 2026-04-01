@@ -127,7 +127,9 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
  *
  *
  * @remark By default, A and B are equal to one. This method can be overridden in derived classes to
- * provide custom behavior for retrieving coefficients (see HeatTimeDerivative)
+ * provide custom behavior for retrieving coefficients (see HeatTimeDerivative). Coefficient objects
+ * of type GlossaryType::ExplicitTime can be also used for this class (see Glossary::ExplicitTime_A
+ * and Glossary::ExplicitTime_B used wth explicit solver)
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
@@ -135,8 +137,20 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::get_coefficients() {
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
-    this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
-    this->coefficient_B.add(Coefficient(Glossary::Default, 1.0));
+    auto coef_A = this->get_coefficient(i, GlossaryType::ExplicitTime, 0);
+
+    if (!coef_A.has_value()) {
+      this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
+    } else {
+      this->coefficient_A.add(*coef_A);
+    }
+    auto coef_B = this->get_coefficient(i, GlossaryType::ExplicitTime, 1);
+
+    if (!coef_B.has_value()) {
+      this->coefficient_B.add(Coefficient(Glossary::Default, 1.0));
+    } else {
+      this->coefficient_B.add(*coef_B);
+    }
   }
 }
 
@@ -162,6 +176,8 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("TimeNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -182,14 +198,21 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
       Tr.SetIntPoint(&ip);
 
       const auto& u = *elfun[blk] * Psi;
-      const auto& un = this->u_old_[blk].GetValue(Tr, ip);
-
-      // el[blk]->CalcPhysDShape(Tr, gradPsi);
-      // gradPsi.MultTranspose(*elfun[blk], gradU);
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
       double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({u, un}));
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip));
       double coef_b =
-          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>({u, un}));
+          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip));
       const double ww = coef_a * coef_b * u * ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -219,6 +242,8 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("TimeNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
   for (int blk = 0; blk < num_blocks; ++blk) {
     // int nd = el.GetDof();
     // int dim = el.GetDim();
@@ -240,12 +265,22 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
       const auto& u = *elfun[blk] * Psi;
-      const auto& un = this->u_old_[blk].GetValue(Tr, ip);
-
+      // Get aux values at ip TODO(cci) (move in method)
+      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
+      }
+      // Get values
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
       double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>({u, un}));
+          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip));
       double coef_b =
-          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>({u, un}));
+          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip));
+
       double fun_val = coef_a * coef_b * ip.weight * Tr.Weight();
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
@@ -278,7 +313,8 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
  */
 template <class VARS>
 double TimeNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                       const std::span<const double>& values) {
+                                                       const std::span<const double>& values,
+                                                       const std::span<const double>& aux_values) {
   std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
   std::span<const double> un(values.begin() + this->nb_blk_, values.end());
   double coef_value = 0.0;
@@ -288,7 +324,7 @@ double TimeNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                 "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
                 "check your data.");
   } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un);
+    coef_value = coef.compute(un, aux_values);
   } else if (coef.is_scalar()) {
     coef_value = coef.compute();
   }

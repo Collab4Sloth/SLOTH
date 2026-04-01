@@ -59,13 +59,16 @@ class BlockAllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficients lambda;
   Coefficients mobility;
   Coefficients double_well_energy;
+  std::vector<mfem::ParGridFunction> vaux_gf_;
   std::vector<mfem::ParGridFunction> temp_gf_;
   bool scale_mobility_by_temperature_{false};
 
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::span<const double>& values);
+                                              const std::span<const double>& values,
+                                              const std::span<const double>& aux_values);
   virtual double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                             const std::span<const double>& values);
+                                             const std::span<const double>& values,
+                                             const std::span<const double>& aux_values);
   void get_coefficients() override;
 
  public:

@@ -114,8 +114,10 @@ int main(int argc, char* argv[]) {
   mu2.set_additional_information("A", "inter_mob");
   auto MB = VARS(mu1, mu2);
 
+  Coefficient explicit_time_A(Glossary::ExplicitTime_A, 1.0);
+  Coefficient explicit_time_B(Glossary::ExplicitTime_B, 1.0);
   Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
-  Coefficients coef_inter(Dstab);
+  Coefficients coef_inter(Dstab, explicit_time_A, explicit_time_B);
   TransientOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
                                                        TimeScheme::RungeKutta4, "TimeDerivative");
 
