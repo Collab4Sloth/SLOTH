@@ -743,20 +743,13 @@ void TransientOperator<T, DIM>::get_explicit_time_coefficients() {
     auto coef = this->get_coefficient(0, GlossaryType::ExplicitTime, k);
 
     if (!coef.has_value()) {
-      mfem::mfem_warning(
-          ("Missing Coefficient object of type ExplicitTime at index " + std::to_string(k) +
-           ". Explicit solver requires two Coefficient objects of type "
-           "GlossaryType::ExplicitTime. Default constant coefficient equal to one is used.")
-              .c_str());
-    } else {
       coef = Coefficient(Glossary::Default, 1.0);
-    }
-    if (!(*coef).is_scalar() && !(*coef).is_explicit()) {
-      mfem::mfem_warning(
-          ("Coefficient objects of type ExplicitTime for Explicit solver are either "
-           "scalar or explicit. Default constant coefficient equal to one is used."));
     } else {
-      coef = Coefficient(Glossary::Default, 1.0);
+      if (!(*coef).is_scalar() && !(*coef).is_explicit()) {
+        mfem::mfem_error(
+            ("Coefficient objects of type ExplicitTime for Explicit solver are either "
+             "scalar or explicit. Default constant coefficient equal to one is used."));
+      }
     }
 
     this->explicit_time_coefficients_.add(*coef);
