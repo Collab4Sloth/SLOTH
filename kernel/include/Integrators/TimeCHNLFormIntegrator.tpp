@@ -90,6 +90,10 @@ void TimeCHNLFormIntegrator<VARS>::init() {
     this->check_coefficient_types(this->expected_list_);
     this->get_coefficients();
   }
+
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
 }
 
 /**

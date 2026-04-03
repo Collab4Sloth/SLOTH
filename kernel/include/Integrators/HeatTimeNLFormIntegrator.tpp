@@ -82,8 +82,10 @@ HeatTimeNLFormIntegrator<VARS>::HeatTimeNLFormIntegrator(
 template <class VARS>
 void HeatTimeNLFormIntegrator<VARS>::get_coefficients() {
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
-    if (this->get_coefficient(i, GlossaryType::Conductivity, 0).has_value()) {
+    if (this->get_coefficient(i, GlossaryType::Concentration, 0).has_value()) {
       this->coefficient_A.add(*(this->get_coefficient(i, GlossaryType::Concentration, 0)));
+    }
+    if (this->get_coefficient(i, GlossaryType::HeatCapacity, 0).has_value()) {
       this->coefficient_B.add(*(this->get_coefficient(i, GlossaryType::HeatCapacity, 0)));
     }
   }
