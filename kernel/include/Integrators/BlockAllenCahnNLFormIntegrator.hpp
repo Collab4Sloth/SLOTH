@@ -63,6 +63,8 @@ class BlockAllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<mfem::ParGridFunction> temp_gf_;
   bool scale_mobility_by_temperature_{false};
 
+  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
+                                     const std::span<const double>& aux_values);
   virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
                                               const std::span<const double>& values,
                                               const std::span<const double>& aux_values);
