@@ -151,7 +151,7 @@ template <class VARS>
 void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  std::vector<double> vaux_gf_at_ip;
+  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
 
   //
   // Block 0 R(phi)=eta psi + w'psi + lambda grad phi grad psi
