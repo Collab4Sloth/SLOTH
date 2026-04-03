@@ -90,6 +90,10 @@ void TimeCHNLFormIntegrator<VARS>::init() {
     this->check_coefficient_types(this->expected_list_);
     this->get_coefficients();
   }
+
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
 }
 
 /**
@@ -169,7 +173,8 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
   std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
+  std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
   //////////////////////
   // Block 0 R(phi) on mu term
   {
@@ -245,7 +250,8 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   int num_blocks = el.Size();
   std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
+  std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
   // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
   // loop over diagonal entries
   // block 0 0  dR(phi)dphi

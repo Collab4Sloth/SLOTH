@@ -82,6 +82,10 @@ template <class VARS>
 void MeltingBaseNLFormIntegrator<VARS>::init() {
   this->check_coefficient_types(this->expected_list_);
   this->get_coefficients();
+
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
 }
 
 /**
@@ -109,6 +113,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
   std::vector<double> u_values(2 * num_blocks);
 
   std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("MeltingBaseNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -179,6 +184,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
   std::vector<double> u_values(2 * num_blocks);
 
   std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();

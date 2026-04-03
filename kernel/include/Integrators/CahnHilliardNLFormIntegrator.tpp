@@ -264,7 +264,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      gradU *= this->compute_coefficient(mobility[off_blk], std::span<const double>({phi, phin}),
+      gradU *= this->compute_coefficient(mobility[blk], std::span<const double>({phi, phin}),
                                          std::span<const double>(vaux_gf_at_ip)) *
                ip.weight * Tr.Weight();
       gradPsi.AddMult(gradU, *elvect[blk]);
