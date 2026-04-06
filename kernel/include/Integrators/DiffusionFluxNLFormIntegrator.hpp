@@ -58,9 +58,8 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::list<GlossaryType> expected_list_;
   Coefficients stab_diffusion;
 
-  double compute_coefficient(Coefficient coef, const std::span<const double>& values);
-
   std::vector<SlothGridFunction> sloth_u_old_;
+  std::vector<mfem::ParGridFunction> vaux_gf_;
   virtual void get_parameters() {}
 
   virtual std::vector<mfem::Vector> get_flux_gradient(mfem::ElementTransformation& Tr,

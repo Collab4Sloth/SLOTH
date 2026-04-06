@@ -142,14 +142,15 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
  * @brief Retrieve a coefficient by type and identifier.
  *
  * This function searches the list of coefficients associated with the
- * specified block (blk) and returns the first coefficient that matches both
- * the given glossary type and identifier.
+ * specified block (blk) and returns the coefficient that matches
+ * the given glossary type, identifier and if given, the boundary id.
  *
  * @tparam VARS Template parameter defining the variables.
  *
- * @param blk  Index of the block.
- * @param type type of coefficient.
- * @param id   Identifier of the coefficient.
+ * @param blk     Index of the block.
+ * @param type    Type of coefficient.
+ * @param id      Identifier of the coefficient.
+ * @param bdr_id  Optional boundary id for boundary coefficients.
  *
  * @return An std::optional containing the matching Coefficient if found;
  *         std::nullopt otherwise.
@@ -157,12 +158,125 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
 template <class VARS>
 std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const int blk,
                                                                         GlossaryType type,
-                                                                        unsigned int id) {
+                                                                        unsigned int id,
+                                                                        std::optional<int> bdr_id) {
   Coefficients coefficients = this->coefficients_[blk];
 
   for (unsigned int i = 0; i < coefficients.size(); i++) {
     auto coef = coefficients[i];
-    if (coef.get_type() == type && coef.get_id() == id) return coef;
+    if (coef.get_type() == type && coef.get_id() == id) {
+      if (bdr_id.has_value()) {
+        auto bdr_index = coef.get_bdr_index_coef();
+        bool bdr_id_found =
+            std::find(bdr_index.begin(), bdr_index.end(), bdr_id) != bdr_index.end();
+        if (bdr_id_found) return coef;
+      } else {
+        return coef;
+      }
+    }
   }
   return std::nullopt;
+}
+
+/**
+ * @brief Return the value of the coefficient
+ * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
+ * class variable aux_gf_
+
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+
+ * @return The computed scalar value of the coefficient.
+ */
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                        const std::span<const double>& values,
+                                                        const std::span<const double>& aux_values) {
+  if (coef.is_scalar()) {
+    return coef.compute();
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+    if (coef.is_semi_implicit()) {
+      return coef.compute(u, un, aux_values);
+    } else {
+      const std::span<const double>& input = coef.is_implicit() ? u : un;
+      return coef.compute(input, aux_values);
+    }
+  }
+}
+
+/**
+ * @brief Compute the value of a specific component of the gradient of a coefficient.
+ *
+ * This method evaluates the gradient of the given coefficient with respect to the
+ * variable corresponding to the specified index 'blk'. By default, the 'values' vector
+ * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose gradient is to be computed.
+ * @param iblk    Index of the gradient.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the gradient component of the coefficient.
+ *
+ * @note This function can be overridden in derived classes.
+ */
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  if (coef.is_scalar()) {
+    return 0.0;
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+    if (coef.is_semi_implicit()) {
+      return coef.compute_gradient(blk, u, un, aux_values);
+    } else {
+      const std::span<const double>& input = coef.is_implicit() ? u : un;
+      return coef.compute_gradient(blk, input, aux_values);
+    }
+  }
+}
+
+/**
+ * @brief Compute the value of a specific component of the Hessian of a  coefficient.
+ *
+ * This method evaluates the Hessian of the given coefficient with respect to the
+ * variables corresponding to the specified indexes 'iblk' and 'jblk'. By default,
+ * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
+ * via the class member 'aux_gf_'.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param coef   Coefficient whose Hessian is to be computed.
+ * @param iblk   Index of the row  of the Hessian component.
+ * @param jblk   Index of the column of the Hessian component.
+ * @param values Vector of current and previous solution values (default: {u, u_old}).
+ *
+ * @return The computed scalar value of the Hessian component for the given coefficient.
+ *
+ * @note This function can be overridden in derived classes to implement
+ *       more complex or nonlinear Hessian evaluations.
+ */
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  if (coef.is_scalar()) {
+    return 0.0;
+  } else {
+    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+    if (coef.is_semi_implicit()) {
+      return coef.compute_hessian(iblk, jblk, u, un, aux_values);
+    } else {
+      const std::span<const double>& input = coef.is_implicit() ? u : un;
+      return coef.compute_hessian(iblk, jblk, input, aux_values);
+    }
+  }
 }

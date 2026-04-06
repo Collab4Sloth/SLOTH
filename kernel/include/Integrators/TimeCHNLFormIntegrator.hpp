@@ -58,8 +58,6 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::list<GlossaryType> expected_list_;
   Coefficients coefficient_A;
   void get_coefficients() override;
-  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
-                                     const std::span<const double>& aux_values);
 
  public:
   void init() override;

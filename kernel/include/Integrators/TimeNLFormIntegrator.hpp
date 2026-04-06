@@ -59,8 +59,6 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficients coefficient_A;
   Coefficients coefficient_B;
   void get_coefficients() override;
-  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
-                                     const std::span<const double>& aux_values);
 
  public:
   void init() override;

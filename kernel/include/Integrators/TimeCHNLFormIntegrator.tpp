@@ -145,6 +145,12 @@ void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
     if (!coef_A.has_value()) {
       this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
     } else {
+      if ((*coef_A).is_implicit()) {
+        MFEM_VERIFY(
+            false,
+            "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
+            "check your data.");
+      }
       this->coefficient_A.add(*coef_A);
     }
   }
@@ -338,33 +344,4 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
   }
-}
-
-/**
- * @brief Return the value of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
- * @tparam VARS
- * @param coef
- * @param values
- * @return double
- */
-template <class VARS>
-double TimeCHNLFormIntegrator<VARS>::compute_coefficient(
-    Coefficient coef, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    // coef_value = coef.compute({u});
-    MFEM_VERIFY(false,
-                "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
-                "check your data.");
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un, aux_values);
-  } else if (coef.is_scalar()) {
-    coef_value = coef.compute();
-  }
-  return coef_value;
 }

@@ -57,12 +57,6 @@ class RobinNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficient robin_a;
   Coefficient robin_b;
 
-  double compute_coefficient(Coefficient coef, const std::span<const double>& values,
-                             const std::span<const double>& aux_values);
-  double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                      const std::span<const double>& values,
-                                      const std::span<const double>& aux_values);
-
   void get_coefficients() override;
   void init() override;
 

@@ -45,61 +45,6 @@
 ////////////////////////////////////////////////////////
 
 /**
- * @brief Return the value of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
-
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param coef   Coefficient.
- * @param values Vector of current and previous solution values (default: {u, u_old}).
-
- * @return The computed scalar value of the coefficient.
- */
-template <class VARS>
-double RobinNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                        const std::span<const double>& values,
-                                                        const std::span<const double>& aux_values) {
-  if (coef.is_scalar()) {
-    return coef.compute();
-  } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-
-    const std::span<const double>& input = coef.is_implicit() ? u : un;
-    return coef.compute(input, aux_values);
-  }
-}
-
-/**
- * @brief Compute the value of a specific component of the gradient of a coefficient.
- *
- * This method evaluates the gradient of the given coefficient with respect to the
- * variable corresponding to a specified index 'blk'. By default, the 'values' vector
- * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param coef   Coefficient whose gradient is to be computed.
- * @param blk    Index of the gradient.
- * @param values Vector of current and previous solution values (default: {u, u_old}).
- *
- * @return The computed scalar value of the gradient component of the coefficient.
- *
- * @note This function can be overridden in derived classes.
- */
-template <class VARS>
-double RobinNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-
-  const std::span<const double>& input = coef.is_implicit() ? u : un;
-  return coef.compute_gradient(blk, input, aux_values);
-}
-
-/**
  * @brief Retrieve and store the coefficients required by the integrator
  *        or raises an error if a coefficient is missing.
  *
