@@ -44,13 +44,13 @@ class RobinCoefficient : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -64,12 +64,14 @@ class RobinCoefficient : public FunctionCoefficient {
  * @brief C++ function of the expression
  *
  *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
+ * std::span<const double>&, const unsigned int dimension)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 RobinCoefficient::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
@@ -90,9 +92,10 @@ RobinCoefficient::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 RobinCoefficient::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
@@ -112,12 +115,13 @@ RobinCoefficient::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const unsigned int dimension)>
+ * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 RobinCoefficient::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
