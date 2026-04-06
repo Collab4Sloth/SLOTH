@@ -49,9 +49,10 @@
  * @return T
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 ExprTkCoefficient::F() {
   auto func = [&](const std::span<const double>& values,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     if (this->variable_names_.size() > 0) {
@@ -73,9 +74,10 @@ ExprTkCoefficient::F() {
  * @return std::function<std::vector<double>(const std::span<const double>&)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 ExprTkCoefficient::GradientF() {
   auto func = [&](const std::span<const double>& values,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     const auto n = values.size();
@@ -102,9 +104,10 @@ ExprTkCoefficient::GradientF() {
  * @return std::function<std::vector<double>(const std::span<const double>&)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 ExprTkCoefficient::HessianF() {
   auto func = [&](const std::span<const double>& values,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     const auto n = values.size();

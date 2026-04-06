@@ -46,9 +46,10 @@
  * @return Constant scalar value.
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 ConstantCoefficient::F() {
   auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) { return this->value_; };
   return func;
@@ -66,9 +67,10 @@ ConstantCoefficient::F() {
  * @return Zero vector of size input_vector.size().
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 ConstantCoefficient::GradientF() {
   auto func = [](const std::span<const double>& input_vector,
+                 [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
@@ -94,9 +96,10 @@ ConstantCoefficient::GradientF() {
  * @return Zero-valued Hessian vector.
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 ConstantCoefficient::HessianF() {
   auto func = [](const std::span<const double>& input_vector,
+                 [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
