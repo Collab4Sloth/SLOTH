@@ -25,14 +25,15 @@
  */
 #pragma once
 
-#include <MAToolsProfiling/MAToolsMPI.hxx>
-#include <MAToolsProfiling/MATrace.hxx>
-#include <MAToolsProfiling/MATraceColor.hxx>
 #include <cassert>
 #include <fstream>
 #include <map>
 #include <string>
 #include <vector>
+
+#include "MAToolsProfiling/MAToolsMPI.hxx"
+#include "MAToolsProfiling/MATrace.hxx"
+#include "MAToolsProfiling/MATraceColor.hxx"
 
 namespace MATools {
 namespace MATrace {

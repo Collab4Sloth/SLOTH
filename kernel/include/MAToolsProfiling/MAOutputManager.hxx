@@ -174,4 +174,4 @@ void recursive_sorted_call(const Func& func, const Sort& mySort, MATimerNode* co
 }  // namespace MAOutputManager
 }  // namespace MATools
 
-#include <MAToolsProfiling/MAOutputManager.ixx>
+#include "MAToolsProfiling/MAOutputManager.ixx"
