@@ -23,7 +23,10 @@ class Sloth(CMakePackage):
 
     depends_on('hypre+int64', when='+petsc')
     depends_on('petsc+int64', when='+petsc')
-    depends_on('mfem@4.8.0:+mpi+suite-sparse+sundials+superlu-dist+miniapps')
+    
+    depends_on('hypre@2.33.0 +shared')
+    depends_on('mfem@4.8.0 +mpi+suite-sparse +sundials +superlu-dist +miniapps')
+
     depends_on('mfem@4.8.0:+petsc', when='+petsc')
     depends_on('mfem@4.8.0:+shared', when='+shared')
     depends_on('cmake', type='build')
