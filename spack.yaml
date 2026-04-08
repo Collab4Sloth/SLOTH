@@ -1,17 +1,30 @@
 spack:
-
   specs:
-    - hypre@2.33.0 +shared 
-    - mfem@4.8.0 +mpi +suite-sparse +sundials +superlu-dist 
+    - mpich
+    - hypre@3.1.0 +shared 
+    - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist 
     - exprtk
 
   concretizer:
     unify: true
 
+  config:
+    build_jobs: 8
+
   packages:
+    all:
+      compiler: [gcc]
+      target: [x86_64]
+      providers:
+        blas: [openblas]
+        lapack: [openblas]
+
     mpi:
+      require: mpich
       buildable: true
+
     openblas:
       buildable: true
+
     perl:
       buildable: true
