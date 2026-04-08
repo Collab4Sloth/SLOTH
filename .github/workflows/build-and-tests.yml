@@ -40,13 +40,16 @@ jobs:
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
+          spack compiler find
+          
           spack env activate .
 
           spack mirror add ghcr oci://ghcr.io/spack/github-actions-buildcache || true
           spack buildcache keys --install --trust
 
+
           spack concretize -f
-          spack install --fail-fast --use-buildcache only
+          spack install --fail-fast --use-buildcache auto
           
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
