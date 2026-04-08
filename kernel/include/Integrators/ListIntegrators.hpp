@@ -39,5 +39,6 @@
 #include "Integrators/MeltingTemperatureNLFormIntegrator.hpp"
 #include "Integrators/NeumannNLFormIntegrator.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
+#include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"

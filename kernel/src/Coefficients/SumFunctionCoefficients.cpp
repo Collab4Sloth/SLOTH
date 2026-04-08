@@ -57,14 +57,15 @@ SumCoefficient::SumCoefficient(std::initializer_list<FunctionCoefficient*> coeff
  * const unsigned int dimension)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 SumCoefficient::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     double sum_F = 0.0;
     for (const auto& coef : this->vect_coefficients_) {
-      sum_F += coef->eval_f(input_vector, auxiliary_vector, dimension);
+      sum_F += coef->eval_f(input_vector, exp_input_vector, auxiliary_vector, dimension);
     }
 
     return sum_F;
@@ -80,16 +81,18 @@ SumCoefficient::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 SumCoefficient::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> gradient(input_vector.size(), 0.0);
 
     for (unsigned int i = 0; i < input_vector.size(); ++i) {
       for (const auto& coef : this->vect_coefficients_) {
-        gradient[i] += coef->eval_gradient(i, input_vector, auxiliary_vector, dimension);
+        gradient[i] +=
+            coef->eval_gradient(i, input_vector, exp_input_vector, auxiliary_vector, dimension);
       }
     }
 
@@ -107,9 +110,10 @@ SumCoefficient::GradientF() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 SumCoefficient::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
     const int size = input_vector.size();
@@ -119,7 +123,7 @@ SumCoefficient::HessianF() {
       for (unsigned int j = 0; j < input_vector.size(); ++j) {
         for (const auto& coef : this->vect_coefficients_) {
           hessian[i * size + j] +=
-              coef->eval_hessian(i, j, input_vector, auxiliary_vector, dimension);
+              coef->eval_hessian(i, j, input_vector, exp_input_vector, auxiliary_vector, dimension);
         }
       }
     }

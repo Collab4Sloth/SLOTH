@@ -59,14 +59,18 @@ FunctionCoefficient::FunctionCoefficient() : time_(0.0) {}
 double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
                                    std::optional<int> dimension) {
   static const std::span<const double> empty_aux{};
+  static const std::span<const double> empty_exp{};
   int dim = dimension.value_or(-1);
-  return F()(input_vector, empty_aux, dim);
+  return F()(input_vector, empty_exp, empty_aux, dim);
 }
 
 /**
  * @brief Evaluates the coefficient.
  *
- * The coefficient is computed from the current and auxiliary variables.
+ * @remark Work for Implicit/Explict coefficients with auxiliary variables and Semi-implicit
+ * coefficients without auxiliary variables
+ *
+ * The coefficient is computed from the current and auxiliary (explicit) variables.
  *
  * @param input_vector Values of the current variables.
  * @param auxiliary_vector Values of the auxiliary variables.
@@ -77,8 +81,29 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
 double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
                                    const std::span<const double>& auxiliary_vector,
                                    std::optional<int> dimension) {
+  static const std::span<const double> empty_exp{};
   int dim = dimension.value_or(-1);
-  return F()(input_vector, auxiliary_vector, dim);
+  return F()(input_vector, empty_exp, auxiliary_vector, dim);
+}
+
+/**
+ * @brief Evaluates the coefficient.
+ *
+ * The coefficient is computed from the current and auxiliary variables.
+ *
+ * @param input_vector Values of the current variables.
+ * @param exp_input_vector Values of the previous variables.
+ * @param auxiliary_vector Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (use -1 if not specified).
+ *
+ * @return Value of the coefficient.
+ */
+double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
+                                   const std::span<const double>& exp_input_vector,
+                                   const std::span<const double>& auxiliary_vector,
+                                   std::optional<int> dimension) {
+  int dim = dimension.value_or(-1);
+  return F()(input_vector, exp_input_vector, auxiliary_vector, dim);
 }
 
 /**
@@ -95,14 +120,18 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
 double FunctionCoefficient::eval_gradient(const int i, const std::span<const double>& input_vector,
                                           std::optional<int> dimension) {
   static const std::span<const double> empty_aux{};
+  static const std::span<const double> empty_exp{};
   int dim = dimension.value_or(-1);
-  return GradientF()(input_vector, empty_aux, dim)[i];
+  return GradientF()(input_vector, empty_exp, empty_aux, dim)[i];
 }
 
 /**
  * @brief Evaluates the component i of the gradient.
  *
- * The gradient is computed from the current and auxiliary variables.
+ * @remark Work for Implicit/Explict coefficients with auxiliary variables and Semi-implicit
+ * coefficients without auxiliary variables
+ *
+ * The gradient is computed from the current and auxiliary (explicit) variables.
  *
  * @param i  index of the gradient .
  * @param input_vector Values of the current variables.
@@ -114,8 +143,30 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
 double FunctionCoefficient::eval_gradient(const int i, const std::span<const double>& input_vector,
                                           const std::span<const double>& auxiliary_vector,
                                           std::optional<int> dimension) {
+  static const std::span<const double> empty_exp{};
   int dim = dimension.value_or(-1);
-  return GradientF()(input_vector, auxiliary_vector, dim)[i];
+  return GradientF()(input_vector, empty_exp, auxiliary_vector, dim)[i];
+}
+
+/**
+ * @brief Evaluates the component i of the gradient.
+ *
+ * The gradient is computed from the current and auxiliary variables.
+ *
+ * @param i  index of the gradient .
+ * @param input_vector Values of the current variables.
+ * @param exp_input_vector Values of the previous variables.
+ * @param auxiliary_vector Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (use -1 if not specified).
+ *
+ * @return Value of the gradient component i.
+ */
+double FunctionCoefficient::eval_gradient(const int i, const std::span<const double>& input_vector,
+                                          const std::span<const double>& exp_input_vector,
+                                          const std::span<const double>& auxiliary_vector,
+                                          std::optional<int> dimension) {
+  int dim = dimension.value_or(-1);
+  return GradientF()(input_vector, exp_input_vector, auxiliary_vector, dim)[i];
 }
 
 /**
@@ -135,15 +186,19 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
                                          const std::span<const double>& input_vector,
                                          std::optional<int> dimension) {
   static const std::span<const double> empty_aux{};
+  static const std::span<const double> empty_exp{};
   int dim = dimension.value_or(-1);
   const int size = input_vector.size();
-  return HessianF()(input_vector, empty_aux, dim)[i * size + j];
+  return HessianF()(input_vector, empty_exp, empty_aux, dim)[i * size + j];
 }
 
 /**
  * @brief Evaluates the (i,j) component of the Hessian matrix.
  *
- * The Hessian is computed from the current and auxiliary variables and returned
+ * @remark Work for Implicit/Explict coefficients with auxiliary variables and Semi-implicit
+ * coefficients without auxiliary variables
+ *
+ * The Hessian is computed from the current and auxiliary (explicit) variables and returned
  * as a flattened array. The component is accessed using row-major ordering.
  *
  * @param i Row index of the Hessian matrix.
@@ -158,12 +213,38 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
                                          const std::span<const double>& input_vector,
                                          const std::span<const double>& auxiliary_vector,
                                          std::optional<int> dimension) {
+  static const std::span<const double> empty_exp{};
   const int size = input_vector.size();
   int dim = dimension.value_or(-1);
 
-  return HessianF()(input_vector, auxiliary_vector, dim)[i * size + j];
+  return HessianF()(input_vector, empty_exp, auxiliary_vector, dim)[i * size + j];
 }
 
+/**
+ * @brief Evaluates the (i,j) component of the Hessian matrix.
+ *
+ * The Hessian is computed from the current and auxiliary variables and returned
+ * as a flattened array. The component is accessed using row-major ordering.
+ *
+ * @param i Row index of the Hessian matrix.
+ * @param j Column index of the Hessian matrix.
+ * @param input_vector Values of the current variables.
+ * @param exp_input_vector Values of the previous variables.
+ * @param auxiliary_vector Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (use -1 if not specified).
+ *
+ * @return Value of the Hessian component (i, j).
+ */
+double FunctionCoefficient::eval_hessian(const int i, const int j,
+                                         const std::span<const double>& input_vector,
+                                         const std::span<const double>& exp_input_vector,
+                                         const std::span<const double>& auxiliary_vector,
+                                         std::optional<int> dimension) {
+  const int size = input_vector.size();
+  int dim = dimension.value_or(-1);
+
+  return HessianF()(input_vector, exp_input_vector, auxiliary_vector, dim)[i * size + j];
+}
 /**
  * @brief Update the time associated with the coefficient
  *

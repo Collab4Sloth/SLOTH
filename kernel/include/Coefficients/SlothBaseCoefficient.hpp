@@ -57,22 +57,53 @@ class SlothBaseCoefficient {
 
   virtual ~SlothBaseCoefficient() = default;
 
+  // Scalar
   double compute();
+
+  // Implicit/Explicit without auxiliary variables
   double compute(const std::span<const double>& values,
                  std::optional<int> dimension = std::nullopt);
+
+  // Semi-implicit without auxiliary variables
+  // and Implicit/Explicit with auxiliary variables
   double compute(const std::span<const double>& values,
                  const std::span<const double>& auxiliary_values,
                  std::optional<int> dimension = std::nullopt);
 
+  // Semi-implicit with auxiliary variables
+  double compute(const std::span<const double>& values, const std::span<const double>& exp_values,
+                 const std::span<const double>& auxiliary_values,
+                 std::optional<int> dimension = std::nullopt);
+
+  // Implicit/Explicit without auxiliary variables
   double compute_gradient(const int i, const std::span<const double>& values,
                           std::optional<int> dimension = std::nullopt);
+
+  // Semi-implicit without auxiliary variables
+  // and Implicit/Explicit with auxiliary variables
   double compute_gradient(const int i, const std::span<const double>& values,
                           const std::span<const double>& auxiliary_values,
                           std::optional<int> dimension = std::nullopt);
 
+  // Semi-implicit with auxiliary variables
+  double compute_gradient(const int i, const std::span<const double>& values,
+                          const std::span<const double>& exp_values,
+                          const std::span<const double>& auxiliary_values,
+                          std::optional<int> dimension = std::nullopt);
+
+  // Implicit/Explicit without auxiliary variables
   double compute_hessian(const int i, const int j, const std::span<const double>& values,
                          std::optional<int> dimension = std::nullopt);
+
+  // Semi-implicit without auxiliary variables
+  // and Implicit/Explicit with auxiliary variables
   double compute_hessian(const int i, const int j, const std::span<const double>& values,
+                         const std::span<const double>& auxiliary_values,
+                         std::optional<int> dimension = std::nullopt);
+
+  // Semi-implicit with auxiliary variables
+  double compute_hessian(const int i, const int j, const std::span<const double>& values,
+                         const std::span<const double>& exp_values,
                          const std::span<const double>& auxiliary_values,
                          std::optional<int> dimension = std::nullopt);
 

@@ -222,33 +222,6 @@ void LatentHeatNLFormIntegrator<VARS>::get_coefficients() {
 }
 
 /**
- * @brief Return the value of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param coef   Coefficient.
- * @param values Vector of current and previous solution values (default: {u, u_old}).
-
- * @return The computed scalar value of the coefficient.
- */
-template <class VARS>
-double LatentHeatNLFormIntegrator<VARS>::compute_coefficient(
-    Coefficient coef, const std::span<const double>& values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute(u);
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un);
-  }
-  return coef_value;
-}
-
-/**
  * @brief Compute the value of latent heat at integration point
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.

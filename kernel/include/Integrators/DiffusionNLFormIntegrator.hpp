@@ -55,11 +55,6 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficients diffusion;
   std::vector<mfem::ParGridFunction> vaux_gf_;
 
-  virtual double compute_coefficient(Coefficient coef, const std::span<const double>& values,
-                                     const std::span<const double>& aux_values);
-  virtual double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                              const std::span<const double>& values,
-                                              const std::span<const double>& aux_values);
   void get_coefficients() override = 0;
   void init() override;
 

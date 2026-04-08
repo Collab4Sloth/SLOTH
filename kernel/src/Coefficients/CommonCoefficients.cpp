@@ -42,9 +42,10 @@
  * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 W::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -62,9 +63,10 @@ W::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 W::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -84,9 +86,10 @@ W::GradientF() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 W::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -105,9 +108,10 @@ W::HessianF() {
  * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 Fw::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -125,9 +129,10 @@ Fw::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 Fw::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -148,9 +153,10 @@ Fw::GradientF() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 Fw::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -168,9 +174,10 @@ Fw::HessianF() {
  * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 H::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -188,9 +195,10 @@ H::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 H::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -211,9 +219,10 @@ H::GradientF() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 H::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double x = input_vector[0];
@@ -232,9 +241,10 @@ H::HessianF() {
  * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 Log::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
@@ -253,9 +263,10 @@ Log::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 Log::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
@@ -276,9 +287,10 @@ Log::GradientF() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 Log::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double epsilon = 1.e-10;
@@ -297,9 +309,10 @@ Log::HessianF() {
  * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
-                     const unsigned int dimension)>
+                     const std::span<const double>&, const unsigned int dimension)>
 GradientEnergy::F() {
   auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {
     std::vector<double> x;
     for (unsigned int i = 0; i < dimension; i++) x.push_back(input_vector[0 * dimension + i]);
@@ -317,9 +330,10 @@ GradientEnergy::F() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 GradientEnergy::GradientF() {
   auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> gradient(1, 0.0);
@@ -337,9 +351,10 @@ GradientEnergy::GradientF() {
  * double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                  const unsigned int dimension)>
+                                  const std::span<const double>&, const unsigned int dimension)>
 GradientEnergy::HessianF() {
   auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> hessian(1, 0.0);

@@ -45,23 +45,24 @@
 class FunctionCoefficient {
  protected:
   double time_;
-  virtual std::function<double(const std::span<const double>& values,
-                               const std::span<const double>& aux_values,
-                               const unsigned int dimension)>
+  virtual std::function<
+      double(const std::span<const double>& values, const std::span<const double>& exp_values,
+             const std::span<const double>& aux_values, const unsigned int dimension)>
   F() = 0;
-  virtual std::function<std::vector<double>(const std::span<const double>& values,
-                                            const std::span<const double>& aux_values,
-                                            const unsigned int dimension)>
+  virtual std::function<std::vector<double>(
+      const std::span<const double>& values, const std::span<const double>& exp_values,
+      const std::span<const double>& aux_values, const unsigned int dimension)>
   GradientF() = 0;
-  virtual std::function<std::vector<double>(const std::span<const double>& values,
-                                            const std::span<const double>& aux_values,
-                                            const unsigned int dimension)>
+  virtual std::function<std::vector<double>(
+      const std::span<const double>& values, const std::span<const double>& exp_values,
+      const std::span<const double>& aux_values, const unsigned int dimension)>
   HessianF() = 0;
 
  public:
   FunctionCoefficient();
   virtual ~FunctionCoefficient() = default;
 
+  // Implicit/Explicit without auxiliary variables
   double eval_f(const std::span<const double>& input_vector,
                 std::optional<int> dimension = std::nullopt);
   double eval_gradient(const int i, const std::span<const double>& input_vector,
@@ -69,6 +70,8 @@ class FunctionCoefficient {
   double eval_hessian(const int i, const int j, const std::span<const double>& input_vector,
                       std::optional<int> dimension = std::nullopt);
 
+  // Semi-implicit without auxiliary variables
+  // and Implicit/Explicit with auxiliary variables
   double eval_f(const std::span<const double>& input_vector,
                 const std::span<const double>& auxiliary_vector,
                 std::optional<int> dimension = std::nullopt);
@@ -76,6 +79,20 @@ class FunctionCoefficient {
                        const std::span<const double>& auxiliary_vector,
                        std::optional<int> dimension = std::nullopt);
   double eval_hessian(const int i, const int j, const std::span<const double>& input_vector,
+                      const std::span<const double>& auxiliary_vector,
+                      std::optional<int> dimension = std::nullopt);
+
+  // Semi-implicit with auxiliary variables
+  double eval_f(const std::span<const double>& input_vector,
+                const std::span<const double>& exp_input_vector,
+                const std::span<const double>& auxiliary_vector,
+                std::optional<int> dimension = std::nullopt);
+  double eval_gradient(const int i, const std::span<const double>& input_vector,
+                       const std::span<const double>& exp_input_vector,
+                       const std::span<const double>& auxiliary_vector,
+                       std::optional<int> dimension = std::nullopt);
+  double eval_hessian(const int i, const int j, const std::span<const double>& input_vector,
+                      const std::span<const double>& exp_input_vector,
                       const std::span<const double>& auxiliary_vector,
                       std::optional<int> dimension = std::nullopt);
 

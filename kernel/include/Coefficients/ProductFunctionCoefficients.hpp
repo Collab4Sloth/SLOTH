@@ -50,13 +50,13 @@ class ProductCoefficient : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:

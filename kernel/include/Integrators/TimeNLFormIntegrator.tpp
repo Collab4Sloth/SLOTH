@@ -146,6 +146,12 @@ void TimeNLFormIntegrator<VARS>::get_coefficients() {
     if (!coef_A.has_value()) {
       this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
     } else {
+      if ((*coef_A).is_implicit()) {
+        MFEM_VERIFY(
+            false,
+            "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
+            "check your data.");
+      }
       this->coefficient_A.add(*coef_A);
     }
     auto coef_B = this->get_coefficient(i, GlossaryType::ExplicitTime, 1);
@@ -153,6 +159,12 @@ void TimeNLFormIntegrator<VARS>::get_coefficients() {
     if (!coef_B.has_value()) {
       this->coefficient_B.add(Coefficient(Glossary::Default, 1.0));
     } else {
+      if ((*coef_B).is_implicit()) {
+        MFEM_VERIFY(
+            false,
+            "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
+            "check your data.");
+      }
       this->coefficient_B.add(*coef_B);
     }
   }
@@ -302,35 +314,4 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       }
     }
   }
-}
-/**
- * @brief Return the value of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param coef   Coefficient.
- * @param values Vector of current and previous solution values (default: {u, u_old}).
-
- * @return The computed scalar value of the coefficient.
- */
-template <class VARS>
-double TimeNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                       const std::span<const double>& values,
-                                                       const std::span<const double>& aux_values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    // coef_value = coef.compute({u});
-    MFEM_VERIFY(false,
-                "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
-                "check your data.");
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un, aux_values);
-  } else if (coef.is_scalar()) {
-    coef_value = coef.compute();
-  }
-  return coef_value;
 }

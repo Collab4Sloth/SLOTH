@@ -24,10 +24,11 @@
  *
  */
 #pragma once
-#include <MAToolsProfiling/MATimers.hxx>
-#include <MAToolsProfiling/MATimersVerbosity.hxx>
-#include <MAToolsProfiling/MATrace.hxx>
 #include <string>
+
+#include "MAToolsProfiling/MATimers.hxx"
+#include "MAToolsProfiling/MATimersVerbosity.hxx"
+#include "MAToolsProfiling/MATrace.hxx"
 // One level of macro indirection is required in order to resolve __COUNTER__,
 // and get varname1 instead of varname__COUNTER__.
 #define CONCAT(a, b) CONCAT_INNER(a, b)

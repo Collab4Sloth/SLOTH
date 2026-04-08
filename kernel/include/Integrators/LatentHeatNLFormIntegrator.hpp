@@ -65,8 +65,6 @@ class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   double get_latent_heat_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
                                unsigned int blk);
 
-  double compute_coefficient(Coefficient coef, const std::span<const double>& values);
-
   void get_coefficients() override;
   void check_variables_consistency();
 

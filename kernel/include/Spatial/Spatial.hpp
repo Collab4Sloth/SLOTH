@@ -827,7 +827,7 @@ struct specialized_spatial_constructor<T, 3> {
           " requires six arguments, the number of nodes and the length along each direction";
       mfem::mfem_error(msg.c_str());
     }
-    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
   }
 };
 

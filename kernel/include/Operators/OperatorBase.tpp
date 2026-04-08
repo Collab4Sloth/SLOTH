@@ -624,10 +624,13 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
   std::vector<mfem::real_t> v2(l);
 
   mfem::ParGridFunction gf(this->fes_[0]);
+  const bool semi_implicit_coef = (*this->energy_coefficient_).is_semi_implicit();
+
   for (int i = 0; i < gf.Size(); ++i) {
     for (int j = 0; j < m; ++j) v1[j] = vun[j][i];
     for (int j = 0; j < l; ++j) v2[j] = vaux[j][i];
-    gf[i] = (*this->energy_coefficient_).compute(v1, v2, -1);
+    gf[i] = semi_implicit_coef ? (*this->energy_coefficient_).compute(v1, v1, v2, -1)
+                               : (*this->energy_coefficient_).compute(v1, v2, -1);
   }
 
   std::vector<mfem::ParGridFunction> vgf;

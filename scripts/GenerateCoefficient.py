@@ -270,7 +270,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 """)
         
     
-def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression):
+def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression):
     
     # Get constants
     has_constants = False
@@ -293,6 +293,13 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
         has_auxiliary_variables = True
         auxiliary_var_names+=","
         auxiliary_vars = sp.symbols(auxiliary_var_names)
+        
+    has_explicit_variables = False
+    if(len(explicit_var_names)>0):
+        explicit_var_names, nb_var_expanded = expand_ranges(explicit_var_names, nb_var_expanded)
+        has_explicit_variables = True
+        explicit_var_names+=","
+        explicit_vars = sp.symbols(explicit_var_names)
 
     # translate sdot contributions before managing expressions with sympy    
     # pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
@@ -361,9 +368,9 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
         f.write(" private:\n")
         f.write("  double prefactor_;\n")
         f.write(" protected:\n")
-        f.write("  std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> F() final;\n")
-        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> GradientF() final;\n")
-        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;\n\n")
+        f.write("  std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> F() final;\n")
+        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> GradientF() final;\n")
+        f.write("  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;\n\n")
         f.write(" public:\n")
         f.write(f"  {class_name}() : prefactor_(1.0) {{}}\n")
         f.write(f" explicit {class_name}(const double prefactor): prefactor_(prefactor) {{}}\n")
@@ -413,23 +420,32 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
             f.write(f" *       F = {sp.cxxcode(default_expr)}\n")
             f.write(f" *  }}\n")  
         
-        f.write(f" * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>\n")
+        f.write(f" * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)>\n")
         f.write(f" */\n ")  
         
         # Fonction F()
-        f.write(f"std::function<double(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::F() {{\n")
+        f.write(f"std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> {class_name}::F() {{\n")
 
         if(not is_gradient_coefficient):        
-            if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
-            else:
-                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
-
+            if(has_auxiliary_variables):      
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:     
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector,[[maybe_unused]] const std::span<const double>&,  [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector,[[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            
             for i, v in enumerate(spvars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+            if(has_explicit_variables):
+                for i, v in enumerate(explicit_vars):
+                    f.write(f"    double {v} = exp_input_vector[{i}];\n")
             
             if(has_constants):
                 for const in dict_constants:
@@ -482,12 +498,18 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
                 f.write(f" double   F = {sp.cxxcode(expr_0)};\n")
 
                 
-        else:
-            if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, const unsigned int dimension) {\n")
-            else:
-                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {\n")
-
+        else:        
+            if(has_auxiliary_variables):      
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:     
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector,[[maybe_unused]] const std::span<const double>&,  [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector,[[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            
             for i, v in enumerate(spvars):
                 f.write(f"    std::vector<double> {v};\n")
                 f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(input_vector[{i}*dimension+i]);\n")
@@ -496,6 +518,11 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    std::vector<double> {v};\n")
                     f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(auxiliary_vector[{i}*dimension+i]);\n")
+
+            if(has_explicit_variables):
+                for i, v in enumerate(explicit_vars):
+                    f.write(f"    std::vector<double> {v};\n")
+                    f.write(f"    for(unsigned int i=0;i<dimension;i++) {v}.push_back(exp_input_vector[{i}*dimension+i]);\n")
 
             if(has_constants):
                 for const in dict_constants:
@@ -519,20 +546,31 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
  */
 """)
         # Gradient
-        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::GradientF() {{\n")
+        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> {class_name}::GradientF() {{\n")
 
 
         if(not is_gradient_coefficient):   
-            if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
-            else:
-                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
-
+            if(has_auxiliary_variables):      
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:     
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector,[[maybe_unused]] const std::span<const double>&,  [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector,[[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            
             for i, v in enumerate(spvars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
+                
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+                    
+            if(has_explicit_variables):
+                for i, v in enumerate(explicit_vars):
+                    f.write(f"    double {v} = exp_input_vector[{i}];\n")
                     
             if(has_constants):
                 for const in dict_constants:
@@ -587,7 +625,7 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
                 print_gradient(f, gradient_0, n)
 
         else: 
-            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> gradient({n},0.0);\n")
 
         f.write("    return gradient;\n")
@@ -601,21 +639,33 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  * 
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> 
  */
 """)
         # HessianF()
-        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> {class_name}::HessianF() {{\n")
+        f.write(f"std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> {class_name}::HessianF() {{\n")
         if(not is_gradient_coefficient): 
-            if(has_auxiliary_variables):
-                f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
-            else:
-                f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            if(has_auxiliary_variables):      
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector, const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {\n")
+            else:     
+                if(has_explicit_variables):
+                    f.write("  auto func = [&](const std::span<const double>& input_vector, const std::span<const double>& exp_input_vector,[[maybe_unused]] const std::span<const double>&,  [[maybe_unused]] const unsigned int dimension) {\n")
+                else:
+                    f.write("  auto func = [&](const std::span<const double>& input_vector,[[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            
             for i, v in enumerate(spvars):
                 f.write(f"    double {v} = input_vector[{i}];\n")
+                
             if(has_auxiliary_variables):
                 for i, v in enumerate(auxiliary_vars):
                     f.write(f"    double {v} = auxiliary_vector[{i}];\n")
+                    
+            if(has_explicit_variables):
+                for i, v in enumerate(explicit_vars):
+                    f.write(f"    double {v} = exp_input_vector[{i}];\n")
                 
             if(has_constants):
                 for const in dict_constants:
@@ -671,7 +721,7 @@ def generate_class_with_functions(list_expr_str1, var_names, auxiliary_var_names
 
 
         else:
-            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
+            f.write("  auto func = [&]([[maybe_unused]] const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,  [[maybe_unused]] const std::span<const double>&, [[maybe_unused]] const unsigned int dimension) {\n")
             f.write(f"    std::vector<double> hessian({n*n},0.0);\n")
 
         f.write("    return hessian;\n")
@@ -780,6 +830,10 @@ if __name__ == "__main__":
                     auxiliaries = item["auxiliary_variables"]
                 else:
                     auxiliaries = ""
+                if "explicit_variables" in item:
+                    explicit = item["explicit_variables"]
+                else:
+                    explicit = ""
                 if "constants" in item:
                     constants = item["constants"]
                 else:
@@ -840,7 +894,7 @@ if __name__ == "__main__":
                 else:
                     raise ValueError("Error: either expression or expressions must be defined.")
 
-                coefficients.append((expressions, item["variables"], auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression))
+                coefficients.append((expressions, item["variables"], explicit, auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression))
             
         except json.JSONDecodeError:
             print("Error: Failed to decode JSON from the file.")         
@@ -856,6 +910,6 @@ if __name__ == "__main__":
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression] = coef
-        generate_class_with_functions(expr_str, var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression)
+        [expr_str, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression] = coef
+        generate_class_with_functions(expr_str, var_names, explicit_var_names,auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression)
     

@@ -95,8 +95,11 @@ double SlothBaseCoefficient::compute(const std::span<const double>& values,
 /**
  * @brief Computes the value of the Coefficient.
  *
+ * @remark Work for Implicit/Explict coefficients with auxiliary variables and Semi-implicit
+ * coefficients without auxiliary variables
+ *
  * The coefficient is evaluated as a function of the current variable values
- * and auxiliary variables.
+ * and auxiliary (explicit) variables.
  *
  * @param values Values of the current variables.
  * @param auxiliary_values Values of the auxiliary variables.
@@ -111,6 +114,30 @@ double SlothBaseCoefficient::compute(const std::span<const double>& values,
     return this->coefficient_->eval_f(values, auxiliary_values, dimension);
   } else {
     return this->coefficient_->eval_f(values, auxiliary_values);
+  }
+}
+
+/**
+ * @brief Computes the value of the Coefficient.
+ *
+ * The coefficient is evaluated as a function of the current variable values
+ * and auxiliary variables.
+ *
+ * @param values Values of the current variables.
+ * @param exp_values Values of the previous variables.
+ * @param auxiliary_values Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the coefficient.
+ */
+double SlothBaseCoefficient::compute(const std::span<const double>& values,
+                                     const std::span<const double>& exp_values,
+                                     const std::span<const double>& auxiliary_values,
+                                     std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_f(values, exp_values, auxiliary_values, dimension);
+  } else {
+    return this->coefficient_->eval_f(values, exp_values, auxiliary_values);
   }
 }
 
@@ -137,8 +164,11 @@ double SlothBaseCoefficient::compute_gradient(const int id, const std::span<cons
 /**
  * @brief Computes the component id of the gradient.
  *
+ * @remark Work for Implicit/Explict coefficients with auxiliary variables and Semi-implicit
+ * coefficients without auxiliary variables
+ *
  * The component is evaluated as a function of the current variable values
- * and auxiliary variables.
+ * and auxiliary (explicit) variables.
  *
  * @param id  index of the gradient matrix.
  * @param values Values of the current variables.
@@ -154,6 +184,31 @@ double SlothBaseCoefficient::compute_gradient(const int id, const std::span<cons
     return this->coefficient_->eval_gradient(id, values, auxiliary_values, dimension);
   } else {
     return this->coefficient_->eval_gradient(id, values, auxiliary_values);
+  }
+}
+
+/**
+ * @brief Computes the component id of the gradient.
+ *
+ * The component is evaluated as a function of the current variable values
+ * and auxiliary variables.
+ *
+ * @param id  index of the gradient matrix.
+ * @param values Values of the current variables.
+ * @param exp_values Values of the previous variables.
+ * @param auxiliary_values Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the gradient component id.
+ */
+double SlothBaseCoefficient::compute_gradient(const int id, const std::span<const double>& values,
+                                              const std::span<const double>& exp_values,
+                                              const std::span<const double>& auxiliary_values,
+                                              std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_gradient(id, values, exp_values, auxiliary_values, dimension);
+  } else {
+    return this->coefficient_->eval_gradient(id, values, exp_values, auxiliary_values);
   }
 }
 
@@ -182,8 +237,11 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
 /**
  * @brief Computes the (i,j) component of the Hessian matrix.
  *
+ * @remark Work for Implicit/Explict coefficients with auxiliary variables and Semi-implicit
+ * coefficients without auxiliary variables
+ *
  * The component is evaluated as a function of the current variable values
- * and auxiliary variables.
+ * and auxiliary (explicit) variables.
  *
  * @param id Row index of the Hessian matrix.
  * @param jd Column index of the Hessian matrix.
@@ -204,6 +262,33 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
   }
 }
 
+/**
+ * @brief Computes the (i,j) component of the Hessian matrix.
+ *
+ * The component is evaluated as a function of the current variable values
+ * and auxiliary variables.
+ *
+ * @param id Row index of the Hessian matrix.
+ * @param jd Column index of the Hessian matrix.
+ * @param values Values of the current variables.
+ * @param exp_values Values of the previous variables.
+ * @param auxiliary_values Values of the auxiliary variables.
+ * @param dimension Optional spatial dimension (if applicable).
+ *
+ * @return Value of the Hessian component (id, jd).
+ */
+double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
+                                             const std::span<const double>& values,
+                                             const std::span<const double>& exp_values,
+                                             const std::span<const double>& auxiliary_values,
+                                             std::optional<int> dimension) {
+  if (dimension.has_value()) {
+    return this->coefficient_->eval_hessian(id, jd, values, exp_values, auxiliary_values,
+                                            dimension);
+  } else {
+    return this->coefficient_->eval_hessian(id, jd, values, exp_values, auxiliary_values);
+  }
+}
 /**
  * @brief  Return the type of the quantity associated with the coefficient
  *

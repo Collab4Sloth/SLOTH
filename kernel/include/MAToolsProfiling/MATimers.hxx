@@ -26,11 +26,12 @@
 #pragma once
 #include <cassert>
 #include <iostream>
-#include <MAToolsProfiling/EnumTimer.hxx>
-#include <MAToolsProfiling/MAOutputManager.hxx>
-#include <MAToolsProfiling/MATimerInfo.hxx>
-#include <MAToolsProfiling/MATimerNode.hxx>
-#include <MAToolsProfiling/Timer.hxx>
+
+#include "MAToolsProfiling/EnumTimer.hxx"
+#include "MAToolsProfiling/MAOutputManager.hxx"
+#include "MAToolsProfiling/MATimerInfo.hxx"
+#include "MAToolsProfiling/MATimerNode.hxx"
+#include "MAToolsProfiling/Timer.hxx"
 
 namespace MATools {
 namespace MATimer {
@@ -68,4 +69,4 @@ void finalize();
 }  // namespace MATimer
 }  // namespace MATools
 
-#include <MAToolsProfiling/MATimers.ixx>
+#include "MAToolsProfiling/MATimers.ixx"

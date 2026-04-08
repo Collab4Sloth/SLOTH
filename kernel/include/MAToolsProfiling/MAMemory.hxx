@@ -127,4 +127,4 @@ MAFootprint& get_MAFootprint();
 }  // namespace MAMemory
 }  // namespace MATools
 
-#include <MAToolsProfiling/MAMemory.ixx>
+#include "MAToolsProfiling/MAMemory.ixx"

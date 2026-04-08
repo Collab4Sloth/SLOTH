@@ -45,13 +45,13 @@ class W : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -71,13 +71,13 @@ class Fw : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -98,13 +98,13 @@ class H : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -125,13 +125,13 @@ class Log : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:
@@ -152,13 +152,13 @@ class GradientEnergy : public FunctionCoefficient {
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const unsigned int dimension)>
+                       const std::span<const double>&, const unsigned int dimension)>
   F() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   GradientF() final;
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const unsigned int dimension)>
+                                    const std::span<const double>&, const unsigned int dimension)>
   HessianF() final;
 
  public:

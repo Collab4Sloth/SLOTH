@@ -40,35 +40,6 @@
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
- * @brief Return the value of the coefficient
- * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
- * class variable aux_gf_
-
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param coef   Coefficient.
- * @param values Vector of current and previous solution values (default: {u, u_old}).
-
- * @return The computed scalar value of the coefficient.
- */
-template <class VARS>
-double DiffusionFluxNLFormIntegrator<VARS>::compute_coefficient(
-    Coefficient coef, const std::span<const double>& values) {
-  std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-
-  double coef_value = 0.0;
-  if (coef.is_implicit()) {
-    coef_value = coef.compute(u);
-  } else if (coef.is_explicit()) {
-    coef_value = coef.compute(un);
-  } else if (coef.is_scalar()) {
-    coef_value = coef.compute();
-  }
-  return coef_value;
-}
-
-/**
  * @brief Retrieve and store the coefficients required by the Allen-Cahn integrator.
  *
  * This method collects a coefficient of type Diffusivity and stores it:
@@ -163,6 +134,11 @@ template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
+  int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
+
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
@@ -190,6 +166,16 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
 
     const auto& u = *elfun[blk] * Psi;
     const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+    // Get aux values at ip TODO(cci) (move in method)
+    vaux_gf_at_ip.clear();
+    for (const auto& aux_gf : vaux_gf_) {
+      vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+    }
+    // Get values
+    for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+      u_values[off_blk] = (*elfun[off_blk]) * Psi;
+      u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+    }
 
     // Stabilization contribution : D_stab * (Grad u - Grad un)
     el[blk]->CalcPhysDShape(Tr, this->gradPsi);
@@ -197,7 +183,8 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     this->sloth_u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
-    this->Flux_ *= this->compute_coefficient(stab_diffusion[blk], std::span<const double>({u, un}));
+    this->Flux_ *= this->compute_coefficient(stab_diffusion[blk], std::span<const double>(u_values),
+                                             std::span<const double>(vaux_gf_at_ip));
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
@@ -228,6 +215,10 @@ template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
+  std::vector<double> vaux_gf_at_ip;
+  vaux_gf_at_ip.resize(vaux_gf_.size());
+  int num_blocks = el.Size();
+  std::vector<double> u_values(2 * num_blocks);
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
@@ -249,10 +240,21 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     el[blk]->CalcShape(ip, Psi);
     const auto& u = *elfun[blk] * Psi;
     const auto& un = this->u_old_[blk].GetValue(Tr, ip);
+    // Get aux values at ip TODO(cci) (move in method)
+    vaux_gf_at_ip.clear();
+    for (const auto& aux_gf : vaux_gf_) {
+      vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
+    }
+    // Get values
+    for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+      u_values[off_blk] = (*elfun[off_blk]) * Psi;
+      u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+    }
 
     Tr.SetIntPoint(&ip);
     const double coeff_diffu =
-        this->compute_coefficient(stab_diffusion[blk], std::span<const double>({u, un})) *
+        this->compute_coefficient(stab_diffusion[blk], std::span<const double>(u_values),
+                                  std::span<const double>(vaux_gf_at_ip)) *
         ip.weight * Tr.Weight();
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));

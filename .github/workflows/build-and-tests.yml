@@ -27,7 +27,7 @@ jobs:
     - name: Set up Spack
       uses: spack/setup-spack@v2
       with:
-        ref: v1.1.0       # Spack version (examples: develop, releases/v0.21)
+        ref: develop      # Spack version (examples: develop, releases/v0.21)
         buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
         path: ${{github.workspace}}/spack       # Where to clone Spack
@@ -41,24 +41,21 @@ jobs:
       shell: spack-bash {0}
       run: |
           spack env activate .
+
+          spack mirror add ghcr oci://ghcr.io/spack/github-actions-buildcache || true
+          spack buildcache keys --install --trust
+
           spack external find openmpi mpich openblas perl
-          spack compiler find
+
           spack concretize -f
-          spack install --fail-fast
-          # spack install gcc@14
-          # spack load gcc
-          # spack compiler find
-          # spack compilers
-          # echo "FC=$(which gfortran)" >> $GITHUB_ENV
-          # echo "F77=$(which gfortran)" >> $GITHUB_ENV
-          # echo "SPACK_F77=$(which gfortran)" >> $GITHUB_ENV
-          # spack install hypre@2.33.0 +shared %gcc
-          # spack install mfem+mpi+suite-sparse+sundials+superlu-dist@4.8.0
-          # spack install exprtk
+          spack install --fail-fast --use-buildcache auto
+          
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
     - name: Setup Python 
       uses: actions/setup-python@v5
+      with:
+        cache: 'pip'
       
     - name: Install Python dependencies 
       run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
