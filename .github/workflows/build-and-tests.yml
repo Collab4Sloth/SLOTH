@@ -56,13 +56,18 @@ jobs:
         cache: 'pip'
       
     - name: Install Python dependencies 
-      run: python3 -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
+      run: |
+        python3 -m venv pysloth
+        source pysloth/bin/activate
+        python3 -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
 
     - name: Build SLOTH
       shell: spack-bash {0}    
       run: | 
         spack env activate .
         
+        source pysloth/bin/activate
+
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
         bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR --np=$CORES
@@ -73,6 +78,7 @@ jobs:
       shell: spack-bash {0}    
       run: | 
         spack env activate .
+        source pysloth/bin/activate
         
         cd ${{ github.workspace }}/build
         find . -type d -name "Save*" -exec rm -rf {} +
