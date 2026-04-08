@@ -48,7 +48,7 @@ jobs:
           spack external find openmpi mpich openblas perl
 
           spack concretize -f
-          spack install --fail-fast --use-buildcache
+          spack install --fail-fast --use-buildcache auto
           
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
