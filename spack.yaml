@@ -1,9 +1,8 @@
 spack:
 
   specs:
-    - gcc@14
-    - hypre@2.33.0 +shared %gcc@14
-    - mfem@4.8.0 +mpi +suite-sparse +sundials +superlu-dist %gcc@14
+    - hypre@2.33.0 +shared 
+    - mfem@4.8.0 +mpi +suite-sparse +sundials +superlu-dist 
     - exprtk
 
   concretizer:
@@ -11,8 +10,8 @@ spack:
 
   packages:
     mpi:
-      buildable: false
+      buildable: true
     openblas:
-      buildable: false
+      buildable: true
     perl:
-      buildable: false
+      buildable: true
