@@ -45,10 +45,8 @@ jobs:
           spack mirror add ghcr oci://ghcr.io/spack/github-actions-buildcache || true
           spack buildcache keys --install --trust
 
-          spack external find openmpi mpich openblas perl
-
           spack concretize -f
-          spack install --fail-fast --use-buildcache auto
+          spack install --fail-fast --use-buildcache only
           
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
