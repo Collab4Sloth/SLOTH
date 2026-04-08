@@ -47,8 +47,8 @@
 Boundary::Boundary(const std::string& boundary_name, int boundary_index,
                    const std::string& boundary_type)
     : boundary_name_(boundary_name),
-      boundary_index_(boundary_index),
-      boundary_type_(BoundaryConditionType::from(boundary_type)) {
+      boundary_type_(BoundaryConditionType::from(boundary_type)),
+      boundary_index_(boundary_index) {
   switch (boundary_type_) {
     case BoundaryConditionType::Dirichlet:
     case BoundaryConditionType::Neumann:
@@ -76,9 +76,9 @@ Boundary::Boundary(const std::string& boundary_name, int boundary_index,
 Boundary::Boundary(const std::string& boundary_name, int boundary_index,
                    const std::string& boundary_type, double boundary_value)
     : boundary_name_(boundary_name),
+      boundary_type_(BoundaryConditionType::from(boundary_type)),
       boundary_index_(boundary_index),
-      boundary_value_(boundary_value),
-      boundary_type_(BoundaryConditionType::from(boundary_type)) {
+      boundary_value_(boundary_value) {
   this->is_periodic_boundary_ = false;
   if (boundary_type_ != BoundaryConditionType::Dirichlet) {
     mfem::mfem_error(

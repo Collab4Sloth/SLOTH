@@ -49,6 +49,10 @@ endif()
 # # MFEM Configuration
 # ########################
 include(MFEM4SLOTH)
+# ########################
+# # Test Configuration
+# ########################
+include(COMPILE4SLOTH)
 
 # ########################
 # # Sloth header's only
@@ -64,10 +68,6 @@ if(NOT TARGET doc)
   add_subdirectory(doc)
 endif(NOT TARGET doc)
 
-# ########################
-# # Test Configuration
-# ########################
-include(COMPILE4SLOTH)
 
 # ########################
 # LibTorch API ??
@@ -109,7 +109,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Coverage)
   # Collect CodeCoverage analysis with gcovr
   add_custom_target(cc
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
-    COMMAND gcovr -v -r  ${CMAKE_BINARY_DIR} --exclude '${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling/.*'  --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
+    COMMAND gcovr -r ${CMAKE_BINARY_DIR}/kernel --filter ${CMAKE_SOURCE_DIR}/kernel/src --filter ${CMAKE_SOURCE_DIR}/kernel/include  --exclude '${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling/.*'  --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
     COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
   )
 ENDIF()
