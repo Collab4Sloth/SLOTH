@@ -109,7 +109,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Coverage)
   # Collect CodeCoverage analysis with gcovr
   add_custom_target(cc
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
-    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --exclude '${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling/.*' --sort-uncovered --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
+    COMMAND gcovr -v -r  ${CMAKE_BINARY_DIR} --exclude '${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling/.*'  --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
     COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
   )
 ENDIF()
