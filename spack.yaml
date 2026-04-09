@@ -22,3 +22,5 @@ spack:
 
     perl:
       buildable: false
+    ncurses:
+      buildable: false
