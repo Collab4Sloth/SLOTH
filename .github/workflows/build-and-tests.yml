@@ -37,12 +37,11 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y mpich wget unzip libboost-all-dev libopenblas-dev perl
-        sudo apt-get install -y gfortran
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
           spack env activate .
-          spack compiler find /usr/bin
+          spack compiler find 
           spack external find
           spack concretize -f
 
