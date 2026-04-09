@@ -45,7 +45,7 @@ jobs:
           spack external find
           spack concretize -f
 
-          spack install --fail-fast 
+          spack install --fail-fast  --only dependencies
           
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
