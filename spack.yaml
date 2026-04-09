@@ -6,10 +6,7 @@ spack:
 
   concretizer:
     unify: true
-
-  config:
-    build_jobs: 4
-    
+   
 
   packages:
     all:

@@ -40,12 +40,12 @@ jobs:
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
-          spack env activate .
           spack compiler find 
           spack external find
+          spack env activate .
           spack concretize -f
 
-          spack install --fail-fast  
+          spack install -j $CORES --fail-fast 
           
           echo "ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk" >> $GITHUB_ENV
         
