@@ -42,7 +42,7 @@ jobs:
       shell: spack-bash {0}
       run: |
           spack compiler find
-
+          spack external find
           spack env activate .
 
           spack concretize -f
@@ -148,6 +148,7 @@ jobs:
     - name: Code Coverage Analysis 
       if: ${{ always() }}
       run: | 
+        source pysloth/bin/activate
         cd ${{ github.workspace }}/build
         make cc
 
@@ -165,9 +166,9 @@ jobs:
       run: | 
         cd ${{ github.workspace }}/build
         cpplint \
-        --filter=-runtime/references,-build/header_guard,-runtime/string \
+        --filter=-runtime/references,-build/header_guard,-runtime/string,-build/include \
         --counting=total \
-        --extensions=cpp,cxx,hpp,h,hxx \
+        --extensions=cpp,cxx,hpp,h,hxx,tpp \
         --linelength=100 \
         --recursive ../kernel ../tests \
         COMMENT "Linting source files"

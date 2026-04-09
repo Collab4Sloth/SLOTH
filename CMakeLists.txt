@@ -124,9 +124,9 @@ if(NOT TARGET lint)
   # Add a custom target for linting
   add_custom_target(lint
     COMMAND ${CPP_LINT}
-    --filter=-runtime/references,-build/header_guard,-runtime/string
+    --filter=-runtime/references,-build/header_guard,-runtime/string,-build/include
     --counting=total
-    --extensions=cpp,cxx,hpp,h,hxx
+    --extensions=cpp,cxx,hpp,h,hxx,tpp
     --linelength=100
     --exclude ${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling
     --recursive ${CMAKE_SOURCE_DIR}/kernel ${CMAKE_SOURCE_DIR}/tests

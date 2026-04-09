@@ -21,10 +21,10 @@ spack:
 
     mpi:
       require: mpich
-      buildable: true
+      buildable: false
 
     openblas:
-      buildable: true
+      buildable: false
 
     perl:
-      buildable: true
+      buildable: false
