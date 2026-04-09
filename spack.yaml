@@ -20,7 +20,6 @@ spack:
 
     mpi:
       require: mpich
-      buildable: false
 
     openblas:
       buildable: false
