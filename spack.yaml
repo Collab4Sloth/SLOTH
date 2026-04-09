@@ -1,17 +1,21 @@
 spack:
-
   specs:
-    - hypre@2.33.0 +shared 
-    - mfem@4.8.0 +mpi +suite-sparse +sundials +superlu-dist 
+    - hypre@3.1.0 +shared %gcc@14
+    - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist %gcc@14
     - exprtk
 
   concretizer:
     unify: true
+   
 
   packages:
     mpi:
-      buildable: true
+      buildable: false
     openblas:
-      buildable: true
+      buildable: false
     perl:
-      buildable: true
+      buildable: false
+    ncurses:
+      buildable: false
+    intel-oneapi-mkl:
+      buildable: false

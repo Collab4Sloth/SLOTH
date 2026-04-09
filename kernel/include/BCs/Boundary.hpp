@@ -44,7 +44,6 @@ class Boundary {
   std::string boundary_name_;
   BoundaryConditionType::value boundary_type_;
   int boundary_index_;
-  bool is_essential_boundary_{false};
   bool is_periodic_boundary_{false};
   double boundary_value_{0.};
 

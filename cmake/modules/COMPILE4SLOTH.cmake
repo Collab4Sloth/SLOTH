@@ -32,7 +32,7 @@ set(COVERAGE_OPTIONS -g -O0 --coverage)
 set(COVERAGE_LINK_OPTIONS --coverage)
 
 # Function called at each build 
-function(set_compile_options target)
+function(set_compile_options CURRENT_EXE)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         target_compile_options(${CURRENT_EXE} PRIVATE ${DEBUG_OPTIONS})
 

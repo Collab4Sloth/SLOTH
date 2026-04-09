@@ -6,7 +6,6 @@ else()
     add_library(Sloth STATIC)
 endif(SLOTH_USE_SHARED)
 
-
 # Get all cpp files
 file(GLOB_RECURSE SLOTH_SRC CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/kernel/src/*.cpp
@@ -18,6 +17,7 @@ if(NOT SLOTH_USE_EXPRTK)
 endif()
 
 target_sources(Sloth PRIVATE ${SLOTH_SRC})
+set_compile_options(Sloth)
 
 set_target_properties(Sloth PROPERTIES
     CXX_STANDARD 20
