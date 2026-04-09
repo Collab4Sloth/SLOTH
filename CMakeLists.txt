@@ -49,8 +49,9 @@ endif()
 # # MFEM Configuration
 # ########################
 include(MFEM4SLOTH)
+
 # ########################
-# # Test Configuration
+# # Compiler options
 # ########################
 include(COMPILE4SLOTH)
 
