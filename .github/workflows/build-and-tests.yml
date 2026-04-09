@@ -43,6 +43,7 @@ jobs:
       run: |
           spack compiler find
           spack external find
+          spack concretize -f
           spack env activate .
 
           spack concretize -f

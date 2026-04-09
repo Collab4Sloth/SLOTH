@@ -6,15 +6,13 @@ spack:
     - exprtk
 
   concretizer:
-    unify: true
+    unify: false
 
   config:
     build_jobs: 8
 
   packages:
     all:
-      compiler: [gcc]
-      target: [x86_64]
       providers:
         blas: [openblas]
         lapack: [openblas]
