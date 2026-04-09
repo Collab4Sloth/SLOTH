@@ -40,6 +40,14 @@ jobs:
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
+          unset LD_LIBRARY_PATH
+          unset LIBRARY_PATH
+          unset CPATH
+          unset CMAKE_PREFIX_PATH
+          unset PKG_CONFIG_PATH
+          unset ANDROID_HOME
+          unset ANDROID_NDK_HOME
+
           spack compiler find 
           spack external find
           spack env activate .
@@ -63,6 +71,14 @@ jobs:
     - name: Build SLOTH
       shell: spack-bash {0}    
       run: | 
+        unset LD_LIBRARY_PATH
+        unset LIBRARY_PATH
+        unset CPATH
+        unset CMAKE_PREFIX_PATH
+        unset PKG_CONFIG_PATH
+        unset ANDROID_HOME
+        unset ANDROID_NDK_HOME
+
         spack env activate .
         
         source pysloth/bin/activate
@@ -76,6 +92,13 @@ jobs:
     - name: Test SLOTH 
       shell: spack-bash {0}    
       run: | 
+        unset LD_LIBRARY_PATH
+        unset LIBRARY_PATH
+        unset CPATH
+        unset CMAKE_PREFIX_PATH
+        unset PKG_CONFIG_PATH
+        unset ANDROID_HOME
+        unset ANDROID_NDK_HOME
         spack env activate .
         source pysloth/bin/activate
         
