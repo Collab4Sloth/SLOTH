@@ -1,7 +1,7 @@
 spack:
   specs:
     - hypre@3.1.0 +shared %gcc@14
-    - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist %gcc@14
+    - mfem@4.9.0 +mpi	 +suite-sparse +sundials +superlu-dist %gcc@14
     - exprtk
 
   concretizer:
@@ -18,9 +18,13 @@ spack:
       require: mpich
 
     openblas:
-      buildable: false
+      buildable: true
 
     perl:
       buildable: false
+      
     ncurses:
+      buildable: false
+
+    intel-oneapi-mkl:
       buildable: false
