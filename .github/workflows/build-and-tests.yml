@@ -41,10 +41,10 @@ jobs:
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
+          spack env activate .
           spack compiler find
           spack external find
           spack concretize -f
-          spack env activate .
 
           spack concretize -f
           spack install --fail-fast 
