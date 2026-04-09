@@ -10,10 +10,24 @@ spack:
 
   config:
     build_jobs: 8
+    
+  compilers:
+  - compiler:
+      spec: gcc@14.2.0
+      paths:
+        cc: /usr/bin/gcc
+        cxx: /usr/bin/g++
+        f77: /usr/bin/gfortran
+        fc: /usr/bin/gfortran
+      flags: {}
+      operating_system: ubuntu-latest
+      target: x86_64
+      modules: []
+      environment: {}
+      extra_rpaths: []
 
   packages:
     all:
-      compiler: [gcc]
       providers:
         blas: [openblas]
         lapack: [openblas]
