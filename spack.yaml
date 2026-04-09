@@ -28,3 +28,4 @@ spack:
 
     intel-oneapi-mkl:
       buildable: false
+      
