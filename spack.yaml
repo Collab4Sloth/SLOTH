@@ -9,7 +9,7 @@ spack:
     unify: true
 
   config:
-    build_jobs: 8
+    build_jobs: 4
     
 
   packages:

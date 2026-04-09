@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich wget unzip libboost-all-dev libopenblas-dev perl
+        sudo apt-get install -y mpich wget unzip libncurses-dev libboost-all-dev libopenblas-dev perl
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
