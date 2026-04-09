@@ -41,6 +41,7 @@ jobs:
       shell: spack-bash {0}
       run: |
           spack compiler find 
+          spack external find openmpi mpich openblas perl
           spack env activate .
           spack concretize -f
 

@@ -9,17 +9,10 @@ spack:
    
 
   packages:
-    all:
-      providers:
-        blas: [openblas]
-        lapack: [openblas]
-
     mpi:
-      require: mpich
-
+      buildable: false
     openblas:
-      buildable: true
-
+      buildable: false
     perl:
       buildable: false
     ncurses:
