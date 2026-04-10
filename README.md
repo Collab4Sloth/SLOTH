@@ -48,6 +48,7 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md). Main guidelines are:
     ---
     - [Alessandro Scapini (PhD 2024-2027)]()
     - [Clément Plumecocq (PhD 2023-2026)]()
+    - [Marine Harel (Master 2026)]()
     - [Victor Navarre (Master 2025)]()
     - [Jules Czuckermand (Master 2025)]()     
     - [Mouad Bakhkakh (Master 2024)]()
