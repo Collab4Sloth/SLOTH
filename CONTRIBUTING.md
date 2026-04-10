@@ -12,7 +12,7 @@ Using the issue tracker
 
 The issue tracker is the preferred channel for bug reports, features requests and submitting pull requests, but please respect the following restrictions:
 
-- Please do not use the issue tracker for personal support requests (contact directly the authors clement.introini@cea.fr
+- Please do not use the issue tracker for personal support requests (contact directly the authors clement.introini@cea.fr)
 
 Bug reports
 ===========
