@@ -41,7 +41,7 @@ PROJECT_NUMBER= "v2.0.0"
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
 # quick idea about the purpose of the project. Keep the description short.
-PROJECT_BRIEF= "PhaseField solver"
+PROJECT_BRIEF= "The multiphase-field multicomponent framework of the PLEIADES platform based on MFEM"
 
 # With the PROJECT_LOGO tag one can specify a logo or an icon that is included
 # in the documentation. The maximum height of the logo should not exceed 55
