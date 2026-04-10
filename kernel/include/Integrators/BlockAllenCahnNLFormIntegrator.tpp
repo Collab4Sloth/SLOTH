@@ -180,8 +180,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       const auto& eta = *elfun[off_blk] * Psi;
 
-      const auto& phi = *elfun[blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
       vaux_gf_at_ip.clear();
       for (const auto& aux_gf : vaux_gf_) {
         vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
@@ -213,7 +211,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
   //
   {
     int blk = 1;
-    int off_blk = 0;
     mfem::DenseMatrix gradPsi;
     mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
@@ -241,8 +238,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk] = (*elfun[off_blk]) * Psi;
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
-      const auto& phi = *elfun[off_blk] * Psi;
-      const auto& phin = this->u_old_[off_blk].GetValue(Tr, ip);
 
       const double coef_mob =
           this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
@@ -302,8 +297,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
-      const auto& phi = *elfun[blk] * Psi;
-      const auto& phin = this->u_old_[blk].GetValue(Tr, ip);
       // Get aux values at ip TODO(cci) (move in method)
       vaux_gf_at_ip.clear();
       for (const auto& aux_gf : vaux_gf_) {
@@ -375,7 +368,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
   // Block 1 1  dR(eta)deta=dR(eta)dphi=d(M eta)/deta
   {
     int blk = 1;
-    int off_blk = 0;
     mfem::DenseMatrix gradPsi;
     mfem::Vector Psi, gradU;
     int nd = el[blk]->GetDof();
@@ -403,8 +395,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         u_values[off_blk] = (*elfun[off_blk]) * Psi;
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
-      const auto& phi = *elfun[off_blk] * Psi;
-      const auto& phin = this->u_old_[off_blk].GetValue(Tr, ip);
       const double coef_mob =
           -this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
                                      std::span<const double>(vaux_gf_at_ip)) *

@@ -423,7 +423,7 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
         // Check if a coefficient is given for this bc
         // (else Homogeneous Neumann)
         bool has_neumann_coeff = false;
-        for (unsigned int l = 0; l < coef_size; l++) {
+        for (int l = 0; l < coef_size; l++) {
           auto coef = coefficients[l];
           if (coef.get_type() == GlossaryType::Neumann) {
             auto bdr_ids = coef.get_bdr_index_coef();

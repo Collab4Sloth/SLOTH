@@ -52,8 +52,8 @@ class RobinNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  protected:
   std::vector<mfem::ParGridFunction> vaux_gf_;
-  const unsigned int bdr_id_ = 0;  // Boundary id
   const unsigned int blk_ = 0;     // Block to which apply Robin
+  const unsigned int bdr_id_ = 0;  // Boundary id
   Coefficient robin_a;
   Coefficient robin_b;
 
