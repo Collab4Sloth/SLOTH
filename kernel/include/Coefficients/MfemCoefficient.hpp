@@ -32,18 +32,17 @@
 
 class MfemCoefficient : public mfem::Coefficient {
  private:
+  int id_ = 0;
   Coefficients sloth_coefficient_;
-
-  const mfem::ParGridFunction &gf_;
-  const std::vector<mfem::ParGridFunction> &vaux_gf_;
+  const mfem::ParGridFunction& gf_;
+  const std::vector<mfem::ParGridFunction>& vaux_gf_;
 
   mutable std::vector<double> vaux_gf_at_ip_;
-  int id_ = 0;
 
  public:
-  MfemCoefficient(int id, const Coefficients &coef, const mfem::ParGridFunction &vun,
-                  const std::vector<mfem::ParGridFunction> &vauxn);
-  double Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip) override;
+  MfemCoefficient(int id, const Coefficients& coef, const mfem::ParGridFunction& vun,
+                  const std::vector<mfem::ParGridFunction>& vauxn);
+  double Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip) override;
   virtual ~MfemCoefficient() = default;
 };
 
@@ -54,8 +53,8 @@ class MfemCoefficient : public mfem::Coefficient {
  * @param vun
  * @param vauxn
  */
-MfemCoefficient::MfemCoefficient(int id, const Coefficients &coef, const mfem::ParGridFunction &vun,
-                                 const std::vector<mfem::ParGridFunction> &vauxn)
+MfemCoefficient::MfemCoefficient(int id, const Coefficients& coef, const mfem::ParGridFunction& vun,
+                                 const std::vector<mfem::ParGridFunction>& vauxn)
     : id_(id), sloth_coefficient_(coef), gf_(vun), vaux_gf_(vauxn) {}
 
 /**
@@ -65,7 +64,7 @@ MfemCoefficient::MfemCoefficient(int id, const Coefficients &coef, const mfem::P
  * @param ip
  * @return double
  */
-double MfemCoefficient::Eval(mfem::ElementTransformation &T, const mfem::IntegrationPoint &ip) {
+double MfemCoefficient::Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip) {
   if (this->sloth_coefficient_[id_].is_scalar()) {
     return this->sloth_coefficient_[id_].compute();
   }

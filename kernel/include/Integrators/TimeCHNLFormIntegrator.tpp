@@ -312,7 +312,6 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
       Tr.SetIntPoint(&ip);
       el[blk]->CalcPhysShape(Tr, Psi);
 
-      const auto& phi = *elfun[blk] * Psi;
       // Get aux values at ip TODO(cci) (move in method)
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {
         vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);

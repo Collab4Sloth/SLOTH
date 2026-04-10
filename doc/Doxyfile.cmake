@@ -36,12 +36,12 @@ PROJECT_NAME= SLOTH
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
 # control system is used.
-PROJECT_NUMBER= "v1.0.0"
+PROJECT_NUMBER= "v2.0.0"
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
 # quick idea about the purpose of the project. Keep the description short.
-PROJECT_BRIEF= "PhaseField solver"
+PROJECT_BRIEF= "The multiphase-field multicomponent framework of the PLEIADES platform based on MFEM"
 
 # With the PROJECT_LOGO tag one can specify a logo or an icon that is included
 # in the documentation. The maximum height of the logo should not exceed 55
@@ -763,7 +763,7 @@ INPUT_ENCODING= UTF-8
 # *.hh, *.hxx, *.hpp, *.h++, *.cs, *.d, *.php, *.php4, *.php5, *.phtml, *.inc,
 # *.m, *.markdown, *.md, *.mm, *.dox, *.py, *.pyw, *.f90, *.f95, *.f03, *.f08,
 # *.f, *.for, *.tcl, *.vhd, *.vhdl, *.ucf and *.qsf.
-FILE_PATTERNS= *.hpp *.md
+FILE_PATTERNS= *.cpp *.tpp *.hpp *.md
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.

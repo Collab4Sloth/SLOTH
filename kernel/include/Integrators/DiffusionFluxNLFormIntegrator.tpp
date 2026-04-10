@@ -164,8 +164,6 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     el[blk]->CalcShape(ip, Psi);
     Tr.SetIntPoint(&ip);
 
-    const auto& u = *elfun[blk] * Psi;
-    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
     // Get aux values at ip TODO(cci) (move in method)
     vaux_gf_at_ip.clear();
     for (const auto& aux_gf : vaux_gf_) {
@@ -238,8 +236,6 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
-    const auto& u = *elfun[blk] * Psi;
-    const auto& un = this->u_old_[blk].GetValue(Tr, ip);
     // Get aux values at ip TODO(cci) (move in method)
     vaux_gf_at_ip.clear();
     for (const auto& aux_gf : vaux_gf_) {

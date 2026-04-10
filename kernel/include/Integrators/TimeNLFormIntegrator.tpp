@@ -280,7 +280,6 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
-      const auto& u = *elfun[blk] * Psi;
       // Get aux values at ip TODO(cci) (move in method)
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {
         vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);

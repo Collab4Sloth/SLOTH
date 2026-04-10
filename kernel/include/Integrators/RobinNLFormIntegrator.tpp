@@ -157,7 +157,7 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
     *elvect[blk] = 0.;
 
     // Add Robin on the right block
-    if (blk == blk_) {
+    if (blk == static_cast<int>(blk_)) {
       const mfem::IntegrationRule* ir =
           &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
@@ -225,7 +225,7 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
     *elmat(blk, blk) = 0.0;
 
     // Add Robin on the right block
-    if (blk == blk_) {
+    if (blk == static_cast<int>(blk_)) {
       const mfem::IntegrationRule* ir =
           &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
