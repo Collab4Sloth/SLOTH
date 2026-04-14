@@ -91,6 +91,9 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   double compute_gradient_coefficient(Coefficient coef, const int blk,
                                       const std::span<const double>& values,
                                       const std::span<const double>& aux_values);
+  double compute_gradient_energy_coefficient(Coefficient coef, const int blk,
+                                             const std::span<const double>& values,
+                                             const std::span<const double>& aux_values);
   double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
                                      const std::span<const double>& values,
                                      const std::span<const double>& aux_values);

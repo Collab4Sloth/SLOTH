@@ -148,7 +148,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
       const double coef_mobi = mobility[blk].compute() * ip.weight * Tr.Weight();
       const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
       const double seed = this->get_seed_at_ip(Tr, ip, blk, u, un);
-      const double ww = coef_mobi * (alpha * this->compute_gradient_coefficient(
+      const double ww = coef_mobi * (alpha * this->compute_gradient_energy_coefficient(
                                                  interpolation_potential[blk], blk,
                                                  std::span<const double>(u_values),
                                                  std::span<const double>(vaux_gf_at_ip)) +

@@ -202,9 +202,9 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       // Given u, compute (w'(u), psi), psi is shape function
       const double ww =
-          coef_mobi * this->compute_gradient_coefficient(double_well_energy[blk], blk,
-                                                         std::span<const double>(u_values),
-                                                         std::span<const double>(vaux_gf_at_ip));
+          coef_mobi * this->compute_gradient_energy_coefficient(
+                          double_well_energy[blk], blk, std::span<const double>(u_values),
+                          std::span<const double>(vaux_gf_at_ip));
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
