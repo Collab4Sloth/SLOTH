@@ -133,9 +133,6 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      const auto& u = *elfun[blk] * Psi;  // Get aux values at ip TODO(cci) (move in method)
-
-      const auto& un = this->u_old_[blk].GetValue(Tr, ip);
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {
         vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
       }
@@ -145,9 +142,14 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
-      const double coef_mobi = mobility[blk].compute() * ip.weight * Tr.Weight();
-      const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
-      const double seed = this->get_seed_at_ip(Tr, ip, blk, u, un);
+      const double coef_mobi =
+          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip)) *
+          ip.weight * Tr.Weight();
+      const double alpha = this->get_phase_change_at_ip(blk, std::span<const double>(u_values),
+                                                        std::span<const double>(vaux_gf_at_ip));
+      const double seed = this->get_seed_at_ip(blk, std::span<const double>(u_values),
+                                               std::span<const double>(vaux_gf_at_ip));
       const double ww = coef_mobi * (alpha * this->compute_gradient_energy_coefficient(
                                                  interpolation_potential[blk], blk,
                                                  std::span<const double>(u_values),
@@ -203,8 +205,6 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       Tr.SetIntPoint(&ip);
       el[blk]->CalcShape(ip, Psi);
-      const auto& u = *elfun[blk] * Psi;
-      const auto& un = this->u_old_[blk].GetValue(Tr, ip);
       // Get aux values at ip TODO(cci) (move in method)
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {
         vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
@@ -215,8 +215,12 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
-      const double coef_mobi = mobility[blk].compute() * ip.weight * Tr.Weight();
-      const double alpha = this->get_phase_change_at_ip(Tr, ip, blk, u, un);
+      const double coef_mobi =
+          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip)) *
+          ip.weight * Tr.Weight();
+      const double alpha = this->get_phase_change_at_ip(blk, std::span<const double>(u_values),
+                                                        std::span<const double>(vaux_gf_at_ip));
       double fun_val =
           coef_mobi * alpha *
           this->compute_hessian_coefficient(
@@ -272,9 +276,8 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(
-    [[maybe_unused]] mfem::ElementTransformation& Tr,
-    [[maybe_unused]] const mfem::IntegrationPoint& ir, [[maybe_unused]] unsigned int blk,
-    [[maybe_unused]] const double u, [[maybe_unused]] const double un) {
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
   // Nucleus must be equal to zero except when phase transition starts
   const double seed = 0.0;
 

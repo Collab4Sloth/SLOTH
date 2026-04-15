@@ -104,7 +104,8 @@ template <class VARS>
 void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
   bool primary_phase_found = false;
   bool secondary_phase_found = false;
-
+  this->dgm_primary_phase_index_ = -1;
+  this->dgm_secondary_phase_index_ = -1;
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
@@ -123,10 +124,10 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
                 ": the name of the phase and the symbol 'dgm'");
 
     if (variable_info[0] == this->primary_phase_) {
-      this->dgm_.insert(this->dgm_.begin(), this->aux_gf_[i]);
+      this->dgm_primary_phase_index_ = i;
       primary_phase_found = true;
     } else if (variable_info[0] == this->secondary_phase_) {
-      this->dgm_.emplace_back(this->aux_gf_[i]);
+      this->dgm_secondary_phase_index_ = i;
       secondary_phase_found = true;
     }
   }
@@ -144,7 +145,7 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
 template <class VARS>
 void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
   bool nucleus_found = false;
-
+  this->nucleus_index_ = -1;
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
@@ -163,7 +164,7 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
                 ": the name of the phase and the symbol 'nucleus'");
 
     if (variable_info[0] == this->secondary_phase_) {
-      this->nucleus_.emplace_back(this->aux_gf_[i]);
+      this->nucleus_index_ = i;
       nucleus_found = true;
     }
   }
@@ -187,14 +188,13 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
  */
 template <class VARS>
 double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const double u,
-    [[maybe_unused]] const double un) {
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
   double primary_dgm = -1.;
   double secondary_dgm = -1.;
-  if (this->dgm_.size() == 2) {
-    primary_dgm = this->dgm_[0].GetValue(Tr, ir);
-    secondary_dgm = this->dgm_[1].GetValue(Tr, ir);
+  if (this->dgm_primary_phase_index_ > 0 && this->dgm_secondary_phase_index_ > 0) {
+    primary_dgm = aux_values[this->dgm_primary_phase_index_];
+    secondary_dgm = aux_values[this->dgm_secondary_phase_index_];
   }
   constexpr double epsilon = 1.e-12;
   return (std::abs(primary_dgm) > epsilon && std::abs(secondary_dgm) > epsilon)
@@ -216,13 +216,15 @@ double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
  * @return The computed seed at integration point
  */
 template <class VARS>
-double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(mfem::ElementTransformation& Tr,
-                                                            const mfem::IntegrationPoint& ir,
-                                                            [[maybe_unused]] unsigned int blk,
-                                                            [[maybe_unused]] const double u,
-                                                            [[maybe_unused]] const double un) {
+double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
   // Nucleus must be equal to zero except when phase transition starts
-  const double seed = -this->nucleus_[0].GetValue(Tr, ir);
+
+  // std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
+  // std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+
+  const double seed = -aux_values[this->nucleus_index_];
 
   return seed;
 }

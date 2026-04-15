@@ -59,12 +59,11 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficients interpolation_potential;
   std::vector<mfem::ParGridFunction> vaux_gf_;
 
-  virtual double get_phase_change_at_ip(mfem::ElementTransformation& Tr,
-                                        const mfem::IntegrationPoint& ir, unsigned int blk,
-                                        const double u, const double un) = 0;
+  virtual double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
+                                        const std::span<const double>& aux_values) = 0;
 
-  virtual double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-                                unsigned int blk, const double u, const double un);
+  virtual double get_seed_at_ip(unsigned int blk, const std::span<const double>& values,
+                                const std::span<const double>& aux_values);
 
   void get_coefficients() override;
 
