@@ -372,8 +372,8 @@ struct specialized_spatial_constructor<T, 1> {
           tmp_mesh.Clear();
           mfem::Mesh tmp_mesh_periodic =
               mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
-          a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+          a_my_class.mesh_ = new mfem::ParMesh(
+              MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
           tmp_mesh_periodic.Clear();
         } else {
           mfem::mfem_error(
