@@ -49,7 +49,7 @@
 template <class VARS>
 class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> {
  private:
-  std::vector<mfem::ParGridFunction> temp_gf_;
+  int temp_index_;
 
   double melting_temperature_;
   double melting_enthalpy_;
@@ -57,8 +57,8 @@ class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VA
   void check_variables_consistency();
 
  protected:
-  double get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-                                unsigned int blk, const double u, const double un) override;
+  double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
+                                const std::span<const double>& aux_values) override;
 
  public:
   MeltingTemperatureNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,

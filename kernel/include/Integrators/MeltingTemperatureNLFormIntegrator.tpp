@@ -75,6 +75,7 @@ MeltingTemperatureNLFormIntegrator<VARS>::MeltingTemperatureNLFormIntegrator(
 template <class VARS>
 void MeltingTemperatureNLFormIntegrator<VARS>::check_variables_consistency() {
   // Temperature scaling for mobility
+  this->temp_index_ = -1;
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
@@ -86,7 +87,7 @@ void MeltingTemperatureNLFormIntegrator<VARS>::check_variables_consistency() {
                 "this integrator");
     const std::string& symbol = toUpperCase(variable_info.back());
     if (symbol == "T") {
-      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
+      this->temp_index_ = i;
       break;
     }
   }
@@ -131,10 +132,9 @@ void MeltingTemperatureNLFormIntegrator<VARS>::get_parameters() {
  */
 template <class VARS>
 double MeltingTemperatureNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const double u,
-    [[maybe_unused]] const double un) {
-  const double temperature_at_ip = this->temp_gf_[0].GetValue(Tr, ir);
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
+  const double temperature_at_ip = aux_values[this->temp_index_];
   double phase_change_at_ip = 0.;
   if (temperature_at_ip > this->melting_temperature_) {
     phase_change_at_ip = this->melting_enthalpy_;

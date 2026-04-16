@@ -246,7 +246,7 @@ struct specialized_spatial_constructor<T, 1> {
     a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.is_periodic_mesh_ = periodic_mesh;
     if (!a_my_class.is_periodic_mesh_) {
-      a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+      a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
     } else {
       a_my_class.mesh_max_bdr_attributes_ = -1;
     }
@@ -372,8 +372,8 @@ struct specialized_spatial_constructor<T, 1> {
           tmp_mesh.Clear();
           mfem::Mesh tmp_mesh_periodic =
               mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
-          a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
+          a_my_class.mesh_ = new mfem::ParMesh(
+              MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
           tmp_mesh_periodic.Clear();
         } else {
           mfem::mfem_error(
@@ -391,7 +391,7 @@ struct specialized_spatial_constructor<T, 1> {
             "InlineSquareWithTriangles, InlineSquareWithQuadrangles mesh types are allowed");
         break;
     }
-    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_.bdr_attributes.Max();
+    a_my_class.mesh_max_bdr_attributes_ = a_my_class.mesh_->bdr_attributes.Max();
   }
 };
 

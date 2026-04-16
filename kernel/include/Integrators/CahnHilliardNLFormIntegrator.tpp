@@ -98,34 +98,7 @@ void CahnHilliardNLFormIntegrator<VARS>::init() {
  */
 template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::check_variables_consistency() {
-  // Temperature scaling for mobility
-  bool temperature_found = false;
-  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_infos_[i];
-    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    size_t vsize = variable_info.size();
-
-    MFEM_VERIFY(vsize >= 1,
-                "CahnHilliardNLFormIntegrator<VARS>: at least "
-                "one additionnal information is expected for auxiliary variables associated with "
-                "this integrator");
-    const std::string& symbol = toUpperCase(variable_info.back());
-    if (symbol == "T") {
-      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      temperature_found = true;
-      break;
-    }
-  }
-  if (this->params_.has_parameter("ScaleMobilityByTemperature")) {
-    this->scale_mobility_by_temperature_ =
-        this->params_.template get_param_value<bool>("ScaleMobilityByTemperature");
-    if (this->scale_mobility_by_temperature_) {
-      MFEM_VERIFY(
-          temperature_found,
-          "CahnHilliardNLFormIntegrator: "
-          "Temperature variable required to scale mobility, but not found in auxiliary variables");
-    }
-  }
+  // TODO(cci): order of variables?
 }
 
 /**
@@ -231,9 +204,9 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
       // Given u, compute (w'(u), psi), psi is shape function
       const double ww =
-          xx * (mu - this->compute_gradient_coefficient(double_well_energy[blk], blk,
-                                                        std::span<const double>(u_values),
-                                                        std::span<const double>(vaux_gf_at_ip)));
+          xx * (mu - this->compute_gradient_energy_coefficient(
+                         double_well_energy[blk], blk, std::span<const double>(u_values),
+                         std::span<const double>(vaux_gf_at_ip)));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }

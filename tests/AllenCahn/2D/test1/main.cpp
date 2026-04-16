@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
         const double omega = 12. * sigma / epsilon;
 
         Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
-        Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+        Coefficient double_well(Glossary::FreeEnergy, Scheme::Explicit, W(omega));
         Coefficient capillary(Glossary::Capillary, lambda);
         Coefficient mobility(Glossary::Mobility, mob);
         // ####################
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
         auto phi_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-12);
         auto CVG = Convergence(phi_cvg);
         auto pst = PST(&spatial, p_pst);
-        Coefficients coef_pb1(double_well_imp, capillary, mobility, grad_energy);
+        Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
 
         PB problem1(oper, vars, {coef_pb1}, CVG, pst);
 

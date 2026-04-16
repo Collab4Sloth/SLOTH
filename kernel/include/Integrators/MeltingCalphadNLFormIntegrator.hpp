@@ -52,8 +52,9 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
   double alpha_;
   std::string primary_phase_;
   std::string secondary_phase_;
-  std::vector<mfem::ParGridFunction> dgm_;
-  std::vector<mfem::ParGridFunction> nucleus_;
+  int dgm_primary_phase_index_;
+  int dgm_secondary_phase_index_;
+  int nucleus_index_;
 
   double melting_temperature_;
   double melting_enthalpy_;
@@ -64,11 +65,11 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
   void check_nucleus();
 
  protected:
-  double get_phase_change_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-                                unsigned int blk, const double u, const double un) override;
+  double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
+                                const std::span<const double>& aux_values) override;
 
-  double get_seed_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-                        unsigned int blk, const double u, const double un) override;
+  double get_seed_at_ip(unsigned int blk, const std::span<const double>& values,
+                        const std::span<const double>& aux_values) override;
 
  public:
   MeltingCalphadNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,

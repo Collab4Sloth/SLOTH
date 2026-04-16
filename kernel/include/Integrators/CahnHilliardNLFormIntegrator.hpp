@@ -61,8 +61,6 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficients double_well_energy;
 
   std::vector<mfem::ParGridFunction> vaux_gf_;
-  std::vector<mfem::ParGridFunction> temp_gf_;
-  bool scale_mobility_by_temperature_{false};
 
   void get_coefficients() override;
 

@@ -103,8 +103,7 @@ void MeltingConstantNLFormIntegrator<VARS>::get_parameters() {
  */
 template <class VARS>
 double MeltingConstantNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    [[maybe_unused]] mfem::ElementTransformation& Tr,
-    [[maybe_unused]] const mfem::IntegrationPoint& ir, [[maybe_unused]] unsigned int blk,
-    [[maybe_unused]] const double u, [[maybe_unused]] const double un) {
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
   return this->alpha_;
 }
