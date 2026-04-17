@@ -65,9 +65,7 @@ endif(SLOTH_USE_EXTERNAL)
 if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
     MESSAGE(STATUS "Sloth use libTorch API ")
-    target_include_directories(Sloth PUBLIC
-        $<BUILD_INTERFACE:${TORCH_INCLUDE_DIRS}>
-    )    
+    target_include_directories(Sloth PUBLIC ${TORCH_INCLUDE_DIRS})    
     target_link_libraries(Sloth PUBLIC ${TORCH_LIBRARIES})
     
     target_compile_definitions(Sloth PUBLIC SLOTH_USE_LIBTORCH=1)
