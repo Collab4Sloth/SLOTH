@@ -29,7 +29,7 @@
 #include "mfem.hpp"  // NOLINT
 
 #ifdef SLOTH_USE_LIBTORCH
-#include "include/Calphad/CalphadInformedNeuralNetwork.hpp"
+#include "Calphad/CalphadInformedNeuralNetwork.hpp"
 #endif
 #ifdef SLOTH_USE_EXPRTK
 #include "Coefficients/ExprTkSloth.hpp"
