@@ -56,8 +56,7 @@ include(MFEM4SLOTH)
 include(COMPILE4SLOTH)
 
 # ########################
-# # Sloth header's only
-# # library (interface)
+# # Sloth kernel
 # ########################
 # include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
