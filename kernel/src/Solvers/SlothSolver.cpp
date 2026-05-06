@@ -104,6 +104,19 @@ VSharedMFEMSolver SlothSolver::get_value() {
             default:
               mfem::mfem_error("Unhandled HypreSolverType enum value");
           }
+        } else if constexpr (std::is_same_v<T, NLSolverType>) {
+          switch (arg) {
+            case NLSolverType::NEWTON: {
+              SolverNewton hh;
+              return hh.create_solver(params_ + Parameter("description", "NEWTON"));
+            }
+            case NLSolverType::LBFGS: {
+              SolverLBFGS hh;
+              return hh.create_solver(params_ + Parameter("description", "LBFGS"));
+            }
+            default:
+              mfem::mfem_error("Unhandled NLSolverType enum value");
+          }
         } else if constexpr (std::is_same_v<T, HyprePreconditionerType>) {
           switch (arg) {
             case HyprePreconditionerType::HYPRE_ILU: {

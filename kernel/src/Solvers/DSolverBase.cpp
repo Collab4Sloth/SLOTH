@@ -53,8 +53,13 @@ std::shared_ptr<mfem::UMFPackSolver> SolverUMFPACK::create_solver(const Paramete
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
 
-  const int print_level =
-      params.get_param_value_or_default<int>("print_level", UMFPACK_DefaultConstant::print_level);
+  int print_level = UMFPACK_DefaultConstant::print_level;
+
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level =
+        params.get_param_value_or_default<int>("print_level", UMFPACK_DefaultConstant::print_level);
+  }
+
   auto ss = std::make_shared<mfem::UMFPackSolver>(MPI_COMM_WORLD);
   ss->SetPrintLevel(print_level);
   return ss;

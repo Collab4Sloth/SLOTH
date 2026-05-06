@@ -47,9 +47,11 @@ std::shared_ptr<mfem::BiCGSTABSolver> SolverBICGSTAB::create_solver(const Parame
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
-
-  const int print_level =
-      params.get_param_value_or_default<int>("print_level", BICGSTABDefaultConstant::print_level);
+  int print_level = BICGSTABDefaultConstant::print_level;
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level =
+        params.get_param_value_or_default<int>("print_level", BICGSTABDefaultConstant::print_level);
+  }
   const bool iterative_mode = params.get_param_value_or_default<bool>(
       "iterative_mode", BICGSTABDefaultConstant::iterative_mode);
   const int n_iter_max =
@@ -73,9 +75,11 @@ std::shared_ptr<mfem::MINRESSolver> SolverMINRES::create_solver(const Parameters
   // TODO(cc) : mettre un getinfo pour la doc
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
-
-  const int print_level =
-      params.get_param_value_or_default<int>("print_level", MINRESDefaultConstant::print_level);
+  int print_level = MINRESDefaultConstant::print_level;
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level =
+        params.get_param_value_or_default<int>("print_level", MINRESDefaultConstant::print_level);
+  }
   const bool iterative_mode = params.get_param_value_or_default<bool>(
       "iterative_mode", MINRESDefaultConstant::iterative_mode);
   const int n_iter_max =
@@ -100,8 +104,11 @@ std::shared_ptr<mfem::CGSolver> SolverCG::create_solver(const Parameters& params
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
 
-  const int print_level =
-      params.get_param_value_or_default<int>("print_level", CGDefaultConstant::print_level);
+  int print_level = CGDefaultConstant::print_level;
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level =
+        params.get_param_value_or_default<int>("print_level", CGDefaultConstant::print_level);
+  }
   const bool iterative_mode =
       params.get_param_value_or_default<bool>("iterative_mode", CGDefaultConstant::iterative_mode);
   const int n_iter_max =
@@ -126,8 +133,12 @@ std::shared_ptr<mfem::GMRESSolver> SolverGMRES::create_solver(const Parameters& 
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
 
-  const int print_level =
-      params.get_param_value_or_default<int>("print_level", GMRESDefaultConstant::print_level);
+  int print_level = GMRESDefaultConstant::print_level;
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level =
+        params.get_param_value_or_default<int>("print_level", GMRESDefaultConstant::print_level);
+  }
+
   const bool iterative_mode = params.get_param_value_or_default<bool>(
       "iterative_mode", GMRESDefaultConstant::iterative_mode);
   const int n_iter_max =

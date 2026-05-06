@@ -30,7 +30,7 @@
 ///////////////////////////////////////////////////
 //////// SOLVERS
 ///////////////////////////////////////////////////
-enum class NLSolverType { NEWTON };
+enum class NLSolverType { NEWTON, LBFGS };
 enum class IterativeSolverType { BICGSTAB, GMRES, CG, MINRES };
 enum class DirectSolverType { UMFPACK };
 enum class HypreSolverType { HYPRE_PCG, HYPRE_GMRES, HYPRE_FGMRES };
@@ -59,8 +59,21 @@ const auto iter_max = 100;
 const auto abs_tol = 1.e-13;
 const auto rel_tol = 1.e-13;
 const bool iterative_mode = false;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace NewtonDefaultConstant
+
+/**
+ * @brief Default constant used by LBFGS algorithm
+ *
+ */
+namespace LBFGSDefaultConstant {
+const int history_size = 10;
+const auto iter_max = 1000;
+const auto abs_tol = 1.e-13;
+const auto rel_tol = 1.e-13;
+const bool iterative_mode = false;
+const int print_level = -1;
+}  // namespace LBFGSDefaultConstant
 
 //////////////////////////////////////////////////////
 //// SOLVERS
@@ -74,7 +87,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace BICGSTABDefaultConstant
 
 /**
@@ -86,7 +99,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace CGDefaultConstant
 
 /**
@@ -98,7 +111,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace MINRESDefaultConstant
 
 /**
@@ -111,7 +124,7 @@ const auto iter_max = 1000;
 const auto abs_tol = 1.e-24;
 const auto rel_tol = 1.e-12;
 const bool iterative_mode = false;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace GMRESDefaultConstant
 
 /**
@@ -119,7 +132,7 @@ const auto print_level = 0;
  *
  */
 namespace UMFPACK_DefaultConstant {
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace UMFPACK_DefaultConstant
 
 //////////////////////////////////////////
@@ -132,7 +145,7 @@ const auto print_level = 0;
 namespace DSMOOTHER_DefaultConstant {
 const auto type = 0;  // 0, 1, 2 - scaled Jacobi, scaled l1-Jacobi, scaled lumped-Jacobi
 const bool positive_diagonal = false;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace DSMOOTHER_DefaultConstant
 
 //////////////////////////////////////////
@@ -147,7 +160,7 @@ namespace HYPRE_PCG_DefaultConstant {
 const auto iter_max = 100;
 const auto tol = 1.e-12;
 // const auto abs_tol = 1.e-6;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace HYPRE_PCG_DefaultConstant
 
 /**
@@ -158,7 +171,7 @@ namespace HYPRE_GMRES_DefaultConstant {
 const auto iter_max = 5000;
 const auto tol = 1.e-12;
 const auto kdim = 100;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace HYPRE_GMRES_DefaultConstant
 
 /**
@@ -169,7 +182,7 @@ namespace HYPRE_FGMRES_DefaultConstant {
 const auto iter_max = 5000;
 const auto tol = 1.e-12;
 const auto kdim = 100;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace HYPRE_FGMRES_DefaultConstant
 
 //////////////////////////////////////////
@@ -183,7 +196,7 @@ namespace HYPRE_ILU_DefaultConstant {
 const auto type = 0;  // ILU(k) locally and block Jacobi globally
 const auto iter_max = 1;
 const auto tol = 0.;
-const auto print_level = 0;
+const auto print_level = -1;
 const auto reorder_type = 0;  // 0 = no reordering, 1 = reverse Cuthill-McKee
 }  // namespace HYPRE_ILU_DefaultConstant
 
@@ -216,7 +229,7 @@ const auto positive_diagonal = true;
 namespace HYPRE_BOOMER_AMG_DefaultConstant {
 const auto iter_max = 100;
 const auto tol = 1.e-16;
-const auto print_level = 0;
+const auto print_level = -1;
 }  // namespace HYPRE_BOOMER_AMG_DefaultConstant
 
 /**

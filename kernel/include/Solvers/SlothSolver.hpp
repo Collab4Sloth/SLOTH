@@ -34,6 +34,7 @@
 #include "Solvers/HSolverBase.hpp"
 #include "Solvers/IPrecondBase.hpp"
 #include "Solvers/ISolverBase.hpp"
+#include "Solvers/NLSolverBase.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -49,7 +50,7 @@ using sptr = std::shared_ptr<T>;
  *
  */
 using VSolverType = std::variant<HypreSolverType, IterativeSolverType, DirectSolverType,
-                                 PreconditionerType, HyprePreconditionerType>;
+                                 NLSolverType, PreconditionerType, HyprePreconditionerType>;
 
 //-------------------
 // Solvers
@@ -60,7 +61,9 @@ using VIterativeSolver = std::variant<sptr<mfem::BiCGSTABSolver>, sptr<mfem::MIN
                                       sptr<mfem::CGSolver>, sptr<mfem::GMRESSolver>>;
 using VDirectSolver = std::variant<sptr<mfem::UMFPackSolver>>;
 
-using VSolvers = concat_variant_type<VHypreSolver, VIterativeSolver, VDirectSolver>;
+using VNLSolver = std::variant<sptr<mfem::NewtonSolver>, sptr<mfem::LBFGSSolver>>;
+
+using VSolvers = concat_variant_type<VHypreSolver, VIterativeSolver, VDirectSolver, VNLSolver>;
 
 //-------------------
 // Preconditionners
@@ -76,6 +79,23 @@ using VPreconds = concat_variant_type<VHyprePrecond, VIterativePrecond>;
  */
 using VSharedMFEMSolver =
     concat_variant_type<VSolvers, VPreconds, std::variant<sptr<std::monostate>>>;
+
+/**
+ * @brief Base class used to manage linear and non linear solvers
+ *
+ */
+class SlothSolver {
+ private:
+  VSolverType value_;
+  const Parameters& params_;
+
+ public:
+  SlothSolver(VSolverType value, const Parameters& params);
+
+  VSharedMFEMSolver get_value();
+
+  ~SlothSolver();
+};
 
 /**
  * @brief Common methods for Linear and non Linear solvers
@@ -133,6 +153,10 @@ struct UtilsSolvers {
         SlothInfo::debug("Solver used: CGSolver ");
       else if constexpr (std::is_same<Solv, sptr<mfem::GMRESSolver>>::value)
         SlothInfo::debug("Solver used: GMRESSolver ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::NewtonSolver>>::value)
+        SlothInfo::debug("Solver used: NewtonSolver ");
+      else if constexpr (std::is_same<Solv, sptr<mfem::LBFGSSolver>>::value)
+        SlothInfo::debug("Solver used: LBFGSSolver ");
       else
         SlothInfo::debug("Solver used: unknown ");
     }
@@ -222,7 +246,7 @@ struct SetPrecondSolver {
 struct SetPrecondNLSolver {
   // members
   mfem::Operator& op;
-  sptr<mfem::NewtonSolver> nl_solver;
+  std::shared_ptr<mfem::NewtonSolver> nl_solver;
 
   /**
    * @brief Main function
@@ -269,21 +293,4 @@ struct SetPrecondNLSolver {
     }
     SlothInfo::debug("SetPrecondNLSolver: end");
   }
-};
-
-/**
- * @brief Base class used to manage linear and non linear solvers
- *
- */
-class SlothSolver {
- private:
-  VSolverType value_;
-  const Parameters& params_;
-
- public:
-  SlothSolver(VSolverType value, const Parameters& params);
-
-  VSharedMFEMSolver get_value();
-
-  ~SlothSolver();
 };

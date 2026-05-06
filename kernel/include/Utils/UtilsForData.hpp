@@ -120,6 +120,13 @@ enum class Verbosity { Quiet, Normal, Verbose, Debug, Error };
  *
  */
 inline Verbosity verbosityLevel = Verbosity::Quiet;
+/**
+ * @brief Check the level of verbosity
+ *
+ * @param verbosity
+ */
+static bool verbose_at_least(Verbosity verbosity) { return verbosityLevel >= verbosity; }
+static bool verbose_is(Verbosity verbosity) { return verbosityLevel == verbosity; }
 
 /**
  * @brief Set the level of verbosity

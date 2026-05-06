@@ -52,13 +52,28 @@
  */
 NLSolver::NLSolver([[maybe_unused]] NLSolverType NLSOLVER, const Parameters& nl_params,
                    VSolverType SOLVER, const Parameters& s_params, VSolverType PRECOND,
-                   const Parameters& p_params, mfem::Operator& ope)
-    : nl_solver_(NLSolverBase_.create_solver(nl_params)) {
+                   const Parameters& p_params, mfem::Operator& ope) {
   SlothInfo::debug("NLSolver::NLSolver start");
-  ss = std::make_shared<SlothSolver>(SOLVER, s_params);
+
+  auto nl = std::make_shared<SlothSolver>(NLSOLVER, nl_params);
+  this->variant_nl_solver_ = nl->get_value();
+
+  std::visit(
+      [&](auto&& arg) {
+        using NN = std::decay_t<decltype(arg)>;
+
+        if constexpr (!std::is_same_v<NN, std::shared_ptr<std::monostate>>) {
+          MFEM_VERIFY((is_in_variant_v<NN, VNLSolver>),
+                      "Only NEWTON and LBFGS nonlinear solvers are implemented");
+          this->nl_solver_ = std::dynamic_pointer_cast<mfem::NewtonSolver>(arg);
+        }
+      },
+      this->variant_nl_solver_);
+
+  this->ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
 
-  pp = std::make_shared<SlothSolver>(PRECOND, p_params);
+  this->pp = std::make_shared<SlothSolver>(PRECOND, p_params);
   this->variant_precond_ = pp->get_value();
 
   SetPrecondNLSolver func_prec = {ope, nl_solver_};
@@ -75,15 +90,29 @@ NLSolver::NLSolver([[maybe_unused]] NLSolverType NLSOLVER, const Parameters& nl_
  * @param ope
  */
 NLSolver::NLSolver([[maybe_unused]] NLSolverType NLSOLVER, const Parameters& nl_params,
-                   VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope)
-    : nl_solver_(NLSolverBase_.create_solver(nl_params)) {
+                   VSolverType SOLVER, const Parameters& s_params, mfem::Operator& ope) {
   SlothInfo::debug("NLSolver::NLSolver start");
-  ss = std::make_shared<SlothSolver>(SOLVER, s_params);
+
+  auto nl = std::make_shared<SlothSolver>(NLSOLVER, nl_params);
+  this->variant_nl_solver_ = nl->get_value();
+
+  std::visit(
+      [&](auto&& arg) {
+        using NN = std::decay_t<decltype(arg)>;
+        if constexpr (!std::is_same_v<NN, std::shared_ptr<std::monostate>>) {
+          MFEM_VERIFY((is_in_variant_v<NN, VNLSolver>),
+                      "Only NEWTON and LBFGS nonlinear solvers are implemented");
+          this->nl_solver_ = std::dynamic_pointer_cast<mfem::NewtonSolver>(arg);
+        }
+      },
+      this->variant_nl_solver_);
+
+  this->ss = std::make_shared<SlothSolver>(SOLVER, s_params);
   this->variant_solver_ = ss->get_value();
 
   this->variant_precond_ = std::make_shared<std::monostate>();
 
-  SetPrecondNLSolver func_prec = {ope, nl_solver_};
+  SetPrecondNLSolver func_prec = {ope, this->nl_solver_};
   std::visit(func_prec, this->variant_solver_, this->variant_precond_);
 }
 
@@ -99,7 +128,7 @@ std::shared_ptr<mfem::NewtonSolver> NLSolver::get_nl_solver() { return this->nl_
  *
  */
 NLSolver::~NLSolver() {
-  ss.reset();
-  pp.reset();
-  nl_solver_.reset();
+  this->ss.reset();
+  this->pp.reset();
+  this->nl_solver_.reset();
 }
