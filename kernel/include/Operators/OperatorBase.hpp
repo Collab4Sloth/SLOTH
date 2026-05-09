@@ -152,7 +152,7 @@ class OperatorBase : public mfem::Operator {
                        const std::function<double(const mfem::Vector&, double)>& src_func,
                        mfem::Vector& source_term, mfem::ParLinearForm* RHHS) const;
 
-  const std::multimap<IterationKey, SpecializedValue> get_time_specialized() const;
+  const std::multimap<IterationKey, SpecializedValue>& get_time_specialized() const;
   const std::map<std::string, std::multimap<IterationKey, SpecializedValue>>
   get_time_iso_specialized() const;
 

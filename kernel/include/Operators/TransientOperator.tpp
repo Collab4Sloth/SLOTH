@@ -163,30 +163,30 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
   // TODO(cci) faire un template?
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
-      this->ode_solver_ = new mfem::ForwardEulerSolver;
+      this->ode_solver_ = std::make_shared<mfem::ForwardEulerSolver>();
       this->is_explicit_ = true;
       break;
     }
     case TimeScheme::EulerImplicit: {
-      this->ode_solver_ = new mfem::BackwardEulerSolver;
+      this->ode_solver_ = std::make_shared<mfem::BackwardEulerSolver>();
       this->is_explicit_ = false;
       break;
     }
     case TimeScheme::RungeKutta4: {
       // explicit forth-order Runge-Kutta
-      this->ode_solver_ = new mfem::RK4Solver;
+      this->ode_solver_ = std::make_shared<mfem::RK4Solver>();
       this->is_explicit_ = true;
       break;
     }
     case TimeScheme::SDIRK23: {
       //  two-step third-order Singly-diagonal implicit Runge-Kutta scheme (SDIRK23)
-      this->ode_solver_ = new mfem::SDIRK23Solver;
+      this->ode_solver_ = std::make_shared<mfem::SDIRK23Solver>();
       this->is_explicit_ = false;
       break;
     }
     case TimeScheme::SDIRK33: {
       //  three-step third-order Singly-diagonal implicit Runge-Kutta scheme (SDIRK23)
-      this->ode_solver_ = new mfem::SDIRK33Solver;
+      this->ode_solver_ = std::make_shared<mfem::SDIRK33Solver>();
       this->is_explicit_ = false;
       break;
     }
@@ -388,7 +388,6 @@ void TransientOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::V
   //  Build the RHS of the PDEs
   ////////////////////////////////////////////
   this->build_rhs_nonlinear_form(u_vect);
-
   ////////////////////////////////////////////
   // Build Newton Linear system
   ////////////////////////////////////////////
@@ -568,6 +567,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   this->free_memory();
 
   MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
+  this->newton_solver_.reset();
 }
 
 /**

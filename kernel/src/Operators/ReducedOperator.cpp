@@ -49,7 +49,7 @@ PhaseFieldReducedOperator::PhaseFieldReducedOperator(mfem::ParBlockNonlinearForm
       unk_(NULL),
       z(height),
       ess_tdof_list(ess_tdof) {
-  const mfem::Array<int> offsets = this->RHS_->GetBlockOffsets();
+  const mfem::Array<int>& offsets = this->RHS_->GetBlockOffsets();
   this->fes_size_ = offsets.Size() - 1;
   this->tmp_blocks_.SetSize(this->fes_size_, this->fes_size_);
   this->blocks_to_delete_.resize(this->fes_size_ * this->fes_size_);
