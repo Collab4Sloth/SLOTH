@@ -66,7 +66,7 @@ if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
     MESSAGE(STATUS "Sloth use libTorch API ")
     target_include_directories(Sloth PUBLIC ${TORCH_INCLUDE_DIRS})
-    
+
     target_link_libraries(Sloth PUBLIC ${TORCH_LIBRARIES})
     
     target_compile_definitions(Sloth PUBLIC SLOTH_USE_LIBTORCH=1)
@@ -77,7 +77,7 @@ endif(SLOTH_USE_LIBTORCH)
 # ########################
 if(SLOTH_USE_VORO)
     # Link the Voro++ library if (VORO_INCLUDE_DIR AND VORO_LIBRARY)
-    target_include_directories(Sloth SYSTEM PUBLIC  $<BUILD_INTERFACE:${VORO_INCLUDE_DIR}>)
+    target_include_directories(Sloth SYSTEM PUBLIC  ${VORO_INCLUDE_DIR})
     target_link_libraries(Sloth PUBLIC ${VORO_LIBRARY})
     message(STATUS "Sloth use Voro++ library")
 endif(SLOTH_USE_VORO)
