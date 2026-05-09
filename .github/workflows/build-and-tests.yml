@@ -102,6 +102,9 @@ jobs:
     - name: Install MFEM
       run: brew install mfem
 
+    - name: Install Voro++ (for test)
+      run: brew install voro++
+
     - name: Setup Python 
       uses: actions/setup-python@v5
       with:
@@ -126,7 +129,7 @@ jobs:
         source pysloth/bin/activate
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR     
+        bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR --voro=$(brew --prefix voro++)  
         make -j $CORES tests
 
     - name: Test SLOTH 

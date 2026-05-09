@@ -24,6 +24,7 @@ use_external="OFF"
 use_libtorch="OFF"
 use_shared="OFF"
 use_exprtk="OFF"
+use_voro="OFF"
 local_mfem_version="No"
 export USER_INSTALL_PATH=""
 ADDITIONAL_OPTION=""
@@ -89,6 +90,21 @@ for argument; do
     --relwithdebinfo)
         built_code="RelWithDebInfo"
         Print "Sloth built with RelWithDebInfo compiler options "
+        ;;
+    --voro)
+        export VORO=$(to_absolute_path "$value")
+        if [[ ! -d "$VORO" ]]; then
+            Print "\nError: "$VORO" directory does not exist. Please check the path of the local voro++ version!"
+            if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+                return 1
+            else
+                exit 1
+            fi
+        else
+            Print "Sloth built with voro++ "
+            # Set voro++ flag
+            use_voro='ON'
+        fi
         ;;
     --exprtk)
         # export ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk
@@ -236,7 +252,7 @@ else
 fi
 
 Print "Run CMake configuration..."
-cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_SHARED=$use_shared -DSLOTH_USE_EXTERNAL=$use_external  -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk 
+cmake ${SCRIPT_PATH} ${ADDITIONAL_OPTION}  -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_SHARED=$use_shared -DSLOTH_USE_EXTERNAL=$use_external  -DSLOTH_USE_LIBTORCH=$use_libtorch  -DSLOTH_USE_EXPRTK=$use_exprtk  -DSLOTH_USE_VORO=$use_voro
 
 Print "Compile SLOTH..."
 

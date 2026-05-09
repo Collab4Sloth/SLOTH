@@ -78,6 +78,15 @@ if(SLOTH_USE_LIBTORCH)
 endif(SLOTH_USE_LIBTORCH)
 
 # ########################
+# VORO++ API ??
+# ########################
+option(SLOTH_USE_VORO "Sloth use Voro++" OFF)
+if(SLOTH_USE_VORO)
+  find_path(VORO_INCLUDE_DIR voro++/voro++.hh)   
+  find_library(VORO_LIBRARY NAMES voro++ libvoro++)
+endif(SLOTH_USE_VORO)
+
+# ########################
 # Script
 # ########################
 set(SCRIPT_FILE ${CMAKE_SOURCE_DIR}/scripts/GenerateCoefficient.py)
