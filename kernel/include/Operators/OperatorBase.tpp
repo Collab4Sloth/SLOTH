@@ -68,7 +68,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
   for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u[i]);
-    vun.emplace_back(un);
+    vun.emplace_back(std::move(un));
   }
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (auto auxvars : auxvar_vec->getVariables()) {
@@ -76,7 +76,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
       mfem::ParGridFunction auxn(fes);
       auto auxvar_n = auxvars.get_second_to_last();
       auxn.SetFromTrueDofs(auxvar_n);
-      vauxn.emplace_back(auxn);
+      vauxn.emplace_back(std::move(auxn));
     }
   }
 
@@ -109,7 +109,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr
   for (unsigned int i = 0; i < u.size(); i++) {
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u[i]);
-    vun.emplace_back(un);
+    vun.emplace_back(std::move(un));
   }
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (auto auxvars : auxvar_vec->getVariables()) {
@@ -117,7 +117,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr
       mfem::ParGridFunction auxn(fes);
       auto auxvar_n = auxvars.get_second_to_last();
       auxn.SetFromTrueDofs(auxvar_n);
-      vauxn.emplace_back(auxn);
+      vauxn.emplace_back(std::move(auxn));
     }
   }
 
@@ -856,7 +856,7 @@ void OperatorBase<T, DIM>::clear_iso_time_specialized() {
  * @return const std::map<std::tuple<int, double, double>, double>
  */
 template <class T, int DIM>
-const std::multimap<IterationKey, SpecializedValue> OperatorBase<T, DIM>::get_time_specialized()
+const std::multimap<IterationKey, SpecializedValue>& OperatorBase<T, DIM>::get_time_specialized()
     const {
   return this->time_specialized_;
 }

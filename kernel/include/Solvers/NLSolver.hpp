@@ -46,8 +46,7 @@ class NLSolver {
   VSharedMFEMSolver variant_precond_;
   std::shared_ptr<SlothSolver> pp;
 
-  NLSolverBase NLSolverBase_;
-  // TODO(cci) on part sur newton mais on pourrait compléter la liste
+  VSharedMFEMSolver variant_nl_solver_;
   std::shared_ptr<mfem::NewtonSolver> nl_solver_;
 
  public:

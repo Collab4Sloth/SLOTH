@@ -1,0 +1,25 @@
+[
+    {
+    "expression":"Sum( -A*(x[i]*x[i])/2.0  + B*(x[i]*x[i]*x[i]*x[i])/4.0 , (i, 1, 30)) +  Sum( (x[i]*x[i])*(x[j]*x[j]),(i, 1, 30),(j, 1, 30)) - Sum( (x[i]*x[i]*x[i]*x[i]),(i, 1, 30))",
+    "variables":"x(1..30)",
+    "constants":"(A:1.0),(B:1.0)",
+    "class_name":"GrainGw",
+    "outputfile":"GrainsCoefficients"
+    }, 
+    {
+    "expression":"Sum( -A*(x[i]*x[i])/2.0  + B*(x[i]*x[i]*x[i]*x[i])/4.0 , (i, 1, 30)) +  Sum( (x[i]*x[i])*(xn[j]*xn[j]),(i, 1, 30),(j, 1, 30)) - Sum( (x[i]*x[i]*xn[i]*xn[i]),(i, 1, 30))",
+    "variables":"x(1..30)",
+    "explicit_variables":"xn(1..30)",
+    "constants":"(A:1.0),(B:1.0)",
+    "class_name":"ExplicitGrainGw",
+    "outputfile":"GrainsCoefficients"
+    },
+    {
+    "expression":"kappa*sdot(x(1..30))",
+    "variables":"x(1..30)",
+    "constants":"(kappa:10.1)",
+    "class_name":"GrainGradient",
+    "outputfile":"GrainsCoefficients",
+    "gradient":true
+    }
+]

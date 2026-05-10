@@ -34,10 +34,18 @@
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
-class NLSolverBase : SolverBase<mfem::NewtonSolver, NLSolverType> {
+class SolverNewton : SolverBase<mfem::NewtonSolver, NLSolverType> {
  public:
-  NLSolverBase();
+  SolverNewton();
   std::shared_ptr<mfem::NewtonSolver> create_solver(const Parameters& params) override;
 
-  ~NLSolverBase();
+  ~SolverNewton();
+};
+
+class SolverLBFGS : SolverBase<mfem::LBFGSSolver, NLSolverType> {
+ public:
+  SolverLBFGS();
+  std::shared_ptr<mfem::LBFGSSolver> create_solver(const Parameters& params) override;
+
+  ~SolverLBFGS();
 };

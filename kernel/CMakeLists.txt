@@ -65,11 +65,46 @@ endif(SLOTH_USE_EXTERNAL)
 if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
     MESSAGE(STATUS "Sloth use libTorch API ")
-    target_include_directories(Sloth PUBLIC ${TORCH_INCLUDE_DIRS})    
+    target_include_directories(Sloth PUBLIC ${TORCH_INCLUDE_DIRS})
+
     target_link_libraries(Sloth PUBLIC ${TORCH_LIBRARIES})
     
     target_compile_definitions(Sloth PUBLIC SLOTH_USE_LIBTORCH=1)
 endif(SLOTH_USE_LIBTORCH)
+
+# ########################
+# VORO++ API ??
+# ########################
+if(SLOTH_USE_VORO)
+    
+    find_path(
+        VORO_INCLUDE_DIR
+        NAMES voro++/voro++.hh
+        HINTS
+        /opt/homebrew/include
+        /usr/local/include
+        $ENV{VORO}/include
+    )
+
+    find_library(
+        VORO_LIBRARY
+        NAMES voro++ libvoro++
+        HINTS
+        /opt/homebrew/lib
+        /usr/local/lib
+        $ENV{VORO}/lib
+    )
+
+    message(STATUS "VORO_INCLUDE_DIR=${VORO_INCLUDE_DIR}")
+    message(STATUS "VORO_LIBRARY=${VORO_LIBRARY}")
+    if(NOT VORO_INCLUDE_DIR)
+        message(FATAL_ERROR "Voro++ include not found")
+    endif()
+    target_include_directories(Sloth  PUBLIC  ${VORO_INCLUDE_DIR})
+    target_link_libraries(Sloth PUBLIC ${VORO_LIBRARY})
+    message(STATUS "Sloth use Voro++ library")
+endif(SLOTH_USE_VORO)
+
 
 
 # ExprTk ??

@@ -277,15 +277,15 @@ int main(int argc, char* argv[]) {
   switch (p.tcase) {
     case 0:
       oper.overload_solver(HypreSolverType::HYPRE_GMRES,
-                           Parameters(Parameter("tol", 1.e-12), Parameter("kdim", 100.0),
-                                      Parameter("print_level", -1.0), Parameter("iter_max", 5000)));
+                           Parameters(Parameter("tol", 1.e-12), Parameter("kdim", 100),
+                                      Parameter("print_level", -1), Parameter("iter_max", 5000)));
       oper.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU);
       Message("Use a HypreGMRES solver with a HypreILU preconditioner");
       break;
     case 1:
       oper.overload_solver(HypreSolverType::HYPRE_PCG,
-                           Parameters(Parameter("tol", 1.e-12), Parameter("kdim", 100.0),
-                                      Parameter("print_level", -1.0), Parameter("iter_max", 5000)));
+                           Parameters(Parameter("tol", 1.e-12), Parameter("kdim", 100),
+                                      Parameter("print_level", -1), Parameter("iter_max", 5000)));
       oper.overload_preconditioner(HyprePreconditionerType::HYPRE_BOOMER_AMG);
       Message("Use a HyprePCG solver with a BoomerAMG preconditioner");
       break;

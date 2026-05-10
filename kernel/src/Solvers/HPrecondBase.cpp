@@ -45,17 +45,19 @@
 std::shared_ptr<mfem::HypreILU> PrecondHypreILU::create_solver(const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
-
-  const int print_level =
-      params.get_param_value_or_default<int>("print_level", HYPRE_ILU_DefaultConstant::print_level);
+  int print_level = HYPRE_ILU_DefaultConstant::print_level;
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level = params.get_param_value_or_default<int>("print_level",
+                                                         HYPRE_ILU_DefaultConstant::print_level);
+  }
   const HYPRE_Int type = static_cast<HYPRE_Int>(
       params.get_param_value_or_default<int>("type", HYPRE_ILU_DefaultConstant::type));
   const HYPRE_Int n_iter_max = static_cast<HYPRE_Int>(
       params.get_param_value_or_default<int>("iter_max", HYPRE_ILU_DefaultConstant::iter_max));
   const double tol =
       params.get_param_value_or_default<double>("rel_tol", HYPRE_ILU_DefaultConstant::tol);
-  const double reordering =
-      params.get_param_value_or_default<double>("rel_tol", HYPRE_ILU_DefaultConstant::reorder_type);
+  const int reordering =
+      params.get_param_value_or_default<int>("rel_tol", HYPRE_ILU_DefaultConstant::reorder_type);
 
   auto pp = std::make_shared<mfem::HypreILU>();
   pp->SetType(type);
@@ -107,9 +109,11 @@ std::shared_ptr<mfem::HypreBoomerAMG> PrecondHypreBoomerAMG::create_solver(
     const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
-
-  const int print_level = params.get_param_value_or_default<int>(
-      "print_level", HYPRE_BOOMER_AMG_DefaultConstant::print_level);
+  int print_level = HYPRE_BOOMER_AMG_DefaultConstant::print_level;
+  if (verbose_at_least(Verbosity::Verbose)) {
+    print_level = params.get_param_value_or_default<int>(
+        "print_level", HYPRE_BOOMER_AMG_DefaultConstant::print_level);
+  }
   const HYPRE_Int iter_max = static_cast<HYPRE_Int>(params.get_param_value_or_default<int>(
       "iter_max", HYPRE_BOOMER_AMG_DefaultConstant::iter_max));
   const HYPRE_Real tol = static_cast<HYPRE_Real>(
