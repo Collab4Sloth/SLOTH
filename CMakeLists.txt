@@ -77,36 +77,7 @@ if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
 endif(SLOTH_USE_LIBTORCH)
 
-# ########################
-# VORO++ API ??
-# ########################
-option(SLOTH_USE_VORO "Sloth use Voro++" OFF)
-if(SLOTH_USE_VORO)
 
-  find_path(
-    VORO_INCLUDE_DIR
-    NAMES voro++/voro++.hh
-    HINTS
-      /opt/homebrew/include
-      /usr/local/include
-      $ENV{VORO}/include
-  )
-
-  find_library(
-    VORO_LIBRARY
-    NAMES voro++ libvoro++
-    HINTS
-      /opt/homebrew/lib
-      /usr/local/lib
-      $ENV{VORO}/lib
-  )
-
-  message(STATUS "VORO_INCLUDE_DIR=${VORO_INCLUDE_DIR}")
-  message(STATUS "VORO_LIBRARY=${VORO_LIBRARY}")
-set(VORO_INCLUDE_DIR ${VORO_INCLUDE_DIR} CACHE PATH "Voro include dir")
-set(VORO_LIBRARY ${VORO_LIBRARY} CACHE FILEPATH "Voro library")
-
-endif()
 
 # ########################
 # Script

@@ -76,7 +76,27 @@ endif(SLOTH_USE_LIBTORCH)
 # VORO++ API ??
 # ########################
 if(SLOTH_USE_VORO)
-    # Link the Voro++ library if (VORO_INCLUDE_DIR AND VORO_LIBRARY)
+    
+    find_path(
+        VORO_INCLUDE_DIR
+        NAMES voro++/voro++.hh
+        HINTS
+        /opt/homebrew/include
+        /usr/local/include
+        $ENV{VORO}/include
+    )
+
+    find_library(
+        VORO_LIBRARY
+        NAMES voro++ libvoro++
+        HINTS
+        /opt/homebrew/lib
+        /usr/local/lib
+        $ENV{VORO}/lib
+    )
+
+    message(STATUS "VORO_INCLUDE_DIR=${VORO_INCLUDE_DIR}")
+    message(STATUS "VORO_LIBRARY=${VORO_LIBRARY}")
     if(NOT VORO_INCLUDE_DIR)
         message(FATAL_ERROR "Voro++ include not found")
     endif()
