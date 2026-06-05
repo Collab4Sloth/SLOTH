@@ -102,9 +102,7 @@ void AllenCahnNLFormIntegrator<VARS>::init() {
  *              in the integrator.
  */
 template <class VARS>
-void AllenCahnNLFormIntegrator<VARS>::check_variables_consistency() {
-  // TODO(cci): type of variables?
-}
+void AllenCahnNLFormIntegrator<VARS>::check_variables_consistency() {}
 
 /**
  * @brief Assemble the element-level residual vector for the nonlinear problem.
@@ -164,20 +162,20 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       // given u (elfun), compute grad(u)
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      const double coef_mobi =
-          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+
+      const double coef_mobi = get_mob_at_ip(blk, std::span<const double>(u_values),
+                                             std::span<const double>(vaux_gf_at_ip));
       const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
                                                     std::span<const double>(vaux_gf_at_ip));
-      gradU *= coef_mobi * lamb;
+      gradU *= coef_mobi * lamb * ip.weight * Tr.Weight();
+      ;
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // Given u, compute (w'(u), psi), psi is shape function
-      const double ww =
-          coef_mobi * this->compute_gradient_energy_coefficient(
-                          double_well_energy[blk], blk, std::span<const double>(u_values),
-                          std::span<const double>(vaux_gf_at_ip));
+      double ww = coef_mobi * this->compute_gradient_energy_coefficient(
+                                  double_well_energy[blk], blk, std::span<const double>(u_values),
+                                  std::span<const double>(vaux_gf_at_ip));
+      ww *= ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -240,20 +238,23 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       }
 
       // Laplacian : compute (grad(u), grad(psi)), psi is shape function.
-      const double coef_mobi =
-          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+
+      const double coef_mobi = get_mob_at_ip(blk, std::span<const double>(u_values),
+                                             std::span<const double>(vaux_gf_at_ip));
+
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
                                                     std::span<const double>(vaux_gf_at_ip));
-      AddMult_a_AAt(coef_mobi * lamb, gradPsi, *elmats(blk, blk));
+
+      const double mob_lamb = coef_mobi * lamb * ip.weight * Tr.Weight();
+      AddMult_a_AAt(mob_lamb, gradPsi, *elmats(blk, blk));
 
       // Compute w'(u)*(du,psi), psi is shape function ( // w''(u))
       double fun_val =
           coef_mobi * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
                                                         std::span<const double>(u_values),
                                                         std::span<const double>(vaux_gf_at_ip));
+      fun_val *= ip.weight * Tr.Weight();
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
@@ -278,15 +279,14 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
           u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
         }
 
-        const double coef_mobi =
-            this->compute_coefficient(mobility[jblk], std::span<const double>(u_values),
-                                      std::span<const double>(vaux_gf_at_ip)) *
-            ip.weight * Tr.Weight();
+        const double coef_mobi = get_mob_at_ip(jblk, std::span<const double>(u_values),
+                                               std::span<const double>(vaux_gf_at_ip));
 
         double fun_val =
             coef_mobi * this->compute_hessian_coefficient(double_well_energy[jblk], blk, jblk,
                                                           std::span<const double>(u_values),
                                                           std::span<const double>(vaux_gf_at_ip));
+        fun_val *= ip.weight * Tr.Weight();
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }
@@ -309,15 +309,14 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
           u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
         }
 
-        const double coef_mobi =
-            this->compute_coefficient(mobility[jblk], std::span<const double>(u_values),
-                                      std::span<const double>(vaux_gf_at_ip)) *
-            ip.weight * Tr.Weight();
+        const double coef_mobi = get_mob_at_ip(jblk, std::span<const double>(u_values),
+                                               std::span<const double>(vaux_gf_at_ip));
 
         double fun_val =
             coef_mobi * this->compute_hessian_coefficient(double_well_energy[jblk], blk, jblk,
                                                           std::span<const double>(u_values),
                                                           std::span<const double>(vaux_gf_at_ip));
+        fun_val *= ip.weight * Tr.Weight();
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }
@@ -354,4 +353,26 @@ void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {
       double_well_energy.add(*(this->get_coefficient(i, GlossaryType::FreeEnergy, 0)));
     }
   }
+}
+
+/**
+ * @brief Compute the value of the mobility at integration point
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk   Index of the block.
+ * @param u value of the current solution at ip
+ * @param un value of the previous solution at ip
+ *
+ * @return The computed mobility at integration point
+ */
+template <class VARS>
+double AllenCahnNLFormIntegrator<VARS>::get_mob_at_ip(
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
+  const double mobi = this->compute_coefficient(mobility[blk], values, aux_values);
+
+  return mobi;
 }

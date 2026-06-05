@@ -51,8 +51,7 @@
 template <class VARS>
 class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
-  std::vector<mfem::ParGridFunction> phi_gf_;
-  std::vector<mfem::ParGridFunction> phi_old_gf_;
+  int phase_field_index_;
   double latent_time_step_;
 
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility};
@@ -61,12 +60,18 @@ class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  protected:
   Coefficients mobility;
+  std::vector<mfem::ParGridFunction> vaux_gf_;
+  std::vector<mfem::ParGridFunction> vaux_old_gf_;
 
-  double get_latent_heat_at_ip(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ir,
-                               unsigned int blk);
+  double get_latent_heat_at_ip(unsigned int blk, const std::span<const double>& values,
+                               const std::span<const double>& aux_values);
+
+  virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
+                               const std::span<const double>& aux_values);
 
   void get_coefficients() override;
-  void check_variables_consistency();
+
+  virtual void check_variables_consistency();
 
  public:
   LatentHeatNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,

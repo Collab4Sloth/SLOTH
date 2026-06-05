@@ -89,6 +89,15 @@ void MeltingBaseNLFormIntegrator<VARS>::init() {
 }
 
 /**
+ * @brief  Check variables consistency
+ *
+ * @tparam VARS Template parameter defining the variables used
+ *              in the integrator.
+ */
+template <class VARS>
+void MeltingBaseNLFormIntegrator<VARS>::check_variables_consistency() {}
+
+/**
  * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
  * This method computes the residual vector  by element
@@ -142,19 +151,18 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
-      const double coef_mobi =
-          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+      const double coef_mobi = get_mob_at_ip(blk, std::span<const double>(u_values),
+                                             std::span<const double>(vaux_gf_at_ip));
       const double alpha = this->get_phase_change_at_ip(blk, std::span<const double>(u_values),
                                                         std::span<const double>(vaux_gf_at_ip));
       const double seed = this->get_seed_at_ip(blk, std::span<const double>(u_values),
                                                std::span<const double>(vaux_gf_at_ip));
-      const double ww = coef_mobi * (alpha * this->compute_gradient_energy_coefficient(
-                                                 interpolation_potential[blk], blk,
-                                                 std::span<const double>(u_values),
-                                                 std::span<const double>(vaux_gf_at_ip)) +
-                                     seed);
+      double ww = coef_mobi * (alpha * this->compute_gradient_energy_coefficient(
+                                           interpolation_potential[blk], blk,
+                                           std::span<const double>(u_values),
+                                           std::span<const double>(vaux_gf_at_ip))) +
+                  seed;
+      ww *= ip.weight * Tr.Weight();
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -215,10 +223,8 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
-      const double coef_mobi =
-          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+      const double coef_mobi = get_mob_at_ip(blk, std::span<const double>(u_values),
+                                             std::span<const double>(vaux_gf_at_ip));
       const double alpha = this->get_phase_change_at_ip(blk, std::span<const double>(u_values),
                                                         std::span<const double>(vaux_gf_at_ip));
       double fun_val =
@@ -226,6 +232,8 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
           this->compute_hessian_coefficient(
               interpolation_potential[blk], blk, blk, std::span<const double>(u_values),
               std::span<const double>(vaux_gf_at_ip));  // this->energy_derivatives(2, Tr, ip)(u);
+
+      fun_val *= ip.weight * Tr.Weight();
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
@@ -282,4 +290,26 @@ double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(
   const double seed = 0.0;
 
   return seed;
+}
+
+/**
+ * @brief Compute the value of the mobility at integration point
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param Tr Element transformation.
+ * @param ir Integration point
+ * @param blk   Index of the block.
+ * @param u value of the current solution at ip
+ * @param un value of the previous solution at ip
+ *
+ * @return The computed mobility at integration point
+ */
+template <class VARS>
+double MeltingBaseNLFormIntegrator<VARS>::get_mob_at_ip(
+    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
+    [[maybe_unused]] const std::span<const double>& aux_values) {
+  const double mobi = this->compute_coefficient(mobility[blk], values, aux_values);
+
+  return mobi;
 }
