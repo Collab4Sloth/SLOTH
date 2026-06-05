@@ -54,7 +54,7 @@ class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VA
   double melting_temperature_;
   double melting_enthalpy_;
   void get_parameters();
-  void check_variables_consistency();
+  void check_variables_consistency() override;
 
  protected:
   double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
