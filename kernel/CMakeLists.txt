@@ -102,11 +102,19 @@ if(SLOTH_USE_VORO)
     if(NOT VORO_INCLUDE_DIR)
         message(FATAL_ERROR "Voro++ include not found")
     endif()
+
     if(EXISTS "${VORO_INCLUDE_DIR}/voro++.hh")
         target_include_directories(Sloth PUBLIC ${VORO_INCLUDE_DIR})
     elseif(EXISTS "${VORO_INCLUDE_DIR}/voro++/voro++.hh")
         target_include_directories(Sloth PUBLIC ${VORO_INCLUDE_DIR}/voro++)
     endif()
+
+    if(NOT VORO_LIBRARY)
+        message(FATAL_ERROR "Voro++ library not found")
+    endif()
+
+    target_link_libraries(Sloth PUBLIC ${VORO_LIBRARY})
+    
     message(STATUS "Sloth use Voro++ library")
 endif(SLOTH_USE_VORO)
 
