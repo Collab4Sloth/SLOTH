@@ -19,7 +19,7 @@
 #include "./GrainsCoefficients.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
-#include "voro++/voro++.hh"
+#include "voro++.hh"
 
 using namespace voro;
 
@@ -30,7 +30,7 @@ double distance(double x1, double y1, double x2, double y2) {
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
-  setVerbosity(Verbosity::Normal);
+  setVerbosity(Verbosity::Quiet);
   //---------------------------------------
   // Initialize MPI
   //---------------------------------------
@@ -60,9 +60,9 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;
+  auto refinement_level = 0;  // 2;
   auto L = 32.;
-  auto NN = 32;  // 128;
+  auto NN = 32;
   // Create translation vectors defining the periodicity
   mfem::Vector x_translation({L, 0.0});
   mfem::Vector y_translation({0.0, L});
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
   const double& lambda(0.1);
 
   Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GrainGradient());
-  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::SemiImplicit, ExplicitGrainGw());
+  Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, GrainGw());
   Coefficient capillary(Glossary::Capillary, lambda);
   Coefficient mobility(Glossary::Mobility, mob);
   Coefficients coef_ac_grains(double_well_imp, capillary, mobility, grad_energy);
@@ -126,11 +126,11 @@ int main(int argc, char* argv[]) {
   // Close the file
   inputFile.close();
 
-  container con(0., L,                // x bounds
-                0., L,                // y bounds
-                0.0, 0.0,             // z bounds (set to zero for 2D case)
-                NN, NN, 1,            // Number of grid subdivisions
-                false, false, false,  // No periodic boundaries
+  container con(0., L,              // x bounds
+                0., L,              // y bounds
+                -0.5, 0.5,          // z bounds (set to zero for 2D case)
+                NN, NN, 1,          // Number of grid subdivisions
+                true, true, false,  // No periodic boundaries
                 NN);
 
   for (int i = 0; i < data.size(); ++i) {
@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.2;  // 50.;
+  const auto& t_final = 0.2;  // 50.0;
   const auto& dt = 1.e-1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
