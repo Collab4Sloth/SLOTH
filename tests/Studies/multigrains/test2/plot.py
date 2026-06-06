@@ -7,7 +7,6 @@ import numpy as np
 # =========================
 
 file = "./Saves/GrainsProblem/time_specialized.csv"
-# file = "./resu/time_specialized.csv"
 
 col_x  = 2
 col_y1 = 4

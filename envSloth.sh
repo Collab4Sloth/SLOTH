@@ -69,7 +69,11 @@ for argument; do
         ;;
     --release)
         built_code="Release"
-        Print "Sloth built with Release compiler options "
+        Print "Sloth built with Release compiler options [with -march=native]"
+        ;;
+    --portable)
+        built_code="PortableRelease"
+        Print "Sloth built with PortableRelease compiler options [Release with -march=x86_64]"
         ;;
     --debug)
         built_code="Debug"
@@ -146,7 +150,7 @@ for argument; do
         count=$(echo "$value" | grep -o ',' | wc -l)
 
         if [[ "${count}" -lt 1 ]]; then
-            Print "\nError: --external must contain 3 or 4 values separated by a comma."
+            Print "\nError: --external must contain 2 values separated by a comma."
             Print " --external=EXT_LIBDIR,EXT_LIBNAME,EXT_SRC,EXT_TEST "
             Print " EXT_LIBDIR : path towards the external package "
             Print " EXT_LIBNAME : path of the external dynamic library linked to SLOTH"

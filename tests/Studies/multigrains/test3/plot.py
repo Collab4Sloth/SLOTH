@@ -7,13 +7,13 @@ import numpy as np
 # =========================
 
 file = "./Saves/GrainsProblem/time_specialized.csv"
-# file = "./resu/time_specialized.csv"
+#file = "./resu/time_specialized.csv"
 
 col_x  = 2
 col_y1 = 4
 col_yf = 63
 
-n_grains = 30
+n_grains = 102
 
 # =========================
 # Read CSV file

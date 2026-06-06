@@ -23,8 +23,8 @@
 
 using namespace voro;
 
-double distance(double x1, double y1, double x2, double y2) {
-  return std::sqrt(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2));
+double distance(double x1, double y1, double z1, double x2, double y2, double z2) {
+  return std::sqrt(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2) + std::pow(z2 - z1, 2));
 }
 ///---------------
 /// Main program
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
+  const int DIM = 3;
   using FECollection = Test<DIM>::FECollection;
   using VARS = Test<DIM>::VARS;
   using VAR = Test<DIM>::VAR;
@@ -60,22 +60,24 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;  // 2;
+  auto refinement_level = 2;
   auto L = 32.;
   auto NN = 32;
   // Create translation vectors defining the periodicity
-  mfem::Vector x_translation({L, 0.0});
-  mfem::Vector y_translation({0.0, L});
-  std::vector<mfem::Vector> translations = {x_translation, y_translation};
-  SpatialDiscretization<FECollection, DIM> spatial("InlineSquareWithQuadrangles", 1,
-                                                   refinement_level, std::make_tuple(NN, NN, L, L),
-                                                   translations);
+  mfem::Vector x_translation({L, 0.0, 0.0});
+  mfem::Vector y_translation({0.0, L, 0.0});
+  mfem::Vector z_translation({0.0, 0.0, L});
+  std::vector<mfem::Vector> translations = {x_translation, y_translation, z_translation};
+  SpatialDiscretization<FECollection, DIM> spatial(
+      "InlineSquareWithTetraedres", 1, refinement_level, std::make_tuple(NN, NN, NN, L, L, L),
+      translations);
 
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto boundaries = {Boundary("lower", 0, "Periodic"), Boundary("right", 1, "Periodic"),
-                     Boundary("upper", 2, "Periodic"), Boundary("left", 3, "Periodic")};
+  auto boundaries = {Boundary("rear", 0, "Periodic"),  Boundary("lower", 1, "Periodic"),
+                     Boundary("right", 2, "Periodic"), Boundary("upper", 3, "Periodic"),
+                     Boundary("left", 4, "Periodic"),  Boundary("front", 5, "Periodic")};
   auto bcs = BoundaryConditions<FECollection, DIM>(&spatial, boundaries);
 
   // ###########################################
@@ -108,33 +110,33 @@ int main(int argc, char* argv[]) {
   }
 
   // Vector of tuples to store the data
-  std::vector<std::tuple<double, double>> data;
+  std::vector<std::tuple<double, double, double>> data;
   std::vector<double> dmin;
 
   // Read and parse the file
   std::string line;
   while (std::getline(inputFile, line)) {
     std::istringstream iss(line);
-    double col1, col2;
-    if (!(iss >> col1 >> col2)) {
+    double col1, col2, col3;
+    if (!(iss >> col1 >> col2 >> col3)) {
       std::cerr << "Error parsing line: " << line << std::endl;
       continue;
     }
-    data.emplace_back(col1, col2);
+    data.emplace_back(col1, col2, col3);
   }
 
   // Close the file
   inputFile.close();
 
-  container con(0., L,              // x bounds
-                0., L,              // y bounds
-                -0.5, 0.5,          // z bounds (set to zero for 2D case)
-                NN, NN, 1,          // Number of grid subdivisions
-                true, true, false,  // No periodic boundaries
+  container con(0., L,             // x bounds
+                0., L,             // y bounds
+                0.0, L,            // z bounds (set to zero for 2D case)
+                NN, NN, NN,        // Number of grid subdivisions
+                true, true, true,  // No periodic boundaries
                 NN);
 
   for (int i = 0; i < data.size(); ++i) {
-    con.put(i, std::get<0>(data[i]), std::get<1>(data[i]), 0.0);
+    con.put(i, std::get<0>(data[i]), std::get<1>(data[i]), std::get<2>(data[i]));
   }
 
   std::vector<std::function<double(const mfem::Vector&, double)>> vect_user_func;
@@ -153,7 +155,7 @@ int main(int argc, char* argv[]) {
               vl.pos(xx, y, z);
 
               // Calculate the distance from the grid point to the current particle
-              double dist = distance(x[0], x[1], xx, y);
+              double dist = distance(x[0], x[1], x[2], xx, y, z);
               if (dist < min_distance) {
                 min_distance = dist;
                 closest_particle_id = vl.pid();  // Get the particle ID (Voronoi cell index)
@@ -183,7 +185,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   const std::string& main_folder_path = "Saves";
   const auto& level_of_detail = 1;
-  const auto& frequency = 2;
+  const auto& frequency = 10;
 
   std::string calculation_path = "GrainsProblem";
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
@@ -215,7 +217,7 @@ int main(int argc, char* argv[]) {
 
   ope_ac_grains.overload_nl_solver(
       NLSolverType::LBFGS,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
 
   std::vector<Coefficients> vcoeff{
@@ -235,7 +237,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.2;  // 50.0;
+  const auto& t_final = 30.;
   const auto& dt = 1.e-1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));

@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   //           Meshing           //
   // ##############################
-  auto refinement_level = 0;  // 2;
+  auto refinement_level = 2;
   auto L = 32.;
   auto NN = 32;
   // Create translation vectors defining the periodicity
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
     vect_user_func.emplace_back(user_func);
   }
 
-  const int ngrains = 30;
+  const int ngrains = 102;
   auto v0 = VAR(&spatial, bcs, "phi_0", Glossary::PhaseField, 2, vect_user_func[0]);
   auto var_grains = VARS(v0);
   for (int i = 1; i < ngrains; i++) {
@@ -187,16 +187,41 @@ int main(int argc, char* argv[]) {
 
   std::string calculation_path = "GrainsProblem";
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
-      {"phi_0", {-1.1, 1.1}},  {"phi_1", {-1.1, 1.1}},  {"phi_2", {-1.1, 1.1}},
-      {"phi_3", {-1.1, 1.1}},  {"phi_4", {-1.1, 1.1}},  {"phi_5", {-1.1, 1.1}},
-      {"phi_6", {-1.1, 1.1}},  {"phi_7", {-1.1, 1.1}},  {"phi_8", {-1.1, 1.1}},
-      {"phi_9", {-1.1, 1.1}},  {"phi_10", {-1.1, 1.1}}, {"phi_11", {-1.1, 1.1}},
-      {"phi_12", {-1.1, 1.1}}, {"phi_13", {-1.1, 1.1}}, {"phi_14", {-1.1, 1.1}},
-      {"phi_15", {-1.1, 1.1}}, {"phi_16", {-1.1, 1.1}}, {"phi_17", {-1.1, 1.1}},
-      {"phi_18", {-1.1, 1.1}}, {"phi_19", {-1.1, 1.1}}, {"phi_20", {-1.1, 1.1}},
-      {"phi_21", {-1.1, 1.1}}, {"phi_22", {-1.1, 1.1}}, {"phi_23", {-1.1, 1.1}},
-      {"phi_24", {-1.1, 1.1}}, {"phi_25", {-1.1, 1.1}}, {"phi_26", {-1.1, 1.1}},
-      {"phi_27", {-1.1, 1.1}}, {"phi_28", {-1.1, 1.1}}, {"phi_29", {-1.1, 1.1}}};
+      {"phi_0", {-1.1, 1.1}},  {"phi_1", {-1.1, 1.1}},   {"phi_2", {-1.1, 1.1}},
+      {"phi_3", {-1.1, 1.1}},  {"phi_4", {-1.1, 1.1}},   {"phi_5", {-1.1, 1.1}},
+      {"phi_6", {-1.1, 1.1}},  {"phi_7", {-1.1, 1.1}},   {"phi_8", {-1.1, 1.1}},
+      {"phi_9", {-1.1, 1.1}},  {"phi_10", {-1.1, 1.1}},  {"phi_11", {-1.1, 1.1}},
+      {"phi_12", {-1.1, 1.1}}, {"phi_13", {-1.1, 1.1}},  {"phi_14", {-1.1, 1.1}},
+      {"phi_15", {-1.1, 1.1}}, {"phi_16", {-1.1, 1.1}},  {"phi_17", {-1.1, 1.1}},
+      {"phi_18", {-1.1, 1.1}}, {"phi_19", {-1.1, 1.1}},  {"phi_20", {-1.1, 1.1}},
+      {"phi_21", {-1.1, 1.1}}, {"phi_22", {-1.1, 1.1}},  {"phi_23", {-1.1, 1.1}},
+      {"phi_24", {-1.1, 1.1}}, {"phi_25", {-1.1, 1.1}},  {"phi_26", {-1.1, 1.1}},
+      {"phi_27", {-1.1, 1.1}}, {"phi_28", {-1.1, 1.1}},  {"phi_29", {-1.1, 1.1}},
+      {"phi_30", {-1.1, 1.1}}, {"phi_31", {-1.1, 1.1}},  {"phi_32", {-1.1, 1.1}},
+      {"phi_33", {-1.1, 1.1}}, {"phi_34", {-1.1, 1.1}},  {"phi_35", {-1.1, 1.1}},
+      {"phi_36", {-1.1, 1.1}}, {"phi_37", {-1.1, 1.1}},  {"phi_38", {-1.1, 1.1}},
+      {"phi_39", {-1.1, 1.1}}, {"phi_40", {-1.1, 1.1}},  {"phi_41", {-1.1, 1.1}},
+      {"phi_42", {-1.1, 1.1}}, {"phi_43", {-1.1, 1.1}},  {"phi_44", {-1.1, 1.1}},
+      {"phi_45", {-1.1, 1.1}}, {"phi_46", {-1.1, 1.1}},  {"phi_47", {-1.1, 1.1}},
+      {"phi_48", {-1.1, 1.1}}, {"phi_49", {-1.1, 1.1}},  {"phi_50", {-1.1, 1.1}},
+      {"phi_51", {-1.1, 1.1}}, {"phi_52", {-1.1, 1.1}},  {"phi_53", {-1.1, 1.1}},
+      {"phi_54", {-1.1, 1.1}}, {"phi_55", {-1.1, 1.1}},  {"phi_56", {-1.1, 1.1}},
+      {"phi_57", {-1.1, 1.1}}, {"phi_58", {-1.1, 1.1}},  {"phi_59", {-1.1, 1.1}},
+      {"phi_60", {-1.1, 1.1}}, {"phi_61", {-1.1, 1.1}},  {"phi_62", {-1.1, 1.1}},
+      {"phi_63", {-1.1, 1.1}}, {"phi_64", {-1.1, 1.1}},  {"phi_65", {-1.1, 1.1}},
+      {"phi_66", {-1.1, 1.1}}, {"phi_67", {-1.1, 1.1}},  {"phi_68", {-1.1, 1.1}},
+      {"phi_69", {-1.1, 1.1}}, {"phi_70", {-1.1, 1.1}},  {"phi_71", {-1.1, 1.1}},
+      {"phi_72", {-1.1, 1.1}}, {"phi_73", {-1.1, 1.1}},  {"phi_74", {-1.1, 1.1}},
+      {"phi_75", {-1.1, 1.1}}, {"phi_76", {-1.1, 1.1}},  {"phi_77", {-1.1, 1.1}},
+      {"phi_78", {-1.1, 1.1}}, {"phi_79", {-1.1, 1.1}},  {"phi_80", {-1.1, 1.1}},
+      {"phi_81", {-1.1, 1.1}}, {"phi_82", {-1.1, 1.1}},  {"phi_83", {-1.1, 1.1}},
+      {"phi_84", {-1.1, 1.1}}, {"phi_85", {-1.1, 1.1}},  {"phi_86", {-1.1, 1.1}},
+      {"phi_87", {-1.1, 1.1}}, {"phi_88", {-1.1, 1.1}},  {"phi_89", {-1.1, 1.1}},
+      {"phi_90", {-1.1, 1.1}}, {"phi_91", {-1.1, 1.1}},  {"phi_92", {-1.1, 1.1}},
+      {"phi_93", {-1.1, 1.1}}, {"phi_94", {-1.1, 1.1}},  {"phi_95", {-1.1, 1.1}},
+      {"phi_96", {-1.1, 1.1}}, {"phi_97", {-1.1, 1.1}},  {"phi_98", {-1.1, 1.1}},
+      {"phi_99", {-1.1, 1.1}}, {"phi_100", {-1.1, 1.1}}, {"phi_101", {-1.1, 1.1}}};
+
   bool enable_save_specialized_at_iter = true;
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
@@ -206,17 +231,25 @@ int main(int argc, char* argv[]) {
                  Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
   auto pst = PST(&spatial, p_pst);
 
-  std::vector<SPA*> spatials{&spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
-                             &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
-                             &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
-                             &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
-                             &spatial, &spatial, &spatial, &spatial, &spatial, &spatial};
+  std::vector<SPA*> spatials{
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
+      &spatial, &spatial, &spatial};
   OPE ope_ac_grains(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
   ope_ac_grains.overload_nl_solver(
       NLSolverType::LBFGS,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                 Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
+                 Parameter("rel_tol", 1.e-9), Parameter("abs_tol", 1.e-13)));
 
   std::vector<Coefficients> vcoeff{
       coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
@@ -224,7 +257,22 @@ int main(int argc, char* argv[]) {
       coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
       coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
       coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
-      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains};
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
+      coef_ac_grains, coef_ac_grains};
   PB problem_ac_grains(ope_ac_grains, var_grains, vcoeff, pst);
   // // Coupling 1
   auto cc = Coupling("Multigrains ", problem_ac_grains);
@@ -235,7 +283,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const auto& t_initial = 0.0;
-  const auto& t_final = 0.2;  // 50.0;
+  const auto& t_final = 50.0;
   const auto& dt = 1.e-1;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));

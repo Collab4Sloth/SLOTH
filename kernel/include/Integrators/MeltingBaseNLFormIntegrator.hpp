@@ -65,7 +65,12 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   virtual double get_seed_at_ip(unsigned int blk, const std::span<const double>& values,
                                 const std::span<const double>& aux_values);
 
+  virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
+                               const std::span<const double>& aux_values);
+
   void get_coefficients() override;
+
+  virtual void check_variables_consistency();
 
  public:
   MeltingBaseNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,

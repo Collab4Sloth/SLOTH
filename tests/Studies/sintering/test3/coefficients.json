@@ -1,0 +1,47 @@
+[
+    {
+    "expression":"dvol * c*c*c *( 10.0 - 15.0*c+6.0*c*c) + dvap * (1.0 - c*c*c *( 10.0-15.0*c+6.0*c*c)) + dsurf *c*(1-c) + dgb * ( Sum(eta[i],(i,1,9))*Sum(eta[i],(i,1,9))- Sum(eta[i]*eta[i],(i,1,9)))",
+    "variables":"c",
+    "auxiliary_variables":"eta(1..9)",
+    "constants":"(dvol:0.04),(dvap:0.002),(dsurf:16.0),(dgb:1.6)",
+    "class_name":"D",
+    "outputfile":"SinteringCoefficients"
+    },
+    {
+    "expression":"A * c * c * (1-c) * (1-c) +  B * (c*c+ 6*(1-c)*Sum(eta[i]*eta[i],(i,1,9)) -4*(2-c)*Sum(eta[i]*eta[i]*eta[i],(i,1,9)) + 3 *(Sum(eta[i]*eta[i],(i,1,9)))^2 ) ",
+    "constants":"(A:16.0),(B:1.0)",
+    "variables":"c, eta(1..9)",
+    "class_name":"Gimp",
+    "outputfile":"SinteringCoefficients"
+    },
+    {
+    "expression":"A * c * c * (1-c) * (1-c) +  B * (c*c+ 6*(1-c)*Sum(eta[i]*eta[i],(i,1,9)) -4*(2-c)*Sum(eta[i]*eta[i]*eta[i],(i,1,9)) + 3 *(Sum(eta[i]*eta[i],(i,1,9)))^2 ) ",
+    "constants":"(A:16.0),(B:1.0)",    "variables":"c",
+    "auxiliary_variables":"eta(1..9)",
+    "class_name":"Gc",
+    "outputfile":"SinteringCoefficients"
+    },
+    {
+    "expression":"A * c * c * (1-c) * (1-c) +  B * (c*c+ 6*(1-c)*Sum(eta[i]*eta[i],(i,1,9)) -4*(2-c)*Sum(eta[i]*eta[i]*eta[i],(i,1,9)) + 3 *(Sum(eta[i]*eta[i],(i,1,9)))^2 ) ",
+    "constants":"(A:16.0),(B:1.0)",    "variables":"eta(1..9)",
+    "auxiliary_variables":"c",
+    "class_name":"Geta",
+    "outputfile":"SinteringCoefficients"
+    },
+    {
+    "expression":"2.5*dot(x,x)+sdot(eta(1..9))",
+    "variables":"x", 
+    "auxiliary_variables":"eta(1..9)",
+    "class_name":"GradC",
+    "outputfile":"SinteringCoefficients",
+    "gradient":true
+    },
+    {
+    "expression":"2.5*dot(x,x)+sdot(eta(1..9))",
+    "auxiliary_variables":"x", 
+    "variables":"eta(1..9)",
+    "class_name":"Gradeta",
+    "outputfile":"SinteringCoefficients",
+    "gradient":true
+    }
+]
