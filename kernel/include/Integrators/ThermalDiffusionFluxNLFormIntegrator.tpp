@@ -62,9 +62,9 @@ void ThermalDiffusionFluxNLFormIntegrator<VARS>::get_parameters() {
  */
 template <class VARS>
 ThermalDiffusionFluxNLFormIntegrator<VARS>::ThermalDiffusionFluxNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : DiffusionFluxNLFormIntegrator<VARS>(u_old, params, auxvars, coefficients) {
+    : DiffusionFluxNLFormIntegrator<VARS>(geometry, u_old, params, auxvars, coefficients) {
   this->check_variables_consistency();
 }
 

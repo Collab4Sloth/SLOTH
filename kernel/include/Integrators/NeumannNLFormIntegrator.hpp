@@ -48,7 +48,7 @@ class NeumannNLFormIntegrator : public RobinNLFormIntegrator<VARS> {
   void get_coefficients() override;
 
  public:
-  NeumannNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+  NeumannNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
                           const std::vector<mfem::ParGridFunction>& aux_old,
                           const Parameters& params, std::vector<VARS*> auxvars,
                           const std::vector<Coefficients>& coefficients, const unsigned int block,

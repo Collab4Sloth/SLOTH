@@ -39,6 +39,7 @@
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
+#include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -56,6 +57,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::vector<std::vector<std::string>> vect_aux_infos_;
 
  protected:
+  Geometry geometry_ = Geometry::Cartesian;
+
   std::string integrator_name_ = "";
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
@@ -98,9 +101,11 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                      const std::span<const double>& values,
                                      const std::span<const double>& aux_values);
 
+  bool isAxisymmetric() const noexcept;
+
  public:
   virtual void init() = 0;
-  SlothNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+  SlothNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction> u_old,
                         const std::vector<mfem::ParGridFunction> aux_old, const Parameters& params,
                         std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
   virtual ~SlothNLFormIntegrator() = default;

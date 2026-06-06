@@ -38,6 +38,7 @@
 
 #include "Coefficients/Coefficients.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
+#include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
 #include "Variables/Variable.hpp"
@@ -344,4 +345,16 @@ void ProblemBase<VAR, PST>::save(const int& iter, const double& current_time) {
 template <class VAR, class PST>
 std::vector<std::tuple<std::string, bool, double>> ProblemBase<VAR, PST>::get_convergence() {
   return this->var_convergence_;
+}
+
+/**
+ * @brief Define the geometry of the problem (Cartesian, Axisymmetric)
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param geometry
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::setGeometry(Geometry geometry) {
+  this->geometry_ = geometry;
 }

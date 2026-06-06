@@ -38,6 +38,7 @@
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
+#include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -50,12 +51,17 @@
  * @param auxvars
  */
 template <class VARS>
-SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(Geometry geometry,
+                                                   const std::vector<mfem::ParGridFunction> u_old,
                                                    const std::vector<mfem::ParGridFunction> aux_old,
                                                    const Parameters& params,
                                                    std::vector<VARS*> auxvars,
                                                    const std::vector<Coefficients>& coefficients)
-    : u_old_(u_old), aux_old_gf_(aux_old), params_(params), coefficients_(coefficients) {
+    : geometry_(geometry),
+      u_old_(u_old),
+      aux_old_gf_(aux_old),
+      params_(params),
+      coefficients_(coefficients) {
   this->nb_blk_ = this->u_old_.size();
   this->manage_auxiliary_variables(auxvars);
   this->aux_gf_ = this->get_aux_gf();
@@ -318,4 +324,17 @@ double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
       return coef.compute_hessian(iblk, jblk, u, aux_values);
     }
   }
+}
+
+/**
+ * @brief Indicates whether the Problem uses an axisymmetric geometry.
+ *
+ * @tparam VAR Type representing the problem variables.
+ *
+ * @retval true The problem geometry is axisymmetric.
+ * @retval false The problem geometry is not axisymmetric.
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::isAxisymmetric() const noexcept {
+  return this->geometry_ == Geometry::Axisymmetric;
 }

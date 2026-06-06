@@ -911,43 +911,43 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
   switch (Integrators::from(integrator)) {
     case Integrators::MassFlux: {
       return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fick: {
-      return new FickNLFormIntegrator<Variables<T, DIM>>(vun, vauxn, all_params,
+      return new FickNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
                                                          this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fourier: {
       return new FourierNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::CahnHilliard: {
       return new CahnHilliardNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::AllenCahn: {
       return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::SplitAllenCahn: {
       return new BlockAllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingTemperature: {
       return new MeltingTemperatureNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingCalphad: {
       return new MeltingCalphadNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingConstant: {
       return new MeltingConstantNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::LatentHeat: {
       return new LatentHeatNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");
@@ -974,13 +974,15 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_bdr_integrat
     const unsigned int block, const unsigned int bdr_id) {
   switch (Integrators::from(integrator)) {
     case Integrators::Neumann: {
-      return new NeumannNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_, block, bdr_id);
+      return new NeumannNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
+                                                            this->auxvariables_,
+                                                            this->coefficients_, block, bdr_id);
       break;
     }
     case Integrators::Robin: {
-      return new RobinNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_, block, bdr_id);
+      return new RobinNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
+                                                          this->auxvariables_, this->coefficients_,
+                                                          block, bdr_id);
       break;
     }
     default:
@@ -1089,4 +1091,16 @@ void OperatorBase<T, DIM>::set_time_coefficients(double time) {
   if (this->grad_energy_coefficient_.has_value()) {
     (*this->grad_energy_coefficient_).set_time(time);
   }
+}
+
+/**
+ * @brief Define the geometry of the problem (Cartesian, Axisymmetric)
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param geometry
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::setGeometry(Geometry geometry) {
+  this->geometry_ = geometry;
 }

@@ -660,18 +660,18 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_int
     const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
     case Integrators::TimeDerivative: {
-      return new TimeNLFormIntegrator<Variables<T, DIM>>(vun, vauxn, all_params,
+      return new TimeNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
                                                          this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::HeatTimeDerivative: {
       return new HeatTimeNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::SplitTimeDerivative: {
       return new TimeCHNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     default:

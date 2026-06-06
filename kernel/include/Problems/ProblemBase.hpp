@@ -38,6 +38,7 @@
 
 #include "Coefficients/Coefficients.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
+#include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
 #include "Variables/Variable.hpp"
@@ -64,6 +65,7 @@ class ProblemBase {
   void check_convergence(const std::vector<std::unique_ptr<mfem::Vector>>& unks);
 
  protected:
+  Geometry geometry_ = Geometry::Cartesian;
   std::string name_{"Unnamed problem"};
   VAR& variables_;
   std::vector<VAR*> auxvariables_;
@@ -98,6 +100,7 @@ class ProblemBase {
 
   std::vector<std::tuple<std::string, bool, double>> get_convergence();
 
+  void setGeometry(Geometry geometry);
   /////////////////////////////////////////////////////
 
   virtual void initialize([[maybe_unused]] const double& initial_time) {}

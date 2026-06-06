@@ -62,7 +62,7 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
-  TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+  TimeNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction> u_old,
                        const std::vector<mfem::ParGridFunction> aux_old, const Parameters& params,
                        std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
 
