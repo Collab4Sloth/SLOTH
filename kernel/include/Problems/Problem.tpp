@@ -394,7 +394,7 @@ void Problem<OPE, VAR, PST>::do_time_step(
 
   this->set_time_coefficients(next_time);
 
-  this->setGeometry(this->geometry_);
+  this->oper_.setGeometry(this->geometry_);
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);
 
   // Store the solution into a temporary mfem::Vector that will be used during updating stage, if

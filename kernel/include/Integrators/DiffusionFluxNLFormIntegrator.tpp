@@ -186,8 +186,11 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
-
-    this->Flux_ *= ip.weight * Tr.Weight();
+    double weight_coef = ip.weight * Tr.Weight();
+    if (this->isAxisymmetric()) {
+      weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+    }
+    this->Flux_ *= weight_coef;
 
     this->gradPsi.AddMult(this->Flux_, *elvect[blk], 1.0);
   }
@@ -248,10 +251,16 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     }
 
     Tr.SetIntPoint(&ip);
+
+    double weight_coef = ip.weight * Tr.Weight();
+    if (this->isAxisymmetric()) {
+      weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+    }
+
     const double coeff_diffu =
         this->compute_coefficient(stab_diffusion[blk], std::span<const double>(u_values),
                                   std::span<const double>(vaux_gf_at_ip)) *
-        ip.weight * Tr.Weight();
+        weight_coef;
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
   }

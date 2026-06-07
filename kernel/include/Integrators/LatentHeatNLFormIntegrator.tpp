@@ -174,10 +174,15 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+
       const double latent_heat =
           this->get_latent_heat_at_ip(blk, std::span<const double>(u_values),
                                       std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+          weight_coef;
       add(*elvect[blk], latent_heat, Psi, *elvect[blk]);
     }
   }

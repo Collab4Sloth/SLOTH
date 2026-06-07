@@ -163,18 +163,23 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
-      const double xx = ip.weight * Tr.Weight();
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
 
-      gradU *= xx * this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
-                                              std::span<const double>(vaux_gf_at_ip));
+      gradU *=
+          weight_coef * this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
+                                                  std::span<const double>(vaux_gf_at_ip));
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       const double ww =
-          xx * (eta + this->compute_gradient_energy_coefficient(
-                          double_well_energy[blk], blk, std::span<const double>(u_values),
-                          std::span<const double>(vaux_gf_at_ip)));
+          weight_coef * (eta + this->compute_gradient_energy_coefficient(
+                                   double_well_energy[blk], blk, std::span<const double>(u_values),
+                                   std::span<const double>(vaux_gf_at_ip)));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -212,10 +217,15 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+
       const double coef_mob =
           this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
                                     std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+          weight_coef;
 
       const double ww = -coef_mob * eta;
 
@@ -281,18 +291,22 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
-      const double xx = ip.weight * Tr.Weight();
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
       const double coef_lambda = this->compute_coefficient(
           lambda[blk], std::span<const double>(u_values), std::span<const double>(vaux_gf_at_ip));
 
-      AddMult_a_AAt(xx * coef_lambda, gradPsi, *elmats(blk, blk));
+      AddMult_a_AAt(weight_coef * coef_lambda, gradPsi, *elmats(blk, blk));
 
       double fun_val =
-          xx * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
-                                                 std::span<const double>(u_values),
-                                                 std::span<const double>(vaux_gf_at_ip));
+          weight_coef * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
+                                                          std::span<const double>(u_values),
+                                                          std::span<const double>(vaux_gf_at_ip));
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -318,8 +332,11 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcShape(ip, Psi);
       Tr.SetIntPoint(&ip);
 
-      double ww = ip.weight * Tr.Weight();
-      AddMult_a_VVt(ww, Psi, *elmats(blk, off_blk));
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+      AddMult_a_VVt(weight_coef, Psi, *elmats(blk, off_blk));
     }
   }
   // Block 1 0  dR(eta)dphi=d(M eta )/dphi
@@ -368,10 +385,16 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         u_values[off_blk] = (*elfun[off_blk]) * Psi;
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+
       const double coef_mob =
           -this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
                                      std::span<const double>(vaux_gf_at_ip)) *
-          ip.weight * Tr.Weight();
+          weight_coef;
 
       AddMult_a_VVt(coef_mob, Psi, *elmats(blk, blk));
     }

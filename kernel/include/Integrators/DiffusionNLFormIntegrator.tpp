@@ -155,7 +155,12 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
       gradPsi.MultTranspose(*elfun[blk], gradU);
       double diffu = this->compute_coefficient(diffusion[blk], std::span<const double>(u_values),
                                                std::span<const double>(vaux_gf_at_ip));
-      const double coeff_diffu = diffu * ip.weight * Tr.Weight();
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+      const double coeff_diffu = diffu * weight_coef;
       gradU *= coeff_diffu;
       gradPsi.AddMult(gradU, *elvect[blk]);
     }
@@ -227,11 +232,17 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
                                              std::span<const double>(vaux_gf_at_ip));
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
-      AddMult_a_AAt(diffu * ip.weight * Tr.Weight(), gradPsi, *elmat(blk, blk));
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+      }
+
+      AddMult_a_AAt(diffu * weight_coef, gradPsi, *elmat(blk, blk));
 
       gradPsi.MultTranspose(*elfun[blk], gradU);
       gradPsi.AddMult(gradU, vec);
-      AddMult_a_VWt(grad_diffu * ip.weight * Tr.Weight(), Psi, vec, *elmat(blk, blk));
+      AddMult_a_VWt(grad_diffu * weight_coef, Psi, vec, *elmat(blk, blk));
     }
   }
 }

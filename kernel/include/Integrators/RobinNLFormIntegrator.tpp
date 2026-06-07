@@ -245,13 +245,18 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
         }
 
         Tr.SetIntPoint(&ip);
+        double weight_coef = ip.weight * Tr.Weight();
+        if (this->isAxisymmetric()) {
+          weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        }
+
         const double coeff_robin =
             (this->compute_coefficient(robin_a, std::span<const double>(u_values),
                                        std::span<const double>(vaux_gf_at_ip)) +
              this->compute_gradient_coefficient(robin_a, blk, std::span<const double>(u_values),
                                                 std::span<const double>(vaux_gf_at_ip)) *
                  u_values[blk]) *
-            ip.weight * Tr.Weight();
+            weight_coef;
         AddMult_a_VVt(coeff_robin, Psi, *elmat(blk, blk));
       }
     }
