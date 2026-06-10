@@ -80,6 +80,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   Parameters params_;
   std::vector<Coefficients> coefficients_;
   unsigned int nb_blk_;
+  unsigned int nb_vaux_;
 
   std::vector<mfem::ParGridFunction> get_aux_gf();
   std::vector<std::vector<std::string>> get_aux_infos();

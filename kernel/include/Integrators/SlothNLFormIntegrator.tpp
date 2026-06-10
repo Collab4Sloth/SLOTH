@@ -63,7 +63,9 @@ SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(Geometry geometry,
       params_(params),
       coefficients_(coefficients) {
   this->nb_blk_ = this->u_old_.size();
+
   this->manage_auxiliary_variables(auxvars);
+
   this->aux_gf_ = this->get_aux_gf();
   this->aux_infos_ = this->get_aux_infos();
 }
@@ -86,6 +88,8 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
       this->vect_aux_infos_.emplace_back(std::move(var_info));
     }
   }
+
+  this->nb_vaux_ = this->vect_aux_gf_.size();
 }
 
 /**

@@ -144,7 +144,7 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
   std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
+  std::vector<double> vaux_gf_at_ip(2 * this->nb_vaux_);
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -164,9 +164,9 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       Tr.SetIntPoint(&ip);
 
-      for (size_t k = 0; k < this->vaux_gf_.size(); ++k) {
+      for (size_t k = 0; k < this->nb_vaux_; ++k) {
         vaux_gf_at_ip[k] = this->vaux_gf_[k].GetValue(Tr, ip);
-        vaux_gf_at_ip[k + num_blocks] = this->vaux_old_gf_[k].GetValue(Tr, ip);
+        vaux_gf_at_ip[k + this->nb_vaux_] = this->vaux_old_gf_[k].GetValue(Tr, ip);
       }
       // Get values
       for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
@@ -264,8 +264,9 @@ template <class VARS>
 double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(
     [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
     [[maybe_unused]] const std::span<const double>& aux_values) {
-  std::span<const double> local_auxvalues(aux_values.begin(), aux_values.begin() + this->nb_blk_);
-  std::span<const double> local_auxvalues_n(aux_values.begin() + this->nb_blk_, aux_values.end());
+  std::span<const double> local_auxvalues(aux_values.begin(), aux_values.begin() + this->nb_vaux_);
+  std::span<const double> local_auxvalues_n(aux_values.begin() + this->nb_vaux_, aux_values.end());
+
   const double mobility_value = this->get_mob_at_ip(blk, values, local_auxvalues);
 
   const double phi = local_auxvalues[this->phase_field_index_];
