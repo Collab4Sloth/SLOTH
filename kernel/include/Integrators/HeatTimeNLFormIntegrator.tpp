@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"

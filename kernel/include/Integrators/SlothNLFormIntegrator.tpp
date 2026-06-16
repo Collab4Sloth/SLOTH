@@ -35,6 +35,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"

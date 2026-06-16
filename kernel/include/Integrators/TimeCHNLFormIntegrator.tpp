@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -226,7 +227,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       double coef_a =
           this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
@@ -328,7 +329,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       double coef_a =

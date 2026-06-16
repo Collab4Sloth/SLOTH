@@ -54,7 +54,8 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
   std::string secondary_phase_;
   int dgm_primary_phase_index_;
   int dgm_secondary_phase_index_;
-  int nucleus_index_;
+  int primary_nucleus_index_;
+  int secondary_nucleus_index_;
 
   double melting_temperature_;
   double melting_enthalpy_;

@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
@@ -181,7 +182,7 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
 
         double weight_coef = ip.weight * Tr.Weight();
         if (this->isAxisymmetric()) {
-          weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
         }
         const double val =
             weight_coef * (this->compute_coefficient(robin_a, std::span<const double>(u_values),
@@ -251,7 +252,7 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
         Tr.SetIntPoint(&ip);
         double weight_coef = ip.weight * Tr.Weight();
         if (this->isAxisymmetric()) {
-          weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
         }
 
         const double coeff_robin =

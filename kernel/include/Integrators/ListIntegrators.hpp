@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "Integrators/AllenCahnDiffusionControlNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
 #include "Integrators/BlockAllenCahnNLFormIntegrator.hpp"
 #include "Integrators/CahnHilliardNLFormIntegrator.hpp"

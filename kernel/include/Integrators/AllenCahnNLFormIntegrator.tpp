@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -170,7 +171,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       gradU *= coef_mobi * lamb * weight_coef;
@@ -254,7 +255,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       const double mob_lamb = coef_mobi * lamb * weight_coef;
@@ -299,7 +300,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
                                                           std::span<const double>(vaux_gf_at_ip));
         double weight_coef = ip.weight * Tr.Weight();
         if (this->isAxisymmetric()) {
-          weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
         }
 
         fun_val *= weight_coef;
@@ -335,7 +336,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
         double weight_coef = ip.weight * Tr.Weight();
         if (this->isAxisymmetric()) {
-          weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
         }
 
         fun_val *= weight_coef;

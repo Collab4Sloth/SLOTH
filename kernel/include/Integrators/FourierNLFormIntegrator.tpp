@@ -30,6 +30,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/DiffusionNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"

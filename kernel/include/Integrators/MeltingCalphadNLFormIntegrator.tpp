@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/MeltingBaseNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -144,8 +145,10 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_driving_forces() {
  */
 template <class VARS>
 void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
-  bool nucleus_found = false;
-  this->nucleus_index_ = -1;
+  bool secondary_nucleus_found = false;
+  bool primary_nucleus_found = false;
+  this->secondary_nucleus_index_ = -1;
+  this->primary_nucleus_index_ = -1;
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     const auto& variable_info = this->aux_infos_[i];
     MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
@@ -164,11 +167,16 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
                 ": the name of the phase and the symbol 'nucleus'");
 
     if (variable_info[0] == this->secondary_phase_) {
-      this->nucleus_index_ = i;
-      nucleus_found = true;
+      this->secondary_nucleus_index_ = i;
+      secondary_nucleus_found = true;
+    }
+    if (variable_info[0] == this->primary_phase_) {
+      this->primary_nucleus_index_ = i;
+      primary_nucleus_found = true;
     }
   }
-  MFEM_VERIFY(nucleus_found, "Nucleus for secondary phase must be set.");
+  MFEM_VERIFY(primary_nucleus_found, "Nucleus for primary phase must be set.");
+  MFEM_VERIFY(secondary_nucleus_found, "Nucleus for secondary phase must be set.");
 }
 
 /**
@@ -203,7 +211,7 @@ double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
 }
 
 /**
- * @brief Compute the value of a seed of the secondary phase at integration point
+ * @brief Compute the value of a seed of the secondary or primary phases at integration point
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
@@ -221,10 +229,8 @@ double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(
     [[maybe_unused]] const std::span<const double>& aux_values) {
   // Nucleus must be equal to zero except when phase transition starts
 
-  // std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-  // std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-
-  const double seed = -aux_values[this->nucleus_index_];
+  const double seed =
+      -aux_values[this->secondary_nucleus_index_] - aux_values[this->primary_nucleus_index_];
 
   return seed;
 }

@@ -30,6 +30,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/NeumannNLFormIntegrator.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"

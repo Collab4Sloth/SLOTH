@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameters.hpp"

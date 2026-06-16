@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameters.hpp"
@@ -233,7 +234,7 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       const double ww = coef_a * coef_b * u * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
@@ -303,7 +304,7 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
                                     std::span<const double>(vaux_gf_at_ip));
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       double fun_val = coef_a * coef_b * weight_coef;
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));

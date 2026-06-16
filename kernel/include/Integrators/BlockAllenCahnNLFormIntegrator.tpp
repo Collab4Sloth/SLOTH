@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
@@ -165,7 +166,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
@@ -219,7 +220,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       const double coef_mob =
@@ -293,7 +294,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
@@ -334,7 +335,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       AddMult_a_VVt(weight_coef, Psi, *elmats(blk, off_blk));
     }
@@ -388,7 +389,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       const double coef_mob =

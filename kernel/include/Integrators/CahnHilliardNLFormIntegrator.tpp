@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -196,7 +197,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
@@ -249,7 +250,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
@@ -323,7 +324,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
@@ -364,7 +365,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       AddMult_a_VVt(weight_coef, Psi, *elmats(blk, off_blk));
@@ -419,7 +420,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       const double coef_mob =

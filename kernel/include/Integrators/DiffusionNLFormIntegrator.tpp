@@ -32,6 +32,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
@@ -158,7 +159,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       const double coeff_diffu = diffu * weight_coef;
       gradU *= coeff_diffu;
@@ -235,7 +236,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
-        weight_coef *= mfem::CylindricalRadialCoefficient().Eval(Tr, ip);
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
       AddMult_a_AAt(diffu * weight_coef, gradPsi, *elmat(blk, blk));
