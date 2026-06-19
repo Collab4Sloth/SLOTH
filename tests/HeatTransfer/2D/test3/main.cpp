@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-#include "./Robin.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 ///---------------
