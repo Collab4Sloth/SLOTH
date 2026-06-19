@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-#include "./Robin.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 ///---------------
@@ -103,7 +102,9 @@ int main(int argc, char* argv[]) {
         });
 
     Coefficient robin_b(Glossary::Neumann, -1.0);
+    Coefficient robin_bb(Glossary::Neumann, 1.0);
     robin_b.set_bdr_index_coef(std::vector<int>{2});
+    robin_bb.set_bdr_index_coef(std::vector<int>{0});
 
     auto heat_vars =
         VARS(VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2,
@@ -131,7 +132,7 @@ int main(int argc, char* argv[]) {
     // ####################
 
     // Heat:
-    Coefficients coef_pb(density, heat_capacity, conductivity, robin_b);
+    Coefficients coef_pb(density, heat_capacity, conductivity, robin_b, robin_bb);
     std::vector<SPA*> spatials{&spatial};
 
     auto src_func = std::function<double(const mfem::Vector&, double)>(
@@ -159,9 +160,6 @@ int main(int argc, char* argv[]) {
         Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
                    Parameter("rel_tol", 1.e-9), Parameter("abs_tol", 1.e-9)));
 
-    // auto T_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-16);
-    // auto CVG = Convergence(T_cvg);
-
     PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
     Heat_pb.setGeometry(Geometry::Axisymmetric);
     // Coupling 1
@@ -172,7 +170,7 @@ int main(int argc, char* argv[]) {
     // ###########################################
     // ###########################################
     const auto& t_initial = 0.0;
-    const auto& t_final = 0.05;
+    const auto& t_final = 0.01;
     const auto& dt = 0.001;
     auto time_params = Parameters(Parameter("initial_time", t_initial),
                                   Parameter("final_time", t_final), Parameter("time_step", dt));

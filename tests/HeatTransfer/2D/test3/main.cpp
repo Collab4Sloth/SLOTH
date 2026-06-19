@@ -99,11 +99,8 @@ int main(int argc, char* argv[]) {
           const double r = vcoord[0];
           const double z = vcoord[1];
 
-          return std::exp(-time) * std::cos(M_PI * r * r) * std::cos(M_PI * z);  //-qtop*z;
+          return std::exp(-time) * std::cos(M_PI * r * r) * std::cos(M_PI * z);
         });
-
-    // Coefficient robin_b(Glossary::Robin_b, qtop);
-    // robin_b.set_bdr_index_coef(std::vector<int>{2});
 
     auto heat_vars =
         VARS(VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2,
@@ -158,9 +155,6 @@ int main(int argc, char* argv[]) {
         NLSolverType::NEWTON,
         Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
                    Parameter("rel_tol", 1.e-9), Parameter("abs_tol", 1.e-9)));
-
-    // auto T_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-16);
-    // auto CVG = Convergence(T_cvg);
 
     PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
     Heat_pb.setGeometry(Geometry::Axisymmetric);
