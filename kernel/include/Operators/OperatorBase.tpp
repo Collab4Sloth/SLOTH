@@ -406,25 +406,39 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
   const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::Array<int> Robin_bdr;
   mfem::Array<int> Neumann_bdr;
+
+  auto make_boundary_marker = [](int nb_bdr, int j) {
+    mfem::Array<int> marker(nb_bdr);
+    marker = 0;
+    marker[j] = 1;
+    return marker;
+  };
+
   // Loop over variables
   for (int i = 0; i < fes_size; ++i) {
     Robin_bdr = this->bcs_[i]->get_marker_array("Robin");
+    const int nb_bdr = Robin_bdr.Size();
     Neumann_bdr = this->bcs_[i]->get_marker_array("Neumann");
 
-    const int nb_bdr = Robin_bdr.Size();
-    this->array_bdr_.SetSize(nb_bdr);
-    Coefficients coefficients = this->coefficients_[i];
+    // All finite element spaces are assumed to live on the same mesh.
+    // Therefore all boundary marker arrays have the same size.
+    if (this->array_bdr_.empty()) {
+      this->array_bdr_.resize(nb_bdr);
+    }
+    MFEM_VERIFY(this->array_bdr_.size() == nb_bdr, "Inconsistent number of boundary attributes.");
+
+    const Coefficients& coefficients = this->coefficients_[i];
     const int coef_size = coefficients.size();
 
     // Loop over boundaries
-    for (auto j = 0; j < nb_bdr; j++) {
+    for (int j = 0; j < nb_bdr; j++) {
       // Add Neumann integrator
       if (Neumann_bdr[j] > 0) {
         // Check if a coefficient is given for this bc
         // (else Homogeneous Neumann)
         bool has_neumann_coeff = false;
         for (int l = 0; l < coef_size; l++) {
-          auto coef = coefficients[l];
+          const auto& coef = coefficients[l];
           if (coef.get_type() == GlossaryType::Neumann) {
             auto bdr_ids = coef.get_bdr_index_coef();
             if (std::find(bdr_ids.begin(), bdr_ids.end(), j) != bdr_ids.end()) {
@@ -436,18 +450,16 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
         // If a Neumann coefficient is specified,
         // add the Neumann integrator even if the coefficient is zero
         if (has_neumann_coeff) {
-          this->array_bdr_ = 0;
-          this->array_bdr_[j] = 1;
+          this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
           auto integrator_ptr = this->set_bdr_nlfi_ptr("Neumann", u_vect, i, j);
-          this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_);
+          this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
         }
       }
       // Add Robin integrator
       if (Robin_bdr[j] > 0) {
-        this->array_bdr_ = 0;
-        this->array_bdr_[j] = 1;
+        this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
         auto integrator_ptr = this->set_bdr_nlfi_ptr("Robin", u_vect, i, j);
-        this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_);
+        this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
       }
     }
   }
@@ -554,7 +566,7 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
     fe = this->fes_[id_var]->GetFE(i);
     const mfem::IntegrationRule* ir;
 
-    int intorder = 2 * fe->GetOrder() + 3;  // <----------
+    int intorder = 2 * fe->GetOrder() + 3;
     ir = &(mfem::IntRules.Get(fe->GetGeomType(), intorder));
 
     mfem::real_t int_elem = 0.0;

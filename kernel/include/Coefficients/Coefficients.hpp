@@ -62,8 +62,9 @@ class Coefficients {
 
   void add(Coefficient coef);
   std::vector<Coefficient> getCoefficients() const;
-  size_t size() noexcept;
-  Coefficient operator[](size_t i);
+  size_t size() const noexcept;
+  Coefficient& operator[](size_t i);
+  const Coefficient& operator[](size_t i) const;
 
   std::vector<GlossaryType> get_types() const;
 

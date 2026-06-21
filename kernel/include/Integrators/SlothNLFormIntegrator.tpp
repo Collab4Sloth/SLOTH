@@ -133,7 +133,7 @@ std::vector<std::vector<std::string>> SlothNLFormIntegrator<VARS>::get_aux_infos
  */
 template <class VARS>
 void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType> expected_types) {
-  for (auto coefficients : this->coefficients_) {
+  for (const auto& coefficients : this->coefficients_) {
     auto vect_types = coefficients.get_types();
     std::list<GlossaryType> TestedGlossaryType;
     TestedGlossaryType.assign(vect_types.begin(), vect_types.end());
@@ -171,10 +171,10 @@ std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const in
                                                                         GlossaryType type,
                                                                         unsigned int id,
                                                                         std::optional<int> bdr_id) {
-  Coefficients coefficients = this->coefficients_[blk];
+  const Coefficients& coefficients = this->coefficients_[blk];
 
   for (unsigned int i = 0; i < coefficients.size(); i++) {
-    auto coef = coefficients[i];
+    const auto& coef = coefficients[i];
     if (coef.get_type() == type && coef.get_id() == id) {
       if (bdr_id.has_value()) {
         auto bdr_index = coef.get_bdr_index_coef();

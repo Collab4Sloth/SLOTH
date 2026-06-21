@@ -95,7 +95,7 @@ class OperatorBase : public mfem::Operator {
 
   /// Boundary conditions
   std::vector<BoundaryConditions<T, DIM>*> bcs_;
-  mfem::Array<int> array_bdr_;
+  std::vector<mfem::Array<int>> array_bdr_;
 
   std::vector<std::function<double(const mfem::Vector&, double)>> src_func_;
 
