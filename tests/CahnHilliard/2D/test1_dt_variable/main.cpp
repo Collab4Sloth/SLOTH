@@ -184,7 +184,6 @@ int main(int argc, char* argv[]) {
   // ###########################################
   const double t_initial = 0.0;
   const double t_final = 0.5;
-  const double dt = 5.e-2;
 
   auto user_time_step = std::function<double(double)>([](double time) {
     double dt;
@@ -200,8 +199,8 @@ int main(int argc, char* argv[]) {
     return dt;
   });
 
-  auto time_params = Parameters(Parameter("initial_time", t_initial),
-                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time_params =
+      Parameters(Parameter("initial_time", t_initial), Parameter("final_time", t_final));
   auto time = TimeDiscretization(user_time_step, time_params, cc);
 
   time.solve();
