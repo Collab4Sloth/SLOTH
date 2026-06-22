@@ -38,7 +38,7 @@
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
- * @brief Construct a new Time Discretization< Args...>:: Time Discretization object
+ * @brief Construct a new TimeDiscretization< Args...>::TimeDiscretization object
  *
  * @tparam Args
  * @param params
@@ -48,6 +48,28 @@ template <class... Args>
 TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args... couplings)
     : params_(params), couplings_(std::make_tuple(std::forward<Args>(couplings)...)) {
   this->get_parameters();
+
+  MFEM_VERIFY(this->time_step_ > 0., "Error: time_step Parameter must be defined.");
+
+  this->time_step_function_ =
+      std::function<double(double)>([this](double) { return this->time_step_; });
+}
+
+/**
+ * @brief Construct a new TimeDiscretization< Args...>::TimeDiscretization object
+ *
+ * @tparam Args
+ * @param given_time_step
+ * @param params
+ * @param couplings
+ */
+template <class... Args>
+TimeDiscretization<Args...>::TimeDiscretization(
+    const std::function<double(double)>& given_time_step, const Parameters& params,
+    Args... couplings)
+    : params_(params), couplings_(std::make_tuple(std::forward<Args>(couplings)...)) {
+  this->get_parameters();
+  this->time_step_function_ = given_time_step;
 }
 
 /**
@@ -61,8 +83,8 @@ void TimeDiscretization<Args...>::get_parameters() {
   this->initial_time_ =
       this->params_.template get_param_value_or_default<double>("initial_time", 0.);
   this->final_time_ = this->params_.template get_param_value<double>("final_time");
-  this->time_step_ = this->params_.template get_param_value<double>("time_step");
-  this->current_time_step_ = this->initial_time_;
+  this->time_step_ = this->params_.template get_param_value_or_default<double>("time_step", -1.0);
+  this->current_time_step_ = this->time_step_;
 }
 
 /**
@@ -194,7 +216,8 @@ void TimeDiscretization<Args...>::update() {
  */
 template <class... Args>
 void TimeDiscretization<Args...>::time_management() {
-  auto dt_real = this->time_step_;
+  auto dt_real = this->time_step_function_(this->current_time_);
+  this->time_step_ = dt_real;
   if ((this->current_time_ + this->time_step_) + 0.5 * this->time_step_ > this->final_time_) {
     this->last_step_ = true;
     dt_real = this->final_time_ - this->current_time_;

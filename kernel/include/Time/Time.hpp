@@ -66,9 +66,13 @@ class TimeDiscretization {
   void time_management();
   void time_info(const int& iter);
 
+  std::function<double(double)> time_step_function_;
+
  public:
   // explicit TimeDiscretization(const Parameters& params, Args&&... couplings);
   explicit TimeDiscretization(const Parameters& params, Args... couplings);
+  explicit TimeDiscretization(const std::function<double(double)>& given_time_step,
+                              const Parameters& params, Args... couplings);
   void solve();
   void get_tree();
   ~TimeDiscretization();
