@@ -30,6 +30,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/DiffusionNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Parameters/Parameter.hpp"
@@ -58,10 +59,10 @@
  */
 template <class VARS>
 FourierNLFormIntegrator<VARS>::FourierNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : DiffusionNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+    : DiffusionNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "Fourier";
   this->expected_list_.push_back(GlossaryType::Conductivity);
 }

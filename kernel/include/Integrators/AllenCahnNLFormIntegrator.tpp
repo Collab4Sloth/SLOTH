@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -60,10 +61,10 @@
  */
 template <class VARS>
 AllenCahnNLFormIntegrator<VARS>::AllenCahnNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "AllenCahn";
 
   this->check_variables_consistency();
@@ -167,15 +168,21 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
                                              std::span<const double>(vaux_gf_at_ip));
       const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
                                                     std::span<const double>(vaux_gf_at_ip));
-      gradU *= coef_mobi * lamb * ip.weight * Tr.Weight();
-      ;
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+
+      gradU *= coef_mobi * lamb * weight_coef;
+
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // Given u, compute (w'(u), psi), psi is shape function
       double ww = coef_mobi * this->compute_gradient_energy_coefficient(
                                   double_well_energy[blk], blk, std::span<const double>(u_values),
                                   std::span<const double>(vaux_gf_at_ip));
-      ww *= ip.weight * Tr.Weight();
+      ww *= weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -246,7 +253,12 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
                                                     std::span<const double>(vaux_gf_at_ip));
 
-      const double mob_lamb = coef_mobi * lamb * ip.weight * Tr.Weight();
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+
+      const double mob_lamb = coef_mobi * lamb * weight_coef;
       AddMult_a_AAt(mob_lamb, gradPsi, *elmats(blk, blk));
 
       // Compute w'(u)*(du,psi), psi is shape function ( // w''(u))
@@ -254,7 +266,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
           coef_mobi * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
                                                         std::span<const double>(u_values),
                                                         std::span<const double>(vaux_gf_at_ip));
-      fun_val *= ip.weight * Tr.Weight();
+      fun_val *= weight_coef;
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }
@@ -286,7 +298,12 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
             coef_mobi * this->compute_hessian_coefficient(double_well_energy[jblk], blk, jblk,
                                                           std::span<const double>(u_values),
                                                           std::span<const double>(vaux_gf_at_ip));
-        fun_val *= ip.weight * Tr.Weight();
+        double weight_coef = ip.weight * Tr.Weight();
+        if (this->isAxisymmetric()) {
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+        }
+
+        fun_val *= weight_coef;
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }
@@ -316,7 +333,13 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
             coef_mobi * this->compute_hessian_coefficient(double_well_energy[jblk], blk, jblk,
                                                           std::span<const double>(u_values),
                                                           std::span<const double>(vaux_gf_at_ip));
-        fun_val *= ip.weight * Tr.Weight();
+
+        double weight_coef = ip.weight * Tr.Weight();
+        if (this->isAxisymmetric()) {
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+        }
+
+        fun_val *= weight_coef;
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }

@@ -60,7 +60,7 @@ std::vector<Coefficient> Coefficients::getCoefficients() const { return this->ve
  *
  * @return Number of stored coefficients.
  */
-size_t Coefficients::size() noexcept { return this->vect_coefficients_.size(); }
+size_t Coefficients::size() const noexcept { return this->vect_coefficients_.size(); }
 
 /**
  * @brief Returns the i-th coefficient.
@@ -70,7 +70,20 @@ size_t Coefficients::size() noexcept { return this->vect_coefficients_.size(); }
  *
  * @throws std::out_of_range if i is out of bounds.
  */
-Coefficient Coefficients::operator[](size_t i) {
+Coefficient& Coefficients::operator[](size_t i) {
+  if (i >= vect_coefficients_.size()) throw std::out_of_range("Index out of range");
+  return this->vect_coefficients_[i];
+}
+
+/**
+ * @brief Returns the i-th coefficient.
+ *
+ * @param i Index of the coefficient.
+ * @return Reference to the i-th coefficient.
+ *
+ * @throws std::out_of_range if i is out of bounds.
+ */
+const Coefficient& Coefficients::operator[](size_t i) const {
   if (i >= vect_coefficients_.size()) throw std::out_of_range("Index out of range");
   return this->vect_coefficients_[i];
 }

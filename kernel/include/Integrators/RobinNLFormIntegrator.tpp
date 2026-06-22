@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
@@ -97,11 +98,11 @@ void RobinNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 RobinNLFormIntegrator<VARS>::RobinNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients,
     const unsigned int block, const unsigned int bdr_id)
-    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients),
+    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients),
       blk_(block),
       bdr_id_(bdr_id),
       robin_a(Coefficient(Glossary::Default, 0.0)),
@@ -179,14 +180,18 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
           u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
         }
 
+        double weight_coef = ip.weight * Tr.Weight();
+        if (this->isAxisymmetric()) {
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+        }
         const double val =
-            Tr.Weight() * (this->compute_coefficient(robin_a, std::span<const double>(u_values),
+            weight_coef * (this->compute_coefficient(robin_a, std::span<const double>(u_values),
                                                      std::span<const double>(vaux_gf_at_ip)) *
                                u_values[blk] -
                            this->compute_coefficient(robin_b, std::span<const double>(u_values),
                                                      std::span<const double>(vaux_gf_at_ip)));
 
-        add(*elvect[blk], ip.weight * val, Psi, *elvect[blk]);
+        add(*elvect[blk], val, Psi, *elvect[blk]);
       }
     }
   }
@@ -245,13 +250,18 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
         }
 
         Tr.SetIntPoint(&ip);
+        double weight_coef = ip.weight * Tr.Weight();
+        if (this->isAxisymmetric()) {
+          weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+        }
+
         const double coeff_robin =
             (this->compute_coefficient(robin_a, std::span<const double>(u_values),
                                        std::span<const double>(vaux_gf_at_ip)) +
              this->compute_gradient_coefficient(robin_a, blk, std::span<const double>(u_values),
                                                 std::span<const double>(vaux_gf_at_ip)) *
                  u_values[blk]) *
-            ip.weight * Tr.Weight();
+            weight_coef;
         AddMult_a_VVt(coeff_robin, Psi, *elmat(blk, blk));
       }
     }

@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameters.hpp"
@@ -55,12 +56,13 @@
  *
  */
 template <class VARS>
-TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(Geometry geometry,
+                                                 const std::vector<mfem::ParGridFunction> u_old,
                                                  const std::vector<mfem::ParGridFunction> aux_old,
                                                  const Parameters& params,
                                                  std::vector<VARS*> auxvars,
                                                  const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "TimeDerivative";
 
   this->check_variables_consistency();
@@ -229,7 +231,12 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
       double coef_b =
           this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
                                     std::span<const double>(vaux_gf_at_ip));
-      const double ww = coef_a * coef_b * u * ip.weight * Tr.Weight();
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+      const double ww = coef_a * coef_b * u * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -295,8 +302,11 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       double coef_b =
           this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
                                     std::span<const double>(vaux_gf_at_ip));
-
-      double fun_val = coef_a * coef_b * ip.weight * Tr.Weight();
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+      double fun_val = coef_a * coef_b * weight_coef;
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }

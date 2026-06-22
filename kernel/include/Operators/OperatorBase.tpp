@@ -406,25 +406,39 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
   const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::Array<int> Robin_bdr;
   mfem::Array<int> Neumann_bdr;
+
+  auto make_boundary_marker = [](int nb_bdr, int j) {
+    mfem::Array<int> marker(nb_bdr);
+    marker = 0;
+    marker[j] = 1;
+    return marker;
+  };
+
   // Loop over variables
   for (int i = 0; i < fes_size; ++i) {
     Robin_bdr = this->bcs_[i]->get_marker_array("Robin");
+    const int nb_bdr = Robin_bdr.Size();
     Neumann_bdr = this->bcs_[i]->get_marker_array("Neumann");
 
-    const int nb_bdr = Robin_bdr.Size();
-    this->array_bdr_.SetSize(nb_bdr);
-    Coefficients coefficients = this->coefficients_[i];
+    // All finite element spaces are assumed to live on the same mesh.
+    // Therefore all boundary marker arrays have the same size.
+    if (this->array_bdr_.empty()) {
+      this->array_bdr_.resize(nb_bdr);
+    }
+    MFEM_VERIFY(this->array_bdr_.size() == nb_bdr, "Inconsistent number of boundary attributes.");
+
+    const Coefficients& coefficients = this->coefficients_[i];
     const int coef_size = coefficients.size();
 
     // Loop over boundaries
-    for (auto j = 0; j < nb_bdr; j++) {
+    for (int j = 0; j < nb_bdr; j++) {
       // Add Neumann integrator
       if (Neumann_bdr[j] > 0) {
         // Check if a coefficient is given for this bc
         // (else Homogeneous Neumann)
         bool has_neumann_coeff = false;
         for (int l = 0; l < coef_size; l++) {
-          auto coef = coefficients[l];
+          const auto& coef = coefficients[l];
           if (coef.get_type() == GlossaryType::Neumann) {
             auto bdr_ids = coef.get_bdr_index_coef();
             if (std::find(bdr_ids.begin(), bdr_ids.end(), j) != bdr_ids.end()) {
@@ -436,18 +450,16 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
         // If a Neumann coefficient is specified,
         // add the Neumann integrator even if the coefficient is zero
         if (has_neumann_coeff) {
-          this->array_bdr_ = 0;
-          this->array_bdr_[j] = 1;
+          this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
           auto integrator_ptr = this->set_bdr_nlfi_ptr("Neumann", u_vect, i, j);
-          this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_);
+          this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
         }
       }
       // Add Robin integrator
       if (Robin_bdr[j] > 0) {
-        this->array_bdr_ = 0;
-        this->array_bdr_[j] = 1;
+        this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
         auto integrator_ptr = this->set_bdr_nlfi_ptr("Robin", u_vect, i, j);
-        this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_);
+        this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
       }
     }
   }
@@ -554,7 +566,7 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
     fe = this->fes_[id_var]->GetFE(i);
     const mfem::IntegrationRule* ir;
 
-    int intorder = 2 * fe->GetOrder() + 3;  // <----------
+    int intorder = 2 * fe->GetOrder() + 3;
     ir = &(mfem::IntRules.Get(fe->GetGeomType(), intorder));
 
     mfem::real_t int_elem = 0.0;
@@ -911,43 +923,43 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
   switch (Integrators::from(integrator)) {
     case Integrators::MassFlux: {
       return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fick: {
-      return new FickNLFormIntegrator<Variables<T, DIM>>(vun, vauxn, all_params,
+      return new FickNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
                                                          this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fourier: {
       return new FourierNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::CahnHilliard: {
       return new CahnHilliardNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::AllenCahn: {
       return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::SplitAllenCahn: {
       return new BlockAllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingTemperature: {
       return new MeltingTemperatureNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingCalphad: {
       return new MeltingCalphadNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingConstant: {
       return new MeltingConstantNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::LatentHeat: {
       return new LatentHeatNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");
@@ -974,13 +986,15 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_bdr_integrat
     const unsigned int block, const unsigned int bdr_id) {
   switch (Integrators::from(integrator)) {
     case Integrators::Neumann: {
-      return new NeumannNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_, block, bdr_id);
+      return new NeumannNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
+                                                            this->auxvariables_,
+                                                            this->coefficients_, block, bdr_id);
       break;
     }
     case Integrators::Robin: {
-      return new RobinNLFormIntegrator<Variables<T, DIM>>(
-          vun, vauxn, all_params, this->auxvariables_, this->coefficients_, block, bdr_id);
+      return new RobinNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
+                                                          this->auxvariables_, this->coefficients_,
+                                                          block, bdr_id);
       break;
     }
     default:
@@ -1089,4 +1103,16 @@ void OperatorBase<T, DIM>::set_time_coefficients(double time) {
   if (this->grad_energy_coefficient_.has_value()) {
     (*this->grad_energy_coefficient_).set_time(time);
   }
+}
+
+/**
+ * @brief Define the geometry of the problem (Cartesian, Axisymmetric)
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param geometry
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::setGeometry(Geometry geometry) {
+  this->geometry_ = geometry;
 }

@@ -58,7 +58,8 @@ class ThermalDiffusionFluxNLFormIntegrator : public DiffusionFluxNLFormIntegrato
                                            const mfem::IntegrationPoint& ip) override;
 
  public:
-  ThermalDiffusionFluxNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+  ThermalDiffusionFluxNLFormIntegrator(Geometry geometry,
+                                       const std::vector<mfem::ParGridFunction>& u_old,
                                        const Parameters& params, std::vector<VARS*> auxvars,
                                        const std::vector<Coefficients>& coefficients);
 };

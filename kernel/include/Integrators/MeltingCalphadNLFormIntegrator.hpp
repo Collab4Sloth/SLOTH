@@ -54,7 +54,8 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
   std::string secondary_phase_;
   int dgm_primary_phase_index_;
   int dgm_secondary_phase_index_;
-  int nucleus_index_;
+  int primary_nucleus_index_;
+  int secondary_nucleus_index_;
 
   double melting_temperature_;
   double melting_enthalpy_;
@@ -72,7 +73,7 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
                         const std::span<const double>& aux_values) override;
 
  public:
-  MeltingCalphadNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+  MeltingCalphadNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
                                  const std::vector<mfem::ParGridFunction>& aux_old,
                                  const Parameters& params, std::vector<VARS*> auxvars,
                                  const std::vector<Coefficients>& coefficients);

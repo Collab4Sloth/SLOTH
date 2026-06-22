@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/MeltingBaseNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -57,10 +58,10 @@
  */
 template <class VARS>
 MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : MeltingBaseNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+    : MeltingBaseNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "MeltingConstant";
 
   this->get_parameters();

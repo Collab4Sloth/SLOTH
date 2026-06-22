@@ -35,9 +35,11 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
+#include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -50,14 +52,21 @@
  * @param auxvars
  */
 template <class VARS>
-SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(const std::vector<mfem::ParGridFunction> u_old,
+SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(Geometry geometry,
+                                                   const std::vector<mfem::ParGridFunction> u_old,
                                                    const std::vector<mfem::ParGridFunction> aux_old,
                                                    const Parameters& params,
                                                    std::vector<VARS*> auxvars,
                                                    const std::vector<Coefficients>& coefficients)
-    : u_old_(u_old), aux_old_gf_(aux_old), params_(params), coefficients_(coefficients) {
+    : geometry_(geometry),
+      u_old_(u_old),
+      aux_old_gf_(aux_old),
+      params_(params),
+      coefficients_(coefficients) {
   this->nb_blk_ = this->u_old_.size();
+
   this->manage_auxiliary_variables(auxvars);
+
   this->aux_gf_ = this->get_aux_gf();
   this->aux_infos_ = this->get_aux_infos();
 }
@@ -80,6 +89,8 @@ void SlothNLFormIntegrator<VARS>::manage_auxiliary_variables(std::vector<VARS*> 
       this->vect_aux_infos_.emplace_back(std::move(var_info));
     }
   }
+
+  this->nb_vaux_ = this->vect_aux_gf_.size();
 }
 
 /**
@@ -122,7 +133,7 @@ std::vector<std::vector<std::string>> SlothNLFormIntegrator<VARS>::get_aux_infos
  */
 template <class VARS>
 void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType> expected_types) {
-  for (auto coefficients : this->coefficients_) {
+  for (const auto& coefficients : this->coefficients_) {
     auto vect_types = coefficients.get_types();
     std::list<GlossaryType> TestedGlossaryType;
     TestedGlossaryType.assign(vect_types.begin(), vect_types.end());
@@ -160,10 +171,10 @@ std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const in
                                                                         GlossaryType type,
                                                                         unsigned int id,
                                                                         std::optional<int> bdr_id) {
-  Coefficients coefficients = this->coefficients_[blk];
+  const Coefficients& coefficients = this->coefficients_[blk];
 
   for (unsigned int i = 0; i < coefficients.size(); i++) {
-    auto coef = coefficients[i];
+    const auto& coef = coefficients[i];
     if (coef.get_type() == type && coef.get_id() == id) {
       if (bdr_id.has_value()) {
         auto bdr_index = coef.get_bdr_index_coef();
@@ -318,4 +329,17 @@ double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
       return coef.compute_hessian(iblk, jblk, u, aux_values);
     }
   }
+}
+
+/**
+ * @brief Indicates whether the Problem uses an axisymmetric geometry.
+ *
+ * @tparam VAR Type representing the problem variables.
+ *
+ * @retval true The problem geometry is axisymmetric.
+ * @retval false The problem geometry is not axisymmetric.
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::isAxisymmetric() const noexcept {
+  return this->geometry_ == Geometry::Axisymmetric;
 }

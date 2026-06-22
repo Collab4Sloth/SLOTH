@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -57,10 +58,10 @@
  */
 template <class VARS>
 TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
   this->integrator_name_ = "SplitTimeDerivative";
 
   this->check_variables_consistency();
@@ -224,10 +225,14 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
       double coef_a =
           this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
                                     std::span<const double>(vaux_gf_at_ip));
-      const double ww = coef_a * phi * ip.weight * Tr.Weight();
+      const double ww = coef_a * phi * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -322,10 +327,15 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
         u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
       }
 
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+
       double coef_a =
           this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
                                     std::span<const double>(vaux_gf_at_ip));
-      double w = coef_a * Tr.Weight() * ip.weight;
+      double w = coef_a * weight_coef;
       AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }
   }

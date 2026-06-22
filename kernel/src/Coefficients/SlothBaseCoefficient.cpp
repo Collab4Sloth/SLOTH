@@ -362,4 +362,4 @@ void SlothBaseCoefficient::set_bdr_index_coef(std::vector<int> ids) { this->bdr_
  *
  * @return Vector of boundary ids where the coefficient is applied.
  */
-std::vector<int> SlothBaseCoefficient::get_bdr_index_coef() { return this->bdr_index_; }
+std::vector<int> SlothBaseCoefficient::get_bdr_index_coef() const { return this->bdr_index_; }

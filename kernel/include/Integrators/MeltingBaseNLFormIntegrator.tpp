@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameter.hpp"
@@ -58,10 +59,10 @@
  */
 template <class VARS>
 MeltingBaseNLFormIntegrator<VARS>::MeltingBaseNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {}
+    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {}
 
 /**
  * @brief Initialize the integrator.
@@ -162,7 +163,13 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
                                            std::span<const double>(u_values),
                                            std::span<const double>(vaux_gf_at_ip))) +
                   seed;
-      ww *= ip.weight * Tr.Weight();
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+
+      ww *= weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
   }
@@ -233,7 +240,12 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
               interpolation_potential[blk], blk, blk, std::span<const double>(u_values),
               std::span<const double>(vaux_gf_at_ip));  // this->energy_derivatives(2, Tr, ip)(u);
 
-      fun_val *= ip.weight * Tr.Weight();
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+
+      fun_val *= weight_coef;
 
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));  // w'(u)*(du, psi)
     }

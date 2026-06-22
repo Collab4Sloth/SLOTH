@@ -30,6 +30,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Integrators/NeumannNLFormIntegrator.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothGridFunction.hpp"
@@ -78,10 +79,11 @@ void NeumannNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 NeumannNLFormIntegrator<VARS>::NeumannNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients,
     const unsigned int block, const unsigned int bdr_id)
-    : RobinNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients, block, bdr_id) {
+    : RobinNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients, block,
+                                  bdr_id) {
   this->integrator_name_ = "Neumann";
 }

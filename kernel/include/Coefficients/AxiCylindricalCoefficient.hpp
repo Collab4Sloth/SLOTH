@@ -1,9 +1,9 @@
 /**
- * @file ListCoefficients.hpp
- * @author ci230846  (clement.introini@cea.fr)
- * @brief List of  header files contained in the Coefficients directory
+ * @file AxiCylindricalCoefficient.hpp
+ * @author Clément Introïni (clement.introini@cea.fr)
+ * @brief Built a MFEM Coefficient for AxiCylindricalCoefficient
  * @version 0.1
- * @date 2026-03-21
+ * @date 2026-06-16
  *
  * @copyright CEA (C) 2026
  *
@@ -24,8 +24,20 @@
  *
  */
 #pragma once
+#include <cmath>
+#include <cstdlib>
+#include <span>
+#include <vector>
 
-#include "Coefficients/AxiCylindricalCoefficient.hpp"
-#include "Coefficients/CommonCoefficients.hpp"
-#include "Coefficients/ProductFunctionCoefficients.hpp"
-#include "Coefficients/SumFunctionCoefficients.hpp"
+#include "Coefficients/Coefficients.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+class AxiCylindricalCoefficient : public mfem::Coefficient {
+ private:
+  mutable mfem::Vector transip;
+
+ public:
+  AxiCylindricalCoefficient();
+
+  mfem::real_t Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip) override;
+};

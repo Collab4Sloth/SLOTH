@@ -72,7 +72,7 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
-  AllenCahnNLFormIntegrator(const std::vector<mfem::ParGridFunction>& u_old,
+  AllenCahnNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
                             const std::vector<mfem::ParGridFunction>& aux_old,
                             const Parameters& params, std::vector<VARS*> auxvars,
                             const std::vector<Coefficients>& coefficients);

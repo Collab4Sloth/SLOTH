@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Integrators/SlothGridFunction.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
@@ -80,10 +81,10 @@ void DiffusionFluxNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
-    const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(u_old, aux_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
   this->expected_list_.push_back(GlossaryType::Diffusivity);
 }
 
@@ -186,8 +187,11 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
-
-    this->Flux_ *= ip.weight * Tr.Weight();
+    double weight_coef = ip.weight * Tr.Weight();
+    if (this->isAxisymmetric()) {
+      weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+    }
+    this->Flux_ *= weight_coef;
 
     this->gradPsi.AddMult(this->Flux_, *elvect[blk], 1.0);
   }
@@ -248,10 +252,16 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     }
 
     Tr.SetIntPoint(&ip);
+
+    double weight_coef = ip.weight * Tr.Weight();
+    if (this->isAxisymmetric()) {
+      weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+    }
+
     const double coeff_diffu =
         this->compute_coefficient(stab_diffusion[blk], std::span<const double>(u_values),
                                   std::span<const double>(vaux_gf_at_ip)) *
-        ip.weight * Tr.Weight();
+        weight_coef;
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
   }

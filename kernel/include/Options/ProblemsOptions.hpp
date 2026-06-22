@@ -37,3 +37,5 @@ struct Problems {
   enum value { Diffusion, AllenCahn, Calphad };
   static value from(const std::string&);
 };
+
+enum class Geometry { Cartesian, Axisymmetric };

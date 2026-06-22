@@ -117,5 +117,5 @@ class SlothBaseCoefficient {
 
   void set_time(double time);
   void set_bdr_index_coef(std::vector<int> ids);
-  std::vector<int> get_bdr_index_coef();
+  std::vector<int> get_bdr_index_coef() const;
 };
