@@ -239,7 +239,6 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
  *   current time_step
  */
 template <class PROPERTY, class VAR, class PST>
-template <PbVar<VAR>... Args>
 void Property_problem<PROPERTY, VAR, PST>::initialize(const double& initial_time,
                                                       const double time_step) {
   // Initialize the  time and time-step for the property
