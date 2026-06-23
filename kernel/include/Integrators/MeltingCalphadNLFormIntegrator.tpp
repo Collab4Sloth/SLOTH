@@ -233,5 +233,5 @@ double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(
   const double seed =
       -aux_values[this->secondary_nucleus_index_] - aux_values[this->primary_nucleus_index_];
 
-  return seed;
+  return seed / this->time_step_;
 }
