@@ -64,3 +64,14 @@ void PropertyBase::compute(
 
   this->get_property(output_system, input_system);
 }
+
+/**
+ * @brief Set the current time and time-step for property used in transient simulations
+ *
+ * @param time current time
+ * @param dt current time-step
+ */
+void PropertyBase::set_times(const double time, const double dt) {
+  this->current_time_ = time;
+  this->time_step_ = dt;
+}
