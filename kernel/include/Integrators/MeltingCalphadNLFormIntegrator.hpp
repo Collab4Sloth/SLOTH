@@ -73,7 +73,8 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
                         const std::span<const double>& aux_values) override;
 
  public:
-  MeltingCalphadNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
+  MeltingCalphadNLFormIntegrator(Geometry geometry, const double time_step,
+                                 const std::vector<mfem::ParGridFunction>& u_old,
                                  const std::vector<mfem::ParGridFunction>& aux_old,
                                  const Parameters& params, std::vector<VARS*> auxvars,
                                  const std::vector<Coefficients>& coefficients);

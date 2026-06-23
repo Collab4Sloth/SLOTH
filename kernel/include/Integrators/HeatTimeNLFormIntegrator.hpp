@@ -48,7 +48,8 @@ class HeatTimeNLFormIntegrator : public TimeNLFormIntegrator<VARS> {
   void get_coefficients() override;
 
  public:
-  HeatTimeNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction> u_old,
+  HeatTimeNLFormIntegrator(Geometry geometry, const double time_step,
+                           const std::vector<mfem::ParGridFunction> u_old,
                            const std::vector<mfem::ParGridFunction>& aux_old,
                            const Parameters& params, std::vector<VARS*> auxvars,
                            const std::vector<Coefficients>& coefficients);

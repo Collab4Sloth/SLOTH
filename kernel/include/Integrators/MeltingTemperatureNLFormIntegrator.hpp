@@ -61,7 +61,7 @@ class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VA
                                 const std::span<const double>& aux_values) override;
 
  public:
-  MeltingTemperatureNLFormIntegrator(Geometry geometry,
+  MeltingTemperatureNLFormIntegrator(Geometry geometry, const double time_step,
                                      const std::vector<mfem::ParGridFunction>& u_old,
                                      const std::vector<mfem::ParGridFunction>& aux_old,
                                      const Parameters& params, std::vector<VARS*> auxvars,

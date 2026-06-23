@@ -242,8 +242,8 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
  *   Initial time
  */
 template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::initialize(const double& initial_time) {
-  this->oper_.initialize(initial_time, this->variables_, this->auxvariables_);
+void Problem<OPE, VAR, PST>::initialize(const double& initial_time, const double time_step) {
+  this->oper_.initialize(initial_time, time_step, this->variables_, this->auxvariables_);
 }
 
 /**

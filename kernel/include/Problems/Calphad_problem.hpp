@@ -107,7 +107,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
                   Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
-  void initialize(const double& initial_time) override;
+  void initialize(const double& initial_time, const double time_step) override;
 
   /////////////////////////////////////////////////////
 

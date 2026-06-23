@@ -52,7 +52,6 @@ template <class VARS>
 class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
   int phase_field_index_;
-  double latent_time_step_;
 
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility};
   mfem::DenseMatrix gradPsi;
@@ -74,7 +73,8 @@ class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   virtual void check_variables_consistency();
 
  public:
-  LatentHeatNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
+  LatentHeatNLFormIntegrator(Geometry geometry, const double time_step,
+                             const std::vector<mfem::ParGridFunction>& u_old,
                              const std::vector<mfem::ParGridFunction>& aux_old,
                              const Parameters& params, std::vector<VARS*> auxvars,
                              const std::vector<Coefficients>& coefficients);

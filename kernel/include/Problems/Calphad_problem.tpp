@@ -455,7 +455,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_variables_consistency() {
  * @param initial_time
  */
 template <class CALPHAD, class VAR, class PST>
-void Calphad_Problem<CALPHAD, VAR, PST>::initialize([[maybe_unused]] const double& initial_time) {
+void Calphad_Problem<CALPHAD, VAR, PST>::initialize([[maybe_unused]] const double& initial_time,
+                                                    [[maybe_unused]] const double time_step) {
   this->CC_->initialize(this->sorted_chemical_system_);
 }
 

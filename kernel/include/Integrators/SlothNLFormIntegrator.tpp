@@ -52,13 +52,14 @@
  * @param auxvars
  */
 template <class VARS>
-SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(Geometry geometry,
+SlothNLFormIntegrator<VARS>::SlothNLFormIntegrator(Geometry geometry, const double time_step,
                                                    const std::vector<mfem::ParGridFunction> u_old,
                                                    const std::vector<mfem::ParGridFunction> aux_old,
                                                    const Parameters& params,
                                                    std::vector<VARS*> auxvars,
                                                    const std::vector<Coefficients>& coefficients)
     : geometry_(geometry),
+      time_step_(time_step),
       u_old_(u_old),
       aux_old_gf_(aux_old),
       params_(params),

@@ -59,12 +59,12 @@
  */
 template <class VARS>
 LatentHeatNLFormIntegrator<VARS>::LatentHeatNLFormIntegrator(
-    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const double time_step, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(geometry, time_step, u_old, aux_old, params, auxvars,
+                                  coefficients) {
   this->integrator_name_ = "LatentHeat";
-  this->latent_time_step_ = this->params_.template get_param_value<double>("latent_time_step");
   this->check_variables_consistency();
 }
 
@@ -273,7 +273,7 @@ double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(
   const double phi = local_auxvalues[this->phase_field_index_];
   const double phin = local_auxvalues_n[this->phase_field_index_];
 
-  double square_time_derivative = (phi - phin) / this->latent_time_step_;
+  double square_time_derivative = (phi - phin) / this->time_step_;
   square_time_derivative *= square_time_derivative;
   const double epsilon = 1.e-10;
   const double latent_heat = -square_time_derivative / std::max(epsilon, mobility_value);
