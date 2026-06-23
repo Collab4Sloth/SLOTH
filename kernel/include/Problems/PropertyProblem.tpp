@@ -206,7 +206,9 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
  *
  * @tparam PROPERTY
  * @tparam VAR
+ *   Primary variable container type.
  * @tparam PST
+ *   PostProcessing.
  * @tparam Args
  * @param name User-defined name of the property problem
  * @param params Parameters of the problem
@@ -221,6 +223,27 @@ Property_problem<PROPERTY, VAR, PST>::Property_problem(const std::string& name,
                                                        PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...) {
   this->PP_ = new PROPERTY(params);
+}
+
+/**
+ * @brief Initialize the Problem
+ *
+ * @tparam PROPERTY
+ * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *   PostProcessing.
+ * @param initial_time
+ *   Initial time
+ * @param time_step
+ *   current time_step
+ */
+template <class PROPERTY, class VAR, class PST>
+template <PbVar<VAR>... Args>
+void Property_problem<PROPERTY, VAR, PST>::initialize(const double& initial_time,
+                                                      const double time_step) {
+  // Initialize the  time and time-step for the property
+  this->PP_->set_times(initial_time, time_step);
 }
 
 /**
@@ -249,6 +272,9 @@ void Property_problem<PROPERTY, VAR, PST>::do_time_step(
   // Get inputs (auxiliary variables)
   std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system =
       this->get_input_system();
+
+  // Update the current time and time-step for the property
+  this->PP_->set_times(current_time, current_time_step);
 
   // Apply the compute method of the property
   this->PP_->compute(output_system, input_system);
