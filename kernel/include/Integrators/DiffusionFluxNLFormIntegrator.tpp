@@ -81,10 +81,11 @@ void DiffusionFluxNLFormIntegrator<VARS>::get_coefficients() {
  */
 template <class VARS>
 DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
-    Geometry geometry, const std::vector<mfem::ParGridFunction>& u_old,
+    Geometry geometry, const double time_step, const std::vector<mfem::ParGridFunction>& u_old,
     const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
     std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients)
-    : SlothNLFormIntegrator<VARS>(geometry, u_old, aux_old, params, auxvars, coefficients) {
+    : SlothNLFormIntegrator<VARS>(geometry, time_step, u_old, aux_old, params, auxvars,
+                                  coefficients) {
   this->expected_list_.push_back(GlossaryType::Diffusivity);
 }
 

@@ -58,7 +58,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
 
  protected:
   Geometry geometry_ = Geometry::Cartesian;
-
+  double time_step_;
   std::string integrator_name_ = "";
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
@@ -106,7 +106,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
 
  public:
   virtual void init() = 0;
-  SlothNLFormIntegrator(Geometry geometry, const std::vector<mfem::ParGridFunction> u_old,
+  SlothNLFormIntegrator(Geometry geometry, const double time_step,
+                        const std::vector<mfem::ParGridFunction> u_old,
                         const std::vector<mfem::ParGridFunction> aux_old, const Parameters& params,
                         std::vector<VARS*> auxvars, const std::vector<Coefficients>& coefficients);
   virtual ~SlothNLFormIntegrator() = default;

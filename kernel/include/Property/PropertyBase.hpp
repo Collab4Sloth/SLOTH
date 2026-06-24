@@ -50,6 +50,9 @@ class PropertyBase {
   // Flag used to avoid verification at each time-step
   bool is_checked_{false};
 
+  double time_step_{std::numeric_limits<double>::quiet_NaN()};
+  double current_time_{std::numeric_limits<double>::quiet_NaN()};
+
   /**
    * @brief Check the consistency of the inputs and outputs of the property problem.
    *
@@ -81,6 +84,8 @@ class PropertyBase {
       std::vector<std::tuple<std::vector<std::string>, std::reference_wrapper<mfem::Vector>>>&
           output_system,
       std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> input_system);
+
+  void set_times(const double time, const double dt);
 
   virtual ~PropertyBase() = default;
 };

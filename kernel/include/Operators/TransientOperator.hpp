@@ -49,6 +49,7 @@
 template <class T, int DIM>
 class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependentOperator {
  private:
+  double solve_time_step_{std::numeric_limits<double>::quiet_NaN()};
   std::shared_ptr<mfem::ODESolver> ode_solver_;
 
   bool is_explicit_;
@@ -60,10 +61,11 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   Parameters mass_precond_params_;
 
   void set_default_mass_solver();
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_lhs_nlfi_ptr(const std::vector<mfem::Vector>& u);
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_lhs_nlfi_ptr(const double dt,
+                                                             const std::vector<mfem::Vector>& u);
 
   SlothNLFormIntegrator<Variables<T, DIM>>* get_lhs_integrator(
-      const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+      const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
   std::string lhs_integrator_;
 
@@ -86,7 +88,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   mfem::HypreParMatrix* Mmat;
   // CCI
   void build_mass_matrix(const std::vector<mfem::Vector>& u_vect);
-  void build_lhs_nonlinear_form(const std::vector<mfem::Vector>& u);
+  void build_lhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   bool constant_mass_matrix_{true};
 
   // Reduced Operator
@@ -120,12 +122,12 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   void overload_mass_preconditioner(VSolverType PRECOND);
   void overload_mass_preconditioner(VSolverType PRECOND, const Parameters& p_params);
 
-  void SetExplicitTransientParameters(const std::vector<mfem::Vector>& un_vect);
+  void SetExplicitTransientParameters(const double dt, const std::vector<mfem::Vector>& un_vect);
 
   // Virtual methods
-  void initialize(const double& initial_time, Variables<T, DIM>& vars,
+  void initialize(const double& initial_time, const double time_step, Variables<T, DIM>& vars,
                   std::vector<Variables<T, DIM>*> auxvars) override;
-  void SetTransientParameters(const std::vector<mfem::Vector>& u_vect) override;
+  void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
              const double& current_time, double current_time_step, const int iter) override;
 };

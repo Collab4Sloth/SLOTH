@@ -48,7 +48,7 @@ class Coupling {
   std::string get_name();
 
   void get_tree();
-  void initialize(const int& iter, const double& initial_time);
+  void initialize(const int& iter, const double& initial_time, const double time_step);
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
   void update();

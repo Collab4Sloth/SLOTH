@@ -81,7 +81,7 @@ class Problem : public ProblemBase<VAR, PST> {
           const std::vector<Coefficients>& Coeff, PST& pst, Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
-  void initialize(const double& initial_time) override;
+  void initialize(const double& initial_time, const double time_step) override;
 
   void do_time_step(double& next_time, const double& current_time, double current_time_step,
                     const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,

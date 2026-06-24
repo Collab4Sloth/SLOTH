@@ -61,7 +61,7 @@
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
-    const std::string nlfi, const std::vector<mfem::Vector>& u) {
+    const double dt, const std::string nlfi, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("OperatorBase::set_nlfi_ptr");
   std::vector<mfem::ParGridFunction> vun;
   std::vector<mfem::ParGridFunction> vauxn;
@@ -81,7 +81,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
   }
 
   const Parameters& all_params = this->params_ - this->default_p_;
-  auto rhs_nlfi = this->get_rhs_integrator(nlfi, vun, vauxn, all_params);
+  auto rhs_nlfi = this->get_rhs_integrator(dt, nlfi, vun, vauxn, all_params);
   rhs_nlfi->init();
   return rhs_nlfi;
 }
@@ -100,8 +100,8 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr(
-    const std::string nlfi, const std::vector<mfem::Vector>& u, const unsigned int block,
-    const unsigned int bdr_id) {
+    const double dt, const std::string nlfi, const std::vector<mfem::Vector>& u,
+    const unsigned int block, const unsigned int bdr_id) {
   Catch_Time_Section("OperatorBase::set_bdr_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
@@ -122,7 +122,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr
   }
 
   const Parameters& all_params = this->params_ - this->default_p_;
-  auto bdr_nlfi = this->get_bdr_integrator(nlfi, vun, vauxn, all_params, block, bdr_id);
+  auto bdr_nlfi = this->get_bdr_integrator(dt, nlfi, vun, vauxn, all_params, block, bdr_id);
   bdr_nlfi->init();
   return bdr_nlfi;
 }
@@ -357,7 +357,7 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
  * @param vars
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_time,
+void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_time, const double dt,
                                       Variables<T, DIM>& vars,
                                       std::vector<Variables<T, DIM>*> auxvars) {
   Catch_Time_Section("OperatorBase::initialize");
@@ -376,7 +376,7 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
     vv.update(u);
     u_vect.emplace_back(u);
   }
-  this->SetTransientParameters(u_vect);
+  this->SetTransientParameters(dt, u_vect);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -392,13 +392,14 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
  * @param u
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vector>& u_vect) {
+void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
+                                                    const std::vector<mfem::Vector>& u_vect) {
   if (this->RHS != nullptr) {
     delete this->RHS;
   }
   this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
   for (const std::string& s_integrator : this->rhs_integrators_) {
-    auto integrator_ptr = this->set_nlfi_ptr(s_integrator, u_vect);
+    auto integrator_ptr = this->set_nlfi_ptr(dt, s_integrator, u_vect);
     this->RHS->AddDomainIntegrator(integrator_ptr);
   }
 
@@ -451,14 +452,14 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const std::vector<mfem::Vect
         // add the Neumann integrator even if the coefficient is zero
         if (has_neumann_coeff) {
           this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
-          auto integrator_ptr = this->set_bdr_nlfi_ptr("Neumann", u_vect, i, j);
+          auto integrator_ptr = this->set_bdr_nlfi_ptr(dt, "Neumann", u_vect, i, j);
           this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
         }
       }
       // Add Robin integrator
       if (Robin_bdr[j] > 0) {
         this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
-        auto integrator_ptr = this->set_bdr_nlfi_ptr("Robin", u_vect, i, j);
+        auto integrator_ptr = this->set_bdr_nlfi_ptr(dt, "Robin", u_vect, i, j);
         this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
       }
     }
@@ -918,48 +919,48 @@ void OperatorBase<T, DIM>::set_default_solver() {
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrator(
-    const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+    const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
     const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
     case Integrators::MassFlux: {
       return new MassDiffusionFluxNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fick: {
-      return new FickNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
-                                                         this->auxvariables_, this->coefficients_);
+      return new FickNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::Fourier: {
       return new FourierNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::CahnHilliard: {
       return new CahnHilliardNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::AllenCahn: {
       return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::SplitAllenCahn: {
       return new BlockAllenCahnNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingTemperature: {
       return new MeltingTemperatureNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingCalphad: {
       return new MeltingCalphadNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::MeltingConstant: {
       return new MeltingConstantNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::LatentHeat: {
       return new LatentHeatNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");
@@ -981,20 +982,20 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_bdr_integrator(
-    const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+    const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
     const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params,
     const unsigned int block, const unsigned int bdr_id) {
   switch (Integrators::from(integrator)) {
     case Integrators::Neumann: {
-      return new NeumannNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
-                                                            this->auxvariables_,
+      return new NeumannNLFormIntegrator<Variables<T, DIM>>(this->geometry_, dt, vun, vauxn,
+                                                            all_params, this->auxvariables_,
                                                             this->coefficients_, block, bdr_id);
       break;
     }
     case Integrators::Robin: {
-      return new RobinNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
-                                                          this->auxvariables_, this->coefficients_,
-                                                          block, bdr_id);
+      return new RobinNLFormIntegrator<Variables<T, DIM>>(this->geometry_, dt, vun, vauxn,
+                                                          all_params, this->auxvariables_,
+                                                          this->coefficients_, block, bdr_id);
       break;
     }
     default:

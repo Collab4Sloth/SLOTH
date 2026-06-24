@@ -75,10 +75,11 @@ void Coupling<Args...>::get_tree() {
  * @param initial_time
  */
 template <class... Args>
-void Coupling<Args...>::initialize(const int& iter, const double& initial_time) {
+void Coupling<Args...>::initialize(const int& iter, const double& initial_time,
+                                   const double time_step) {
   std::apply(
-      [iter, initial_time](auto&... problem) {
-        (problem.initialize(initial_time), ...);
+      [iter, initial_time, time_step](auto&... problem) {
+        (problem.initialize(initial_time, time_step), ...);
         (void([&problem, iter, initial_time] { problem.save(iter, initial_time); }()), ...);
       },
       problems_);

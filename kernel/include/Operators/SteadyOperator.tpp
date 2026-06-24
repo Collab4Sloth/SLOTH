@@ -124,11 +124,12 @@ SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>
  * @param vars
  */
 template <class T, int DIM>
-void SteadyOperator<T, DIM>::initialize(const double& initial_time, Variables<T, DIM>& vars,
+void SteadyOperator<T, DIM>::initialize(const double& initial_time, const double time_step,
+                                        Variables<T, DIM>& vars,
                                         std::vector<Variables<T, DIM>*> auxvars) {
   Catch_Time_Section("SteadyOperator::initialize");
 
-  OperatorBase<T, DIM>::initialize(initial_time, vars, auxvars);
+  OperatorBase<T, DIM>::initialize(initial_time, time_step, vars, auxvars);
 }
 
 /**
@@ -164,7 +165,7 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
     u_vect.emplace_back(unk_i);
   }
 
-  this->SetTransientParameters(u_vect);
+  this->SetTransientParameters(dt, u_vect);
 
   /// Apply BCs: check if need to be uncomment
   // for (size_t i = 0; i < unk_size; i++) {
@@ -211,13 +212,14 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
  * @param u_vect unknown vector
  */
 template <class T, int DIM>
-void SteadyOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::Vector>& u_vect) {
+void SteadyOperator<T, DIM>::SetTransientParameters(const double dt,
+                                                    const std::vector<mfem::Vector>& u_vect) {
   Catch_Time_Section("SteadyOperator::SetTransientParameters");
 
   ////////////////////////////////////////////
   //  Build the RHS of the PDEs
   ////////////////////////////////////////////
-  this->build_rhs_nonlinear_form(u_vect);
+  this->build_rhs_nonlinear_form(dt, u_vect);
 
   ////////////////////////////////////////////
   // Build Newton Linear system

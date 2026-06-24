@@ -72,9 +72,9 @@ class SteadyOperator : public OperatorBase<T, DIM> {
   }
   // Virtual methods
 
-  void initialize(const double& initial_time, Variables<T, DIM>& vars,
+  void initialize(const double& initial_time, const double time_step, Variables<T, DIM>& vars,
                   std::vector<Variables<T, DIM>*> auxvars) override;
-  void SetTransientParameters(const std::vector<mfem::Vector>& u_vet) override;
+  void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vet) override;
   void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
              const double& current_time, double dt, const int iter) override;
 };

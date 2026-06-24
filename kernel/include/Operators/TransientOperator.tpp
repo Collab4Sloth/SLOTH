@@ -207,13 +207,14 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
  * @param vars
  */
 template <class T, int DIM>
-void TransientOperator<T, DIM>::initialize(const double& initial_time, Variables<T, DIM>& vars,
+void TransientOperator<T, DIM>::initialize(const double& initial_time, const double time_step,
+                                           Variables<T, DIM>& vars,
                                            std::vector<Variables<T, DIM>*> auxvars) {
   Catch_Time_Section("TransientOperator::initialize");
 
   this->SetTime(initial_time);
 
-  OperatorBase<T, DIM>::initialize(initial_time, vars, auxvars);
+  OperatorBase<T, DIM>::initialize(initial_time, time_step, vars, auxvars);
 
   this->ode_solver_->Init(*this);
 
@@ -238,7 +239,7 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
                                       double current_time_step, [[maybe_unused]] const int iter) {
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
-
+  this->solve_time_step_ = current_time_step;
   //// Constructing BlockVector
   mfem::BlockVector block_unk(this->block_trueOffsets_);
   for (size_t i = 0; i < unk_size; i++) {
@@ -324,12 +325,13 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
  * @param u
  */
 template <class T, int DIM>
-void TransientOperator<T, DIM>::build_lhs_nonlinear_form(const std::vector<mfem::Vector>& u_vect) {
+void TransientOperator<T, DIM>::build_lhs_nonlinear_form(const double dt,
+                                                         const std::vector<mfem::Vector>& u_vect) {
   if (LHS != nullptr) {
     delete LHS;
   }
   LHS = new mfem::ParBlockNonlinearForm(this->fes_);
-  auto integrator_ptr = this->set_lhs_nlfi_ptr(u_vect);
+  auto integrator_ptr = this->set_lhs_nlfi_ptr(dt, u_vect);
   this->LHS->AddDomainIntegrator(integrator_ptr);
 }
 
@@ -343,7 +345,7 @@ void TransientOperator<T, DIM>::build_lhs_nonlinear_form(const std::vector<mfem:
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlfi_ptr(
-    const std::vector<mfem::Vector>& u) {
+    const double dt, const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("TransientOperator::set_lhs_nlfi_ptr");
 
   std::vector<mfem::ParGridFunction> vun;
@@ -364,7 +366,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
   }
   const Parameters& all_params = this->params_ - this->default_p_;
 
-  auto lhs = this->get_lhs_integrator(this->lhs_integrator_, vun, vauxn, all_params);
+  auto lhs = this->get_lhs_integrator(dt, this->lhs_integrator_, vun, vauxn, all_params);
   lhs->init();
   return lhs;
 }
@@ -376,18 +378,19 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
  * @param u unknown vector
  */
 template <class T, int DIM>
-void TransientOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::Vector>& u_vect) {
+void TransientOperator<T, DIM>::SetTransientParameters(const double dt,
+                                                       const std::vector<mfem::Vector>& u_vect) {
   Catch_Time_Section("TransientOperator::SetTransientParameters");
 
   ////////////////////////////////////////////
   // Build the LHS of the PDEs
   ////////////////////////////////////////////
-  this->build_lhs_nonlinear_form(u_vect);
+  this->build_lhs_nonlinear_form(dt, u_vect);
 
   ////////////////////////////////////////////
   //  Build the RHS of the PDEs
   ////////////////////////////////////////////
-  this->build_rhs_nonlinear_form(u_vect);
+  this->build_rhs_nonlinear_form(dt, u_vect);
   ////////////////////////////////////////////
   // Build Newton Linear system
   ////////////////////////////////////////////
@@ -409,7 +412,7 @@ void TransientOperator<T, DIM>::SetTransientParameters(const std::vector<mfem::V
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::SetExplicitTransientParameters(
-    const std::vector<mfem::Vector>& un_vect) {
+    const double dt, const std::vector<mfem::Vector>& un_vect) {
   Catch_Time_Section("TransientOperator::SetExplicitTransientParameters");
   ////////////////////////////////////////////
   // Variable mass matrix
@@ -419,7 +422,7 @@ void TransientOperator<T, DIM>::SetExplicitTransientParameters(
   ////////////////////////////////////////////
   // PhaseField non linear form
   ////////////////////////////////////////////
-  this->build_rhs_nonlinear_form(un_vect);
+  this->build_rhs_nonlinear_form(dt, un_vect);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -444,7 +447,8 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   v_vect.emplace_back(v);
 
   // Todo(cci) : try to do different because of not satisfying
-  const_cast<TransientOperator<T, DIM>*>(this)->SetExplicitTransientParameters(v_vect);
+  const_cast<TransientOperator<T, DIM>*>(this)->SetExplicitTransientParameters(
+      this->solve_time_step_, v_vect);
 
   const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::BlockVector bb(this->block_trueOffsets_);
@@ -518,7 +522,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
       sc_1 += sc_2;
       v_vect.emplace_back(v_i);
     }
-    this->SetTransientParameters(v_vect);
+    this->SetTransientParameters(dt, v_vect);
   }
   MATools::MATrace::stop("SetTransientParams");
 
@@ -656,22 +660,22 @@ void TransientOperator<T, DIM>::set_default_mass_solver() {
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_integrator(
-    const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+    const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
     const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params) {
   switch (Integrators::from(integrator)) {
     case Integrators::TimeDerivative: {
-      return new TimeNLFormIntegrator<Variables<T, DIM>>(this->geometry_, vun, vauxn, all_params,
-                                                         this->auxvariables_, this->coefficients_);
+      return new TimeNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::HeatTimeDerivative: {
       return new HeatTimeNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     case Integrators::SplitTimeDerivative: {
       return new TimeCHNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
     default:

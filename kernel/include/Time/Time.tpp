@@ -124,9 +124,11 @@ void TimeDiscretization<Args...>::initialize() {
   }
 
   const auto& tt = this->initial_time_;
+  const double dt = this->time_step_;
   this->current_time_ = tt;
   const auto& iter = 0;
-  std::apply([iter, tt](auto&... coupling) { (coupling.initialize(iter, tt), ...); }, couplings_);
+  std::apply([iter, tt, dt](auto&... coupling) { (coupling.initialize(iter, tt, dt), ...); },
+             couplings_);
 }
 
 /**

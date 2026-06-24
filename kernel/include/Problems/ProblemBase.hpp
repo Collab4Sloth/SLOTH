@@ -103,7 +103,8 @@ class ProblemBase {
   void setGeometry(Geometry geometry);
   /////////////////////////////////////////////////////
 
-  virtual void initialize([[maybe_unused]] const double& initial_time) {}
+  virtual void initialize([[maybe_unused]] const double& initial_time,
+                          [[maybe_unused]] const double time_step) {}
 
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);

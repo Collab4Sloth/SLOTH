@@ -106,16 +106,16 @@ class OperatorBase : public mfem::Operator {
 
   std::vector<std::string> rhs_integrators_;
 
-  void build_rhs_nonlinear_form(const std::vector<mfem::Vector>& u);
+  void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
 
   int compute_total_height(const std::vector<SpatialDiscretization<T, DIM>*>& spatials);
   int compute_total_width(const std::vector<SpatialDiscretization<T, DIM>*>& spatials);
   SlothNLFormIntegrator<Variables<T, DIM>>* get_rhs_integrator(
-      const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+      const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
   SlothNLFormIntegrator<Variables<T, DIM>>* get_bdr_integrator(
-      const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
+      const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params,
       const unsigned int block, const unsigned int bdr_id);
 
@@ -176,16 +176,17 @@ class OperatorBase : public mfem::Operator {
 
   void setGeometry(Geometry geometry);
   // Virtual methods
-  virtual void initialize(const double& initial_time, Variables<T, DIM>& vars,
-                          std::vector<Variables<T, DIM>*> auxvars);
+  virtual void initialize(const double& initial_time, const double time_step,
+                          Variables<T, DIM>& vars, std::vector<Variables<T, DIM>*> auxvars);
 
   // Pure virtual methods
-  virtual void SetTransientParameters(const std::vector<mfem::Vector>& u_vect) = 0;
+  virtual void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) = 0;
   virtual void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
                      const double& current_time, double current_time_step, const int iter) = 0;
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const std::string nlfi,
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const double dt, const std::string nlfi,
                                                          const std::vector<mfem::Vector>& u);
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_bdr_nlfi_ptr(const std::string nlfi,
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_bdr_nlfi_ptr(const double dt,
+                                                             const std::string nlfi,
                                                              const std::vector<mfem::Vector>& u,
                                                              const unsigned int block,
                                                              const unsigned int bdr_id);
