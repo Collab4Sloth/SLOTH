@@ -121,6 +121,20 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       this->times_list_ = this->params_.template get_param_value<vDouble>("times_list");
     }
   }
+
+  // Restart
+  if (this->params_.has_parameter("iterations_list_save_gf")) {
+    this->iterations_list_save_gf_ =
+        this->params_.template get_param_value<vInt>("iterations_list_save_gf");
+
+    this->gf_folder_path_ =
+        this->params_.template get_param_value_or_default<std::string>("gf_folder_path", "GF");
+
+    std::filesystem::path dir = this->gf_folder_path_;
+    if (!std::filesystem::exists(dir)) {
+      std::filesystem::create_directories(dir);
+    }
+  }
 }
 
 /**
@@ -136,6 +150,7 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, const int& iter,
                                                 const double& time) {
+  // VTK
   if (this->need_to_be_saved(iter, time)) {
     this->dc_->SetCycle(iter);
     this->dc_->SetTime(time);
@@ -144,6 +159,17 @@ void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, c
       this->dc_->RegisterField(name, &gf);
     }
     this->dc_->Save();
+  }
+  // Restart
+  if (std::ranges::find(this->iterations_list_save_gf_, iter) !=
+      this->iterations_list_save_gf_.end()) {
+    std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
+    std::filesystem::path output_dir_path(this->gf_folder_path_);
+    for (auto& [name, gf] : map_var) {
+      std::filesystem::path filename = name + "_" + std::to_string(iter) + ".gf";
+      std::filesystem::path full_path = output_dir_path / filename;
+      gf.Save(full_path.string().c_str(), 16);
+    }
   }
 }
 

@@ -82,6 +82,8 @@ template <class... Args>
 void TimeDiscretization<Args...>::get_parameters() {
   this->initial_time_ =
       this->params_.template get_param_value_or_default<double>("initial_time", 0.);
+  this->initial_iter_ =
+      this->params_.template get_param_value_or_default<int>("initial_iteration", 0);
   this->final_time_ = this->params_.template get_param_value<double>("final_time");
   this->time_step_ = this->params_.template get_param_value_or_default<double>("time_step", -1.0);
   this->current_time_step_ = this->time_step_;
@@ -126,7 +128,7 @@ void TimeDiscretization<Args...>::initialize() {
   const auto& tt = this->initial_time_;
   const double dt = this->time_step_;
   this->current_time_ = tt;
-  const auto& iter = 0;
+  const auto& iter = this->initial_iter_;
   std::apply([iter, tt, dt](auto&... coupling) { (coupling.initialize(iter, tt, dt), ...); },
              couplings_);
 }
@@ -264,7 +266,7 @@ void TimeDiscretization<Args...>::solve() {
   //=============================================
   //           TIME MARCHING
   //=============================================
-  for (auto iter = 1; !this->last_step_; iter++) {
+  for (auto iter = this->initial_iter_ + 1; !this->last_step_; iter++) {
     //------------
     // Time-step
     //------------

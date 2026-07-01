@@ -57,9 +57,11 @@ class PostProcessing {
  private:
   std::shared_ptr<DC> dc_;
   std::string main_folder_path_;
+  std::string gf_folder_path_;
   std::string calculation_path_;
 
   int frequency_;
+  std::vector<int> iterations_list_save_gf_;
   std::vector<int> iterations_list_;
   std::vector<double> times_list_;
 

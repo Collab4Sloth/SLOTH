@@ -42,6 +42,7 @@ class TimeDiscretization {
  private:
   const Parameters& params_;
   std::tuple<Args...> couplings_;
+  double initial_iter_{0};
   double initial_time_{0.};
   double final_time_;
   double time_step_;
