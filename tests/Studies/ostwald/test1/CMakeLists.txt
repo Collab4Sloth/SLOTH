@@ -4,15 +4,16 @@ execute_process(COMMAND python3 ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -
 set(CURRENT_EXE Ostwald2Dtest1)
 add_executable(${CURRENT_EXE} main.cpp)
 target_link_libraries(${CURRENT_EXE} Sloth)
-
+set_compile_options(${CURRENT_EXE})
+add_dependencies(tests ${CURRENT_EXE})
 add_test(
     NAME Ostwald2Dtest1_base
-    COMMAND mpirun -np 2 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} -t 0.05
+    COMMAND mpirun -np 2 ${CURRENT_EXE} -t 0.05
 )
 
 add_test(
     NAME Ostwald2Dtest1_restart
-    COMMAND mpirun -np 2 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} -r -s 5 -i 0.05
+    COMMAND mpirun -np 2 ${CURRENT_EXE} -r -s 5 -i 0.05
 )
 
 set_tests_properties(
