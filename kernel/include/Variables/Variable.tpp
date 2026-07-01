@@ -26,10 +26,14 @@
 #pragma once
 #include <algorithm>
 #include <any>
+#include <iomanip>
 #include <limits>
 #include <map>
 #include <memory>
+#include <mfem/fem/gridfunc.hpp>
+#include <mfem/general/error.hpp>
 #include <set>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -44,6 +48,29 @@
 ////////////////////////////////
 // Without attributes names   //
 ////////////////////////////////
+/**
+ * @brief Construct a new Variable:: Variable object
+ *
+ * @param fespace
+ * @param variable_name
+ * @param depth
+ * @param input_file
+ */
+template <class T, int DIM>
+Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
+                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
+                           GlossaryQuantity type, const int& depth,
+                           const std::tuple<std::string, std::string>& input_file_dir)
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
+  this->fespace_ = spatial->get_finite_element_space();
+
+  this->uh_.SetSpace(fespace_);
+  this->setInitialCondition(spatial->mesh_, input_file_dir);
+  this->setVariableDepth(depth);
+
+  this->additional_variable_info_.resize(0);
+}
+
 /**
  * @brief Construct a new Variable:: Variable object
  *
@@ -584,6 +611,38 @@ std::function<double(const mfem::Vector&, double)> Variable<T, DIM>::buildAnalyt
 //////////////////////////////////
 // Set initial conditions
 //////////////////////////////////
+
+/**
+ * @brief Define an initial condition on the basis of an input file
+ *
+ * @tparam T
+ * @tparam DIM
+ * @param fespace
+ * @param input_file
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::setInitialCondition(
+    mfem::ParMesh* pmesh, const std::tuple<std::string, std::string>& input_file_dir) {
+  auto [input_file, input_dir] = input_file_dir;
+  int rank = mfem::Mpi::WorldRank();
+
+  std::ostringstream oss;
+  oss << std::setfill('0') << std::setw(6) << rank;
+  std::filesystem::path inputfile_rank =
+      std::filesystem::path(input_dir) / (input_file + "." + oss.str());
+
+  std::ifstream file_stream(inputfile_rank);
+
+  if (!file_stream.is_open()) {
+    const std::string& mess = "Cannot open input file: " + inputfile_rank.string();
+    mfem::mfem_error(mess.c_str());
+  }
+  mfem::GridFunction file_gf(pmesh, file_stream);
+
+  this->uh_ = std::move(file_gf);
+
+  this->uh_.GetTrueDofs(this->unk_);
+}
 
 /**
  * @brief Define an initial condition on the basis of an analytical function defined by its name

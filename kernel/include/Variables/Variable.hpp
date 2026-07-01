@@ -71,6 +71,8 @@ class Variable {
   void setInitialCondition(const AnalyticalFunctions<DIM>& initial_condition_name);
   void setInitialCondition(const mfem::FunctionCoefficient& initial_condition_function);
   void setInitialCondition(const double& initial_condition_value);
+  void setInitialCondition(mfem::ParMesh* pmesh,
+                           const std::tuple<std::string, std::string>& input_file_dir);
 
   void setAnalyticalSolution(const AnalyticalFunctions<DIM>& analytical_solution_name);
   void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
@@ -82,6 +84,10 @@ class Variable {
   /////////////////////////////
   // Without attributes names   //
   /////////////////////////////
+  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
+           const std::tuple<std::string, std::string>& input_file_dir);
+
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const AnalyticalFunctions<DIM>& initial_condition_name);

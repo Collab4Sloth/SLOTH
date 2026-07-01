@@ -5,3 +5,4 @@ endif(SLOTH_USE_VORO)
 
 add_subdirectory(sintering)
 add_subdirectory(nucleation)
+add_subdirectory(ostwald)
