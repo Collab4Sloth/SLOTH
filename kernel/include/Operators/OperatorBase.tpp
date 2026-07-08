@@ -1119,15 +1119,3 @@ template <class T, int DIM>
 void OperatorBase<T, DIM>::setGeometry(Geometry geometry) {
   this->geometry_ = geometry;
 }
-
-/**
- * @brief Destroy the OperatorBase<T, DIM>::OperatorBase object
- *
- * @tparam T Finite Element collection (mfem object)
- * @tparam DIM Spatial dimension
- */
-template <class T, int DIM>
-OperatorBase<T, DIM>::~OperatorBase() {
-  delete this->RHS;
-  delete this->rhs_solver_;
-}
