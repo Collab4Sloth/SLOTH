@@ -84,9 +84,8 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   /// Left-Hand-Side
   mfem::ParBlockNonlinearForm* LHS;
 
-  // CCI
-  mfem::HypreParMatrix* Mmat;
-  // CCI
+  std::vector<mfem::HypreParMatrix*> Mmat_;
+
   void build_mass_matrix(const std::vector<mfem::Vector>& u_vect);
   void build_lhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   bool constant_mass_matrix_{true};

@@ -283,7 +283,10 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
   }
 
   this->M_solver_.clear();
-
+  for (auto* mat : this->Mmat_) {
+    delete mat;
+  }
+  this->Mmat_.clear();
   for (unsigned int i = 0; i < u_vect.size(); i++) {
     if (M != nullptr) {
       delete M;
@@ -306,12 +309,13 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     M->Assemble(0);
     M->Finalize(0);
 
-    Mmat = M->ParallelAssemble();
-    std::unique_ptr<mfem::HypreParMatrix> Me(Mmat->EliminateRowsCols(this->ess_tdof_list_[i]));
+    this->Mmat_.emplace_back(M->ParallelAssemble());
+    std::unique_ptr<mfem::HypreParMatrix> Me(
+        this->Mmat_[i]->EliminateRowsCols(this->ess_tdof_list_[i]));
 
     this->mass_matrix_solver_ =
         std::make_shared<LSolver>(this->mass_solver_, this->mass_solver_params_,
-                                  this->mass_precond_, this->mass_precond_params_, *Mmat);
+                                  this->mass_precond_, this->mass_precond_params_, *this->Mmat_[i]);
     this->M_solver_.emplace_back(this->mass_matrix_solver_->get_solver());
   }
 }
@@ -700,6 +704,11 @@ void TransientOperator<T, DIM>::free_memory() {
   this->LHS = nullptr;
   delete this->reduced_oper;
   this->reduced_oper = nullptr;
+
+  for (auto* mat : this->Mmat_) {
+    delete mat;
+  }
+  this->Mmat_.clear();
 }
 
 /**
