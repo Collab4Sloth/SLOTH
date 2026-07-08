@@ -205,6 +205,7 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
       params_(default_params_),
       RHS(NULL),
+      rhs_solver_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -241,6 +242,7 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
       params_(default_params_),
       RHS(NULL),
+      rhs_solver_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -1116,4 +1118,16 @@ void OperatorBase<T, DIM>::set_time_coefficients(double time) {
 template <class T, int DIM>
 void OperatorBase<T, DIM>::setGeometry(Geometry geometry) {
   this->geometry_ = geometry;
+}
+
+/**
+ * @brief Destroy the OperatorBase<T, DIM>::OperatorBase object
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+OperatorBase<T, DIM>::~OperatorBase() {
+  delete this->RHS;
+  delete this->rhs_solver_;
 }

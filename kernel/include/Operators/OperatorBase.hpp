@@ -160,7 +160,7 @@ class OperatorBase : public mfem::Operator {
   void clear_time_specialized();
   void clear_iso_time_specialized();
 
-  virtual ~OperatorBase() = default;
+  virtual ~OperatorBase();
 
   std::string get_description() { return this->description_; }
 
