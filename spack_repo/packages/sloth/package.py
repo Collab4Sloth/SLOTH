@@ -15,7 +15,9 @@ class Sloth(CMakePackage):
     homepage = "https://github.com/Collab4Sloth/SLOTH"
     url      = "https://github.com/Collab4Sloth/SLOTH.git"
 
-    version("2.0.0",  tag='v2.0.0', preferred=True)
+    version("2.1.0",  tag='v2.1.0', preferred=True)
+    version("2.0.1",  tag='v2.0.1', preferred=False)
+    version("2.0.0",  tag='v2.0.0', preferred=False)
     version("master", git='https://github.com/Collab4Sloth/SLOTH.git', branch='master')
 
     variant('petsc'       , default=False  , description='Enable PETSc solvers, preconditioners, etc.')
