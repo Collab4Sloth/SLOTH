@@ -163,23 +163,86 @@ mfem::Array<int> BoundaryConditions<T, DIM>::get_marker_array(const std::string&
 }
 
 /**
- * @brief Set boundary conditions
+ * @brief Set dirichlet boundary conditions
  *
  * @param u unknown vector
+ * @param coefficients coefficients list for the variable
+ * @param auxvars_unk unknown vectors of the auxiliary variables
+ * 
  */
 template <class T, int DIM>
-void BoundaryConditions<T, DIM>::SetBoundaryConditions(mfem::Vector& u) {
+void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(mfem::Vector& u, Coefficients& coefficients, std::vector<mfem::Vector> auxvars_unk) {
+
+  const int nb_bdr = this->Dirichlet_bdr_.Size();
   mfem::Array<int> tmp_array_bdr(this->Dirichlet_bdr_.Size());
-  for (auto i = 0; i < this->Dirichlet_bdr_.Size(); i++) {
-    tmp_array_bdr = 0;
-    mfem::Array<int> dof;
+  const int coef_size = coefficients.size();
+  Coefficient dirichlet_coef = Coefficient(Glossary::Default, 0.0);
+
+  std::vector<double> u_values;
+  std::vector<double> vaux_values;
+
+  // Inline function to compute Dirichlet coefficient
+  auto compute_dirichlet_coefficient = [&](Coefficient& coef, 
+    const std::span<const double>& values,
+    const std::span<const double>& aux_values) -> double {
+    if (coef.is_scalar()) {
+      return coef.compute();
+    } else {
+      return coef.compute(values, aux_values);
+    }
+  };
+
+  // Loop over boundaries
+  for (int i = 0; i < nb_bdr; i++) {
+
+    // If the boundary is dirichlet
     if (this->Dirichlet_bdr_[i] > 0) {
+
+      // Check if there is a coefficient given and store it
+      bool has_dirichlet_coef = false;
+      for (int l = 0; l < coef_size; l++) {
+        const auto& coef = coefficients[l];
+        if (coef.get_type() == GlossaryType::Dirichlet) {
+          auto bdr_ids = coef.get_bdr_index_coef();
+          if (std::find(bdr_ids.begin(), bdr_ids.end(), i) != bdr_ids.end()) {
+            dirichlet_coef = coef;
+            has_dirichlet_coef = true;
+            break;
+          }
+        }
+      }
+
+      // Get the list of essential true dofs
+      tmp_array_bdr = 0;
       tmp_array_bdr[i] = 1;
-      this->fespace_->GetEssentialTrueDofs(tmp_array_bdr, dof);
-      u.SetSubVector(dof, this->Dirichlet_value_[i]);
+      mfem::Array<int> dof_list;
+      this->fespace_->GetEssentialTrueDofs(tmp_array_bdr, dof_list);
+
+      if (has_dirichlet_coef) {
+        mfem::Vector dirichlet_at_dofs(dof_list.Size());
+        // Loop over essential dofs and compute the coefficient at the dofs
+        for (int j = 0; j < dof_list.Size(); j++) {
+          u_values.clear();
+          vaux_values.clear();
+
+          int dof = dof_list[j];
+          u_values.push_back(u(dof));
+          for (auto aux : auxvars_unk)
+              vaux_values.emplace_back(aux(dof));
+
+          dirichlet_at_dofs[j] = compute_dirichlet_coefficient(dirichlet_coef, std::span<const double>(u_values),
+          std::span<const double>(vaux_values));
+        }
+
+        // SetSubVector with the calculated dirichlet values
+        u.SetSubVector(dof_list, dirichlet_at_dofs);
+      } else {
+        // If no dirichlet coefficient is given, use the constant dirichlet value
+        u.SetSubVector(dof_list, this->Dirichlet_value_[i]);
+      }
     }
   }
-}  // end of SetBoundaryConditions
+}  // end of SetDirichletBoundaryConditions
 
 /**
  * @brief Destroy the Boundary Conditions:: Boundary Conditions object

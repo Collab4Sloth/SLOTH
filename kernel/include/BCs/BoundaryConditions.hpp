@@ -57,7 +57,7 @@ class BoundaryConditions {
  public:
   template <class... Args>
   BoundaryConditions(SpatialDiscretization<T, DIM>* spatial, const Args&... boundaries);
-  void SetBoundaryConditions(mfem::Vector& u);
+  void SetDirichletBoundaryConditions(mfem::Vector& u, Coefficients& coefficients, std::vector<mfem::Vector> auxvars_unk);
   mfem::Array<int> GetEssentialDofs();
   ~BoundaryConditions();
   mfem::Array<int> get_marker_array(const std::string& boundary_type);
