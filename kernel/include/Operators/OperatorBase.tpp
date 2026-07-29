@@ -374,7 +374,15 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
 
     this->bcs_.emplace_back(vv.get_boundary_conditions());
     this->ess_tdof_list_.emplace_back(this->bcs_[iv]->GetEssentialDofs());
-    this->bcs_[iv]->SetBoundaryConditions(u);
+
+    // Get the unknown vectors of the auxiliary variables
+    std::vector<mfem::Vector> auxvars_unk;
+    for (const auto& auxvar_vec : this->auxvariables_) {
+      for (const auto& auxvar : auxvar_vec->getVariables()) {
+        auxvars_unk.emplace_back(auxvar.get_unknown());
+      }
+    }
+    this->bcs_[iv]->SetDirichletBoundaryConditions(u, this->coefficients_[iv], auxvars_unk);
     vv.update(u);
     u_vect.emplace_back(u);
   }
