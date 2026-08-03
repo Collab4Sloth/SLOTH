@@ -69,6 +69,7 @@ class OperatorBase : public mfem::Operator {
   void set_default_solver();
 
  protected:
+  bool enable_amr_{true};
   Geometry geometry_ = Geometry::Cartesian;
   Parameters nl_solver_params_;
   std::optional<Coefficient> energy_coefficient_;
@@ -175,6 +176,7 @@ class OperatorBase : public mfem::Operator {
   void overload_preconditioner(VSolverType PRECOND, const Parameters& p_params);
 
   void setGeometry(Geometry geometry);
+  void UpdateAfterMeshChange();
   // Virtual methods
   virtual void initialize(const double& initial_time, const double time_step,
                           Variables<T, DIM>& vars, std::vector<Variables<T, DIM>*> auxvars);
