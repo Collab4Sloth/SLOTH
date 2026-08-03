@@ -109,7 +109,6 @@ class SpatialDiscretization {
   mfem::ParFiniteElementSpace* fespace_;
   T* fecollection_;
   bool owns_mesh_{true};
-  bool is_nc_simplices_ = {false};
 
  public:
   /**
@@ -145,8 +144,9 @@ class SpatialDiscretization {
    */
   SpatialDiscretization(const std::string& mesh_type, const int& fe_order, const int& ref_level,
                         const std::string& mesh_file, bool periodic_mesh = false,
-                        bool allow_nc_simplices = false) {
+                        bool enable_nc_mesh = false, bool allow_nc_simplices = false) {
     specialized_spatial_constructor<T, DIM> init;
+    this->enable_nc_mesh_ = enable_nc_mesh;
     this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, mesh_file, periodic_mesh);
     this->set_mesh_attributes_from_file();
@@ -185,8 +185,9 @@ class SpatialDiscretization {
   template <class... Args>
   explicit SpatialDiscretization(const std::string& mesh_type, const int& fe_order,
                                  const int& ref_level, std::tuple<Args...> tup_args,
-                                 bool allow_nc_simplices = false) {
+                                 bool enable_nc_mesh = false, bool allow_nc_simplices = false) {
     specialized_spatial_constructor<T, DIM> init;
+    this->enable_nc_mesh_ = enable_nc_mesh;
     this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, tup_args);
   }
@@ -229,8 +230,9 @@ class SpatialDiscretization {
   explicit SpatialDiscretization(const std::string& mesh_type, const int& fe_order,
                                  const int& ref_level, std::tuple<Args...> tup_args,
                                  std::vector<mfem::Vector> translations,
-                                 bool allow_nc_simplices = false) {
+                                 bool enable_nc_mesh = false, bool allow_nc_simplices = false) {
     specialized_spatial_constructor<T, DIM> init;
+    this->enable_nc_mesh_ = enable_nc_mesh;
     this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, tup_args, translations);
   }
@@ -304,7 +306,8 @@ class SpatialDiscretization {
    * @return false `mesh_file` does not end with "." (naming convention not
    *               respected); no mesh is built and `mesh_` is left untouched.
    */
-  bool GMSHReaderSplitFiles(const std::string mesh_file, bool allow_nc_simplices = false) {
+  bool GMSHReaderSplitFiles(const std::string mesh_file, bool enable_nc_mesh = false,
+                            bool allow_nc_simplices = false) {
     if (!mesh_file.ends_with(".")) return false;
 
     split_mesh_helper checker;
@@ -326,16 +329,17 @@ class SpatialDiscretization {
       mfem::mfem_error(msg.c_str());
     }
 
+    this->enable_nc_mesh_ = enable_nc_mesh;
     this->is_nc_simplices_ = allow_nc_simplices;
 
     this->mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, ifs);
 
-    if (allow_nc_simplices) {
-      MFEM_VERIFY(this->mesh_->Nonconforming(),
-                  "GMSHReaderSplitFiles: the loaded mesh is conforming, but nonconforming "
-                  "AMR was requested. The mesh files must be regenerated from a mesh that "
-                  "had EnsureNCMesh() called before being split, since a parallel ParMesh "
-                  "cannot be converted to nonconforming after construction.");
+    if (!this->mesh_->Nonconforming()) {
+      MFEM_VERIFY(false,
+                  "RefineMesh: the mesh was not built with enable_nc_mesh=true. "
+                  "Local AMR requires this flag to be set at SpatialDiscretization "
+                  "construction time (a conforming ParMesh cannot be converted to "
+                  "nonconforming afterwards).");
     }
 
     return true;
@@ -346,6 +350,8 @@ class SpatialDiscretization {
   mfem::ParMesh* mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
+  bool is_nc_simplices_ = {false};
+  bool enable_nc_mesh_ = {false};
 
   void set_finite_element_space();
 
@@ -404,14 +410,17 @@ struct specialized_spatial_constructor<T, 1> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
-          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
           tmp_mesh.Finalize(true);
 
           a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+              new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.is_nc_simplices_)) {
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.ensure_nc_mesh_,
+                                                   a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
               file);
@@ -499,7 +508,9 @@ struct specialized_spatial_constructor<T, 1> {
           const auto nx = std::get<0>(tup_args);
           const auto sx = std::get<1>(tup_args);
           mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian1D(nx, sx);
-          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
           tmp_mesh.Finalize(true);
           a_my_class.mesh_ =
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
@@ -559,7 +570,9 @@ struct specialized_spatial_constructor<T, 1> {
           tmp_mesh.Clear();
           mfem::Mesh tmp_mesh_periodic =
               mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
-          tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
           tmp_mesh.Finalize(true);
           a_my_class.mesh_ = new mfem::ParMesh(
               MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
@@ -616,14 +629,17 @@ struct specialized_spatial_constructor<T, 2> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh(mesh_file, 1, 1);
-          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
           tmp_mesh.Finalize(true);
 
           a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD,
                                                tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.is_nc_simplices_)) {
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.enable_nc_mesh_,
+                                                   a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
               file);
@@ -728,7 +744,9 @@ struct specialized_spatial_constructor<T, 2> {
       const auto sx = std::get<2>(tup_args);
       const auto sy = std::get<3>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
-      tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
       tmp_mesh.Finalize(true);
       a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel
                                                                        // mesh
@@ -790,7 +808,9 @@ struct specialized_spatial_constructor<T, 2> {
       tmp_mesh.Clear();
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
-      tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
       tmp_mesh.Finalize(true);
       a_my_class.mesh_ =
           new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
@@ -837,13 +857,16 @@ struct specialized_spatial_constructor<T, 3> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
-          tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
           tmp_mesh.Finalize(true);
           a_my_class.mesh_ =
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.is_nc_simplices_)) {
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.ensure_nc_mesh_,
+                                                   a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
               file);
@@ -951,7 +974,9 @@ struct specialized_spatial_constructor<T, 3> {
       const auto sy = std::get<4>(tup_args);
       const auto sz = std::get<5>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
-      tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
       tmp_mesh.Finalize(true);
       a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
       tmp_mesh.Clear();
@@ -1015,7 +1040,9 @@ struct specialized_spatial_constructor<T, 3> {
       tmp_mesh.Clear();
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
-      tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
       tmp_mesh_periodic.Finalize(true);
       a_my_class.mesh_ =
           new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
