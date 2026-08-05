@@ -71,4 +71,6 @@ void MPI_Problem<VAR, PST>::do_time_step(
   // Store the solution into a temporary mfem::Vector that will be used during updating stage,
   // TODO(cci) : utile? à voir avec le restart de paraview dan mfem et peut etre l'AMR
   this->unknown_.emplace_back(unk);
+  // Update time
+  next_time = current_time + current_time_step;
 }
