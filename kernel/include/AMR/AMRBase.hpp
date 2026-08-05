@@ -56,9 +56,9 @@ class AMRBase {
 
   void EnsureCriteriaSet() const;
 
-  void InitialRefine(VAR& vars);
-  void StepRefine(VAR& vars);
-  void StepDerefine(VAR& vars);
+  void InitialRefine(VAR& vars, std::vector<VAR*> auxvars);
+  void StepRefine(VAR& vars, std::vector<VAR*> auxvars);
+  void StepDerefine(VAR& vars, std::vector<VAR*> auxvars);
 
  protected:
   void EnsureNCMeshIfNeeded();

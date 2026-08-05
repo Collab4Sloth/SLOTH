@@ -135,9 +135,13 @@ void AMRBase<VAR>::EnsureNCMeshIfNeeded() {
  *          conversion is still possible after the fact.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param vars Primary variables sharing the mesh managed by this AMR
+ *            object.
+ * @param auxvars Auxiliary variable collections sharing the same mesh,
+ *               if any (empty by default).
  */
 template <class VAR>
-void AMRBase<VAR>::InitialRefine(VAR& vars) {
+void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
   int cycle = 0;
   bool did_refine = false;
   do {
@@ -148,6 +152,11 @@ void AMRBase<VAR>::InitialRefine(VAR& vars) {
         auto& var = vars[i];
         var.UpdateAndRebalance();
         var.setInitialCondition();
+      }
+      for (auto* auxvar_container : auxvars) {
+        for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
+          (*auxvar_container)[i].UpdateAndRebalance();
+        }
       }
     }
     cycle++;
@@ -173,15 +182,22 @@ void AMRBase<VAR>::InitialRefine(VAR& vars) {
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
+ * @param auxvars Auxiliary variable collections sharing the same mesh,
+ *               if any (empty by default).
  */
 template <class VAR>
-void AMRBase<VAR>::StepRefine(VAR& vars) {
+void AMRBase<VAR>::StepRefine(VAR& vars, std::vector<VAR*> auxvars) {
   bool did_refine = this->Refine(vars);
 
   if (did_refine) {
     for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
       auto& var = vars[i];
       var.UpdateAndRebalance();
+    }
+    for (auto* auxvar_container : auxvars) {
+      for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
+        (*auxvar_container)[i].UpdateAndRebalance();
+      }
     }
   }
 }
@@ -203,15 +219,22 @@ void AMRBase<VAR>::StepRefine(VAR& vars) {
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
+ * @param auxvars Auxiliary variable collections sharing the same mesh,
+ *               if any (empty by default).
  */
 template <class VAR>
-void AMRBase<VAR>::StepDerefine(VAR& vars) {
+void AMRBase<VAR>::StepDerefine(VAR& vars, std::vector<VAR*> auxvars) {
   bool did_derefine = this->Derefine(vars);
 
   if (did_derefine) {
     for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
       auto& var = vars[i];
       var.UpdateAndRebalance();
+    }
+    for (auto* auxvar_container : auxvars) {
+      for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
+        (*auxvar_container)[i].UpdateAndRebalance();
+      }
     }
   }
 }
