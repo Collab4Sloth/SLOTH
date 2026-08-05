@@ -34,6 +34,7 @@
 #ifdef SLOTH_USE_EXPRTK
 #include "Coefficients/ExprTkSloth.hpp"
 #endif
+#include "AMR/ListAMR.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/CalphadBase.hpp"
 #include "Calphad/KKS.hpp"

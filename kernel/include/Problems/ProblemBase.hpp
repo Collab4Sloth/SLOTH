@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "AMR/AMRBase.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Options/ProblemsOptions.hpp"
@@ -77,6 +78,11 @@ class ProblemBase {
   std::shared_ptr<Convergence> convergence_;
   std::vector<std::tuple<std::string, bool, double>> var_convergence_;
 
+  AMRBase<VAR>* amr_{nullptr};
+
+ public:
+  void set_amr(AMRBase<VAR>* amr) { this->amr_ = amr; }
+
  public:
   template <PbVar<VAR>... Args>
   ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
@@ -117,7 +123,7 @@ class ProblemBase {
 
   virtual void post_processing(const int& iter, const double& current_time);
 
-  void save(const int& iter, const double& current_time);
+  virtual void save(const int& iter, const double& current_time);
 
   virtual void finalize();
   virtual void set_time_coefficients(double) {}
