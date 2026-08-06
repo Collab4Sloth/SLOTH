@@ -31,6 +31,7 @@
  */
 
 #pragma once
+#include "AMR/SlothErrorEstimators.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -39,10 +40,10 @@ class AMRBase {
  protected:
   mfem::ParMesh& par_mesh_;
   bool is_nc_simplices_;
-  mfem::BilinearFormIntegrator* amr_integ_{nullptr};
   double amr_max_elem_error_{0.0};
   int amr_nc_limit_{0};
   int amr_max_preref_cycles_{1};
+  SlothErrorEstimators* amr_estimator_{nullptr};
 
   virtual bool Refine(VAR& vars) = 0;
   virtual bool Derefine(VAR& vars) = 0;
@@ -51,7 +52,7 @@ class AMRBase {
   AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices);
   virtual ~AMRBase() = default;
 
-  void SetCriteria(mfem::BilinearFormIntegrator* integ, double max_elem_error, int nc_limit,
+  void SetCriteria(SlothErrorEstimators* estimator, double max_elem_error, int nc_limit,
                    int max_preref_cycles);
 
   void EnsureCriteriaSet() const;

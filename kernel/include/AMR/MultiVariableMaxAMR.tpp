@@ -56,8 +56,8 @@ MultiVariableMaxAMR<VAR>::MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_si
  * @brief Refine the shared mesh once, based on the per-element maximum
  *        error across all variables in `vars`.
  *
- * @details For each variable, builds an `mfem::L2ZienkiewiczZhuEstimator`
- *          on its own grid function and reads its per-element local
+ * @details For each variable, builds a fresh estimator via
+ *          `amr_estimator_->get_value()` and reads its per-element local
  *          errors (this only estimates the error; it does not mutate the
  *          mesh). These are combined element-wise into `combined_error`
  *          via `max()`, so that an element is a refinement candidate as
@@ -87,22 +87,10 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
   for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
     auto& var = vars[iv];
 
-    mfem::ParFiniteElementSpace* fespace = var.get_fespace();
-    mfem::ParGridFunction& x = var.get_ref_gf();
+    auto estimator =
+        this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
 
-    const int order = fespace->GetOrder(0);
-    const int dim = this->par_mesh_.Dimension();
-    const int sdim = this->par_mesh_.SpaceDimension();
-
-    mfem::L2_FECollection flux_fec(order, dim);
-    mfem::RT_FECollection smooth_flux_fec(order - 1, dim);
-
-    auto* flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &flux_fec, sdim);
-    auto* smooth_flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &smooth_flux_fec);
-
-    mfem::L2ZienkiewiczZhuEstimator estimator(*this->amr_integ_, x, flux_fes, smooth_flux_fes);
-
-    const mfem::Vector& local_errors = estimator.GetLocalErrors();
+    const mfem::Vector& local_errors = estimator->GetLocalErrors();
 
     for (int e = 0; e < ne; e++) {
       combined_error(e) = std::max(combined_error(e), local_errors(e));
@@ -128,15 +116,17 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
  * @brief Derefine the shared mesh once, based on the per-element maximum
  *        error across all variables in `vars`.
  *
- * @details Mirrors `Refine()`: the per-element error is combined via
- *          `max()` across all variables, so that an element is a
- *          derefinement candidate only if its error stays low for EVERY
- *          variable (a conservative criterion, since derefining would
- *          otherwise risk losing resolution needed by a variable that
- *          did not contribute to the decision). The combined error vector
- *          is then passed once to `mfem::ParMesh::DerefineByError()`,
- *          which internally aggregates by SUM the errors of sibling
- *          elements sharing the same parent before comparing to
+ * @details Mirrors `Refine()`: for each variable, builds a fresh
+ *          estimator via `amr_estimator_->get_value()`, and the
+ *          per-element error is combined via `max()` across all
+ *          variables, so that an element is a derefinement candidate
+ *          only if its error stays low for EVERY variable (a
+ *          conservative criterion, since derefining would otherwise risk
+ *          losing resolution needed by a variable that did not
+ *          contribute to the decision). The combined error vector is
+ *          then passed once to `mfem::ParMesh::DerefineByError()`, which
+ *          internally aggregates by SUM the errors of sibling elements
+ *          sharing the same parent before comparing to
  *          `derefine_threshold` — hence the threshold is scaled down
  *          (`0.25 *`) relative to `amr_max_elem_error_` used for
  *          refinement, and may need further empirical recalibration
@@ -161,20 +151,9 @@ bool MultiVariableMaxAMR<VAR>::Derefine(VAR& vars) {
 
   for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
     auto& var = vars[iv];
-    mfem::ParFiniteElementSpace* fespace = var.get_fespace();
-    mfem::ParGridFunction& x = var.get_ref_gf();
-
-    const int order = fespace->GetOrder(0);
-    const int dim = this->par_mesh_.Dimension();
-    const int sdim = this->par_mesh_.SpaceDimension();
-
-    mfem::L2_FECollection flux_fec(order, dim);
-    mfem::RT_FECollection smooth_flux_fec(order - 1, dim);
-    auto* flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &flux_fec, sdim);
-    auto* smooth_flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &smooth_flux_fec);
-
-    mfem::L2ZienkiewiczZhuEstimator estimator(*this->amr_integ_, x, flux_fes, smooth_flux_fes);
-    const mfem::Vector& local_errors = estimator.GetLocalErrors();
+    auto estimator =
+        this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
+    const mfem::Vector& local_errors = estimator->GetLocalErrors();
 
     for (int e = 0; e < ne; e++) {
       combined_error(e) = std::max(combined_error(e), local_errors(e));

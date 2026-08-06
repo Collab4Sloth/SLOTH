@@ -32,6 +32,7 @@
 
 #pragma once
 #include "AMR/AMRBase.hpp"
+#include "AMR/SlothErrorEstimators.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -66,9 +67,6 @@ AMRBase<VAR>::AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices)
  *          keep it alive for as long as this AMR object is used.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
- * @param integ Integrator used by the underlying error estimator
- *             (`mfem::L2ZienkiewiczZhuEstimator`) to compute per-element
- *             flux/error, e.g. a `mfem::DiffusionIntegrator`.
  * @param max_elem_error Local error threshold above which an element is
  *                       marked for refinement (used directly for
  *                       refinement; scaled down internally for
@@ -81,24 +79,12 @@ AMRBase<VAR>::AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices)
  *                          before the time-stepping loop starts.
  */
 template <class VAR>
-void AMRBase<VAR>::SetCriteria(mfem::BilinearFormIntegrator* integ, double max_elem_error,
-                               int nc_limit, int max_preref_cycles) {
-  this->amr_integ_ = integ;
+void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, double max_elem_error, int nc_limit,
+                               int max_preref_cycles) {
+  this->amr_estimator_ = estimator;
   this->amr_max_elem_error_ = max_elem_error;
   this->amr_nc_limit_ = nc_limit;
   this->amr_max_preref_cycles_ = max_preref_cycles;
-}
-
-/**
- * @brief
- *
- * @tparam VAR
- */
-template <class VAR>
-void AMRBase<VAR>::EnsureCriteriaSet() const {
-  MFEM_VERIFY(this->amr_integ_ != nullptr,
-              "AMR criteria not set: call SetCriteria() on this AMR object before "
-              "using Refine()/Derefine().");
 }
 
 /**
@@ -106,10 +92,33 @@ void AMRBase<VAR>::EnsureCriteriaSet() const {
  *        object.
  *
  * @details Called internally at the start of every concrete Refine()/
- *          Derefine() implementation, before `amr_integ_` (or any other
- *          criteria member) is dereferenced. Aborts with a clear error
- *          message if the precondition is not met, rather than letting a
- *          null `amr_integ_` be dereferenced silently.
+ *          Derefine() implementation, before `amr_estimator_` (or any
+ *          other criteria member) is dereferenced. Aborts with a clear
+ *          error message if the precondition is not met, rather than
+ *          letting a null `amr_estimator_` be dereferenced silently.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ */
+template <class VAR>
+void AMRBase<VAR>::EnsureCriteriaSet() const {
+  MFEM_VERIFY(this->amr_estimator_ != nullptr,
+              "AMR criteria not set: call SetCriteria() on this AMR object before "
+              "using Refine()/Derefine().");
+}
+
+/**
+ * @brief Activate nonconforming (NC) mode on the mesh if it is not already
+ *        active.
+ *
+ * @details Called internally at the start of every concrete Refine()/
+ *          Derefine() implementation. In practice this should be a no-op
+ *          in most workflows: `EnsureNCMesh()` is expected to have already
+ *          been called on the serial mesh, before it was distributed into
+ *          a `mfem::ParMesh` (see `SpatialDiscretization`), since a
+ *          conforming `ParMesh` cannot be converted to nonconforming
+ *          after construction in parallel. This call remains here as a
+ *          defensive fallback for the sequential case, where the
+ *          conversion is still possible after the fact.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  */

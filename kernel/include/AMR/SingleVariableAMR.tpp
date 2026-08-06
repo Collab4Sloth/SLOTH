@@ -33,6 +33,7 @@
 
 #pragma once
 #include "AMR/SingleVariableAMR.hpp"
+#include "AMR/SlothErrorEstimators.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -58,15 +59,16 @@ SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simpli
  * @brief Refine the mesh once, based solely on the error estimated on the
  *        pilot variable (`var_id_`).
  *
- * @details Delegates both error estimation and mesh mutation to
+ * @details Builds a fresh estimator via `amr_estimator_->get_value()`,
+ *          then delegates both error estimation and mesh mutation to
  *          `mfem::ThresholdRefiner::Apply()`, configured with a purely
  *          local error goal (`SetTotalErrorFraction(0.0)`,
  *          `SetLocalErrorGoal(amr_max_elem_error_)`) and conforming
  *          refinement preferred where possible
  *          (`PreferConformingRefinement()`), subject to `amr_nc_limit_`.
- *          `flux_fes`/`smooth_flux_fes` are explicitly resynchronized
- *          after `Apply()` (which may have refined the mesh) and before
- *          `estimator`'s destructor runs, to avoid it operating on a
+ *          If the mesh was refined, `amr_estimator_->UpdateFluxSpaces()`
+ *          is called to resynchronize the estimator's internal flux
+ *          spaces before it is destroyed, avoiding it operating on a
  *          stale nonconforming mesh state.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
@@ -81,22 +83,10 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
   auto& var = vars[this->var_id_];
-  mfem::ParFiniteElementSpace* fespace = var.get_fespace();
-  mfem::ParGridFunction& x = var.get_ref_gf();
+  auto estimator =
+      this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
 
-  const int order = fespace->GetOrder(0);
-  const int dim = this->par_mesh_.Dimension();
-  const int sdim = this->par_mesh_.SpaceDimension();
-
-  mfem::L2_FECollection flux_fec(order, dim);
-  mfem::RT_FECollection smooth_flux_fec(order - 1, dim);
-
-  auto* flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &flux_fec, sdim);
-  auto* smooth_flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &smooth_flux_fec);
-
-  mfem::L2ZienkiewiczZhuEstimator estimator(*this->amr_integ_, x, flux_fes, smooth_flux_fes);
-
-  mfem::ThresholdRefiner refiner(estimator);
+  mfem::ThresholdRefiner refiner(*estimator);
   refiner.SetTotalErrorFraction(0.0);
   refiner.SetLocalErrorGoal(this->amr_max_elem_error_);
   refiner.PreferConformingRefinement();
@@ -106,8 +96,7 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
   bool did_refine = refiner.Refined();
 
   if (did_refine) {
-    flux_fes->Update();
-    smooth_flux_fes->Update();
+    this->amr_estimator_->UpdateFluxSpaces();
   }
 
   return did_refine;
@@ -117,13 +106,15 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
  * @brief Derefine the mesh once, based solely on the error estimated on
  *        the pilot variable (`var_id_`).
  *
- * @details Delegates both error estimation and mesh mutation to
+ * @details Builds a fresh estimator via `amr_estimator_->get_value()`,
+ *          then delegates both error estimation and mesh mutation to
  *          `mfem::ThresholdDerefiner::Apply()`, with a threshold scaled
  *          down (`0.25 *`) relative to `amr_max_elem_error_` used for
  *          refinement, to provide hysteresis and avoid oscillating
  *          refine/derefine cycles on the same elements. As in `Refine()`,
- *          `flux_fes`/`smooth_flux_fes` are explicitly resynchronized
- *          after `Apply()` and before `estimator`'s destructor runs.
+ *          if the mesh was derefined, `amr_estimator_->UpdateFluxSpaces()`
+ *          is called to resynchronize the estimator's internal flux
+ *          spaces before it is destroyed.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
@@ -137,31 +128,16 @@ bool SingleVariableAMR<VAR>::Derefine(VAR& vars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
   auto& var = vars[this->var_id_];
-
-  mfem::ParFiniteElementSpace* fespace = var.get_fespace();
-  mfem::ParGridFunction& x = var.get_ref_gf();
-
-  const int order = fespace->GetOrder(0);
-  const int dim = this->par_mesh_.Dimension();
-  const int sdim = this->par_mesh_.SpaceDimension();
-
-  mfem::L2_FECollection flux_fec(order, dim);
-  mfem::RT_FECollection smooth_flux_fec(order - 1, dim);
-
-  auto* flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &flux_fec, sdim);
-  auto* smooth_flux_fes = new mfem::ParFiniteElementSpace(&this->par_mesh_, &smooth_flux_fec);
-
-  mfem::L2ZienkiewiczZhuEstimator estimator(*this->amr_integ_, x, flux_fes, smooth_flux_fes);
-
-  mfem::ThresholdDerefiner derefiner(estimator);
+  auto estimator =
+      this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
+  mfem::ThresholdDerefiner derefiner(*estimator);
   derefiner.SetThreshold(0.25 * this->amr_max_elem_error_);
   derefiner.SetNCLimit(this->amr_nc_limit_);
 
   bool did_derefine = derefiner.Apply(this->par_mesh_);
 
   if (did_derefine) {
-    flux_fes->Update();
-    smooth_flux_fes->Update();
+    this->amr_estimator_->UpdateFluxSpaces();
   }
 
   return did_derefine;

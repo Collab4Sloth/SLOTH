@@ -1,9 +1,9 @@
 /**
- * @file ListAMR.hpp
+ * @file EstimatorsOptions.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief List of  header files contained in the AMR directory
+ * @brief  Options for error estimators
  * @version 0.1
- * @date 2026-08-04
+ * @date 2026-08-05
  *
  * @copyright CEA (C) 2026
  *
@@ -25,8 +25,9 @@
  */
 
 #pragma once
+#include "Utils/Utils.hpp"
 
-#include "AMR/AMRBase.hpp"
-#include "AMR/MultiVariableMaxAMR.hpp"
-#include "AMR/SingleVariableAMR.hpp"
-#include "AMR/SlothErrorEstimators.hpp"
+///////////////////////////////////////////////////
+//////// ESTIMATORS
+///////////////////////////////////////////////////
+enum class ErrorEstimatorType { L2_ZIENKIEWICZ_ZHU, KELLY };
