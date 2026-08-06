@@ -92,12 +92,25 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
   refiner.PreferConformingRefinement();
   refiner.SetNCLimit(this->amr_nc_limit_);
 
-  refiner.Apply(this->par_mesh_);
-  bool did_refine = refiner.Refined();
+  mfem::Array<mfem::Refinement> refinements;
+  refiner.MarkWithoutRefining(this->par_mesh_, refinements);
+  refinements = this->FilterRefinedCandidates(refinements);
+  int num_marked = this->par_mesh_.ReduceInt(refinements.Size());
 
+  bool did_refine = (num_marked != 0);
+  // bool did_refine = (refinements.Size() > 0);
   if (did_refine) {
+    this->par_mesh_.GeneralRefinement(refinements, -1, this->amr_nc_limit_);
     this->amr_estimator_->UpdateFluxSpaces();
   }
+
+  // refiner.Apply(this->par_mesh_);
+
+  // bool did_refine = refiner.Refined();
+
+  // if (did_refine) {
+  //   this->amr_estimator_->UpdateFluxSpaces();
+  // }
 
   return did_refine;
 }

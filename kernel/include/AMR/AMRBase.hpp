@@ -43,6 +43,7 @@ class AMRBase {
   double amr_max_elem_error_{0.0};
   int amr_nc_limit_{0};
   int amr_max_preref_cycles_{1};
+  int amr_max_level_{0};
   SlothErrorEstimators* amr_estimator_{nullptr};
 
   virtual bool Refine(VAR& vars) = 0;
@@ -52,14 +53,17 @@ class AMRBase {
   AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices);
   virtual ~AMRBase() = default;
 
-  void SetCriteria(SlothErrorEstimators* estimator, double max_elem_error, int nc_limit,
-                   int max_preref_cycles);
+  void SetCriteria(SlothErrorEstimators* estimator, double max_elem_error, int amr_max_level,
+                   int nc_limit, int max_preref_cycles);
 
   void EnsureCriteriaSet() const;
 
   void InitialRefine(VAR& vars, std::vector<VAR*> auxvars);
   void StepRefine(VAR& vars, std::vector<VAR*> auxvars);
   void StepDerefine(VAR& vars, std::vector<VAR*> auxvars);
+
+  mfem::Array<mfem::Refinement> FilterRefinedCandidates(
+      const mfem::Array<mfem::Refinement>& candidates);
 
  protected:
   void EnsureNCMeshIfNeeded();

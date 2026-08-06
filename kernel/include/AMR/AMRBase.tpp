@@ -79,11 +79,12 @@ AMRBase<VAR>::AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices)
  *                          before the time-stepping loop starts.
  */
 template <class VAR>
-void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, double max_elem_error, int nc_limit,
-                               int max_preref_cycles) {
+void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, double max_elem_error,
+                               int amr_max_level, int nc_limit, int max_preref_cycles) {
   this->amr_estimator_ = estimator;
   this->amr_max_elem_error_ = max_elem_error;
   this->amr_nc_limit_ = nc_limit;
+  this->amr_max_level_ = amr_max_level;
   this->amr_max_preref_cycles_ = max_preref_cycles;
 }
 
@@ -165,6 +166,8 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
       for (auto* auxvar_container : auxvars) {
         for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
           (*auxvar_container)[i].UpdateAndRebalance();
+          // Affect only auxiliary variables of the current problem
+          (*auxvar_container)[i].setInitialCondition();
         }
       }
     }
@@ -246,4 +249,40 @@ void AMRBase<VAR>::StepDerefine(VAR& vars, std::vector<VAR*> auxvars) {
       }
     }
   }
+}
+
+/**
+ * @brief Filter refinement candidates that would exceed the configured
+ *        maximum refinement depth for their element.
+ *
+ * @details No-op if amr_max_level_ is 0 (no limit configured, default).
+ *          Prevents an element from being refined indefinitely across many
+ *          time steps: each StepRefine() call only refines once, so
+ *          without this filter an element could accumulate one extra
+ *          refinement level per time step with no upper bound.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param candidates Refinement candidates before filtering.
+ * @return mfem::Array<mfem::Refinement> Filtered candidates, keeping only
+ *        elements whose current depth is below amr_max_level_.
+ */
+template <class VAR>
+mfem::Array<mfem::Refinement> AMRBase<VAR>::FilterRefinedCandidates(
+    const mfem::Array<mfem::Refinement>& candidates) {
+  if (this->amr_max_level_ <= 0) {
+    return candidates;
+  }
+
+  MFEM_VERIFY(this->par_mesh_.ncmesh != nullptr,
+              "FilterRefinedCandidates requires a nonconforming mesh (ncmesh == nullptr).");
+
+  mfem::Array<mfem::Refinement> filtered_candidates;
+  for (int i = 0; i < candidates.Size(); i++) {
+    int elem = candidates[i].index;
+    int depth = this->par_mesh_.ncmesh->GetElementDepth(elem);
+    if (depth < this->amr_max_level_) {
+      filtered_candidates.Append(candidates[i]);
+    }
+  }
+  return filtered_candidates;
 }
