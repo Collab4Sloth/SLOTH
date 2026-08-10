@@ -34,6 +34,8 @@
 #include <vector>
 
 #include "BCs/Boundary.hpp"
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/Coefficients.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -168,11 +170,11 @@ mfem::Array<int> BoundaryConditions<T, DIM>::get_marker_array(const std::string&
  * @param u unknown vector
  * @param coefficients coefficients list for the variable
  * @param auxvars_unk unknown vectors of the auxiliary variables
- * 
+ *
  */
 template <class T, int DIM>
-void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(mfem::Vector& u, Coefficients& coefficients, std::vector<mfem::Vector> auxvars_unk) {
-
+void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(
+    mfem::Vector& u, Coefficients& coefficients, std::vector<mfem::Vector> auxvars_unk) {
   const int nb_bdr = this->Dirichlet_bdr_.Size();
   mfem::Array<int> tmp_array_bdr(this->Dirichlet_bdr_.Size());
   const int coef_size = coefficients.size();
@@ -182,9 +184,8 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(mfem::Vector& u,
   std::vector<double> vaux_values;
 
   // Inline function to compute Dirichlet coefficient
-  auto compute_dirichlet_coefficient = [&](Coefficient& coef, 
-    const std::span<const double>& values,
-    const std::span<const double>& aux_values) -> double {
+  auto compute_dirichlet_coefficient = [&](Coefficient& coef, const std::span<const double>& values,
+                                           const std::span<const double>& aux_values) -> double {
     if (coef.is_scalar()) {
       return coef.compute();
     } else {
@@ -194,10 +195,8 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(mfem::Vector& u,
 
   // Loop over boundaries
   for (int i = 0; i < nb_bdr; i++) {
-
     // If the boundary is dirichlet
     if (this->Dirichlet_bdr_[i] > 0) {
-
       // Check if there is a coefficient given and store it
       bool has_dirichlet_coef = false;
       for (int l = 0; l < coef_size; l++) {
@@ -227,11 +226,11 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(mfem::Vector& u,
 
           int dof = dof_list[j];
           u_values.push_back(u(dof));
-          for (auto aux : auxvars_unk)
-              vaux_values.emplace_back(aux(dof));
+          for (auto aux : auxvars_unk) vaux_values.emplace_back(aux(dof));
 
-          dirichlet_at_dofs[j] = compute_dirichlet_coefficient(dirichlet_coef, std::span<const double>(u_values),
-          std::span<const double>(vaux_values));
+          dirichlet_at_dofs[j] =
+              compute_dirichlet_coefficient(dirichlet_coef, std::span<const double>(u_values),
+                                            std::span<const double>(vaux_values));
         }
 
         // SetSubVector with the calculated dirichlet values
