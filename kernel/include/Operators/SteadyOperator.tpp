@@ -173,9 +173,16 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   this->SetTransientParameters(dt, u_vect);
 
   /// Apply BCs: check if need to be uncomment
+  // Get the unknown vectors of the auxiliary variables
+  // std::vector<mfem::Vector> auxvars_unk;
+  // for (const auto& auxvar_vec : this->auxvariables_) {
+  //   for (const auto& auxvar : auxvar_vec->getVariables()) {
+  //     auxvars_unk.emplace_back(auxvar.get_unknown());
+  //   }
+  // }
   // for (size_t i = 0; i < unk_size; i++) {
   //   auto &unk_i = *(vect_unk[i]);
-  //   this->bcs_[i]->SetBoundaryConditions(unk_i);
+  //   this->bcs_[i]->SetDirichletBoundaryConditions(unk_i, this->coefficients_[i], auxvars_unk);
   // }
 
   // Source term

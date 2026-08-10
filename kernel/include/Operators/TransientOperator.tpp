@@ -544,11 +544,19 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
+
+    // Get the unknown vectors of the auxiliary variables
+    std::vector<mfem::Vector> auxvars_unk;
+    for (const auto& auxvar_vec : this->auxvariables_) {
+      for (const auto& auxvar : auxvar_vec->getVariables()) {
+        auxvars_unk.emplace_back(auxvar.get_unknown());
+      }
+    }
     auto sc_1 = 0;
     auto sc_2 = sc / fes_size;
     for (int i = 0; i < fes_size; ++i) {
       mfem::Vector v_i(u.GetData() + sc_1, sc_2);
-      this->bcs_[i]->SetBoundaryConditions(v_i);
+      this->bcs_[i]->SetDirichletBoundaryConditions(v_i, this->coefficients_[i], auxvars_unk);
       sc_1 += sc_2;
     }
     reduced_oper->SetParameters(dt, &v);

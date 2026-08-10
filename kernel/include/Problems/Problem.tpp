@@ -416,7 +416,9 @@ void Problem<OPE, VAR, PST>::do_time_step(
     [[maybe_unused]] const std::vector<std::vector<std::string>>& unks_info) {
   const size_t unk_size = vect_unk.size();
 
-  this->set_time_coefficients(next_time);
+  // Set time for coefficients, /!\ this is correct only for implicit time scheme
+  // TODO: use effective time step according to the time scheme
+  this->set_time_coefficients(next_time+current_time_step);
 
   this->oper_.setGeometry(this->geometry_);
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);

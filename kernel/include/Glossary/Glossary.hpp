@@ -120,7 +120,8 @@ enum class GlossaryType {
   Neumann,
   RobinA,
   RobinB,
-  ExplicitTime
+  ExplicitTime,
+  Dirichlet
 };
 
 struct GlossaryQuantity {
@@ -358,6 +359,13 @@ static const GlossaryQuantity Robin_a =
  */
 static const GlossaryQuantity Robin_b =
     GlossaryQuantity(GlossaryType::RobinB, GlossaryUnit::None, "B-Robin boundary condition");
+
+/**
+ * @brief Quantity associated with the Dirichlet boundary condition
+ *
+ */
+static const GlossaryQuantity Dirichlet =
+    GlossaryQuantity(GlossaryType::Dirichlet, GlossaryUnit::None, "Dirichlet boundary condition");
 
 /**
  * @brief Quantity associated with the MPI rank
