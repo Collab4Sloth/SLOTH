@@ -419,7 +419,7 @@ struct specialized_spatial_constructor<T, 1> {
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.ensure_nc_mesh_,
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.enable_nc_mesh_,
                                                    a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
@@ -865,7 +865,7 @@ struct specialized_spatial_constructor<T, 3> {
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.ensure_nc_mesh_,
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.enable_nc_mesh_,
                                                    a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
