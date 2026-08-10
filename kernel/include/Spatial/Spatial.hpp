@@ -334,7 +334,7 @@ class SpatialDiscretization {
 
     this->mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, ifs);
 
-    if (!this->mesh_->Nonconforming()) {
+    if (this->enable_nc_mesh_ && !this->mesh_->Nonconforming()) {
       MFEM_VERIFY(false,
                   "RefineMesh: the mesh was not built with enable_nc_mesh=true. "
                   "Local AMR requires this flag to be set at SpatialDiscretization "
