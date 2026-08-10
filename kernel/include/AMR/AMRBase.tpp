@@ -131,20 +131,20 @@ void AMRBase<VAR>::EnsureNCMeshIfNeeded() {
 }
 
 /**
- * @brief Activate nonconforming (NC) mode on the mesh if it is not already
- *        active.
+ * @brief Apply the initial refinement loop on the initial condition,
+ *        before the time-stepping loop starts.
  *
- * @details Called internally at the start of every concrete Refine()/
- *          Derefine() implementation. In practice this should be a no-op
- *          in most workflows: `EnsureNCMesh()` is expected to have already
- *          been called on the serial mesh, before it was distributed into
- *          a `mfem::ParMesh` (see `SpatialDiscretization`), since a
- *          conforming `ParMesh` cannot be converted to nonconforming
- *          after construction in parallel. This call remains here as a
- *          defensive fallback for the sequential case, where the
- *          conversion is still possible after the fact.
+ * @details Repeatedly calls the derived class's `Refine()` implementation
+ *          until it reports no more refinement, or `amr_max_preref_cycles_`
+ *          is reached. After each successful refinement, every primary
+ *          variable in `vars` AND every variable of every auxiliary
+ *          variable collection in `auxvars` is resynchronized via
+ *          `Variable::UpdateAndRebalance()`, then has its initial
+ *          condition reapplied via `Variable::setInitialCondition()` —
+ *          all of them share the same mesh managed by this AMR object
+ *          and must stay consistent with its current, refined state.
  *
- * @tparam VAR Variable container type this AMR strategy operates on.
+ * @tparam VAR Variables container type this AMR strategy operates on.
  * @param vars Primary variables sharing the mesh managed by this AMR
  *            object.
  * @param auxvars Auxiliary variable collections sharing the same mesh,

@@ -1,5 +1,4 @@
 /**
- * @anchor AMR
  * @file AMRBase.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
  * @brief Base class orchestrating adaptive mesh refinement (AMR): defines
@@ -12,6 +11,8 @@
  * @date 2026-08-04
  *
  * @copyright CEA (C) 2026
+ *
+ * @anchor AMR
  *
  * This file is part of SLOTH.
  *

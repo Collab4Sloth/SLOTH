@@ -6,9 +6,6 @@
  *        exclusively on that one variable's field, using
  *        mfem::ThresholdRefiner/mfem::ThresholdDerefiner directly (which
  *        handle error estimation and mesh mutation together in one call).
- *        Suitable for single-field problems (e.g. Allen-Cahn) where no
- *        other variable needs to be consulted to decide where to
- *        refine/derefine.
  * @version 0.1
  * @date 2026-08-04
  *

@@ -51,6 +51,8 @@
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -74,6 +76,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -98,6 +102,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -125,6 +131,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -154,6 +162,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -178,6 +188,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -206,6 +218,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -233,6 +247,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -256,6 +272,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -283,6 +301,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -313,6 +333,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -340,6 +362,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -372,6 +396,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -404,6 +430,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -430,6 +458,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -462,6 +492,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -492,6 +524,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -518,6 +552,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -548,6 +584,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Construct a new Variable<T>:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param variable_name
  * @param depth
@@ -578,8 +616,8 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Associate additional information to the variable
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @tparam Args
  * @param add_var_info
  */
@@ -596,6 +634,8 @@ void Variable<T, DIM>::set_additional_information(Args&&... add_var_info) {
 /**
  * @brief build the function associated to initial_condition_name
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param initial_condition_name
  * @return std::function<double(const mfem::Vector&, double)>
  */
@@ -615,8 +655,8 @@ std::function<double(const mfem::Vector&, double)> Variable<T, DIM>::buildAnalyt
 /**
  * @brief Define an initial condition on the basis of an input file
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param fespace
  * @param input_file
  */
@@ -647,6 +687,8 @@ void Variable<T, DIM>::setInitialCondition(
 /**
  * @brief Define an initial condition on the basis of an analytical function defined by its name
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param initial_condition_name
  */
 template <class T, int DIM>
@@ -669,10 +711,21 @@ void Variable<T, DIM>::setInitialCondition(const AnalyticalFunctions<DIM>& initi
 }
 
 /**
- * @brief
+ * @brief Reapply this variable's initial condition to its current grid
+ *        function, using the analytical function set at construction.
  *
- * @tparam T
- * @tparam DIM
+ * @details Used to project the initial condition again after a mesh
+ *          change (e.g. during `AMRBase::InitialRefine()`), so that the
+ *          interpolated solution on the refined mesh is replaced by a
+ *          fresh, exact evaluation of the analytical function instead of
+ *          the (possibly less accurate) interpolation of the previous,
+ *          coarser-mesh values. Requires `initial_condition_` to have
+ *          been set beforehand via the `AnalyticalFunctions<DIM>`
+ *          constructor/overload of `setInitialCondition()`; aborts with a
+ *          clear error otherwise.
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  */
 template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition() {
@@ -698,6 +751,8 @@ void Variable<T, DIM>::setInitialCondition() {
 /**
  * @brief Define an initial condition on the basis of a FunctionCoefficient
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param initial_condition_function
  */
 template <class T, int DIM>
@@ -720,6 +775,8 @@ void Variable<T, DIM>::setInitialCondition(
 /**
  * @brief Define an initial condition on the basis of a double value
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param initial_condition_value
  */
 template <class T, int DIM>
@@ -743,6 +800,8 @@ void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value
 /**
  * @brief Define an analytical solution
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param analytical_solution_name
  */
 template <class T, int DIM>
@@ -755,6 +814,8 @@ void Variable<T, DIM>::setAnalyticalSolution(
 /**
  * @brief Define an analytical solution
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param analytical_solution_function
  */
 template <class T, int DIM>
@@ -767,8 +828,8 @@ void Variable<T, DIM>::setAnalyticalSolution(
 /**
  * @brief Return the second-to-last term of the saved variables
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::Vector
  */
 template <class T, int DIM>
@@ -779,8 +840,8 @@ mfem::Vector Variable<T, DIM>::get_second_to_last() const {
 /**
  * @brief Return the last term of the saved variables
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::Vector
  */
 template <class T, int DIM>
@@ -791,6 +852,8 @@ mfem::Vector Variable<T, DIM>::get_last() const {
 /**
  * @brief update the GridFunction on the basis of its associated unknown vector
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  */
 template <class T, int DIM>
 void Variable<T, DIM>::update(const mfem::Vector& unk) {
@@ -956,6 +1019,8 @@ void Variable<T, DIM>::updateAfterMeshChange(const mfem::Vector& unk) {
 /**
  * @brief return the unkown vector
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::Vector
  *
  */
@@ -971,8 +1036,8 @@ mfem::Vector& Variable<T, DIM>::get_ref_unknown() {
 /**
  * @brief Return the additionnal information associated to variable
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return std::vector<std::string>
  */
 template <class T, int DIM>
@@ -983,8 +1048,8 @@ std::vector<std::string> Variable<T, DIM>::get_additional_variable_info() const 
 /**
  * @brief Return a map of unknows
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return std::map<int, mfem::Vector>
  */
 template <class T, int DIM>
@@ -995,6 +1060,8 @@ std::map<int, mfem::Vector> Variable<T, DIM>::get_map_unknown() {
 /**
  * @brief return the gridfunction associated to the unknown
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::ParGridFunction
  */
 template <class T, int DIM>
@@ -1009,8 +1076,8 @@ mfem::ParGridFunction& Variable<T, DIM>::get_ref_gf() {
 /**
  * @brief return the function associated to the analytical solution
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return std::function<double(const mfem::Vector&, double)>
  */
 template <class T, int DIM>
@@ -1022,8 +1089,8 @@ Variable<T, DIM>::get_analytical_solution() {
 /**
  * @brief return the boundary condition object associated to the variable
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return BoundaryConditions<T, DIM>
  */
 template <class T, int DIM>
@@ -1034,6 +1101,8 @@ BoundaryConditions<T, DIM>* Variable<T, DIM>::get_boundary_conditions() {
 /**
  * @brief Get the name of the Variable
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return std::string name of the variable
  */
 template <class T, int DIM>
@@ -1046,8 +1115,8 @@ std::string Variable<T, DIM>::getVariableName() const {
  * @remark By default, 2 levels are considered. Not optimal in term of memory?
  * @remark By default, 3 levels in case of adaptive time-step?
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param depth
  */
 template <class T, int DIM>
@@ -1062,8 +1131,8 @@ void Variable<T, DIM>::setVariableDepth(const int& depth) {
 /**
  * @brief
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param var
  */
 template <class T, int DIM>
@@ -1074,6 +1143,8 @@ void Variable<T, DIM>::add_variable_info(const std::string& var) {
 /**
  * @brief Return the pointer towards the FiniteElementSpace
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  */
 template <class T, int DIM>
 mfem::ParFiniteElementSpace* Variable<T, DIM>::get_fespace() {
@@ -1083,8 +1154,8 @@ mfem::ParFiniteElementSpace* Variable<T, DIM>::get_fespace() {
 /**
  * @brief set the attributes for the variable
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param spatial
  */
 template <class T, int DIM>
@@ -1104,6 +1175,8 @@ void Variable<T, DIM>::set_attributes(SpatialDiscretization<T, DIM>* spatial,
 /**
  * @brief Destroy the Variable:: Variable object
  *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  */
 template <class T, int DIM>
 Variable<T, DIM>::~Variable() {}
