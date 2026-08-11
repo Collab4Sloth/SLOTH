@@ -1218,13 +1218,9 @@ bool SpatialDiscretization<T, DIM>::is_periodic() {
 
 /**
  * @brief Return whether nonconforming refinement is allowed on simplex
- *        (triangle/tetrahedron) elements of this mesh.
- *
- * @details This flag only affects simplex meshes: it controls the
- *          `simplices_nonconforming` argument passed to `mfem::Mesh::EnsureNCMesh()`
- *          when the mesh is built. It has no effect for quadrilateral/hexahedral
- *          meshes, which natively support nonconforming refinement regardless
- *          of this flag.
+ *        (triangle/tetrahedron) elements of this mesh. It has no effect
+ *        for quadrilateral/hexahedral meshes, which natively support
+ *        nonconforming refinement.
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
