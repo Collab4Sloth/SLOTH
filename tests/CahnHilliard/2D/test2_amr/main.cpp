@@ -1,11 +1,11 @@
 /**
  * @file main.cpp
  * @author ci230846  (clement.introini@cea.fr)
- * @brief 2D spinodal decomposition solved by Cahn-Hilliard equations
+ * @brief 2D spinodal decomposition solved by Cahn-Hilliard equations (AMR version)
  * @version 0.1
- * @date 2025-07-04
+ * @date 2026-08-11
  *
- * Copyright CEA (c) 2025
+ * Copyright CEA (c) 2026
  *
  */
 #include <iostream>
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 5.e4;
+  const double t_final = 10.;  // 5.e4;
   const double dt = 1.;
   auto time_params = Parameters(Parameter("initial_time", t_initial),
                                 Parameter("final_time", t_final), Parameter("time_step", dt));
