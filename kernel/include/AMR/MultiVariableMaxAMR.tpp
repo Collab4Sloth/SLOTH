@@ -105,8 +105,9 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
   }
 
   refinements = this->FilterRefinedCandidates(refinements);
+  int num_marked = this->par_mesh_.ReduceInt(refinements.Size());
+  bool did_refine = (num_marked != 0);
 
-  bool did_refine = (refinements.Size() > 0);
   if (did_refine) {
     this->par_mesh_.GeneralRefinement(refinements, -1, this->amr_nc_limit_);
   }
