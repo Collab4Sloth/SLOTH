@@ -39,9 +39,6 @@
 /**
  * @brief Construct a new AMRBase<VAR>::AMRBase object.
  *
- * @details Does not activate nonconforming mode on `mesh` by itself
- *          (see `EnsureNCMeshIfNeeded()`, called lazily on the first
- *          refine/derefine attempt).
  *
  * @tparam VAR Variables container type this AMR strategy operates on.
  * @param mesh Shared parallel mesh this AMR object will refine/derefine.
@@ -60,23 +57,25 @@ AMRBase<VAR>::AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices)
  * @brief Set the error-estimation criteria and refinement parameters used
  *        by this AMR strategy.
  *
- * @details Must be called before `InitialRefine()`, `StepRefine()`, or
- *          `StepDerefine()` are used; `EnsureCriteriaSet()` verifies this
- *          precondition and aborts with a clear message if it was not
- *          respected. The caller retains ownership of `integ` and must
- *          keep it alive for as long as this AMR object is used.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param estimator Builder used to construct a fresh error estimator on
+ *                 each Refine()/Derefine() call (see SlothErrorEstimators).
  * @param max_elem_error Local error threshold above which an element is
  *                       marked for refinement (used directly for
  *                       refinement; scaled down internally for
  *                       derefinement).
+ * @param amr_max_level Maximum refinement depth allowed for any single
+ *                      element. `0` (or negative) means no limit — an
+ *                      element could then be refined at every time step
+ *                      with no upper bound.
  * @param nc_limit Maximum allowed refinement level difference between
  *                neighboring elements (2:1 balance constraint); `0` means
  *                unlimited.
  * @param max_preref_cycles Maximum number of refinement cycles applied to
  *                          the initial condition by `InitialRefine()`,
- *                          before the time-stepping loop starts.
+ *                          before the time-stepping loop starts. Must be
+ *                          strictly positive to enable refinement cycles.
  */
 template <class VAR>
 void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, double max_elem_error,
@@ -91,12 +90,6 @@ void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, double max_elem_
 /**
  * @brief Verify that SetCriteria() has already been called on this AMR
  *        object.
- *
- * @details Called internally at the start of every concrete Refine()/
- *          Derefine() implementation, before `amr_estimator_` (or any
- *          other criteria member) is dereferenced. Aborts with a clear
- *          error message if the precondition is not met, rather than
- *          letting a null `amr_estimator_` be dereferenced silently.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  */
@@ -154,25 +147,28 @@ template <class VAR>
 void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
   int cycle = 0;
   bool did_refine = false;
-  do {
+  while (cycle < this->amr_max_preref_cycles_) {
     did_refine = this->Refine(vars);
 
-    if (did_refine) {
-      for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
-        auto& var = vars[i];
-        var.UpdateAndRebalance();
-        var.setInitialCondition();
-      }
-      for (auto* auxvar_container : auxvars) {
-        for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
-          (*auxvar_container)[i].UpdateAndRebalance();
-          // Affect only auxiliary variables of the current problem
-          (*auxvar_container)[i].setInitialCondition();
-        }
+    if (!did_refine) {
+      break;
+    }
+
+    for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
+      auto& var = vars[i];
+      var.UpdateAndRebalance();
+      var.setInitialCondition();
+    }
+    for (auto* auxvar_container : auxvars) {
+      for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
+        (*auxvar_container)[i].UpdateAndRebalance();
+        // Affect only auxiliary variables of the current problem
+        (*auxvar_container)[i].setInitialCondition();
       }
     }
+
     cycle++;
-  } while (did_refine && cycle < this->amr_max_preref_cycles_);
+  }
   SlothInfo::verbose("Pre-refinement: ", cycle, " cycles applied on initial condition.");
 }
 
