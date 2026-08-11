@@ -1,6 +1,7 @@
 add_subdirectory(test1)
 add_subdirectory(test1_splitting)
 add_subdirectory(test2)
+add_subdirectory(test2_amr)
 add_subdirectory(regression_split_meshes_test2)
 add_subdirectory(test3)
 add_subdirectory(test4)
