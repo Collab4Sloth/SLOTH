@@ -91,7 +91,7 @@ class Problem : public ProblemBase<VAR, PST> {
 
   void finalize() override;
 
-  void save(const int& iter, const double& current_time) override;
+  void save(const int iter, const double& current_time) override;
 };
 
 #include "Problems/Problem.tpp"

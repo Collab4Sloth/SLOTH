@@ -123,7 +123,7 @@ class ProblemBase {
 
   virtual void post_processing(const int& iter, const double& current_time);
 
-  virtual void save(const int& iter, const double& current_time);
+  virtual void save(const int iter, const double& current_time);
 
   virtual void finalize();
   virtual void set_time_coefficients(double) {}
