@@ -255,8 +255,11 @@ int main(int argc, char* argv[]) {
   SlothErrorEstimators estimator_ac(ErrorEstimatorType::KELLY, &amr_integ_ac);
 
   MultiVariableMaxAMR<VARS> amr_ac(*spatial_eta1.get_mesh(), spatial_eta1.is_nc_simplices());
-  amr_ac.SetCriteria(/*estimator*/ &estimator_ac, /*max_elem_error*/ 1e-5, /*amr_max_level*/ 3,
-                     /*nc_limit*/ 0, /*max_preref_cycles*/ 3);
+
+  auto amr_params = Parameters(Parameter("max_elem_error", 1.e-5), Parameter("amr_max_level", 3),
+                               Parameter("nc_limit", 0), Parameter("max_preref_cycles", 3));
+
+  amr_ac.SetCriteria(/*estimator*/ &estimator_ac, amr_params);
   ac_pb.set_amr(&amr_ac);
   /////////////////////////////////
   // AMR

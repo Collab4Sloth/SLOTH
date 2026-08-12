@@ -38,13 +38,18 @@
 
 template <class VAR>
 class AMRBase {
+ private:
+  const Parameters& params_;
+
  protected:
   mfem::ParMesh& par_mesh_;
   bool is_nc_simplices_;
   double amr_max_elem_error_{0.0};
+  double amr_scale_down_factor_{0.25};
   int amr_nc_limit_{0};
-  int amr_max_preref_cycles_{1};
   int amr_max_level_{0};
+  int amr_max_preref_cycles_{1};
+
   SlothErrorEstimators* amr_estimator_{nullptr};
 
   virtual bool Refine(VAR& vars) = 0;

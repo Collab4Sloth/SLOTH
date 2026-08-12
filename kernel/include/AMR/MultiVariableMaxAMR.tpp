@@ -131,7 +131,7 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
  *          internally aggregates by SUM the errors of sibling elements
  *          sharing the same parent before comparing to
  *          `derefine_threshold` — hence the threshold is scaled down
- *          (`0.25 *`) relative to `amr_max_elem_error_` used for
+ *          (`this->amr_scale_down_factor_ *`) relative to `amr_max_elem_error_` used for
  *          refinement, and may need further empirical recalibration
  *          (e.g. multiplied by the number of siblings) depending on the
  *          observed derefinement behavior.
@@ -163,7 +163,7 @@ bool MultiVariableMaxAMR<VAR>::Derefine(VAR& vars) {
     }
   }
 
-  const double derefine_threshold = 0.25 * this->amr_max_elem_error_;
+  const double derefine_threshold = this->amr_scale_down_factor_ * this->amr_max_elem_error_;
 
   bool did_derefine =
       this->par_mesh_.DerefineByError(combined_error, derefine_threshold, this->amr_nc_limit_);

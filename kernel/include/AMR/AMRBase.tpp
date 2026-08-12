@@ -59,33 +59,50 @@ AMRBase<VAR>::AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices)
  *
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
- * @param estimator Builder used to construct a fresh error estimator on
- *                 each Refine()/Derefine() call (see SlothErrorEstimators).
- * @param max_elem_error Local error threshold above which an element is
+ * @param amr_params Collection of Parameter objects for AMR :
+ *             - max_elem_error (mandatory): Local error threshold above which an element is
  *                       marked for refinement (used directly for
  *                       refinement; scaled down internally for
  *                       derefinement).
- * @param amr_max_level Maximum refinement depth allowed for any single
+ *             - amr_max_level (optional): Maximum refinement depth allowed for any single
  *                      element. `0` (or negative) means no limit — an
  *                      element could then be refined at every time step
  *                      with no upper bound.
- * @param nc_limit Maximum allowed refinement level difference between
+ *             - nc_limit (optional): Maximum allowed refinement level difference between
  *                neighboring elements (2:1 balance constraint); `0` means
  *                unlimited.
- * @param max_preref_cycles Maximum number of refinement cycles applied to
+ *             - max_preref_cycles (optional):  Maximum number of refinement cycles applied to
  *                          the initial condition by `InitialRefine()`,
  *                          before the time-stepping loop starts. Must be
  *                          strictly positive to enable refinement cycles.
+ *             - scale_down_factor (optional): threshold scaled down relative to
+ *                          `amr_max_elem_error_` used for refinement, to provide
+ *                          hysteresis and avoid oscillating refine/derefine cycles
+ *                          on the same elements
  */
 template <class VAR>
-void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, double max_elem_error,
-                               int amr_max_level, int nc_limit, int max_preref_cycles) {
+void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, const Parameters& params) {
+  // Mandatory
   this->amr_estimator_ = estimator;
-  this->amr_max_elem_error_ = max_elem_error;
-  this->amr_nc_limit_ = nc_limit;
-  this->amr_max_level_ = amr_max_level;
-  this->amr_max_preref_cycles_ = max_preref_cycles;
+
+  this->amr_max_elem_error_ = this->params_.template get_param_value<double>("max_elem_error");
+
+  // Optional
+  this->amr_nc_limit_ = this->params_.template get_param_value_or_default<int>("nc_limit", 0);
+  this->amr_max_level_ = this->params_.template get_param_value_or_default<int>("amr_max_level", 0);
+  this->amr_max_preref_cycles_ =
+      this->params_.template get_param_value_or_default<int>("max_preref_cycles", 1);
+  this->amr_scale_down_factor_ =
+      this->params_.template get_param_value_or_default<double>("scale_down_factor", 0.25);
 }
+
+/**
+ * @brief Get parameters for AMRBase object
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ */
+template <class VAR>
+void AMRBase<VAR>::get_parameters() {}
 
 /**
  * @brief Verify that SetCriteria() has already been called on this AMR

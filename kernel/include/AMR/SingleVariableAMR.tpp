@@ -110,7 +110,7 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
  * @details Builds a fresh estimator via `amr_estimator_->get_value()`,
  *          then delegates both error estimation and mesh mutation to
  *          `mfem::ThresholdDerefiner::Apply()`, with a threshold scaled
- *          down (`0.25 *`) relative to `amr_max_elem_error_` used for
+ *          down (`amr_scale_down_factor_ *`) relative to `amr_max_elem_error_` used for
  *          refinement, to provide hysteresis and avoid oscillating
  *          refine/derefine cycles on the same elements. As in `Refine()`,
  *          if the mesh was derefined, `amr_estimator_->UpdateFluxSpaces()`
@@ -132,7 +132,7 @@ bool SingleVariableAMR<VAR>::Derefine(VAR& vars) {
   auto estimator =
       this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
   mfem::ThresholdDerefiner derefiner(*estimator);
-  derefiner.SetThreshold(0.25 * this->amr_max_elem_error_);
+  derefiner.SetThreshold(this->amr_scale_down_factor_ * this->amr_max_elem_error_);
   derefiner.SetNCLimit(this->amr_nc_limit_);
 
   bool did_derefine = derefiner.Apply(this->par_mesh_);
