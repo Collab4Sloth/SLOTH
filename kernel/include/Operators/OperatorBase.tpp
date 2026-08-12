@@ -1168,6 +1168,12 @@ void OperatorBase<T, DIM>::UpdateAfterMeshChange() {
 
   this->z.SetSize(total_size);
 
+  std::ostringstream msg;
+  msg << "OperatorBase::UpdateAfterMeshChange: block_trueOffsets_ size ("
+      << this->block_trueOffsets_.Size() << ") does not match fes_.Size()+1 ("
+      << this->fes_.Size() + 1 << ").";
+  MFEM_VERIFY(this->block_trueOffsets_.Size() == this->fes_.Size() + 1, msg.str());
+
   this->block_trueOffsets_[0] = 0;
   for (int i = 0; i < this->fes_.Size(); i++) {
     this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
