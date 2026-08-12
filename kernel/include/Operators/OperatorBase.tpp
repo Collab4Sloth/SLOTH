@@ -1160,9 +1160,12 @@ void OperatorBase<T, DIM>::UpdateAfterMeshChange() {
     total_size += this->fes_[i]->GetTrueVSize();
   }
 
+  // MFEM (mfem::TimeDependentOperator)
   this->height = total_size;
   this->width = total_size;
+  // SLOTH (OperatorBase)
   this->height_ = total_size;
+
   this->z.SetSize(total_size);
 
   this->block_trueOffsets_[0] = 0;
