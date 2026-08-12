@@ -97,14 +97,6 @@ void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, const Parameters
 }
 
 /**
- * @brief Get parameters for AMRBase object
- *
- * @tparam VAR Variable container type this AMR strategy operates on.
- */
-template <class VAR>
-void AMRBase<VAR>::get_parameters() {}
-
-/**
  * @brief Verify that SetCriteria() has already been called on this AMR
  *        object.
  *

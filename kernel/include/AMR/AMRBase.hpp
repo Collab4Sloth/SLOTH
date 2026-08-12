@@ -56,8 +56,7 @@ class AMRBase {
   AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices);
   virtual ~AMRBase() = default;
 
-  void SetCriteria(SlothErrorEstimators* estimator, double max_elem_error, int amr_max_level,
-                   int nc_limit, int max_preref_cycles);
+  void SetCriteria(SlothErrorEstimators* estimator, const Parameters& params);
 
   void EnsureCriteriaSet() const;
 
