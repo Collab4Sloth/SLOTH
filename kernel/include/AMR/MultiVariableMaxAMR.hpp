@@ -42,8 +42,8 @@ class MultiVariableMaxAMR : public AMRBase<VAR> {
   MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_simplices);
   virtual ~MultiVariableMaxAMR() = default;
 
-  bool Refine(VAR& vars) override;
-  bool Derefine(VAR& vars) override;
+  bool Refine(VAR& vars) final;
+  bool Derefine(VAR& vars) final;
 };
 
 #include "AMR/MultiVariableMaxAMR.tpp"
