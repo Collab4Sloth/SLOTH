@@ -85,15 +85,15 @@ void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, const Parameters
   // Mandatory
   this->amr_estimator_ = estimator;
 
-  this->amr_max_elem_error_ = this->params_.template get_param_value<double>("max_elem_error");
+  this->amr_max_elem_error_ = params.template get_param_value<double>("max_elem_error");
 
   // Optional
-  this->amr_nc_limit_ = this->params_.template get_param_value_or_default<int>("nc_limit", 0);
-  this->amr_max_level_ = this->params_.template get_param_value_or_default<int>("amr_max_level", 0);
+  this->amr_nc_limit_ = params.template get_param_value_or_default<int>("nc_limit", 0);
+  this->amr_max_level_ = params.template get_param_value_or_default<int>("amr_max_level", 0);
   this->amr_max_preref_cycles_ =
-      this->params_.template get_param_value_or_default<int>("max_preref_cycles", 1);
+      params.template get_param_value_or_default<int>("max_preref_cycles", 1);
   this->amr_scale_down_factor_ =
-      this->params_.template get_param_value_or_default<double>("scale_down_factor", 0.25);
+      params.template get_param_value_or_default<double>("scale_down_factor", 0.25);
 }
 
 /**

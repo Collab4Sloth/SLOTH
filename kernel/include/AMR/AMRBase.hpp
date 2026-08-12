@@ -38,9 +38,6 @@
 
 template <class VAR>
 class AMRBase {
- private:
-  const Parameters& params_;
-
  protected:
   mfem::ParMesh& par_mesh_;
   bool is_nc_simplices_;
