@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "BCs/Boundary.hpp"
+#include "Coefficients/Coefficients.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -57,7 +58,8 @@ class BoundaryConditions {
  public:
   template <class... Args>
   BoundaryConditions(SpatialDiscretization<T, DIM>* spatial, const Args&... boundaries);
-  void SetDirichletBoundaryConditions(mfem::Vector& u, Coefficients& coefficients, std::vector<mfem::Vector> auxvars_unk);
+  void SetDirichletBoundaryConditions(mfem::Vector& u, Coefficients& coefficients,
+                                      std::vector<mfem::Vector> auxvars_unk);
   mfem::Array<int> GetEssentialDofs();
   ~BoundaryConditions();
   mfem::Array<int> get_marker_array(const std::string& boundary_type);

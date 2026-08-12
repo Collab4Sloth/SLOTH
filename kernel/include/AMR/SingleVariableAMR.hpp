@@ -1,9 +1,13 @@
 /**
- * @file AxiCylindricalCoefficient.hpp
+ * @file SingleVariableAMR.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Built a MFEM Coefficient for AxiCylindricalCoefficient
+ * @brief AMR strategy driven by a single, designated variable: error
+ *        estimation, refinement and derefinement decisions are all based
+ *        exclusively on that one variable's field, using
+ *        mfem::ThresholdRefiner/mfem::ThresholdDerefiner directly (which
+ *        handle error estimation and mesh mutation together in one call).
  * @version 0.1
- * @date 2026-06-16
+ * @date 2026-08-04
  *
  * @copyright CEA (C) 2026
  *
@@ -23,21 +27,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#pragma once
-#include <cmath>
-#include <cstdlib>
-#include <span>
-#include <vector>
 
-#include "Coefficients/Coefficients.hpp"
+#pragma once
+#include "AMR/AMRBase.hpp"
+#include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
-class AxiCylindricalCoefficient : public mfem::Coefficient {
+template <class VAR>
+class SingleVariableAMR : public AMRBase<VAR> {
  private:
-  mutable mfem::Vector transip;
+  unsigned int var_id_;
 
  public:
-  AxiCylindricalCoefficient();
+  SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simplices, unsigned int var_id);
+  virtual ~SingleVariableAMR() = default;
 
-  mfem::real_t Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip) override;
+  bool Refine(VAR& vars) final;
+  bool Derefine(VAR& vars) final;
 };
+
+#include "AMR/SingleVariableAMR.tpp"

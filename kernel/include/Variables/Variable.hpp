@@ -58,6 +58,8 @@ class Variable {
 
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
+  std::shared_ptr<std::function<double(const mfem::Vector&, double)>> initial_condition_{nullptr};
+
   std::vector<std::string> additional_variable_info_;
 
   mfem::Array<int> el_attr_;
@@ -67,7 +69,6 @@ class Variable {
   void add_variable_info(const std::string& var);
   std::function<double(const mfem::Vector&, double)> buildAnalyticalFunction(
       const AnalyticalFunctions<DIM>& analytical_function);
-
   void setInitialCondition(const AnalyticalFunctions<DIM>& initial_condition_name);
   void setInitialCondition(const mfem::FunctionCoefficient& initial_condition_function);
   void setInitialCondition(const double& initial_condition_value);
@@ -191,13 +192,21 @@ class Variable {
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
   void update(const mfem::Vector& unk);
   mfem::Vector get_unknown() const;
+  mfem::Vector& get_ref_unknown();
   std::map<int, mfem::Vector> get_map_unknown();
   mfem::ParGridFunction get_gf() const;
+  mfem::ParGridFunction& get_ref_gf();
   mfem::ParGridFunction get_igf() const;
   // mfem::ParGridFunction get_analytical_solution();
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
   BoundaryConditions<T, DIM>* get_boundary_conditions();
   mfem::ParFiniteElementSpace* get_fespace();
+
+  void setInitialCondition();
+  void UpdateAndRebalance();
+  void updateAfterMeshChange(const mfem::Vector& unk);
+  void prepareMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);
+  void finalizeMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);
 
   ~Variable();
 };

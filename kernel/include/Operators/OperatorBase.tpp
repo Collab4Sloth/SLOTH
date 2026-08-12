@@ -1127,3 +1127,56 @@ template <class T, int DIM>
 void OperatorBase<T, DIM>::setGeometry(Geometry geometry) {
   this->geometry_ = geometry;
 }
+
+/**
+ * @brief Resynchronize the operator's structural state (height, width,
+ *        internal work vector, and block offsets) after the underlying
+ *        mesh/finite element spaces have changed size (e.g. following AMR).
+ *
+ * @details `this->fes_` holds raw `mfem::ParFiniteElementSpace*` pointers
+ *          that are updated in place elsewhere (via `fespace->Update()`),
+ *          so reading their current `GetTrueVSize()` here always reflects
+ *          the latest mesh state. However, `mfem::Operator::height`/`width`,
+ *          the internal work vector `z`, and `block_trueOffsets_` are only
+ *          computed once in the constructor and are NOT automatically kept
+ *          in sync when the mesh changes size later. This method must be
+ *          called after every mesh refinement/derefinement cycle, before
+ *          the operator is used again (e.g. before the next Newton solve),
+ *          otherwise stale sizes silently propagate into downstream solves
+ *          (mismatched block/vector sizes, out-of-bounds reads).
+ *
+ * @note This only updates the `height`/`width` copy inherited through
+ *       `OperatorBase`. Classes that also inherit `mfem::TimeDependentOperator`
+ *       (a second, independent `mfem::Operator` base due to non-virtual
+ *       multiple inheritance) must separately resynchronize that copy too.
+ *
+ * @tparam T Finite element collection type (mfem object).
+ * @tparam DIM Spatial dimension.
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::UpdateAfterMeshChange() {
+  int total_size = 0;
+  for (int i = 0; i < this->fes_.Size(); i++) {
+    total_size += this->fes_[i]->GetTrueVSize();
+  }
+
+  // MFEM (mfem::TimeDependentOperator)
+  this->height = total_size;
+  this->width = total_size;
+  // SLOTH (OperatorBase)
+  this->height_ = total_size;
+
+  this->z.SetSize(total_size);
+
+  std::ostringstream msg;
+  msg << "OperatorBase::UpdateAfterMeshChange: block_trueOffsets_ size ("
+      << this->block_trueOffsets_.Size() << ") does not match fes_.Size()+1 ("
+      << this->fes_.Size() + 1 << ").";
+  MFEM_VERIFY(this->block_trueOffsets_.Size() == this->fes_.Size() + 1, msg.str());
+
+  this->block_trueOffsets_[0] = 0;
+  for (int i = 0; i < this->fes_.Size(); i++) {
+    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
+  }
+  this->block_trueOffsets_.PartialSum();
+}

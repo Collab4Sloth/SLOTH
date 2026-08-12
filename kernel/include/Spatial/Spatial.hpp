@@ -108,31 +108,206 @@ class SpatialDiscretization {
   std::string existing_mesh_name_;
   mfem::ParFiniteElementSpace* fespace_;
   T* fecollection_;
+  bool owns_mesh_{true};
 
  public:
-  SpatialDiscretization(const std::string& mesh_type, const int& fe_order, const int& ref_level,
-                        const std::string& mesh_file, bool periodic_mesh = false) {
+  /**
+   * @brief Construct a new SpatialDiscretization object from a mesh file
+   *        (e.g. GMSH), or using a dedicated MFEM mesh generation method
+   *        identified by `mesh_type`.
+   *
+   * @details Delegates the actual mesh construction to
+   *          `specialized_spatial_constructor<T, DIM>`, which reads/builds
+   *          the underlying serial mesh according to `mesh_type` and
+   *          `mesh_file`, calls `EnsureNCMesh(is_nc_simplices_)` before
+   *          finalizing it, and converts it to a distributed `mfem::ParMesh`.
+   *          Mesh attributes (element/boundary attribute sets) found in the
+   *          file are then loaded via `set_mesh_attributes_from_file()`.
+   *
+   * @tparam T Finite element collection type.
+   * @tparam DIM Spatial dimension.
+   *
+   * @param mesh_type Identifier of the mesh source/generation strategy (e.g.
+   *                  a GMSH file type, or a dedicated MFEM inline mesh
+   *                  builder).
+   * @param fe_order Finite element order used to build the finite element
+   *                collection and space.
+   * @param ref_level Number of uniform refinement levels applied at
+   *                  construction time, before any AMR.
+   * @param mesh_file Path (or naming pattern) of the mesh file to read.
+   * @param periodic_mesh Whether the mesh should be treated as periodic.
+   * @param allow_nc_simplices Whether nonconforming refinement is allowed on
+   *                          simplex elements (see `is_nc_simplices()`). Must
+   *                          be set correctly here since the underlying
+   *                          `ParMesh` cannot be converted to nonconforming
+   *                          after construction.
+   */
+  SpatialDiscretization(const std::string& mesh_type, const int fe_order, const int ref_level,
+                        const std::string& mesh_file, bool periodic_mesh = false,
+                        bool enable_nc_mesh = false, bool allow_nc_simplices = false) {
     specialized_spatial_constructor<T, DIM> init;
+    this->enable_nc_mesh_ = enable_nc_mesh;
+    this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, mesh_file, periodic_mesh);
     this->set_mesh_attributes_from_file();
   }
 
+  /**
+   * @brief Construct a new SpatialDiscretization object
+   *
+   * @details Delegates the actual mesh construction to
+   *          `specialized_spatial_constructor<T, DIM>`, which dispatches on
+   *          `mesh_type` to build the underlying serial mesh, call
+   *          `EnsureNCMesh(is_nc_simplices_)`
+   *          before finalizing it, and convert it to a distributed
+   *          `mfem::ParMesh`.
+   *
+   * @tparam Args Types of the extra arguments forwarded to the specialized
+   *             constructor (mesh dimensions, lengths, etc.), packed in
+   *             `tup_args`.
+   * @tparam T Finite element collection type.
+   * @tparam DIM Spatial dimension.
+   *
+   * @param mesh_type Identifier of the mesh generation strategy to use (e.g.
+   *                  "InlineSquareWithQuadrangles").
+   * @param fe_order Finite element order used to build the finite element
+   *                collection and space.
+   * @param ref_level Number of uniform refinement levels applied at
+   *                  construction time, before any AMR.
+   * @param tup_args Tuple of extra parameters specific to `mesh_type` (e.g.
+   *                number of elements and physical extents per direction).
+   * @param allow_nc_simplices Whether nonconforming refinement is allowed on
+   *                          simplex elements (see `is_nc_simplices()`). Must
+   *                          be set correctly here since the underlying
+   *                          `ParMesh` cannot be converted to nonconforming
+   *                          after construction.
+   */
   template <class... Args>
-  explicit SpatialDiscretization(const std::string& mesh_type, const int& fe_order,
-                                 const int& ref_level, std::tuple<Args...> tup_args) {
+  explicit SpatialDiscretization(const std::string& mesh_type, const int fe_order,
+                                 const int ref_level, std::tuple<Args...> tup_args,
+                                 bool enable_nc_mesh = false, bool allow_nc_simplices = false) {
     specialized_spatial_constructor<T, DIM> init;
+    this->enable_nc_mesh_ = enable_nc_mesh;
+    this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, tup_args);
   }
 
+  /**
+   * @brief Construct a new SpatialDiscretization object on a periodic mesh
+   *        built with explicit translation vectors.
+   *
+   * @details Delegates the actual mesh construction to
+   *          `specialized_spatial_constructor<T, DIM>`, which dispatches on
+   *          `mesh_type` to build the underlying serial mesh, apply the given
+   *          periodic `translations`, call `EnsureNCMesh(is_nc_simplices_)`
+   *          before finalizing it, and convert it to a distributed
+   *          `mfem::ParMesh`. See the non-periodic overload for the
+   *          equivalent construction without translations.
+   *
+   * @tparam Args Types of the extra arguments forwarded to the specialized
+   *             constructor (mesh dimensions, lengths, etc.), packed in
+   *             `tup_args`.
+   * @tparam T Finite element collection type.
+   * @tparam DIM Spatial dimension.
+   *
+   * @param mesh_type Identifier of the mesh generation strategy to use (e.g.
+   *                  "InlineSquareWithQuadrangles").
+   * @param fe_order Finite element order used to build the finite element
+   *                collection and space.
+   * @param ref_level Number of uniform refinement levels applied at
+   *                  construction time, before any AMR.
+   * @param tup_args Tuple of extra parameters specific to `mesh_type` (e.g.
+   *                number of elements and physical extents per direction).
+   * @param translations Periodic translation vectors defining the
+   *                     periodicity of the mesh.
+   * @param allow_nc_simplices Whether nonconforming refinement is allowed on
+   *                          simplex elements (see `is_nc_simplices()`). Must
+   *                          be set correctly here since the underlying
+   *                          `ParMesh` cannot be converted to nonconforming
+   *                          after construction.
+   */
   template <class... Args>
-  explicit SpatialDiscretization(const std::string& mesh_type, const int& fe_order,
-                                 const int& ref_level, std::tuple<Args...> tup_args,
-                                 std::vector<mfem::Vector> translations) {
+  explicit SpatialDiscretization(const std::string& mesh_type, const int fe_order,
+                                 const int ref_level, std::tuple<Args...> tup_args,
+                                 const std::vector<mfem::Vector>& translations,
+                                 bool enable_nc_mesh = false, bool allow_nc_simplices = false) {
     specialized_spatial_constructor<T, DIM> init;
+    this->enable_nc_mesh_ = enable_nc_mesh;
+    this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, tup_args, translations);
   }
 
-  bool GMSHReaderSplitFiles(const std::string mesh_file) {
+  /**
+   * @brief Construct a new SpatialDiscretization object that shares an
+   *        already-existing parallel mesh, but builds its own independent
+   *        finite element space on top of it.
+   *
+   * @details Use this constructor when several independent fields (e.g. `c`
+   *          and `mu` in a Cahn-Hilliard system) must be discretized on the
+   *          *same* mesh (so that mesh operations such as AMR stay consistent
+   *          across all fields) while still owning distinct
+   *          `mfem::ParFiniteElementSpace` objects. This instance does NOT
+   *          take ownership of `existing_mesh`: it will never delete it, since
+   *          that responsibility remains with the SpatialDiscretization that
+   *          originally created the mesh. The caller must ensure that the
+   *          owning instance outlives this one.
+   *
+   * @tparam T Finite element collection type.
+   * @tparam DIM Spatial dimension.
+   *
+   * @param existing_mesh Pointer to an already-built parallel mesh, owned by
+   *                      another SpatialDiscretization instance. Not deleted
+   *                      by this instance's destructor.
+   * @param fe_order Finite element order used to build the finite element
+   *                collection and space attached to `existing_mesh`.
+   * @param is_periodic_mesh Whether the shared mesh is periodic. Should match
+   *                        the value used when `existing_mesh` was originally
+   *                        built.
+   */
+  SpatialDiscretization(mfem::ParMesh* existing_mesh, const int fe_order,
+                        bool is_periodic_mesh = false) {
+    this->mesh_ = existing_mesh;
+    this->is_periodic_mesh_ = is_periodic_mesh;
+    this->owns_mesh_ = false;  // ce mesh appartient à une autre instance -> ne pas le delete
+    this->fe_order_ = fe_order;
+    this->dimension_ = existing_mesh->Dimension();
+    this->mesh_max_bdr_attributes_ =
+        existing_mesh->bdr_attributes.Size() ? existing_mesh->bdr_attributes.Max() : 0;
+    this->set_finite_element_space();
+  }
+
+  /**
+   * @brief Build the parallel mesh by reading pre-split per-rank GMSH files.
+   *
+   * @details Expects `mesh_file` to be a naming prefix ending with a dot
+   *          (e.g. "mesh."), with one file per MPI rank following MFEM's
+   *          parallel file naming convention (via `mfem::MakeParFilename`,
+   *          e.g. "mesh.000000", "mesh.000001", ...). The number of such
+   *          files must exactly match the number of MPI processes used to
+   *          run the simulation. Each rank reads only its own file and
+   *          builds its local piece of the distributed `mfem::ParMesh`
+   *          directly, without going through a serial `mfem::Mesh` first.
+   *
+   * @warning This path does not call `EnsureNCMesh()` before constructing
+   *          the `ParMesh`, unlike the other mesh-construction paths in this
+   *          class. As established, a conforming `ParMesh` cannot be
+   *          converted to nonconforming after construction (in parallel), so
+   *          nonconforming AMR will not be usable on a mesh built through
+   *          this function unless the split files themselves already encode
+   *          NC information, or this function is updated to match the other
+   *          constructors.
+   *
+   * @tparam T Finite element collection type.
+   * @tparam DIM Spatial dimension.
+   *
+   * @param mesh_file Naming prefix for the per-rank split mesh files; must
+   *                  end with "." (e.g. "mesh.").
+   * @return true  The mesh was successfully read and `mesh_` was built.
+   * @return false `mesh_file` does not end with "." (naming convention not
+   *               respected); no mesh is built and `mesh_` is left untouched.
+   */
+  bool GMSHReaderSplitFiles(const std::string mesh_file, bool enable_nc_mesh = false,
+                            bool allow_nc_simplices = false) {
     if (!mesh_file.ends_with(".")) return false;
 
     split_mesh_helper checker;
@@ -153,7 +328,20 @@ class SpatialDiscretization {
                         " doesn't exist. Please check your data.";
       mfem::mfem_error(msg.c_str());
     }
+
+    this->enable_nc_mesh_ = enable_nc_mesh;
+    this->is_nc_simplices_ = allow_nc_simplices;
+
     this->mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, ifs);
+
+    if (this->enable_nc_mesh_ && !this->mesh_->Nonconforming()) {
+      MFEM_VERIFY(false,
+                  "RefineMesh: the mesh was not built with enable_nc_mesh=true. "
+                  "Local AMR requires this flag to be set at SpatialDiscretization "
+                  "construction time (a conforming ParMesh cannot be converted to "
+                  "nonconforming afterwards).");
+    }
+
     return true;
   }
 
@@ -162,6 +350,8 @@ class SpatialDiscretization {
   mfem::ParMesh* mesh_;
   int mesh_max_bdr_attributes_;
   bool is_periodic_mesh_ = {false};
+  bool is_nc_simplices_ = {false};
+  bool enable_nc_mesh_ = {false};
 
   void set_finite_element_space();
 
@@ -174,6 +364,7 @@ class SpatialDiscretization {
 
   mfem::ParMesh* get_mesh();
   mfem::ParFiniteElementSpace* get_finite_element_space() const;
+  mfem::ParFiniteElementSpace& get_ref_finite_element_space();
 
   std::size_t getSize() const;
   std::size_t get_max_bdr_attributes() const;
@@ -182,6 +373,7 @@ class SpatialDiscretization {
   void apply_uniform_refinement(const int& level);
 
   bool is_periodic();
+  bool is_nc_simplices() const;
 
   ~SpatialDiscretization();
 };
@@ -208,7 +400,7 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, const std::string& file,
+                  const int fe_order, const int ref_level, const std::string& file,
                   bool periodic_mesh) {
     a_my_class.fe_order_ = fe_order;
     a_my_class.dimension_ = 1;
@@ -217,16 +409,18 @@ struct specialized_spatial_constructor<T, 1> {
       case Meshes::GMSH: {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
-          // a_my_class.mesh_ = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
-          // CCI
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
-          a_my_class.mesh_ =
-              mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
-          tmp_mesh.Clear();
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
+          tmp_mesh.Finalize(true);
 
-          // CCI
+          a_my_class.mesh_ =
+              new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
+          tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file)) {
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.enable_nc_mesh_,
+                                                   a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
               file);
@@ -265,7 +459,7 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args) {
+                  const int fe_order, const int ref_level, std::tuple<Args...> tup_args) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
     a_my_class.apply_uniform_refinement(ref_level);
     a_my_class.set_finite_element_space();
@@ -282,8 +476,8 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args,
-                  [[maybe_unused]] std::vector<mfem::Vector> translations) {
+                  const int fe_order, const int ref_level, std::tuple<Args...> tup_args,
+                  [[maybe_unused]] const std::vector<mfem::Vector>& translations) {
     this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
     a_my_class.apply_uniform_refinement(ref_level);
@@ -303,7 +497,7 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void build_mesh(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, std::tuple<Args...> tup_args) {
+                  const int fe_order, std::tuple<Args...> tup_args) {
     a_my_class.fe_order_ = fe_order;
     auto tup_size = std::tuple_size<decltype(tup_args)>::value;
     a_my_class.dimension_ = 1;
@@ -314,6 +508,10 @@ struct specialized_spatial_constructor<T, 1> {
           const auto nx = std::get<0>(tup_args);
           const auto sx = std::get<1>(tup_args);
           mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian1D(nx, sx);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
+          tmp_mesh.Finalize(true);
           a_my_class.mesh_ =
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
@@ -347,7 +545,7 @@ struct specialized_spatial_constructor<T, 1> {
    */
   template <typename... Args>
   void build_periodic_mesh(SpatialDiscretization<T, 1>& a_my_class, const std::string& mesh_type,
-                           const int& fe_order, std::tuple<Args...> tup_args) {
+                           const int fe_order, std::tuple<Args...> tup_args) {
     a_my_class.fe_order_ = fe_order;
     auto tup_size = std::tuple_size<decltype(tup_args)>::value;
     a_my_class.dimension_ = 1;
@@ -372,6 +570,10 @@ struct specialized_spatial_constructor<T, 1> {
           tmp_mesh.Clear();
           mfem::Mesh tmp_mesh_periodic =
               mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
+          tmp_mesh.Finalize(true);
           a_my_class.mesh_ = new mfem::ParMesh(
               MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
           tmp_mesh_periodic.Clear();
@@ -417,7 +619,7 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 2>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, const std::string& file,
+                  const int fe_order, const int ref_level, const std::string& file,
                   bool periodic_mesh) {
     a_my_class.fe_order_ = fe_order;
     a_my_class.dimension_ = 2;
@@ -427,12 +629,17 @@ struct specialized_spatial_constructor<T, 2> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh(mesh_file, 1, 1);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
+          tmp_mesh.Finalize(true);
 
           a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD,
                                                tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file)) {
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.enable_nc_mesh_,
+                                                   a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
               file);
@@ -470,7 +677,7 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 2>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args) {
+                  const int fe_order, const int ref_level, std::tuple<Args...> tup_args) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
     a_my_class.apply_uniform_refinement(ref_level);
@@ -489,8 +696,8 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 2>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args,
-                  std::vector<mfem::Vector> translations) {
+                  const int fe_order, const int ref_level, std::tuple<Args...> tup_args,
+                  const std::vector<mfem::Vector>& translations) {
     this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args, translations);
 
     a_my_class.apply_uniform_refinement(ref_level);
@@ -510,7 +717,7 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void build_mesh(SpatialDiscretization<T, 2>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, std::tuple<Args...> tup_args) {
+                  const int fe_order, std::tuple<Args...> tup_args) {
     a_my_class.fe_order_ = fe_order;
     auto tup_size = std::tuple_size<decltype(tup_args)>::value;
     a_my_class.dimension_ = 2;
@@ -537,6 +744,10 @@ struct specialized_spatial_constructor<T, 2> {
       const auto sx = std::get<2>(tup_args);
       const auto sy = std::get<3>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian2D(nx, ny, element, false, sx, sy, false);
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
+      tmp_mesh.Finalize(true);
       a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel
                                                                        // mesh
       tmp_mesh.Clear();
@@ -560,8 +771,8 @@ struct specialized_spatial_constructor<T, 2> {
    */
   template <typename... Args>
   void build_periodic_mesh(SpatialDiscretization<T, 2>& a_my_class, const std::string& mesh_type,
-                           const int& fe_order, std::tuple<Args...> tup_args,
-                           std::vector<mfem::Vector> translations) {
+                           const int fe_order, std::tuple<Args...> tup_args,
+                           const std::vector<mfem::Vector>& translations) {
     a_my_class.fe_order_ = fe_order;
     auto tup_size = std::tuple_size<decltype(tup_args)>::value;
     a_my_class.dimension_ = 2;
@@ -597,6 +808,10 @@ struct specialized_spatial_constructor<T, 2> {
       tmp_mesh.Clear();
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
+      tmp_mesh.Finalize(true);
       a_my_class.mesh_ =
           new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();
@@ -632,7 +847,7 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 3>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, const std::string& file,
+                  const int fe_order, const int ref_level, const std::string& file,
                   bool periodic_mesh) {
     a_my_class.fe_order_ = fe_order;
     a_my_class.dimension_ = 3;
@@ -642,12 +857,16 @@ struct specialized_spatial_constructor<T, 3> {
         if (std::filesystem::exists(file)) {
           const char* mesh_file = file.c_str();
           mfem::Mesh tmp_mesh = mfem::Mesh::LoadFromFile(mesh_file, 1, 1);
+          if (a_my_class.enable_nc_mesh_) {
+            tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+          }
+          tmp_mesh.Finalize(true);
           a_my_class.mesh_ =
               new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);  // definition of the parallel mesh
           tmp_mesh.Clear();
-          // CCI
           break;
-        } else if (a_my_class.GMSHReaderSplitFiles(file)) {
+        } else if (a_my_class.GMSHReaderSplitFiles(file, a_my_class.enable_nc_mesh_,
+                                                   a_my_class.is_nc_simplices_)) {
           SlothInfo::verbose(
               "SpatialDiscretization: enable GMSH reader from split files based on the pattern ",
               file);
@@ -686,7 +905,7 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 3>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args) {
+                  const int fe_order, const int ref_level, std::tuple<Args...> tup_args) {
     this->build_mesh(a_my_class, mesh_type, fe_order, tup_args);
 
     a_my_class.apply_uniform_refinement(ref_level);
@@ -704,8 +923,8 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void operator()(SpatialDiscretization<T, 3>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, const int& ref_level, std::tuple<Args...> tup_args,
-                  std::vector<mfem::Vector> translations) {
+                  const int fe_order, const int ref_level, std::tuple<Args...> tup_args,
+                  const std::vector<mfem::Vector>& translations) {
     this->build_periodic_mesh(a_my_class, mesh_type, fe_order, tup_args, translations);
 
     a_my_class.apply_uniform_refinement(ref_level);
@@ -724,7 +943,7 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void build_mesh(SpatialDiscretization<T, 3>& a_my_class, const std::string& mesh_type,
-                  const int& fe_order, std::tuple<Args...> tup_args) {
+                  const int fe_order, std::tuple<Args...> tup_args) {
     a_my_class.fe_order_ = fe_order;
     auto tup_size = std::tuple_size<decltype(tup_args)>::value;
     a_my_class.dimension_ = 3;
@@ -755,6 +974,10 @@ struct specialized_spatial_constructor<T, 3> {
       const auto sy = std::get<4>(tup_args);
       const auto sz = std::get<5>(tup_args);
       mfem::Mesh tmp_mesh = mfem::Mesh::MakeCartesian3D(nx, ny, nz, element, sx, sy, sz);
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
+      tmp_mesh.Finalize(true);
       a_my_class.mesh_ = new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh);
       tmp_mesh.Clear();
     } else {
@@ -777,8 +1000,8 @@ struct specialized_spatial_constructor<T, 3> {
    */
   template <typename... Args>
   void build_periodic_mesh(SpatialDiscretization<T, 3>& a_my_class, const std::string& mesh_type,
-                           const int& fe_order, std::tuple<Args...> tup_args,
-                           std::vector<mfem::Vector> translations) {
+                           const int fe_order, std::tuple<Args...> tup_args,
+                           const std::vector<mfem::Vector>& translations) {
     a_my_class.fe_order_ = fe_order;
     auto tup_size = std::tuple_size<decltype(tup_args)>::value;
     a_my_class.dimension_ = 3;
@@ -817,6 +1040,10 @@ struct specialized_spatial_constructor<T, 3> {
       tmp_mesh.Clear();
       mfem::Mesh tmp_mesh_periodic =
           mfem::Mesh(periodic_mesh, true);  // replace the input mesh with the periodic one
+      if (a_my_class.enable_nc_mesh_) {
+        tmp_mesh_periodic.EnsureNCMesh(a_my_class.is_nc_simplices_);
+      }
+      tmp_mesh_periodic.Finalize(true);
       a_my_class.mesh_ =
           new mfem::ParMesh(MPI_COMM_WORLD, tmp_mesh_periodic);  // definition of the parallel mesh
       tmp_mesh_periodic.Clear();
@@ -837,7 +1064,8 @@ struct specialized_spatial_constructor<T, 3> {
 /**
  * @brief  return a pointer of Mesh
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::Mesh&
  * @note This method returns a mfem::Mesh instead of a mfem::ParMesh because it is called in
  *       the constructor of the PostProcessing objet.
@@ -850,7 +1078,8 @@ mfem::ParMesh* SpatialDiscretization<T, DIM>::get_mesh() {
 /**
  * @brief Set the FE_Collection, the FE_Space and associated size
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::ParFiniteElementSpace*
  */
 template <class T, int DIM>
@@ -868,8 +1097,8 @@ void SpatialDiscretization<T, DIM>::set_finite_element_space() {
 /**
  * @brief Set the mesh attributes find in a mesh file
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param imesh
  */
 template <class T, int DIM>
@@ -881,8 +1110,8 @@ void SpatialDiscretization<T, DIM>::set_mesh_attributes_from_file() {
 /**
  * @brief Return the set of attributes associated with the elements
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return std::shared_ptr<mfem::AttributeSets>
  */
 template <class T, int DIM>
@@ -893,8 +1122,8 @@ std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_elem_att
 /**
  * @brief Return the set of attributes associated with the boundaries
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return std::shared_ptr<mfem::AttributeSets>
  */
 template <class T, int DIM>
@@ -905,7 +1134,8 @@ std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_bdr_attr
 /**
  * @brief return a pointer toward the finite element space
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return mfem::ParFiniteElementSpace*
  */
 template <class T, int DIM>
@@ -914,20 +1144,34 @@ mfem::ParFiniteElementSpace* SpatialDiscretization<T, DIM>::get_finite_element_s
 }
 
 /**
+ * @brief return a reference of the finite element space
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @return mfem::ParFiniteElementSpace&
+ */
+template <class T, int DIM>
+mfem::ParFiniteElementSpace& SpatialDiscretization<T, DIM>::get_ref_finite_element_space() {
+  return *this->fespace_;
+}
+
+/**
  * @brief get the size of the Finite Element Space
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return int
  */
 template <class T, int DIM>
 std::size_t SpatialDiscretization<T, DIM>::getSize() const {
-  return this->size_;
+  return this->fespace_->GetTrueVSize();
 }
 
 /**
  * @brief get the maximum number of boundaries
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return int
  */
 template <class T, int DIM>
@@ -938,7 +1182,8 @@ std::size_t SpatialDiscretization<T, DIM>::get_max_bdr_attributes() const {
 /**
  * @brief get the dimension of the problem
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @return int
  */
 template <class T, int DIM>
@@ -949,7 +1194,8 @@ int SpatialDiscretization<T, DIM>::get_dimension() const {
 /**
  * @brief Apply nb_ref uniform refinement
  *
- * @tparam T
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  * @param nb_ref
  */
 template <class T, int DIM>
@@ -962,8 +1208,8 @@ void SpatialDiscretization<T, DIM>::apply_uniform_refinement(const int& nb_ref) 
 /**
  * @brief Return the flag to know whether the mesh is periodic or not
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
  */
 template <class T, int DIM>
 bool SpatialDiscretization<T, DIM>::is_periodic() {
@@ -971,13 +1217,31 @@ bool SpatialDiscretization<T, DIM>::is_periodic() {
 }
 
 /**
+ * @brief Return whether nonconforming refinement is allowed on simplex
+ *        (triangle/tetrahedron) elements of this mesh. It has no effect
+ *        for quadrilateral/hexahedral meshes, which natively support
+ *        nonconforming refinement.
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @return true  Nonconforming (hanging-node) refinement is allowed on simplices.
+ * @return false Simplices are kept conforming (default MFEM behavior).
+ */
+template <class T, int DIM>
+bool SpatialDiscretization<T, DIM>::is_nc_simplices() const {
+  return this->is_nc_simplices_;
+}
+
+/**
  * @brief Destroy the Spatial Discretization< T>:: Spatial Discretization object
  *
- * @tparam T
+ * @tparam T Finite element collection type.
  */
 template <class T, int DIM>
 SpatialDiscretization<T, DIM>::~SpatialDiscretization() {
   delete fespace_;
-  delete mesh_;
+  if (this->owns_mesh_) {
+    delete mesh_;
+  }
   delete fecollection_;
 }

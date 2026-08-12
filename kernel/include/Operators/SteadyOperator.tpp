@@ -152,6 +152,11 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   // Important line if solvers parameters are overloaded.
   this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
 
+  if (this->enable_amr_) {
+    // Resynchronize height/width/z/block_trueOffsets_
+    this->UpdateAfterMeshChange();
+  }
+
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
 

@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 
+#include "AMR/ListAMR.hpp"
 #include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Parameters/Parameter.hpp"
@@ -246,6 +247,27 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::initialize(const double& initial_time, const double time_step) {
   this->oper_.initialize(initial_time, time_step, this->variables_, this->auxvariables_);
+  if (this->amr_ != nullptr) {
+    this->amr_->InitialRefine(this->variables_, this->auxvariables_);
+  }
+}
+/**
+ * @brief
+ *
+ * @tparam OPE
+ * @tparam VAR
+ * @tparam PST
+ * @param iter
+ * @param current_time
+ */
+template <class OPE, class VAR, class PST>
+void Problem<OPE, VAR, PST>::save(const int iter, const double& current_time) {
+  ProblemBase<VAR, PST>::save(iter, current_time);
+
+  if (this->amr_ != nullptr && iter > 0) {
+    this->amr_->StepDerefine(this->variables_, this->auxvariables_);
+    this->amr_->StepRefine(this->variables_, this->auxvariables_);
+  }
 }
 
 /**
@@ -396,7 +418,7 @@ void Problem<OPE, VAR, PST>::do_time_step(
 
   // Set time for coefficients, /!\ this is correct only for implicit time scheme
   // TODO: use effective time step according to the time scheme
-  this->set_time_coefficients(next_time+current_time_step);
+  this->set_time_coefficients(next_time + current_time_step);
 
   this->oper_.setGeometry(this->geometry_);
   this->oper_.solve(vect_unk, next_time, current_time, current_time_step, iter);

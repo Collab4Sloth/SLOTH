@@ -90,6 +90,8 @@ class Problem : public ProblemBase<VAR, PST> {
   void post_processing(const int& iter, const double& current_time) override;
 
   void finalize() override;
+
+  void save(const int iter, const double& current_time) override;
 };
 
 #include "Problems/Problem.tpp"

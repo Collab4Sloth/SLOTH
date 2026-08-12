@@ -237,6 +237,16 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                       double& next_time, const double& current_time,
                                       double current_time_step, [[maybe_unused]] const int iter) {
+  if (this->enable_amr_) {
+    // Resynchronize height/width/z/block_trueOffsets_
+    this->UpdateAfterMeshChange();
+    // Resynchronize the OTHER height/width copy, inherited via mfem::TimeDependentOperator,
+    // which UpdateAfterMeshChange() does not touch.
+    this->mfem::TimeDependentOperator::height = this->OperatorBase<T, DIM>::height;
+    this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
+    // Resize k (the ODE solver's internal work vector)
+    this->ode_solver_->Init(*this);
+  }
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
   this->solve_time_step_ = current_time_step;
@@ -579,11 +589,11 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::stop("Solve");
   }
 
-  // Free memory
+  bool converged = this->newton_solver_->GetConverged();
+
   this->free_memory();
 
-  MFEM_VERIFY(this->newton_solver_->GetConverged(), "Nonlinear solver did not converge.");
-  this->newton_solver_.reset();
+  MFEM_VERIFY(converged, "Nonlinear solver did not converge.");
 }
 
 /**
@@ -705,20 +715,21 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_int
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::free_memory() {
+  this->newton_solver_.reset();
   delete this->rhs_solver_;
+  this->rhs_solver_ = nullptr;
+  delete this->reduced_oper;
+  this->reduced_oper = nullptr;
   delete this->RHS;
   this->RHS = nullptr;
   delete this->LHS;
   this->LHS = nullptr;
-  delete this->reduced_oper;
-  this->reduced_oper = nullptr;
 
   for (auto* mat : this->Mmat_) {
     delete mat;
   }
   this->Mmat_.clear();
 }
-
 /**
  * @brief Retrieve a coefficient by type and identifier.
  *

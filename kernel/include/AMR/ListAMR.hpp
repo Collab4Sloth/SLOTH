@@ -1,9 +1,9 @@
 /**
- * @file AxiCylindricalCoefficient.hpp
+ * @file ListAMR.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Built a MFEM Coefficient for AxiCylindricalCoefficient
+ * @brief List of  header files contained in the AMR directory
  * @version 0.1
- * @date 2026-06-16
+ * @date 2026-08-04
  *
  * @copyright CEA (C) 2026
  *
@@ -23,21 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
 #pragma once
-#include <cmath>
-#include <cstdlib>
-#include <span>
-#include <vector>
 
-#include "Coefficients/Coefficients.hpp"
-#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
-
-class AxiCylindricalCoefficient : public mfem::Coefficient {
- private:
-  mutable mfem::Vector transip;
-
- public:
-  AxiCylindricalCoefficient();
-
-  mfem::real_t Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip) override;
-};
+#include "AMR/AMRBase.hpp"
+#include "AMR/MultiVariableMaxAMR.hpp"
+#include "AMR/SingleVariableAMR.hpp"
+#include "AMR/SlothErrorEstimators.hpp"
