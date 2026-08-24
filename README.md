@@ -52,7 +52,7 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md). Main guidelines are:
     - [Tom Schnetz (Master 2026)]()
     - [Victor Navarre (Master 2025)]()
     - [Jules Czuckermand (Master 2025)]()     
-    - [Mouad Bakhkakh (Master 2024)]()
+    - [Mouad Bakhkhakh (Master 2024)]()
     - [Etienne Delobre (Master 2023)]()
 
 
