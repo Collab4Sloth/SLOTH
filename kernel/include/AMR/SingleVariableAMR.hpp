@@ -42,8 +42,8 @@ class SingleVariableAMR : public AMRBase<VAR> {
   SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simplices, unsigned int var_id);
   virtual ~SingleVariableAMR() = default;
 
-  bool Refine(VAR& vars) final;
-  bool Derefine(VAR& vars) final;
+  bool Refine(VAR& vars, std::vector<VAR*> auxvars) final;
+  bool Derefine(VAR& vars, std::vector<VAR*> auxvars) final;
 };
 
 #include "AMR/SingleVariableAMR.tpp"

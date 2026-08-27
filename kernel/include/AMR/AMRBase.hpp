@@ -49,8 +49,8 @@ class AMRBase {
 
   SlothErrorEstimators* amr_estimator_{nullptr};
 
-  virtual bool Refine(VAR& vars) = 0;
-  virtual bool Derefine(VAR& vars) = 0;
+  virtual bool Refine(VAR& vars, std::vector<VAR*> auxvars) = 0;
+  virtual bool Derefine(VAR& var, std::vector<VAR*> auxvars) = 0;
 
  public:
   AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices);
@@ -66,9 +66,11 @@ class AMRBase {
 
   mfem::Array<mfem::Refinement> FilterRefinedCandidates(
       const mfem::Array<mfem::Refinement>& candidates);
+  void SetIncludeAuxVars(bool include) { this->include_auxvars_ = include; }
 
  protected:
   void EnsureNCMeshIfNeeded();
+  bool include_auxvars_{false};
 };
 
 #include "AMR/AMRBase.tpp"

@@ -157,7 +157,7 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
   int cycle = 0;
   bool did_refine = false;
   while (cycle < this->amr_max_preref_cycles_) {
-    did_refine = this->Refine(vars);
+    did_refine = this->Refine(vars, auxvars);
 
     if (!did_refine) {
       break;
@@ -204,16 +204,18 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
  */
 template <class VAR>
 void AMRBase<VAR>::StepRefine(VAR& vars, std::vector<VAR*> auxvars) {
-  bool did_refine = this->Refine(vars);
+  std::vector<VAR*> effective_auxvars = this->include_auxvars_ ? auxvars : std::vector<VAR*>{};
+
+  bool did_refine = this->Refine(vars, effective_auxvars);
 
   if (did_refine) {
     for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
       auto& var = vars[i];
       var.UpdateAndRebalance();
     }
-    for (auto* auxvar_container : auxvars) {
-      for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
-        (*auxvar_container)[i].UpdateAndRebalance();
+    for (auto* auxvar : auxvars) {
+      for (std::size_t i = 0; i < auxvar->get_variables_number(); i++) {
+        (*auxvar)[i].UpdateAndRebalance();
       }
     }
   }
@@ -241,16 +243,18 @@ void AMRBase<VAR>::StepRefine(VAR& vars, std::vector<VAR*> auxvars) {
  */
 template <class VAR>
 void AMRBase<VAR>::StepDerefine(VAR& vars, std::vector<VAR*> auxvars) {
-  bool did_derefine = this->Derefine(vars);
+  std::vector<VAR*> effective_auxvars = this->include_auxvars_ ? auxvars : std::vector<VAR*>{};
+
+  bool did_derefine = this->Derefine(vars, effective_auxvars);
 
   if (did_derefine) {
     for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
       auto& var = vars[i];
       var.UpdateAndRebalance();
     }
-    for (auto* auxvar_container : auxvars) {
-      for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
-        (*auxvar_container)[i].UpdateAndRebalance();
+    for (auto* auxvar : auxvars) {
+      for (std::size_t i = 0; i < auxvar->get_variables_number(); i++) {
+        (*auxvar)[i].UpdateAndRebalance();
       }
     }
   }

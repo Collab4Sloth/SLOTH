@@ -61,39 +61,52 @@ MultiVariableMaxAMR<VAR>::MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_si
  *          errors (this only estimates the error; it does not mutate the
  *          mesh). These are combined element-wise into `combined_error`
  *          via `max()`, so that an element is a refinement candidate as
- *          soon as ANY variable needs it resolved there. The mesh is then
- *          mutated exactly once, via `GeneralRefinement()` on the
- *          elements whose combined error exceeds `amr_max_elem_error_` —
- *          unlike calling `mfem::ThresholdRefiner::Apply()` separately
- *          per variable, which would mutate the mesh once per variable and
- *          require resynchronizing every other variable's finite element
- *          space in between.
+ *          soon as ANY variable needs it resolved there. Candidates are
+ *          filtered by `FilterRefinedCandidates()` (max refinement
+ *          depth), and the decision to mutate is based on a global
+ *          reduction (`mesh.ReduceInt()`) rather than the local
+ *          candidate count, to stay correct under MPI when some ranks
+ *          have no local candidate. The mesh is then mutated exactly
+ *          once, via `GeneralRefinement()` — unlike calling
+ *          `mfem::ThresholdRefiner::Apply()` separately per variable,
+ *          which would mutate the mesh once per variable and require
+ *          resynchronizing every other variable's finite element space
+ *          in between.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
+ * @param auxvars Auxiliary variable collections whose error also
+ *               contributes to `combined_error`, if any (empty by
+ *               default). Only taken into account by the caller when
+ *               `AMRBase::SetIncludeAuxVars(true)` was set.
  * @return true  At least one element was marked and the mesh was refined.
  * @return false No element exceeded the error threshold; the mesh is
  *               unchanged.
  */
 template <class VAR>
-bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
+bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars, std::vector<VAR*> auxvars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
   const int ne = this->par_mesh_.GetNE();
   mfem::Vector combined_error(ne);
   combined_error = 0.0;
 
-  for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
-    auto& var = vars[iv];
-
+  auto accumulate_error = [&](auto& var) {
     auto estimator =
         this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
-
     const mfem::Vector& local_errors = estimator->GetLocalErrors();
-
     for (int e = 0; e < ne; e++) {
       combined_error(e) = std::max(combined_error(e), local_errors(e));
+    }
+  };
+
+  for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
+    accumulate_error(vars[iv]);
+  }
+  for (auto* auxvar : auxvars) {
+    for (std::size_t i = 0; i < auxvar->get_variables_number(); i++) {
+      accumulate_error((*auxvar)[i]);
     }
   }
 
@@ -139,12 +152,16 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
+ * @param auxvars Auxiliary variable collections whose error also
+ *               contributes to `combined_error`, if any (empty by
+ *               default). Only taken into account by the caller when
+ *               `AMRBase::SetIncludeAuxVars(true)` was set.
  * @return true  At least one group of elements was derefined.
  * @return false No group of elements met the derefinement criterion; the
  *               mesh is unchanged.
  */
 template <class VAR>
-bool MultiVariableMaxAMR<VAR>::Derefine(VAR& vars) {
+bool MultiVariableMaxAMR<VAR>::Derefine(VAR& vars, std::vector<VAR*> auxvars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
 
@@ -152,14 +169,20 @@ bool MultiVariableMaxAMR<VAR>::Derefine(VAR& vars) {
   mfem::Vector combined_error(ne);
   combined_error = 0.0;
 
-  for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
-    auto& var = vars[iv];
+  auto accumulate_error = [&](auto& var) {
     auto estimator =
         this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
     const mfem::Vector& local_errors = estimator->GetLocalErrors();
-
     for (int e = 0; e < ne; e++) {
       combined_error(e) = std::max(combined_error(e), local_errors(e));
+    }
+  };
+  for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
+    accumulate_error(vars[iv]);
+  }
+  for (auto* auxvar : auxvars) {
+    for (std::size_t i = 0; i < auxvar->get_variables_number(); i++) {
+      accumulate_error((*auxvar)[i]);
     }
   }
 
