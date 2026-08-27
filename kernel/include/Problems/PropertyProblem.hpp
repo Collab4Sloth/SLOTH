@@ -52,6 +52,7 @@ class Property_problem : public ProblemBase<VAR, PST> {
   std::vector<std::tuple<std::vector<std::string>, mfem::Vector>> get_input_system();
 
  public:
+  // With PST
   template <PbVar<VAR>... Args>
   Property_problem(const std::string& name, const Parameters& params, VAR& variables,
                    const std::vector<Coefficients>& Coeff, Convergence& convergence, PST& pst,
@@ -83,6 +84,39 @@ class Property_problem : public ProblemBase<VAR, PST> {
 
   template <PbVar<VAR>... Args>
   Property_problem(const Parameters& params, VAR& variables, PST& pst, Args&&... auxvariable);
+
+  // Without PST
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   const std::vector<Coefficients>& Coeff, Convergence& convergence,
+                   Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                   Convergence& convergence, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   const std::vector<Coefficients>& Coeff, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                   Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   Convergence& convergence, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, Convergence& convergence,
+                   Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const std::string& name, const Parameters& params, VAR& variables,
+                   Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Property_problem(const Parameters& params, VAR& variables, Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
   void initialize(const double& initial_time, const double time_step) override;

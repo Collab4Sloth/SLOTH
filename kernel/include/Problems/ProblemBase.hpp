@@ -62,18 +62,28 @@ concept PbVar = std::same_as<std::remove_cvref_t<T>, VAR>;
  */
 template <class VAR, class PST>
 class ProblemBase {
+  static_assert(!std::same_as<VAR, PST>,
+                "ProblemBase: VAR and PST must not be the same type, "
+                "otherwise overload resolution becomes ambiguous between "
+                "the constructors with/without PST (PbVar<T,VAR> would "
+                "also match PST&).");
+
  private:
   void check_convergence(const std::vector<std::unique_ptr<mfem::Vector>>& unks);
 
  protected:
   Geometry geometry_ = Geometry::Cartesian;
   std::string name_{"Unnamed problem"};
+  std::string name_save_specialized_{"time_specialized.csv"};
   VAR& variables_;
   std::vector<VAR*> auxvariables_;
 
   std::vector<Coefficients> coefficients_;
 
-  PST& pst_;
+  std::optional<std::reference_wrapper<PST>> pst_;
+
+  std::string problem_post_processing_directory_;
+
   std::vector<mfem::Vector> unknown_;
   std::shared_ptr<Convergence> convergence_;
   std::vector<std::tuple<std::string, bool, double>> var_convergence_;
@@ -83,7 +93,7 @@ class ProblemBase {
  public:
   void set_amr(AMRBase<VAR>* amr) { this->amr_ = amr; }
 
- public:
+  // With PST object
   template <PbVar<VAR>... Args>
   ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
               PST& pst, Args&&... auxvariables);
@@ -99,10 +109,42 @@ class ProblemBase {
   ProblemBase(const std::string& name, VAR& variables, Convergence& convergence, PST& pst,
               Args&&... auxvariables);
 
+  // Without PST object
+
+  template <PbVar<VAR>... Args>
+  ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
+              Args&&... auxvariables);
+
+  template <PbVar<VAR>... Args>
+  ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
+              Convergence& convergence, Args&&... auxvariables);
+
+  template <PbVar<VAR>... Args>
+  ProblemBase(const std::string& name, VAR& variables, Args&&... auxvariables);
+
+  template <PbVar<VAR>... Args>
+  ProblemBase(const std::string& name, VAR& variables, Convergence& convergence,
+              Args&&... auxvariables);
+  //
+
+  bool has_pst() const noexcept { return pst_.has_value(); }
+
+  PST& get_pst() {
+    MFEM_VERIFY(pst_.has_value(), "PST not defined for this Problem");
+    return pst_->get();
+  }
+
+  //
+
   virtual ~ProblemBase() = default;
 
   std::string get_name();
+  void set_name(const std::string& new_name);
+
   VAR get_problem_variables();
+
+  std::string get_problem_post_processing_directory();
+  void set_name_save_specialized(const std::string& new_name);
 
   std::vector<std::tuple<std::string, bool, double>> get_convergence();
 

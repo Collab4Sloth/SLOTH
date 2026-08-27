@@ -42,12 +42,14 @@ class Coupling {
 
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
       pb_convergence_;
+  void check_duplicate_problem_name();
 
  public:
   explicit Coupling(const std::string& name, Args... problems);
   std::string get_name();
-
+  void set_name(const std::string& new_name);
   void get_tree();
+  void check_duplicate_post_processing_directory(std::size_t nb_couplings);
   void initialize(const int& iter, const double& initial_time, const double time_step);
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
