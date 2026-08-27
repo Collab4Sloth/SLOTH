@@ -63,6 +63,7 @@ class Problem : public ProblemBase<VAR, PST> {
   void set_time_coefficients(double time) override;
 
  public:
+  // With PST
   template <PbVar<VAR>... Args>
   Problem(const OPE& oper, VAR& variables, const std::vector<Coefficients>& Coeff,
           Convergence& convergence, PST& pst, Args&&... auxvariable);
@@ -79,6 +80,23 @@ class Problem : public ProblemBase<VAR, PST> {
   template <PbVar<VAR>... Args>
   Problem(const std::string& name, const OPE& oper, VAR& variables,
           const std::vector<Coefficients>& Coeff, PST& pst, Args&&... auxvariable);
+
+  // Without PST
+  template <PbVar<VAR>... Args>
+  Problem(const OPE& oper, VAR& variables, const std::vector<Coefficients>& Coeff,
+          Convergence& convergence, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Problem(const OPE& oper, VAR& variables, const std::vector<Coefficients>& Coeff,
+          Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables,
+          const std::vector<Coefficients>& Coeff, Convergence& convergence, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Problem(const std::string& name, const OPE& oper, VAR& variables,
+          const std::vector<Coefficients>& Coeff, Args&&... auxvariable);
 
   /////////////////////////////////////////////////////
   void initialize(const double& initial_time, const double time_step) override;

@@ -106,6 +106,20 @@ inline std::string trim(const std::string& str) {
   return (start >= end) ? "" : std::string(start, end);
 }
 
+/**
+ * @brief Replaces whitespace characters with underscores.
+ *
+ * @param str The input string.
+ * @return A copy of the input string with whitespace replaced by `_`
+ *
+ */
+inline std::string replaceSpaces(std::string str) {
+  std::ranges::replace_if(
+      str, [](char c) { return std::isspace(static_cast<unsigned char>(c)); }, '_');
+
+  return str;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 

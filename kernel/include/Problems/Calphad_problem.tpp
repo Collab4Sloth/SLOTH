@@ -74,6 +74,37 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
     this->check_molar_fractions();
   }
 }
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params
+ * @param variables
+ * @param convergence
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    Convergence& convergence,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, Coeff, convergence, auxvariables...),
+      params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
 
 /**
  * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
@@ -94,6 +125,34 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
                                                     PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Calphad Problem", variables, Coeff, pst, auxvariables...),
       params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params
+ * @param variables
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, Coeff, auxvariables...), params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
@@ -139,6 +198,37 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
     this->check_molar_fractions();
   }
 }
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param params
+ * @param variables
+ * @param convergence
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
+                                                    const Parameters& params, VAR& variables,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    Convergence& convergence,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
 
 /**
  * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
@@ -160,6 +250,35 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const std::vector<Coefficients>& Coeff,
                                                     PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, Coeff, pst, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param params
+ * @param variables
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
+                                                    const Parameters& params, VAR& variables,
+                                                    const std::vector<Coefficients>& Coeff,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, auxvariables...), params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
@@ -202,6 +321,36 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VA
     this->check_molar_fractions();
   }
 }
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params
+ * @param variables
+ * @param convergence
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
+                                                    Convergence& convergence,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, convergence, auxvariables...),
+      params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
 
 /**
  * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
@@ -220,6 +369,33 @@ template <PbVar<VAR>... Args>
 Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
                                                     PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>("Calphad Problem", variables, pst, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param params
+ * @param variables
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const Parameters& params, VAR& variables,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Calphad Problem", variables, auxvariables...), params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
@@ -263,6 +439,36 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
     this->check_molar_fractions();
   }
 }
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param params
+ * @param variables
+ * @param convergence
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
+                                                    const Parameters& params, VAR& variables,
+                                                    Convergence& convergence,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, convergence, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
 
 /**
  * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
@@ -283,6 +489,34 @@ Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
                                                     const Parameters& params, VAR& variables,
                                                     PST& pst, Args&&... auxvariables)
     : ProblemBase<VAR, PST>(name, variables, pst, auxvariables...), params_(params) {
+  // Mandatory to be placed before CALPHAD pointer creation
+  this->get_parameters();
+  this->check_variables_consistency();
+  this->CC_ = new CALPHAD(params, this->is_KKS_);
+  this->sorted_chemical_system_ = this->get_chemical_system();
+  if (this->is_KKS_) {
+    this->check_phasefield();
+    this->check_molar_fractions();
+  }
+}
+/**
+ * @brief Construct a new Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem object
+ *
+ * @tparam CALPHAD
+ * @tparam VAR
+ * @tparam PST
+ * @tparam Args
+ * @param name
+ * @param params
+ * @param variables
+ * @param auxvariables
+ */
+template <class CALPHAD, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Calphad_Problem<CALPHAD, VAR, PST>::Calphad_Problem(const std::string& name,
+                                                    const Parameters& params, VAR& variables,
+                                                    Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, auxvariables...), params_(params) {
   // Mandatory to be placed before CALPHAD pointer creation
   this->get_parameters();
   this->check_variables_consistency();
@@ -542,12 +776,12 @@ template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
   this->CC_->finalize();
   int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    if (!this->pst_.get_enable_save_specialized_at_iter()) {
+  if (rank == 0 && this->has_pst()) {
+    if (!this->get_pst().get_enable_save_specialized_at_iter()) {
       auto time_spe_mmap = this->CC_->get_time_specialized();
       if (!time_spe_mmap.empty()) {
         std::string str = "calphad.csv";
-        this->pst_.save_specialized(time_spe_mmap, str);
+        this->get_pst().save_specialized(time_spe_mmap, str);
       }
     }
   }
@@ -566,18 +800,20 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
 template <class CALPHAD, class VAR, class PST>
 void Calphad_Problem<CALPHAD, VAR, PST>::post_processing(const int& iter,
                                                          const double& current_time) {
-  int rank = mfem::Mpi::WorldRank();
-  if (rank == 0) {
-    if (this->pst_.get_enable_save_specialized_at_iter()) {
-      auto time_spe_mmap = this->CC_->get_time_specialized();
-      if (!time_spe_mmap.empty()) {
-        std::string str = "calphad.csv";
-        this->pst_.save_specialized(time_spe_mmap, str);
+  if (this->has_pst()) {
+    int rank = mfem::Mpi::WorldRank();
+    if (rank == 0) {
+      if (this->get_pst().get_enable_save_specialized_at_iter()) {
+        auto time_spe_mmap = this->CC_->get_time_specialized();
+        if (!time_spe_mmap.empty()) {
+          std::string str = "calphad.csv";
+          this->get_pst().save_specialized(time_spe_mmap, str);
+        }
       }
     }
-  }
-  if (this->pst_.get_enable_save_specialized_at_iter()) {
-    this->CC_->clear_time_specialized();
+    if (this->get_pst().get_enable_save_specialized_at_iter()) {
+      this->CC_->clear_time_specialized();
+    }
   }
   // Save for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time);
@@ -701,7 +937,10 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions(
         MFEM_VERIFY(variable_info.size() == 2,
                     " Calphad_Problem<CALPHAD, VAR, PST>::get_tp_conditions() : expected "
                     "[component, 'x'] or [component, 'N']");
-        const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+        const int id =
+            this->findIndexOfTuple(this->sorted_chemical_system_, toUpperCase(variable_info[0]));
+        MFEM_VERIFY(id >= 0,
+                    "Element '" + variable_info[0] + "' not found in the chemical system.");
 
         aux_gf[id + 2] = gf;
       }
@@ -744,6 +983,8 @@ std::vector<mfem::Vector> Calphad_Problem<CALPHAD, VAR, PST>::get_old_tp_conditi
         const int id =
             this->findIndexOfTuple(this->sorted_chemical_system_, toUpperCase(variable_info[0]));
 
+        MFEM_VERIFY(id >= 0,
+                    "Element '" + variable_info[0] + "' not found in the chemical system.");
         aux_gf[id + 2] = gf;
       }
     }
@@ -838,7 +1079,8 @@ void Calphad_Problem<CALPHAD, VAR, PST>::check_molar_fractions() {
         (calphad_outputs::from(symbol) == calphad_outputs::xp)) {
       auto variable_info = var.get_additional_variable_info();
 
-      const int id = this->findIndexOfTuple(this->sorted_chemical_system_, variable_info[0]);
+      const int id =
+          this->findIndexOfTuple(this->sorted_chemical_system_, toUpperCase(variable_info[0]));
       if (id > -1) check_counter++;
     }
   }
