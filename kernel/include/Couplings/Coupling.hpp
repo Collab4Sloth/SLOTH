@@ -34,9 +34,22 @@
 #include "Utils/UtilsForDebug.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+/**
+ * @brief Trait extracting a single VAR type from a pack of Problem
+ *        types, used by Coupling.
+ *
+ * @tparam Args Problem types to extract the shared VAR type from.
+ */
+template <class... Args>
+struct FirstProblemVarType {
+  using type = typename std::tuple_element_t<0, std::tuple<Args...>>::VarType;
+};
+
 template <class... Args>
 class Coupling {
  private:
+  using VAR = typename FirstProblemVarType<Args...>::type;
+
   std::string name_{"Unnamed Coupling"};
   std::tuple<Args...> problems_;
 
@@ -44,15 +57,18 @@ class Coupling {
       pb_convergence_;
 
  public:
+  std::vector<VAR*> CollectAllVariables();
+  using VarType = VAR;
   explicit Coupling(const std::string& name, Args... problems);
   std::string get_name();
 
   void get_tree();
-  void initialize(const int& iter, const double& initial_time, const double time_step);
+  void initialize(const int& iter, const double& initial_time, const double time_step,
+                  std::vector<VAR*> all_vars);
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
   void update();
-  void post_processing(const int& iter, const double& current_time);
+  void post_processing(const int& iter, const double& current_time, std::vector<VAR*> all_vars);
   void finalize();
 
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
