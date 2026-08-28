@@ -76,16 +76,12 @@ MultiVariableMaxAMR<VAR>::MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_si
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
- * @param auxvars Auxiliary variable collections whose error also
- *               contributes to `combined_error`, if any (empty by
- *               default). Only taken into account by the caller when
- *               `AMRBase::SetIncludeAuxVars(true)` was set.
  * @return true  At least one element was marked and the mesh was refined.
  * @return false No element exceeded the error threshold; the mesh is
  *               unchanged.
  */
 template <class VAR>
-bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars, std::vector<VAR*> auxvars) {
+bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
   const int ne = this->par_mesh_.GetNE();
@@ -103,11 +99,6 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars, std::vector<VAR*> auxvars) {
 
   for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
     accumulate_error(vars[iv]);
-  }
-  for (auto* auxvar : auxvars) {
-    for (std::size_t i = 0; i < auxvar->get_variables_number(); i++) {
-      accumulate_error((*auxvar)[i]);
-    }
   }
 
   mfem::Array<mfem::Refinement> refinements;

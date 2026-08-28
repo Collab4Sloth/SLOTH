@@ -136,15 +136,13 @@ void AMRBase<VAR>::EnsureNCMeshIfNeeded() {
  * @brief Apply the initial refinement loop on the initial condition,
  *        before the time-stepping loop starts.
  *
- * @details Repeatedly calls the derived class's `Refine()` implementation
- *          until it reports no more refinement, or `amr_max_preref_cycles_`
- *          is reached. After each successful refinement, every primary
- *          variable in `vars` AND every variable of every auxiliary
- *          variable collection in `auxvars` is resynchronized via
- *          `Variable::UpdateAndRebalance()`, then has its initial
- *          condition reapplied via `Variable::setInitialCondition()` —
- *          all of them share the same mesh managed by this AMR object
- *          and must stay consistent with its current, refined state.
+ * @details After each mesh refinement cycle (up to `amr_max_preref_cycles_`):
+ *          - `Refine()` decides whether to refine, based on `vars`;
+ *          - every auxiliary variables is resynchronized via
+ *            `Variable::UpdateAndRebalance()` — all of them share the
+ *            same mesh and must stay consistent with its current state;
+ *          - each is then reset to its initial condition via
+ *            `Variable::setInitialCondition()`.
  *
  * @tparam VAR Variables container type this AMR strategy operates on.
  * @param vars Primary variables sharing the mesh managed by this AMR
@@ -157,7 +155,7 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
   int cycle = 0;
   bool did_refine = false;
   while (cycle < this->amr_max_preref_cycles_) {
-    did_refine = this->Refine(vars, auxvars);
+    did_refine = this->Refine(vars);
 
     if (!did_refine) {
       break;
@@ -171,7 +169,6 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
     for (auto* auxvar_container : auxvars) {
       for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
         (*auxvar_container)[i].UpdateAndRebalance();
-        // Affect only auxiliary variables of the current problem
         (*auxvar_container)[i].setInitialCondition();
       }
     }
@@ -184,29 +181,21 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
 /**
  * @brief Apply one refinement pass during the time-stepping loop.
  *
- * @details Calls the derived class's `Refine()` implementation, and if it
- *          reports that the mesh was actually refined, resynchronizes
- *          every variable in `vars` via `Variable::UpdateAndRebalance()` —
- *          not just the variable(s) that may have driven the refinement
- *          decision, since all variables share the same mesh and must
- *          stay consistent with its current state.
+ * @details - `Refine()` decides based on `vars` only ;
+ *          - if the mesh was refined, every variable in `vars` AND
+ *            `auxvars` is resynchronized via `Variable::UpdateAndRebalance()`;
  *
- * @note Intended to be called once per time step, typically paired with a
- *       preceding `StepDerefine()` call (see `Problem::save()`), never
- *       interleaved with another mesh-mutating call without an
- *       `UpdateAndRebalance()` pass in between.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
- *            AMR object.
- * @param auxvars Auxiliary variable collections sharing the same mesh,
- *               if any (empty by default).
+ *            AMR object; drives the refinement decision.
+ * @param auxvars Auxiliary variable collections sharing the same mesh;
+ *               not consulted for the refinement decision, but always
+ *               resynchronized afterwards (empty by default).
  */
 template <class VAR>
 void AMRBase<VAR>::StepRefine(VAR& vars, std::vector<VAR*> auxvars) {
-  std::vector<VAR*> effective_auxvars = this->include_auxvars_ ? auxvars : std::vector<VAR*>{};
-
-  bool did_refine = this->Refine(vars, effective_auxvars);
+  bool did_refine = this->Refine(vars);
 
   if (did_refine) {
     for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
@@ -224,28 +213,21 @@ void AMRBase<VAR>::StepRefine(VAR& vars, std::vector<VAR*> auxvars) {
 /**
  * @brief Apply one derefinement pass during the time-stepping loop.
  *
- * @details Calls the derived class's `Derefine()` implementation, and if
- *          it reports that the mesh was actually derefined, resynchronizes
- *          every variable in `vars` via `Variable::UpdateAndRebalance()` —
- *          not just the variable(s) that may have driven the derefinement
- *          decision, since all variables share the same mesh and must
- *          stay consistent with its current state.
+ * @details - `Derefine()` decides based on BOTH `vars` and `auxvars`
+ *          - if the mesh was derefined, every variable in `vars` AND
+ *            `auxvars` is resynchronized via `Variable::UpdateAndRebalance()`;
  *
- * @note Intended to be called once per time step, typically followed by a
- *       `StepRefine()` call (see `Problem::save()`): derefine first, to
- *       free up room for refinement in areas that newly need it.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
  * @param auxvars Auxiliary variable collections sharing the same mesh,
- *               if any (empty by default).
+ *               always consulted for the derefinement decision and
+ *               always resynchronized afterwards (empty by default).
  */
 template <class VAR>
 void AMRBase<VAR>::StepDerefine(VAR& vars, std::vector<VAR*> auxvars) {
-  std::vector<VAR*> effective_auxvars = this->include_auxvars_ ? auxvars : std::vector<VAR*>{};
-
-  bool did_derefine = this->Derefine(vars, effective_auxvars);
+  bool did_derefine = this->Derefine(vars, auxvars);
 
   if (did_derefine) {
     for (std::size_t i = 0; i < vars.get_variables_number(); i++) {

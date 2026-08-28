@@ -82,20 +82,13 @@ SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simpli
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object; only `vars[var_id_]` is consulted.
- * @param auxvars Ignored by this strategy (logs a warning if non-empty);
- *               use `MultiVariableMaxAMR` if auxiliary variables must
- *               influence the refinement decision.
+
  * @return true  The mesh was refined.
  * @return false No element exceeded the local error goal; the mesh is
  *               unchanged.
  */
 template <class VAR>
-bool SingleVariableAMR<VAR>::Refine(VAR& vars, std::vector<VAR*> auxvars) {
-  if (!auxvars.empty()) {
-    SlothInfo::verbose("SingleVariableAMR::Derefine",
-                       " auxiliary variables are ignored; use MultiVariableMaxAMR if they must "
-                       "influence refinement.");
-  }
+bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
   auto& var = vars[this->var_id_];
