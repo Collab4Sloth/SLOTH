@@ -81,9 +81,13 @@ class ProblemBase {
   AMRBase<VAR>* amr_{nullptr};
 
  public:
+  using VarType = VAR;
   void set_amr(AMRBase<VAR>* amr) { this->amr_ = amr; }
 
- public:
+  void initialize_amr(const std::vector<VAR*>& all_vars);
+  void save_amr(const std::vector<VAR*>& all_vars);
+
+  // With coefficients
   template <PbVar<VAR>... Args>
   ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
               PST& pst, Args&&... auxvariables);
@@ -91,6 +95,8 @@ class ProblemBase {
   template <PbVar<VAR>... Args>
   ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
               Convergence& convergence, PST& pst, Args&&... auxvariables);
+
+  // Without coefficients
 
   template <PbVar<VAR>... Args>
   ProblemBase(const std::string& name, VAR& variables, PST& pst, Args&&... auxvariables);
@@ -102,7 +108,7 @@ class ProblemBase {
   virtual ~ProblemBase() = default;
 
   std::string get_name();
-  VAR get_problem_variables();
+  VAR& get_problem_variables();
 
   std::vector<std::tuple<std::string, bool, double>> get_convergence();
 
