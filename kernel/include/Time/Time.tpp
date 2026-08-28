@@ -132,8 +132,37 @@ void TimeDiscretization<Args...>::initialize() {
   const double dt = this->time_step_;
   this->current_time_ = tt;
   const auto& iter = this->initial_iter_;
-  std::apply([iter, tt, dt](auto&... coupling) { (coupling.initialize(iter, tt, dt), ...); },
+  auto all_vars = this->CollectAllVariables();
+  std::apply([iter, tt, dt,
+              all_vars](auto&... coupling) { (coupling.initialize(iter, tt, dt, all_vars), ...); },
              couplings_);
+}
+
+/**
+ * @brief Collect a reference to the Variables of every Problem in every
+ *        Coupling.
+ *
+ * @tparam Args Coupling types in this simulation.
+ * @return std::vector<VAR*> One pointer per Problem across all Couplings
+ *        (not one per Coupling), referencing its `variables_` member
+ *        directly (not a copy) — valid for as long as each Coupling and
+ *        its Problems are alive.
+ */
+template <class... Args>
+std::vector<typename TimeDiscretization<Args...>::VAR*>
+TimeDiscretization<Args...>::CollectAllVariables() {
+  std::vector<typename TimeDiscretization<Args...>::VAR*> all_vars;
+  std::apply(
+      [&all_vars](auto&... coupling) {
+        (
+            [&] {
+              auto coupling_vars = coupling.CollectAllVariables();
+              all_vars.insert(all_vars.end(), coupling_vars.begin(), coupling_vars.end());
+            }(),
+            ...);
+      },
+      this->couplings_);
+  return all_vars;
 }
 
 /**
@@ -147,10 +176,13 @@ void TimeDiscretization<Args...>::post_processing(const int& iter) {
   Catch_Time_Section("TimeDiscretization::post_processing");
 
   const auto& current_time = this->current_time_;
+  auto all_vars = this->CollectAllVariables();
 
-  std::apply([iter, current_time](
-                 auto&... coupling) { (coupling.post_processing(iter, current_time), ...); },
-             couplings_);
+  std::apply(
+      [iter, current_time, all_vars](auto&... coupling) {
+        (coupling.post_processing(iter, current_time, all_vars), ...);
+      },
+      couplings_);
 }
 
 /**

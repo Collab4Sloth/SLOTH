@@ -91,7 +91,11 @@ class ProblemBase {
   AMRBase<VAR>* amr_{nullptr};
 
  public:
+  using VarType = VAR;
   void set_amr(AMRBase<VAR>* amr) { this->amr_ = amr; }
+
+  void initialize_amr(const std::vector<VAR*>& all_vars);
+  void save_amr(const std::vector<VAR*>& all_vars);
 
   // With PST object
   template <PbVar<VAR>... Args>
@@ -110,7 +114,6 @@ class ProblemBase {
               Args&&... auxvariables);
 
   // Without PST object
-
   template <PbVar<VAR>... Args>
   ProblemBase(const std::string& name, VAR& variables, const std::vector<Coefficients>& Coeff,
               Args&&... auxvariables);
@@ -139,9 +142,8 @@ class ProblemBase {
   virtual ~ProblemBase() = default;
 
   std::string get_name();
+  VAR& get_problem_variables();
   void set_name(const std::string& new_name);
-
-  VAR get_problem_variables();
 
   std::string get_problem_post_processing_directory();
   void set_name_save_specialized(const std::string& new_name);

@@ -50,7 +50,7 @@ class AMRBase {
   SlothErrorEstimators* amr_estimator_{nullptr};
 
   virtual bool Refine(VAR& vars) = 0;
-  virtual bool Derefine(VAR& vars) = 0;
+  virtual bool Derefine(VAR& var, std::vector<VAR*> auxvars) = 0;
 
  public:
   AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices);

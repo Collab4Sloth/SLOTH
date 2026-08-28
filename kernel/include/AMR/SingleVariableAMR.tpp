@@ -6,6 +6,13 @@
  *        exclusively on that one variable's field, using
  *        mfem::ThresholdRefiner/mfem::ThresholdDerefiner directly (which
  *        handle error estimation and mesh mutation together in one call).
+ *
+ * @warning Choosing this over MultiVariableMaxAMR is only safe if no
+ *          other variable sharing the mesh — principal or auxiliary —
+ *          needs its own resolution requirements taken into account.
+ *          If in doubt, prefer MultiVariableMaxAMR (with a single
+ *          variable, it behaves almost identically, minus the preference
+ *          for conforming refinement where geometrically possible).
  * @version 0.1
  * @date 2026-08-04
  *
@@ -57,20 +64,25 @@ SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simpli
  *        pilot variable (`var_id_`).
  *
  * @details Builds a fresh estimator via `amr_estimator_->get_value()`,
- *          then delegates both error estimation and mesh mutation to
- *          `mfem::ThresholdRefiner::Apply()`, configured with a purely
- *          local error goal (`SetTotalErrorFraction(0.0)`,
+ *          configures a `mfem::ThresholdRefiner` with a purely local
+ *          error goal (`SetTotalErrorFraction(0.0)`,
  *          `SetLocalErrorGoal(amr_max_elem_error_)`) and conforming
  *          refinement preferred where possible
  *          (`PreferConformingRefinement()`), subject to `amr_nc_limit_`.
- *          If the mesh was refined, `amr_estimator_->UpdateFluxSpaces()`
- *          is called to resynchronize the estimator's internal flux
- *          spaces before it is destroyed, avoiding it operating on a
- *          stale nonconforming mesh state.
+ *          Candidates are computed via `MarkWithoutRefining()` (without
+ *          mutating the mesh), filtered by `FilterRefinedCandidates()`
+ *          (max refinement depth), and the decision to mutate is based
+ *          on a global reduction (`mesh.ReduceInt()`) rather than the
+ *          local candidate count, to stay correct under MPI when some
+ *          ranks have no local candidate. If the mesh was refined,
+ *          `amr_estimator_->UpdateFluxSpaces()` is called to
+ *          resynchronize the estimator's internal flux spaces before it
+ *          is destroyed.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object; only `vars[var_id_]` is consulted.
+
  * @return true  The mesh was refined.
  * @return false No element exceeded the local error goal; the mesh is
  *               unchanged.
@@ -120,12 +132,20 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object; only `vars[var_id_]` is consulted.
+ * @param auxvars Ignored by this strategy (logs a warning if non-empty);
+ *               use `MultiVariableMaxAMR` if auxiliary variables must
+ *               influence the refinement decision.
  * @return true  The mesh was derefined.
  * @return false No element met the derefinement threshold; the mesh is
  *               unchanged.
  */
 template <class VAR>
-bool SingleVariableAMR<VAR>::Derefine(VAR& vars) {
+bool SingleVariableAMR<VAR>::Derefine(VAR& vars, std::vector<VAR*> auxvars) {
+  if (!auxvars.empty()) {
+    SlothInfo::verbose("SingleVariableAMR::Derefine",
+                       " auxiliary variables are ignored; use MultiVariableMaxAMR if they must "
+                       "influence refinement.");
+  }
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
   auto& var = vars[this->var_id_];

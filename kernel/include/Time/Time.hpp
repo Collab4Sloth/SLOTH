@@ -37,9 +37,22 @@
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+/**
+ * @brief Trait extracting a single VAR type from a pack of Coupling
+ *        types, used by TimeDiscretization.
+ *
+ * @tparam Args Coupling types to extract the shared VAR type from.
+ */
+template <class... Args>
+struct FirstCouplingVarType {
+  using type = typename std::tuple_element_t<0, std::tuple<Args...>>::VarType;
+};
+
 template <class... Args>
 class TimeDiscretization {
  private:
+  using VAR = typename FirstCouplingVarType<Args...>::type;
+
   const Parameters& params_;
   std::tuple<Args...> couplings_;
   double initial_iter_{0};
@@ -69,6 +82,7 @@ class TimeDiscretization {
   void check_duplicate_coupling_name();
   void check_duplicate_post_processing_directory();
   std::function<double(double)> time_step_function_;
+  std::vector<VAR*> CollectAllVariables();
 
  public:
   // explicit TimeDiscretization(const Parameters& params, Args&&... couplings);

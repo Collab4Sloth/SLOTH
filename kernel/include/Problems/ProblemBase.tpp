@@ -307,10 +307,10 @@ void ProblemBase<VAR, PST>::set_name_save_specialized(const std::string& new_nam
  *
  * @tparam VAR Type representing the Variables.
  * @tparam PST Type representing the PostProcessing.
- * @return VAR The list of Variables of the problem.
+ * @return VAR& The list of Variables of the problem.
  */
 template <class VAR, class PST>
-VAR ProblemBase<VAR, PST>::get_problem_variables() {
+VAR& ProblemBase<VAR, PST>::get_problem_variables() {
   return this->variables_;
 }
 
@@ -508,4 +508,43 @@ std::vector<std::tuple<std::string, bool, double>> ProblemBase<VAR, PST>::get_co
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::setGeometry(Geometry geometry) {
   this->geometry_ = geometry;
+}
+
+/**
+ * @brief Apply the pre-refinement loop on this Problem's initial
+ *        condition, if an AMR strategy is attached.
+ *
+ * @details No-op if `set_amr()` was never called (`amr_ == nullptr`).
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param all_vars Variables of every Problem in the enclosing Coupling,
+ *                used to resynchronize the whole coupling after any mesh
+ *                mutation (see `Coupling::CollectAllVariables()`).
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::initialize_amr(const std::vector<VAR*>& all_vars) {
+  if (this->amr_ != nullptr) {
+    this->amr_->InitialRefine(this->variables_, all_vars);
+  }
+}
+
+/**
+ * @brief Apply one derefine-then-refine AMR pass for this Problem, if an
+ *        AMR strategy is attached.
+ *
+ * @details No-op if `set_amr()` was never called (`amr_ == nullptr`).
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param all_vars Variables of every Problem in the enclosing Coupling,
+ *                used to resynchronize the whole coupling after any mesh
+ *                mutation (see `Coupling::CollectAllVariables()`).
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::save_amr(const std::vector<VAR*>& all_vars) {
+  if (this->amr_ != nullptr) {
+    this->amr_->StepDerefine(this->variables_, all_vars);
+    this->amr_->StepRefine(this->variables_, all_vars);
+  }
 }

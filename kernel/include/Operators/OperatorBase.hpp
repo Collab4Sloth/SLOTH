@@ -79,7 +79,7 @@ class OperatorBase : public mfem::Operator {
   std::string description_{"UNKNOWN OPERATOR"};
   const Parameter default_p_ = Parameter("default parameter", false);
   const Parameters default_params_ = Parameters(default_p_);
-  const Parameters& params_;
+  Parameters params_;
   /// Time integral results
   std::multimap<IterationKey, SpecializedValue> time_specialized_;
   std::map<std::string, std::multimap<IterationKey, SpecializedValue>> time_iso_specialized_;

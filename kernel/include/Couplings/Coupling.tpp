@@ -156,20 +156,48 @@ void Coupling<Args...>::get_tree() {
 }
 
 /**
- * @brief Initialize all the problems inside the coupling
+ * @brief Initialize all the problems inside the coupling, then apply AMR
+ *        pre-refinement and save the initial state.
  *
- * @tparam Args Types of the problems stored in the coupling.
- * @param initial_time
+ * @details For each Problem, in order: `Problem::initialize()`, then
+ *          `Problem::initialize_amr()` (a no-op unless that Problem has
+ *          an AMR strategy attached), then `Problem::save()`. `all_vars`
+ *          (every Problem's variables of every Coupling).
+ *
+ * @tparam Args Problem types in this coupling.
+ * @param iter Iteration number used when saving the initial state.
+ * @param initial_time Initial simulation time.
+ * @param time_step Initial time step, forwarded to each Problem's
+ *                  `initialize()`.
  */
 template <class... Args>
 void Coupling<Args...>::initialize(const int& iter, const double& initial_time,
-                                   const double time_step) {
+                                   const double time_step, std::vector<VAR*> all_vars) {
   std::apply(
-      [iter, initial_time, time_step](auto&... problem) {
+      [iter, initial_time, time_step, all_vars](auto&... problem) {
         (problem.initialize(initial_time, time_step), ...);
+        (problem.initialize_amr(all_vars), ...);
         (void([&problem, iter, initial_time] { problem.save(iter, initial_time); }()), ...);
       },
       problems_);
+}
+
+/**
+ * @brief Collect a reference to the Variables of every Problem in this
+ *        coupling (called by TimeDiscretization<Args...>::CollectAllVariables())
+ *
+ * @tparam Args Problem types in this coupling.
+ * @return std::vector<VAR*> One pointer per Problem, referencing its
+ *        `variables_` member directly (not a copy) — valid for as long
+ *        as this `Coupling` and its Problems are alive.
+ */
+template <class... Args>
+std::vector<typename Coupling<Args...>::VAR*> Coupling<Args...>::CollectAllVariables() {
+  std::vector<typename Coupling<Args...>::VAR*> all_vars;
+  std::apply([&all_vars](
+                 auto&... problem) { (all_vars.push_back(&problem.get_problem_variables()), ...); },
+             this->problems_);
+  return all_vars;
 }
 
 /**
@@ -223,18 +251,27 @@ void Coupling<Args...>::update() {
 }
 
 /**
- * @brief Save the variables of the problems inside this coupling
+ * @brief Save the variables of the problems inside this coupling, then
+ *        apply one AMR derefine/refine pass.
  *
- * @tparam Args Types of the problems stored in the coupling.
- * @param iter
- * @param current_time
- * @param current_time_step
+ * @details For each Problem: `Problem::post_processing()` (saves its
+ *          variables), then `Problem::save_amr()` (a no-op unless that
+ *          Problem has an AMR strategy attached). `all_vars` (every
+ *          Problem's variables of every Coupling).
+ *
+ * @tparam Args Problem types in this coupling.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
  */
 template <class... Args>
-void Coupling<Args...>::post_processing(const int& iter, const double& current_time) {
-  std::apply([iter, current_time](
-                 auto&... problem) { (problem.post_processing(iter, current_time), ...); },
-             problems_);
+void Coupling<Args...>::post_processing(const int& iter, const double& current_time,
+                                        std::vector<VAR*> all_vars) {
+  std::apply(
+      [iter, current_time, all_vars](auto&... problem) {
+        (problem.post_processing(iter, current_time), ...);
+        (problem.save_amr(all_vars), ...);
+      },
+      problems_);
 }
 
 /**

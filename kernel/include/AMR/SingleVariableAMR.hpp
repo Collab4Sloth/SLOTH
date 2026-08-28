@@ -43,7 +43,7 @@ class SingleVariableAMR : public AMRBase<VAR> {
   virtual ~SingleVariableAMR() = default;
 
   bool Refine(VAR& vars) final;
-  bool Derefine(VAR& vars) final;
+  bool Derefine(VAR& vars, std::vector<VAR*> auxvars) final;
 };
 
 #include "AMR/SingleVariableAMR.tpp"
