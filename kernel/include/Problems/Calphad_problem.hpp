@@ -74,6 +74,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
   std::vector<std::string> sorted_KKS_phases_;
 
  public:
+  // With PST
   template <PbVar<VAR>... Args>
   Calphad_Problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
                   Convergence& convergence, PST& pst, Args&&... auxvariable);
@@ -104,6 +105,38 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
 
   template <PbVar<VAR>... Args>
   Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables, PST& pst,
+                  Args&&... auxvariable);
+  // Without PST
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                  Convergence& convergence, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
+                  const std::vector<Coefficients>& Coeff, Convergence& convergence,
+                  Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, const std::vector<Coefficients>& Coeff,
+                  Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
+                  const std::vector<Coefficients>& Coeff, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, Convergence& convergence,
+                  Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
+                  Convergence& convergence, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const Parameters& params, VAR& variables, Args&&... auxvariable);
+
+  template <PbVar<VAR>... Args>
+  Calphad_Problem(const std::string& name, const Parameters& params, VAR& variables,
                   Args&&... auxvariable);
 
   /////////////////////////////////////////////////////

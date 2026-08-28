@@ -53,6 +53,9 @@ TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args..
 
   this->time_step_function_ =
       std::function<double(double)>([this](double) { return this->time_step_; });
+
+  this->check_duplicate_coupling_name();
+  this->check_duplicate_post_processing_directory();
 }
 
 /**
@@ -280,6 +283,51 @@ void TimeDiscretization<Args...>::time_info(const int& iter) {
     SlothInfo::verbose("     - time-step requested : ", this->time_step_);
     SlothInfo::verbose("     - time-step accepted  : ", this->current_time_step_);
   }
+}
+
+/**
+ * @brief Checks for duplicate coupling names and renames duplicates.
+ *
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::check_duplicate_coupling_name() {
+  std::set<std::string> coupling_names;
+
+  std::apply(
+      [&](auto&... coupling) {
+        (
+            [&] {
+              const std::string original_name = coupling.get_name();
+              std::string new_name = original_name;
+
+              int suffix = 0;
+              while (coupling_names.contains(new_name)) {
+                new_name = original_name + std::to_string(++suffix);
+              }
+
+              if (new_name != original_name) {
+                coupling.set_name(new_name);
+              }
+
+              coupling_names.insert(new_name);
+            }(),
+            ...);
+      },
+      couplings_);
+}
+
+/**
+ * @brief Checks for duplicate post-processing directories and add prefix to avoid duplicates in CSV
+ * files.
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::check_duplicate_post_processing_directory() {
+  const std::size_t nb_couplings = std::tuple_size_v<decltype(couplings_)>;
+  std::apply(
+      [&](auto&... coupling) {
+        (coupling.check_duplicate_post_processing_directory(nb_couplings), ...);
+      },
+      couplings_);
 }
 
 /**

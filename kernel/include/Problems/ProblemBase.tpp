@@ -41,6 +41,7 @@
 #include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameter.hpp"
 #include "PostProcessing/postprocessing.hpp"
+#include "Utils/UtilsForData.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -64,6 +65,36 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
                                    const std::vector<Coefficients>& Coeff, Convergence& convergence,
                                    PST& pst, Args&&... auxvariables)
     : name_(name), variables_(variables), coefficients_(Coeff), pst_(pst) {
+  this->convergence_ = std::make_shared<Convergence>(convergence);
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.clear();
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
+
+  if (this->has_pst()) {
+    this->problem_post_processing_directory_ = this->get_pst().get_post_processing_directory();
+  }
+}
+/**
+ * @brief Constructs a new ProblemBase object.
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param convergence Reference to the Convergence  object.
+ * @param auxvariables Variadic pack of auxiliary variables.
+ * @param Coeff Vector of coefficients.
+ */
+template <class VAR, class PST>
+template <PbVar<VAR>... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
+                                   const std::vector<Coefficients>& Coeff, Convergence& convergence,
+                                   Args&&... auxvariables)
+    : name_(name), variables_(variables), coefficients_(Coeff), pst_(std::nullopt) {
   this->convergence_ = std::make_shared<Convergence>(convergence);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.clear();
@@ -97,6 +128,38 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
   } else {
     this->auxvariables_ = {&auxvariables...};
   }
+
+  if (this->has_pst()) {
+    this->problem_post_processing_directory_ = this->get_pst().get_post_processing_directory();
+  }
+}
+/**
+ * @brief Constructs a new ProblemBase object.
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ * @tparam CArgs Types of coefficients passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param auxvariables Variadic pack of auxiliary variables.
+ * @param Coeff Variadic pack of coefficients.
+ */
+template <class VAR, class PST>
+template <PbVar<VAR>... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
+                                   const std::vector<Coefficients>& Coeff, Args&&... auxvariables)
+    : name_(name),
+      variables_(variables),
+      coefficients_(Coeff),
+      pst_(std::nullopt),
+      convergence_(nullptr) {
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.clear();
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
 }
 
 /**
@@ -111,13 +174,39 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
  * @param pst Reference to the PostProcessing object.
  * @param convergence Reference to the Convergence  object.
  * @param auxvariables Variadic pack of auxiliary variables.
- * @param Coeff Vector of coefficients.
  */
 template <class VAR, class PST>
 template <PbVar<VAR>... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
                                    Convergence& convergence, PST& pst, Args&&... auxvariables)
     : name_(name), variables_(variables), pst_(pst) {
+  this->convergence_ = std::make_shared<Convergence>(convergence);
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.clear();
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
+  if (this->has_pst()) {
+    this->problem_post_processing_directory_ = this->get_pst().get_post_processing_directory();
+  }
+}
+/**
+ * @brief Constructs a new ProblemBase object.
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param convergence Reference to the Convergence  object.
+ * @param auxvariables Variadic pack of auxiliary variables.
+ */
+template <class VAR, class PST>
+template <PbVar<VAR>... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
+                                   Convergence& convergence, Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(std::nullopt) {
   this->convergence_ = std::make_shared<Convergence>(convergence);
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.clear();
@@ -132,19 +221,41 @@ ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables,
  * @tparam VAR Type representing the Variables.
  * @tparam PST Type representing the PostProcessing.
  * @tparam Args Types of auxiliary variables passed variadically.
- * @tparam CArgs Types of coefficients passed variadically.
  *
  * @param name Name of the problem.
  * @param variables Reference to the Variables object.
  * @param pst Reference to the PostProcessing object.
  * @param auxvariables Variadic pack of auxiliary variables.
- * @param Coeff Variadic pack of coefficients.
  */
 template <class VAR, class PST>
 template <PbVar<VAR>... Args>
 ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, PST& pst,
                                    Args&&... auxvariables)
     : name_(name), variables_(variables), pst_(pst), convergence_(nullptr) {
+  if constexpr (sizeof...(auxvariables) == 0) {
+    this->auxvariables_.clear();
+  } else {
+    this->auxvariables_ = {&auxvariables...};
+  }
+  if (this->has_pst()) {
+    this->problem_post_processing_directory_ = this->get_pst().get_post_processing_directory();
+  }
+}
+/**
+ * @brief Constructs a new ProblemBase object.
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @tparam Args Types of auxiliary variables passed variadically.
+ *
+ * @param name Name of the problem.
+ * @param variables Reference to the Variables object.
+ * @param auxvariables Variadic pack of auxiliary variables.
+ */
+template <class VAR, class PST>
+template <PbVar<VAR>... Args>
+ProblemBase<VAR, PST>::ProblemBase(const std::string& name, VAR& variables, Args&&... auxvariables)
+    : name_(name), variables_(variables), pst_(std::nullopt), convergence_(nullptr) {
   if constexpr (sizeof...(auxvariables) == 0) {
     this->auxvariables_.clear();
   } else {
@@ -166,6 +277,32 @@ std::string ProblemBase<VAR, PST>::get_name() {
 }
 
 /**
+ *
+ * @brief Set the name of the problem
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @param std::string The name of the problem.
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::set_name(const std::string& new_name) {
+  this->name_ = new_name;
+}
+
+/**
+ *
+ * @brief Set the name for global specialized CSV file of the problem
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @param std::string The name of or global specialized CSV file of the problem
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::set_name_save_specialized(const std::string& new_name) {
+  this->name_save_specialized_ = new_name;
+}
+
+/**
  * @brief  Return the variables associated with the problem
  *
  * @tparam VAR Type representing the Variables.
@@ -175,6 +312,18 @@ std::string ProblemBase<VAR, PST>::get_name() {
 template <class VAR, class PST>
 VAR& ProblemBase<VAR, PST>::get_problem_variables() {
   return this->variables_;
+}
+
+/**
+ * @brief Return the post-processing directory for the problem
+ *
+ * @tparam VAR Type representing the Variables.
+ * @tparam PST Type representing the PostProcessing.
+ * @return VAR The list of Variables of the problem.
+ */
+template <class VAR, class PST>
+std::string ProblemBase<VAR, PST>::get_problem_post_processing_directory() {
+  return this->problem_post_processing_directory_;
 }
 
 /**
@@ -329,8 +478,10 @@ void ProblemBase<VAR, PST>::check_convergence(
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save(const int iter, const double& current_time) {
-  auto& vars = this->get_problem_variables();
-  this->pst_.save_variables(vars, iter, current_time);
+  if (this->has_pst()) {
+    auto vars = this->get_problem_variables();
+    this->get_pst().save_variables(vars, iter, current_time);
+  }
 }
 
 /**

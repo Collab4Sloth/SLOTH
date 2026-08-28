@@ -86,7 +86,55 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
+  if (this->has_pst()) {
+    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+  }
+}
+
+/**
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the operator, primary variables,
+ * auxiliary variables, coefficients, convergence criteria, and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
+ *
+ * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
+ * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *   PostProcessing.
+ * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
+ * @param oper
+ *   Nonlinear operator associated with the problem.
+ * @param variables
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
+ * @param convergence
+ *   Convergence criteria.
+ * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
+ */
+template <class OPE, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
+                                const std::vector<Coefficients>& Coeff, Convergence& convergence,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, convergence,
+                            auxvariables...),
+      oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
+  this->oper_.set_coefficients(Coeff, false);
 }
 
 /**
@@ -131,7 +179,52 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
+  if (this->has_pst()) {
+    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+  }
+}
+
+/**
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the operator, primary variables,
+ * auxiliary variables, coefficients,  and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
+ *
+ * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
+ * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *   PostProcessing.
+ * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
+ * @param oper
+ *   Nonlinear operator associated with the problem.
+ * @param variables
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
+
+ * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
+ */
+template <class OPE, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
+                                const std::vector<Coefficients>& Coeff, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>("Default NonLinear problem", variables, Coeff, auxvariables...),
+      oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
+  this->oper_.set_coefficients(Coeff, false);
 }
 
 /**
@@ -180,7 +273,55 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
+  if (this->has_pst()) {
+    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+  }
+}
+
+/**
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the name, operator, primary variables,
+ * auxiliary variables, coefficients,  convergence criteria, and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
+ *
+ * @tparam OPE
+ *   Operator type defining the nonlinear PDE.
+ * @tparam VAR
+ *   Primary variable container type.
+ * @tparam PST
+ *   PostProcessing.
+ * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
+ * @param name
+ *   Name of the problem.
+ * @param oper
+ *   Nonlinear operator associated with the problem.
+ * @param variables
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
+ * @param convergence
+ *   Convergence criteria.
+ * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
+ */
+template <class OPE, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables,
+                                const std::vector<Coefficients>& Coeff, Convergence& convergence,
+                                Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, convergence, auxvariables...), oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
+  this->oper_.set_coefficients(Coeff, false);
 }
 
 /**
@@ -226,11 +367,17 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, this->pst_.get_enable_compute_energies());
+  if (this->has_pst()) {
+    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+  }
 }
 
 /**
- * @brief Initialize the Problem
+ * @brief Construct a PDE Problem object.
+ *
+ * Initializes a PDE problem by binding the name, operator, primary variables,
+ * auxiliary variables, coefficients,  and post-processing. The operator is
+ * configured with the provided coefficients and energy-computation settings from the problem state.
  *
  * @tparam OPE
  *   Operator type defining the nonlinear PDE.
@@ -238,10 +385,53 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
  *   Primary variable container type.
  * @tparam PST
  *   PostProcessing.
+ * @tparam Args
+ *   Types of auxiliary variables satisfying the `PbVar<VAR>` constraint.
+ *
+ * @param name
+ *   Name of the problem.
+ * @param oper
+ *   Nonlinear operator associated with the problem.
+ * @param variables
+ *   Primary problem variables.
+ * @param Coeff
+ *   Collection of coefficients used by the operator.
+ * @param auxvariables
+ *   Optional auxiliary variables forwarded to the base problem.
+ *
+ * @pre
+ * - `oper` must be fully constructed.
+ * - `Coeff` must be compatible with the operator.
+ *
+ */
+template <class OPE, class VAR, class PST>
+template <PbVar<VAR>... Args>
+Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& variables,
+                                const std::vector<Coefficients>& Coeff, Args&&... auxvariables)
+    : ProblemBase<VAR, PST>(name, variables, Coeff, auxvariables...), oper_(oper) {
+  MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
+              "Error: the number of Coefficients objects must be equal to the number of primary "
+              "variables. Please check your data.");
+  this->oper_.set_coefficients(Coeff, false);
+}
+
+/**
+ * @brief Initializes the problem.
+ *
+ * Initializes the base problem, the nonlinear operator, and performs
+ * the initial adaptive mesh refinement when AMR is enabled.
+ *
+ * @tparam OPE
+ *   Nonlinear operator type associated with the problem.
+ * @tparam VAR
+ *   Primary problem variables type.
+ * @tparam PST
+ *   Post-processing type.
+ *
  * @param initial_time
- *   Initial time
+ *   Initial simulation time.
  * @param time_step
- *   current time_step
+ *   Current simulation time step.
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::initialize(const double& initial_time, const double time_step) {
@@ -276,8 +466,10 @@ void Problem<OPE, VAR, PST>::save(const int iter, const double& current_time) {
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::finalize() {
   // Save specialized values only at the end of calculation if required
-  bool must_be_saved = !this->pst_.get_enable_save_specialized_at_iter();
-  this->save_specialized(must_be_saved);
+  if (this->has_pst()) {
+    bool must_be_saved = !this->get_pst().get_enable_save_specialized_at_iter();
+    this->save_specialized(must_be_saved);
+  }
 }
 
 /**
@@ -299,14 +491,15 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
   if (rank == 0) {
     if (must_be_saved) {
       if (!this->oper_.get_time_specialized().empty()) {
-        this->pst_.save_specialized(this->oper_.get_time_specialized());
+        this->get_pst().save_specialized(this->oper_.get_time_specialized(),
+                                         this->name_save_specialized_);
       }
 
       if (!this->oper_.get_time_iso_specialized().empty()) {
         for (const auto& [var_name, variable_time_iso_specialized] :
              this->oper_.get_time_iso_specialized()) {
           std::string str = var_name + "_iso_computation.csv";
-          this->pst_.save_specialized(variable_time_iso_specialized, str);
+          this->get_pst().save_specialized(variable_time_iso_specialized, str);
         }
       }
     }
@@ -332,55 +525,59 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time) {
-  const auto nvars = this->variables_.get_variables_number();
-  std::vector<mfem::Vector> u_vect;
-  const double current_time_step = this->oper_.get_current_time_step();
+  if (this->has_pst()) {
+    const auto nvars = this->variables_.get_variables_number();
+    std::vector<mfem::Vector> u_vect;
+    const double current_time_step = this->oper_.get_current_time_step();
 
-  // Isovalue to compute by variable
-  const std::map<std::string, double> map_iso_value = this->pst_.get_iso_val_to_compute();
+    // Isovalue to compute by variable
+    const std::map<std::string, double> map_iso_value = this->get_pst().get_iso_val_to_compute();
 
-  // Integral value to compute by variable
-  const std::map<std::string, std::tuple<double, double>> map_integral =
-      this->pst_.get_integral_to_compute();
+    // Integral value to compute by variable
+    const std::map<std::string, std::tuple<double, double>> map_integral =
+        this->get_pst().get_integral_to_compute();
 
-  for (unsigned int iv = 0; iv < nvars; iv++) {
-    auto vv = this->variables_[iv];
-    auto solution = vv.get_analytical_solution();
-    auto unk = vv.get_unknown();
-    auto unk_name = vv.getVariableName();
+    for (unsigned int iv = 0; iv < nvars; iv++) {
+      auto vv = this->variables_[iv];
+      auto solution = vv.get_analytical_solution();
+      auto unk = vv.get_unknown();
+      auto unk_name = vv.getVariableName();
 
-    // Errors
-    if (solution != nullptr) {
-      auto solution_func = solution.get();
-      this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
-                               *solution_func);
+      // Errors
+      if (solution != nullptr) {
+        auto solution_func = solution.get();
+        this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
+                                 *solution_func);
+      }
+
+      // Isovalues
+      if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
+        const double iso_value = map_iso_value.at(unk_name);
+        this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
+                                  iso_value);
+      }
+
+      // Integral
+      if (!map_integral.empty() && map_integral.contains(unk_name)) {
+        const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
+        this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
+                                    lower_bound, upper_bound);
+      }
+      u_vect.emplace_back(std::move(unk));
     }
-
-    // Isovalues
-    if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
-      const double iso_value = map_iso_value.at(unk_name);
-      this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
-                                iso_value);
+    // Compute Energies is required (True by default)
+    if (this->get_pst().get_enable_compute_energies()) {
+      this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
     }
-
-    // Integral
-    if (!map_integral.empty() && map_integral.contains(unk_name)) {
-      const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
-      this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
-                                  lower_bound, upper_bound);
-    }
-    u_vect.emplace_back(std::move(unk));
-  }
-  // Compute Energies is required (True by default)
-  if (this->pst_.get_enable_compute_energies()) {
-    this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
   }
   // Save variables for visualization
   ProblemBase<VAR, PST>::post_processing(iter, current_time);
 
   // Save specialized values at each time-step if required
-  bool must_be_saved = this->pst_.get_enable_save_specialized_at_iter();
-  this->save_specialized(must_be_saved);
+  if (this->has_pst()) {
+    bool must_be_saved = this->get_pst().get_enable_save_specialized_at_iter();
+    this->save_specialized(must_be_saved);
+  }
 }
 
 /**

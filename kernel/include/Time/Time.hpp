@@ -79,7 +79,8 @@ class TimeDiscretization {
   void finalize();
   void time_management();
   void time_info(const int& iter);
-
+  void check_duplicate_coupling_name();
+  void check_duplicate_post_processing_directory();
   std::function<double(double)> time_step_function_;
   std::vector<VAR*> CollectAllVariables();
 

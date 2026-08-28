@@ -31,24 +31,27 @@
 #include <utility>
 #include <vector>
 
+#include "Utils/UtilsForData.hpp"
 #include "Utils/UtilsForDebug.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
  * @brief Construct a new Coupling< Args...>:: Coupling object
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  * @param problems
  */
 // Coupling<Args...>::Coupling(const std::string& name, Args&&... problems)
 template <class... Args>
 Coupling<Args...>::Coupling(const std::string& name, Args... problems)
-    : name_(name), problems_(std::make_tuple(std::forward<Args>(problems)...)) {}
+    : name_(name), problems_(std::make_tuple(std::forward<Args>(problems)...)) {
+  this->check_duplicate_problem_name();
+}
 
 /**
  * @brief Return the name of the coupling
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  * @return const std::string
  */
 template <class... Args>
@@ -57,9 +60,93 @@ std::string Coupling<Args...>::get_name() {
 }
 
 /**
+ * @brief Set the name of the coupling
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ * @param std::string The name of the coupling
+ */
+template <class... Args>
+void Coupling<Args...>::set_name(const std::string& new_name) {
+  this->name_ = new_name;
+}
+
+/**
+ * @brief Checks for duplicate problem names and renames duplicates.
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ */
+template <class... Args>
+void Coupling<Args...>::check_duplicate_problem_name() {
+  std::set<std::string> problem_names;
+
+  std::apply(
+      [&](auto&... problem) {
+        (
+            [&] {
+              const std::string original_name = problem.get_name();
+              std::string new_name = original_name;
+
+              int suffix = 0;
+              while (problem_names.contains(new_name)) {
+                new_name = original_name + std::to_string(++suffix);
+              }
+
+              if (new_name != original_name) {
+                problem.set_name(new_name);
+              }
+
+              problem_names.insert(new_name);
+            }(),
+            ...);
+      },
+      problems_);
+}
+
+/**
+ * @brief Checks for duplicate post-processing directories and add prefix to avoid duplicates in CSV
+ * files.
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ */
+template <class... Args>
+void Coupling<Args...>::check_duplicate_post_processing_directory(std::size_t nb_couplings) {
+  std::map<std::string, int> directory_count;
+  std::apply(
+      [&](auto&... problem) {
+        (
+            [&] {
+              const std::string pb_dir = problem.get_problem_post_processing_directory();
+
+              if (!pb_dir.empty()) {
+                ++directory_count[pb_dir];
+              }
+            }(),
+            ...);
+      },
+      problems_);
+
+  std::apply(
+      [&](auto&... problem) {
+        (
+            [&] {
+              const std::string pb_dir = problem.get_problem_post_processing_directory();
+              if (!pb_dir.empty() && directory_count[pb_dir] > 1) {
+                std::string name = replaceSpaces(problem.get_name()) + "_time_specialized.csv";
+                if (nb_couplings > 1) {
+                  name = replaceSpaces(this->get_name()) + "_" + name;
+                }
+                problem.set_name_save_specialized(name);
+              }
+            }(),
+            ...);
+      },
+      problems_);
+}
+
+/**
  * @brief List all problems involved in the coupling
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  */
 template <class... Args>
 void Coupling<Args...>::get_tree() {
@@ -116,7 +203,7 @@ std::vector<typename Coupling<Args...>::VAR*> Coupling<Args...>::CollectAllVaria
 /**
  * @brief Solve all the problems inside the coupling
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  * @param iter
  * @param next_time
  * @param current_time
@@ -156,7 +243,7 @@ void Coupling<Args...>::execute(const int& iter, double& next_time, const double
 /**
  * @brief Update the variables of the problems inside this coupling
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  */
 template <class... Args>
 void Coupling<Args...>::update() {
@@ -190,7 +277,7 @@ void Coupling<Args...>::post_processing(const int& iter, const double& current_t
 /**
  * @brief Call the finalize methods of each problem
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  */
 template <class... Args>
 void Coupling<Args...>::finalize() {
@@ -200,7 +287,7 @@ void Coupling<Args...>::finalize() {
 /**
  * @brief
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  * @return std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>
  */
 template <class... Args>
@@ -212,7 +299,7 @@ Coupling<Args...>::get_convergence() {
 /**
  * @brief Destroy the Coupling< Args...>:: Coupling object
  *
- * @tparam Args
+ * @tparam Args Types of the problems stored in the coupling.
  */
 template <class... Args>
 Coupling<Args...>::~Coupling() {}

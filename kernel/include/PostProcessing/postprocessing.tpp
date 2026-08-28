@@ -84,16 +84,21 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
 
   this->level_of_detail_ =
       this->params_.template get_param_value_or_default<int>("level_of_detail", 1);
+
   this->enable_compute_energies_ =
       this->params_.template get_param_value_or_default<bool>("enable_compute_energies", true);
+
   this->enable_save_specialized_at_iter_ = this->params_.template get_param_value_or_default<bool>(
       "enable_save_specialized_at_iter", true);
+
   this->force_clean_output_dir_ =
       this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
+
   if (this->params_.has_parameter("iso_val_to_compute")) {
     this->iso_val_to_compute_ =
         this->params_.template get_param_value<MapStringDouble>("iso_val_to_compute");
   }
+
   if (this->params_.has_parameter("integral_to_compute")) {
     this->integral_to_compute_ =
         this->params_.template get_param_value<MapString2Double>("integral_to_compute");
@@ -104,6 +109,7 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       MFEM_VERIFY(upper_bound >= lower_bound, error_msg.c_str());
     }
   }
+
   std::string error_msg =
       "At least one the following parameter is expected: frequency, iterations_list, times_list";
   MFEM_VERIFY(this->params_.has_parameter("frequency") ||
