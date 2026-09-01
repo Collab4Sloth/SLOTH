@@ -68,6 +68,15 @@ PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
   this->dc_->SetDataFormat(mfem::VTKFormat::BINARY);
   this->dc_->SetHighOrderOutput(true);
   this->post_processing_directory_ = this->main_folder_path_ + "/" + this->calculation_path_;
+
+  if (mfem::Mpi::WorldRank() == 0) {
+    std::filesystem::path dir_path = std::filesystem::path(this->post_processing_directory_);
+    if (!std::filesystem::exists(dir_path)) {
+      std::filesystem::create_directories(dir_path);
+    }
+  }
+  // Wait creation of the directory before continue
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 /**
@@ -342,6 +351,7 @@ void PostProcessing<T, DC, DIM>::save_specialized(
     std::ostringstream text2fic;
     // File doesn't exist
     std::ofstream fic(file, std::ios::out);
+
     if (fic.is_open()) {
       ////////////////////////////////////////////
       // Headers
