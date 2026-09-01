@@ -150,7 +150,7 @@ class Calphad_Problem : public ProblemBase<VAR, PST> {
 
   /////////////////////////////////////////////////////
 
-  void post_processing(const int& iter, const double& current_time) override;
+  void save_csv(const int iter, const double current_time) override;
   /////////////////////////////////////////////////////
   void finalize() override;
   /////////////////////////////////////////////////////

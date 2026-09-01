@@ -105,11 +105,9 @@ class Problem : public ProblemBase<VAR, PST> {
                     const int iter, std::vector<std::unique_ptr<mfem::Vector>>& unks,
                     const std::vector<std::vector<std::string>>& unks_info) override;
 
-  void post_processing(const int& iter, const double& current_time) override;
+  void save_csv(const int iter, const double current_time) override;
 
   void finalize() override;
-
-  void save(const int iter, const double& current_time) override;
 };
 
 #include "Problems/Problem.tpp"

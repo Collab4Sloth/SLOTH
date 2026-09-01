@@ -103,12 +103,11 @@ Variable<T, DIM>& Variables<T, DIM>::operator[](size_t i) {
  * @return std::map<std::string, mfem::ParGridFunction>
  */
 template <class T, int DIM>
-std::map<std::string, mfem::ParGridFunction> Variables<T, DIM>::get_map_gridfunction() const {
-  std::map<std::string, mfem::ParGridFunction> map_var;
-  for (auto vv : this->vect_variables_) {
+std::map<std::string, mfem::ParGridFunction*> Variables<T, DIM>::get_map_gridfunction() {
+  std::map<std::string, mfem::ParGridFunction*> map_var;
+  for (auto& vv : this->vect_variables_) {
     const std::string& name = vv.getVariableName();
-    auto gf = vv.get_gf();
-    map_var.try_emplace(name, gf);
+    map_var.try_emplace(name, &vv.get_ref_gf());
   }
   return map_var;
 }

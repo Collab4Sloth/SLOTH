@@ -777,7 +777,7 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
   this->CC_->finalize();
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0 && this->has_pst()) {
-    if (!this->get_pst().get_enable_save_specialized_at_iter()) {
+    if (!this->get_pst().get_enable_save_specialized_at_iter() && this->enable_time_specialized_) {
       auto time_spe_mmap = this->CC_->get_time_specialized();
       if (!time_spe_mmap.empty()) {
         std::string str = "calphad.csv";
@@ -798,12 +798,11 @@ void Calphad_Problem<CALPHAD, VAR, PST>::finalize() {
  * @param current_time_step
  */
 template <class CALPHAD, class VAR, class PST>
-void Calphad_Problem<CALPHAD, VAR, PST>::post_processing(const int& iter,
-                                                         const double& current_time) {
+void Calphad_Problem<CALPHAD, VAR, PST>::save_csv(const int iter, const double current_time) {
   if (this->has_pst()) {
     int rank = mfem::Mpi::WorldRank();
     if (rank == 0) {
-      if (this->get_pst().get_enable_save_specialized_at_iter()) {
+      if (this->get_pst().get_enable_save_specialized_at_iter() && this->enable_time_specialized_) {
         auto time_spe_mmap = this->CC_->get_time_specialized();
         if (!time_spe_mmap.empty()) {
           std::string str = "calphad.csv";
@@ -815,8 +814,6 @@ void Calphad_Problem<CALPHAD, VAR, PST>::post_processing(const int& iter,
       this->CC_->clear_time_specialized();
     }
   }
-  // Save for visualization
-  ProblemBase<VAR, PST>::post_processing(iter, current_time);
 }
 
 /**

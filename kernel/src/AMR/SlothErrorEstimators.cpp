@@ -72,27 +72,33 @@ std::shared_ptr<mfem::ErrorEstimator> SlothErrorEstimators::get_value(
     mfem::ParGridFunction& x, mfem::ParFiniteElementSpace& fespace, mfem::ParMesh& mesh) {
   switch (this->value_) {
     case ErrorEstimatorType::L2_ZIENKIEWICZ_ZHU: {
-      MFEM_VERIFY(this->integ_ != nullptr,
-                  "SlothErrorEstimators: L2_ZIENKIEWICZ_ZHU requires a BilinearFormIntegrator, "
-                  "pass one via the (type, integ) constructor.");
-
       const int order = fespace.GetOrder(0);
-      this->flux_fes_ = new mfem::ParFiniteElementSpace(
-          &mesh, new mfem::L2_FECollection(order, mesh.Dimension()), mesh.SpaceDimension());
-      this->smooth_flux_fes_ = new mfem::ParFiniteElementSpace(
-          &mesh, new mfem::RT_FECollection(order - 1, mesh.Dimension()));
+
+      delete this->flux_fec_;
+      delete this->smooth_flux_fec_;
+
+      this->flux_fec_ = new mfem::L2_FECollection(order, mesh.Dimension());
+      this->smooth_flux_fec_ = new mfem::RT_FECollection(order - 1, mesh.Dimension());
+
+      this->flux_fes_ =
+          new mfem::ParFiniteElementSpace(&mesh, this->flux_fec_, mesh.SpaceDimension());
+      this->smooth_flux_fes_ = new mfem::ParFiniteElementSpace(&mesh, this->smooth_flux_fec_);
+
       return std::make_shared<mfem::L2ZienkiewiczZhuEstimator>(*this->integ_, x, this->flux_fes_,
                                                                this->smooth_flux_fes_);
-      break;
     }
     case ErrorEstimatorType::KELLY: {
-      MFEM_VERIFY(this->integ_ != nullptr,
-                  "SlothErrorEstimators: KELLY requires a BilinearFormIntegrator.");
+      MFEM_VERIFY(this->integ_ != nullptr, "...");
       const int order = fespace.GetOrder(0);
-      this->flux_fes_ = new mfem::ParFiniteElementSpace(
-          &mesh, new mfem::L2_FECollection(order, mesh.Dimension()), mesh.SpaceDimension());
+
+      delete this->flux_fec_;
+
+      this->flux_fec_ = new mfem::L2_FECollection(order, mesh.Dimension());
+
+      this->flux_fes_ =
+          new mfem::ParFiniteElementSpace(&mesh, this->flux_fec_, mesh.SpaceDimension());
+
       return std::make_shared<mfem::KellyErrorEstimator>(*this->integ_, x, this->flux_fes_);
-      break;
     }
     default:
       mfem::mfem_error("SlothEstimator::get_value: unknown estimator type.");
@@ -121,4 +127,7 @@ void SlothErrorEstimators::UpdateFluxSpaces() {
  * @brief Destroy the SlothErrorEstimators object
  *
  */
-SlothErrorEstimators::~SlothErrorEstimators() {}
+SlothErrorEstimators::~SlothErrorEstimators() {
+  delete this->flux_fec_;
+  delete this->smooth_flux_fec_;
+}

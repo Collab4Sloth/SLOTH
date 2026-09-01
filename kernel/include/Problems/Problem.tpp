@@ -437,19 +437,6 @@ template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::initialize(const double& initial_time, const double time_step) {
   this->oper_.initialize(initial_time, time_step, this->variables_, this->auxvariables_);
 }
-/**
- * @brief
- *
- * @tparam OPE
- * @tparam VAR
- * @tparam PST
- * @param iter
- * @param current_time
- */
-template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::save(const int iter, const double& current_time) {
-  ProblemBase<VAR, PST>::save(iter, current_time);
-}
 
 /**
  * @brief Finalize the Problem
@@ -490,7 +477,7 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
   int rank = mfem::Mpi::WorldRank();
   if (rank == 0) {
     if (must_be_saved) {
-      if (!this->oper_.get_time_specialized().empty()) {
+      if (!this->oper_.get_time_specialized().empty() && this->enable_time_specialized_) {
         this->get_pst().save_specialized(this->oper_.get_time_specialized(),
                                          this->name_save_specialized_);
       }
@@ -524,7 +511,7 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
  *
  */
 template <class OPE, class VAR, class PST>
-void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& current_time) {
+void Problem<OPE, VAR, PST>::save_csv(const int iter, const double current_time) {
   if (this->has_pst()) {
     const auto nvars = this->variables_.get_variables_number();
     std::vector<mfem::Vector> u_vect;
@@ -543,21 +530,23 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
       auto unk = vv.get_unknown();
       auto unk_name = vv.getVariableName();
 
-      // Errors
+      // Errors : automatically done if an analytical solution is provided in Variable's definition
       if (solution != nullptr) {
         auto solution_func = solution.get();
         this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
                                  *solution_func);
       }
 
-      // Isovalues
+      // Isovalues : control at the uppest level of the scheme; automatically disable if Problem's
+      // variables are not given
       if (!map_iso_value.empty() && map_iso_value.contains(unk_name)) {
         const double iso_value = map_iso_value.at(unk_name);
         this->oper_.ComputeIsoVal(iter, current_time, current_time_step, iv, unk_name, unk,
                                   iso_value);
       }
 
-      // Integral
+      // Integral : control at the uppest level of the scheme; automatically disable if Problem's
+      // variables are not given
       if (!map_integral.empty() && map_integral.contains(unk_name)) {
         const auto& [lower_bound, upper_bound] = map_integral.at(unk_name);
         this->oper_.ComputeIntegral(iter, current_time, current_time_step, iv, unk_name, unk,
@@ -570,8 +559,8 @@ void Problem<OPE, VAR, PST>::post_processing(const int& iter, const double& curr
       this->oper_.ComputeEnergies(iter, current_time, current_time_step, u_vect);
     }
   }
-  // Save variables for visualization
-  ProblemBase<VAR, PST>::post_processing(iter, current_time);
+  // // Save variables for visualization
+  // ProblemBase<VAR, PST>::post_processing(iter, current_time);
 
   // Save specialized values at each time-step if required
   if (this->has_pst()) {

@@ -89,6 +89,7 @@ class ProblemBase {
   std::vector<std::tuple<std::string, bool, double>> var_convergence_;
 
   AMRBase<VAR>* amr_{nullptr};
+  bool enable_time_specialized_{true};
 
  public:
   using VarType = VAR;
@@ -137,6 +138,8 @@ class ProblemBase {
     return pst_->get();
   }
 
+  bool disableTimeSpecialized() { this->enable_time_specialized_ = false; };
+
   //
 
   virtual ~ProblemBase() = default;
@@ -165,12 +168,16 @@ class ProblemBase {
 
   void update();
 
-  virtual void post_processing(const int& iter, const double& current_time);
+  void post_processing(const int& iter, const double& current_time, bool vtk_unified);
+  void save_vtk(const int iter, const double& current_time);
 
-  virtual void save(const int iter, const double& current_time);
+  virtual void save_csv(const int iter, const double current_time) {}
 
   virtual void finalize();
   virtual void set_time_coefficients(double) {}
+
+  void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields);
+  auto get_shared_dc() { return this->pst_->get().get_shared_dc(); }
 };
 
 #include "Problems/ProblemBase.tpp"

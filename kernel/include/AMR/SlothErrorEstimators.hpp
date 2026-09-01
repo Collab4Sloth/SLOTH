@@ -43,6 +43,8 @@ class SlothErrorEstimators {
   mfem::BilinearFormIntegrator* integ_{nullptr};
   mfem::ParFiniteElementSpace* flux_fes_{nullptr};
   mfem::ParFiniteElementSpace* smooth_flux_fes_{nullptr};
+  mfem::FiniteElementCollection* flux_fec_{nullptr};
+  mfem::FiniteElementCollection* smooth_flux_fec_{nullptr};
 
  public:
   SlothErrorEstimators(ErrorEstimatorType value, mfem::BilinearFormIntegrator* integ);

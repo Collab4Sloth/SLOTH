@@ -55,7 +55,7 @@ class Variables {
   std::vector<Variable<T, DIM>> getVariables() const;
   size_t get_variables_number() const;
   Variable<T, DIM>& get_variable(const std::string& name);
-  std::map<std::string, mfem::ParGridFunction> get_map_gridfunction() const;
+  std::map<std::string, mfem::ParGridFunction*> get_map_gridfunction();
   std::map<std::string, Variable<T, DIM>> get_map_variable() const;
   ~Variables();
 };
