@@ -71,28 +71,16 @@ PostProcessing<T, DC, DIM>::PostProcessing(SpatialDiscretization<T, DIM>* space,
 }
 
 /**
- * @brief Get parameters for PostProcessing object
+ * @brief Get specialized parameters
  *
  * @tparam T mfem FECollection
  * @tparam DC mfem DataCollection
  * @tparam DIM Spatial dimension
  */
 template <class T, class DC, int DIM>
-void PostProcessing<T, DC, DIM>::get_parameters() {
-  this->main_folder_path_ = this->params_.template get_param_value<std::string>("main_folder_path");
-  this->calculation_path_ = this->params_.template get_param_value<std::string>("calculation_path");
-
-  this->level_of_detail_ =
-      this->params_.template get_param_value_or_default<int>("level_of_detail", 1);
-
+void PostProcessing<T, DC, DIM>::get_specialized_parameters() {
   this->enable_compute_energies_ =
       this->params_.template get_param_value_or_default<bool>("enable_compute_energies", true);
-
-  this->enable_save_specialized_at_iter_ = this->params_.template get_param_value_or_default<bool>(
-      "enable_save_specialized_at_iter", true);
-
-  this->force_clean_output_dir_ =
-      this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
 
   if (this->params_.has_parameter("iso_val_to_compute")) {
     this->iso_val_to_compute_ =
@@ -109,7 +97,49 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       MFEM_VERIFY(upper_bound >= lower_bound, error_msg.c_str());
     }
   }
+}
+/**
+ * @brief Get restart parameters
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::get_restart_parameters() {
+  if (this->params_.has_parameter("iterations_list_save_gf")) {
+    this->iterations_list_save_gf_ =
+        this->params_.template get_param_value<vInt>("iterations_list_save_gf");
 
+    this->gf_folder_path_ =
+        this->params_.template get_param_value_or_default<std::string>("gf_folder_path", "GF");
+
+    std::filesystem::path dir = this->gf_folder_path_;
+    if (!std::filesystem::exists(dir)) {
+      std::filesystem::create_directories(dir);
+    }
+  }
+}
+
+/**
+ * @brief Get common parameters
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::get_common_parameters() {
+  this->main_folder_path_ = this->params_.template get_param_value<std::string>("main_folder_path");
+  this->calculation_path_ = this->params_.template get_param_value<std::string>("calculation_path");
+
+  this->level_of_detail_ =
+      this->params_.template get_param_value_or_default<int>("level_of_detail", 1);
+  this->force_clean_output_dir_ =
+      this->params_.template get_param_value_or_default<bool>("force_clean_output_dir", false);
+
+  this->enable_save_specialized_at_iter_ = this->params_.template get_param_value_or_default<bool>(
+      "enable_save_specialized_at_iter", true);
   std::string error_msg =
       "At least one the following parameter is expected: frequency, iterations_list, times_list";
   MFEM_VERIFY(this->params_.has_parameter("frequency") ||
@@ -127,20 +157,25 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
       this->times_list_ = this->params_.template get_param_value<vDouble>("times_list");
     }
   }
+}
+
+/**
+ * @brief Get parameters for PostProcessing object
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::get_parameters() {
+  // Global
+  this->get_common_parameters();
+
+  // Specialized (CSV)
+  this->get_specialized_parameters();
 
   // Restart
-  if (this->params_.has_parameter("iterations_list_save_gf")) {
-    this->iterations_list_save_gf_ =
-        this->params_.template get_param_value<vInt>("iterations_list_save_gf");
-
-    this->gf_folder_path_ =
-        this->params_.template get_param_value_or_default<std::string>("gf_folder_path", "GF");
-
-    std::filesystem::path dir = this->gf_folder_path_;
-    if (!std::filesystem::exists(dir)) {
-      std::filesystem::create_directories(dir);
-    }
-  }
+  this->get_restart_parameters();
 }
 
 /**
@@ -154,27 +189,27 @@ void PostProcessing<T, DC, DIM>::get_parameters() {
  * @param time
  */
 template <class T, class DC, int DIM>
-void PostProcessing<T, DC, DIM>::save_variables(const Variables<T, DIM>& vars, const int& iter,
+void PostProcessing<T, DC, DIM>::save_variables(Variables<T, DIM>& vars, const int& iter,
                                                 const double& time) {
   // VTK
   if (this->need_to_be_saved(iter, time)) {
     this->dc_->SetCycle(iter);
     this->dc_->SetTime(time);
-    std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
-    for (auto& [name, gf] : map_var) {
-      this->dc_->RegisterField(name, &gf);
+    std::map<std::string, mfem::ParGridFunction*> map_var = vars.get_map_gridfunction();
+    for (auto& [name, gf_ptr] : map_var) {
+      this->dc_->RegisterField(name, gf_ptr);
     }
     this->dc_->Save();
   }
   // Restart
   if (std::ranges::find(this->iterations_list_save_gf_, iter) !=
       this->iterations_list_save_gf_.end()) {
-    std::map<std::string, mfem::ParGridFunction> map_var = vars.get_map_gridfunction();
+    std::map<std::string, mfem::ParGridFunction*> map_var = vars.get_map_gridfunction();
     std::filesystem::path output_dir_path(this->gf_folder_path_);
-    for (auto& [name, gf] : map_var) {
+    for (auto& [name, gf_ptr] : map_var) {
       std::filesystem::path filename = name + "_" + std::to_string(iter) + ".gf";
       std::filesystem::path full_path = output_dir_path / filename;
-      gf.Save(full_path.string().c_str(), 16);
+      gf_ptr->Save(full_path.string().c_str(), 16);
     }
   }
 }
@@ -374,4 +409,34 @@ void PostProcessing<T, DC, DIM>::clean_output_directory() {
       }
     }
   }
+}
+
+/**
+ * @brief Collect this Problem's grid functions into a shared field map.
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param vars Variables to collect fields from.
+ * @param all_fields Output map, accumulated across multiple Problems for
+ *                   a unified VTK save (not cleared by this call).
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::collect_vtk_fields(
+    Variables<T, DIM>& vars, std::map<std::string, mfem::ParGridFunction*>& all_fields) {
+  auto map_var = vars.get_map_gridfunction();
+  all_fields.insert(map_var.begin(), map_var.end());
+}
+
+/**
+ * @brief Return the shared DataCollection used for VTK output.
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @return std::shared_ptr<DC> The DataCollection instance.
+ */
+template <class T, class DC, int DIM>
+std::shared_ptr<DC> PostProcessing<T, DC, DIM>::get_shared_dc() {
+  return this->dc_;
 }

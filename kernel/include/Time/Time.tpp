@@ -73,6 +73,9 @@ TimeDiscretization<Args...>::TimeDiscretization(
     : params_(params), couplings_(std::make_tuple(std::forward<Args>(couplings)...)) {
   this->get_parameters();
   this->time_step_function_ = given_time_step;
+
+  this->check_duplicate_coupling_name();
+  this->check_duplicate_post_processing_directory();
 }
 
 /**
@@ -83,6 +86,8 @@ TimeDiscretization<Args...>::TimeDiscretization(
  */
 template <class... Args>
 void TimeDiscretization<Args...>::get_parameters() {
+  this->vtk_unified_ =
+      this->params_.template get_param_value_or_default<bool>("vtk_unified", false);
   this->initial_time_ =
       this->params_.template get_param_value_or_default<double>("initial_time", 0.);
   this->initial_iter_ =
@@ -133,9 +138,15 @@ void TimeDiscretization<Args...>::initialize() {
   this->current_time_ = tt;
   const auto& iter = this->initial_iter_;
   auto all_vars = this->CollectAllVariables();
-  std::apply([iter, tt, dt,
-              all_vars](auto&... coupling) { (coupling.initialize(iter, tt, dt, all_vars), ...); },
-             couplings_);
+  std::apply(
+      [this, iter, tt, dt, all_vars](auto&... coupling) {
+        (coupling.initialize(iter, tt, dt, this->vtk_unified_, all_vars), ...);
+      },
+      couplings_);
+
+  if (this->vtk_unified_) {
+    this->save_vtk_unified(iter, this->current_time_);
+  }
 }
 
 /**
@@ -179,10 +190,14 @@ void TimeDiscretization<Args...>::post_processing(const int& iter) {
   auto all_vars = this->CollectAllVariables();
 
   std::apply(
-      [iter, current_time, all_vars](auto&... coupling) {
-        (coupling.post_processing(iter, current_time, all_vars), ...);
+      [this, iter, current_time, all_vars](auto&... coupling) {
+        (coupling.post_processing(iter, current_time, this->vtk_unified_, all_vars), ...);
       },
       couplings_);
+
+  if (this->vtk_unified_) {
+    this->save_vtk_unified(iter, current_time);
+  }
 }
 
 /**
@@ -323,11 +338,51 @@ void TimeDiscretization<Args...>::check_duplicate_coupling_name() {
 template <class... Args>
 void TimeDiscretization<Args...>::check_duplicate_post_processing_directory() {
   const std::size_t nb_couplings = std::tuple_size_v<decltype(couplings_)>;
+  std::map<std::string, int> directory_count;
+
   std::apply(
       [&](auto&... coupling) {
-        (coupling.check_duplicate_post_processing_directory(nb_couplings), ...);
+        (coupling.get_post_processing_directory_count(directory_count), ...);
       },
       couplings_);
+
+  std::apply(
+      [&](auto&... coupling) {
+        (coupling.check_duplicate_post_processing_directory(nb_couplings, directory_count), ...);
+      },
+      couplings_);
+}
+
+/**
+ * @brief Perform a single unified VTK save across every Problem in every
+ *        Coupling.
+ *
+ * @details No-op unless `vtk_unified` was enabled (see the
+ *          `Parameters`-based constructor). Collects every Problem's
+ *          fields into a single map before registering and saving them
+ *          all at once through the DataCollection shared by the first
+ *          Coupling
+ *
+ * @tparam Args Coupling types in this simulation.
+ * @param iter Current iteration number.
+ * @param current_time Current simulation time.
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::save_vtk_unified(const int& iter, const double& current_time) {
+  if (!this->vtk_unified_) return;
+
+  std::map<std::string, mfem::ParGridFunction*> all_fields;
+
+  std::apply([&all_fields](auto&... coupling) { (coupling.collect_vtk_fields(all_fields), ...); },
+             this->couplings_);
+
+  auto dc = std::get<0>(this->couplings_).get_shared_dc();
+  dc->SetCycle(iter);
+  dc->SetTime(current_time);
+  for (auto& [name, gf_ptr] : all_fields) {
+    dc->RegisterField(name, gf_ptr);
+  }
+  dc->Save();
 }
 
 /**

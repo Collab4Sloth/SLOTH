@@ -41,7 +41,6 @@
  * @tparam Args Types of the problems stored in the coupling.
  * @param problems
  */
-// Coupling<Args...>::Coupling(const std::string& name, Args&&... problems)
 template <class... Args>
 Coupling<Args...>::Coupling(const std::string& name, Args... problems)
     : name_(name), problems_(std::make_tuple(std::forward<Args>(problems)...)) {
@@ -109,8 +108,40 @@ void Coupling<Args...>::check_duplicate_problem_name() {
  * @tparam Args Types of the problems stored in the coupling.
  */
 template <class... Args>
-void Coupling<Args...>::check_duplicate_post_processing_directory(std::size_t nb_couplings) {
-  std::map<std::string, int> directory_count;
+void Coupling<Args...>::check_duplicate_post_processing_directory(
+    std::size_t nb_couplings, const std::map<std::string, int>& directory_count) {
+  std::apply(
+      [&](auto&... problem) {
+        (
+            [&] {
+              const std::string pb_dir = problem.get_problem_post_processing_directory();
+              if (!pb_dir.empty() && directory_count.contains(pb_dir) &&
+                  directory_count.at(pb_dir) > 1) {
+                std::string name =
+                    replacePunctuation(replaceSpaces(problem.get_name())) + "_time_specialized.csv";
+                if (nb_couplings > 1) {
+                  name = replacePunctuation(replaceSpaces(this->get_name())) + "_" + name;
+                }
+                problem.set_name_save_specialized(name);
+              }
+            }(),
+            ...);
+      },
+      problems_);
+}
+
+/**
+ * @brief Count how many Problems in this coupling write to each
+ *        post-processing directory.
+ *
+ * @tparam Args Problem types in this coupling.
+ * @param directory_count Output map, incremented once per Problem whose
+ *                        directory is non-empty (accumulated, not
+ *                        cleared by this call).
+ */
+template <class... Args>
+void Coupling<Args...>::get_post_processing_directory_count(
+    std::map<std::string, int>& directory_count) {
   std::apply(
       [&](auto&... problem) {
         (
@@ -119,23 +150,6 @@ void Coupling<Args...>::check_duplicate_post_processing_directory(std::size_t nb
 
               if (!pb_dir.empty()) {
                 ++directory_count[pb_dir];
-              }
-            }(),
-            ...);
-      },
-      problems_);
-
-  std::apply(
-      [&](auto&... problem) {
-        (
-            [&] {
-              const std::string pb_dir = problem.get_problem_post_processing_directory();
-              if (!pb_dir.empty() && directory_count[pb_dir] > 1) {
-                std::string name = replaceSpaces(problem.get_name()) + "_time_specialized.csv";
-                if (nb_couplings > 1) {
-                  name = replaceSpaces(this->get_name()) + "_" + name;
-                }
-                problem.set_name_save_specialized(name);
               }
             }(),
             ...);
@@ -172,14 +186,24 @@ void Coupling<Args...>::get_tree() {
  */
 template <class... Args>
 void Coupling<Args...>::initialize(const int& iter, const double& initial_time,
-                                   const double time_step, std::vector<VAR*> all_vars) {
-  std::apply(
-      [iter, initial_time, time_step, all_vars](auto&... problem) {
-        (problem.initialize(initial_time, time_step), ...);
-        (problem.initialize_amr(all_vars), ...);
-        (void([&problem, iter, initial_time] { problem.save(iter, initial_time); }()), ...);
-      },
-      problems_);
+                                   const double time_step, bool vtk_unified,
+                                   std::vector<VAR*> all_vars) {
+  if (vtk_unified) {
+    std::apply(
+        [iter, initial_time, time_step, all_vars](auto&... problem) {
+          (problem.initialize(initial_time, time_step), ...);
+          (problem.initialize_amr(all_vars), ...);
+        },
+        problems_);
+  } else {
+    std::apply(
+        [iter, initial_time, time_step, all_vars](auto&... problem) {
+          (problem.initialize(initial_time, time_step), ...);
+          (problem.initialize_amr(all_vars), ...);
+          (void([&problem, iter, initial_time] { problem.save_vtk(iter, initial_time); }()), ...);
+        },
+        problems_);
+  }
 }
 
 /**
@@ -198,6 +222,22 @@ std::vector<typename Coupling<Args...>::VAR*> Coupling<Args...>::CollectAllVaria
                  auto&... problem) { (all_vars.push_back(&problem.get_problem_variables()), ...); },
              this->problems_);
   return all_vars;
+}
+
+/**
+ * @brief Collect the grid functions of every Problem in this coupling
+ *        into a shared field map.
+ *
+ * @tparam Args Problem types in this coupling.
+ * @param all_fields Output map, accumulated across every Problem, for a
+ *                   single unified VTK save (see
+ *                   `TimeDiscretization::save_vtk_unified()`).
+ */
+template <class... Args>
+void Coupling<Args...>::collect_vtk_fields(
+    std::map<std::string, mfem::ParGridFunction*>& all_fields) {
+  std::apply([&all_fields](auto&... problem) { (problem.collect_vtk_fields(all_fields), ...); },
+             this->problems_);
 }
 
 /**
@@ -265,10 +305,10 @@ void Coupling<Args...>::update() {
  */
 template <class... Args>
 void Coupling<Args...>::post_processing(const int& iter, const double& current_time,
-                                        std::vector<VAR*> all_vars) {
+                                        bool vtk_unified, std::vector<VAR*> all_vars) {
   std::apply(
-      [iter, current_time, all_vars](auto&... problem) {
-        (problem.post_processing(iter, current_time), ...);
+      [iter, current_time, vtk_unified, all_vars](auto&... problem) {
+        (problem.post_processing(iter, current_time, vtk_unified), ...);
         (problem.save_amr(all_vars), ...);
       },
       problems_);

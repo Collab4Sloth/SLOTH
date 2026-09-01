@@ -83,9 +83,10 @@ class TimeDiscretization {
   void check_duplicate_post_processing_directory();
   std::function<double(double)> time_step_function_;
   std::vector<VAR*> CollectAllVariables();
+  bool vtk_unified_{false};
+  void save_vtk_unified(const int& iter, const double& current_time);
 
  public:
-  // explicit TimeDiscretization(const Parameters& params, Args&&... couplings);
   explicit TimeDiscretization(const Parameters& params, Args... couplings);
   explicit TimeDiscretization(const std::function<double(double)>& given_time_step,
                               const Parameters& params, Args... couplings);

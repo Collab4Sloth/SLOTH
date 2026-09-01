@@ -58,19 +58,26 @@ class Coupling {
   void check_duplicate_problem_name();
 
  public:
+  explicit Coupling(const std::string& name, Args... problems);
+
   std::vector<VAR*> CollectAllVariables();
   using VarType = VAR;
-  explicit Coupling(const std::string& name, Args... problems);
+
   std::string get_name();
   void set_name(const std::string& new_name);
   void get_tree();
   void initialize(const int& iter, const double& initial_time, const double time_step,
-                  std::vector<VAR*> all_vars);
-  void check_duplicate_post_processing_directory(std::size_t nb_couplings);
+                  bool vtk_unified, std::vector<VAR*> all_vars);
+  void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields);
+  auto get_shared_dc() { return std::get<0>(this->problems_).get_shared_dc(); }
+  void check_duplicate_post_processing_directory(std::size_t nb_couplings,
+                                                 const std::map<std::string, int>& directory_count);
+  void get_post_processing_directory_count(std::map<std::string, int>& directory_count);
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
   void update();
-  void post_processing(const int& iter, const double& current_time, std::vector<VAR*> all_vars);
+  void post_processing(const int& iter, const double& current_time, bool vtk_unified,
+                       std::vector<VAR*> all_vars);
   void finalize();
 
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, bool, double>>>>

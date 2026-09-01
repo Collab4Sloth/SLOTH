@@ -119,6 +119,19 @@ inline std::string replaceSpaces(std::string str) {
 
   return str;
 }
+/**
+ * @brief Replaces punctuation characters with underscores.
+ *
+ * @param str The input string.
+ * @return A copy of the input string with punctuation replaced by `_`
+ *
+ */
+inline std::string replacePunctuation(std::string str) {
+  std::ranges::replace_if(
+      str, [](char c) { return std::ispunct(static_cast<unsigned char>(c)); }, '_');
+
+  return str;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////

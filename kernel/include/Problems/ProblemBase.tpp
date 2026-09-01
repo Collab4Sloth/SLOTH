@@ -406,29 +406,15 @@ void ProblemBase<VAR, PST>::finalize() {
  * @param current_time_step Current time-step.
  */
 template <class VAR, class PST>
-void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& current_time) {
+void ProblemBase<VAR, PST>::post_processing(const int& iter, const double& current_time,
+                                            bool vtk_unified) {
   // Save for visualization
-  this->save(iter, current_time);
-}
+  this->save_csv(iter, current_time);
 
-/**
- * @brief Main actions done during a time-step
- *
- * @tparam VAR Type representing the problem Variables.
- * @tparam PST Type representing the post-processing.
- * @param next_time Next simulation time (Current time+ current time step).
- * @param current_time Current simulation time.
- * @param current_time_step Current time-step.
- * @param iter Current iteration number.
- * @param unks Unknown at the current time-step.
- * @param unks_info Additionnal informations associated with the unkwon of the Problem.
- */
-// template <class VAR, class PST>
-// void ProblemBase<VAR, PST>::do_time_step(double& next_time, const double& current_time,
-//                                          double current_time_step, const int iter,
-//                                          std::vector<std::unique_ptr<mfem::Vector>>& unks,
-//                                          const std::vector<std::vector<std::string>>& unks_info)
-//                                          {}
+  if (!vtk_unified) {
+    this->save_vtk(iter, current_time);
+  }
+}
 
 /**
  * @brief Check convergence of variables at the current time-step
@@ -469,7 +455,8 @@ void ProblemBase<VAR, PST>::check_convergence(
 }
 
 /**
- * @brief Save variables
+ * @brief Save variables in VTK files,
+ *        if a PostProcessing object is attached.
  *
  * @tparam VAR Type representing the problem Variables.
  * @tparam PST Type representing the post-processing.
@@ -477,7 +464,7 @@ void ProblemBase<VAR, PST>::check_convergence(
  * @param current_time Current simulation time.
  */
 template <class VAR, class PST>
-void ProblemBase<VAR, PST>::save(const int iter, const double& current_time) {
+void ProblemBase<VAR, PST>::save_vtk(const int iter, const double& current_time) {
   if (this->has_pst()) {
     auto vars = this->get_problem_variables();
     this->get_pst().save_variables(vars, iter, current_time);
@@ -546,5 +533,22 @@ void ProblemBase<VAR, PST>::save_amr(const std::vector<VAR*>& all_vars) {
   if (this->amr_ != nullptr) {
     this->amr_->StepDerefine(this->variables_, all_vars);
     this->amr_->StepRefine(this->variables_, all_vars);
+  }
+}
+
+/**
+ * @brief Collect this Problem's grid functions into a shared field map,
+ *        if a PostProcessing object is attached.
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param all_fields Output map, accumulated across every Problem for a
+ *                   unified VTK save (see `Coupling`/`TimeDiscretization`).
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::collect_vtk_fields(
+    std::map<std::string, mfem::ParGridFunction*>& all_fields) {
+  if (this->has_pst()) {
+    this->get_pst().collect_vtk_fields(this->variables_, all_fields);
   }
 }

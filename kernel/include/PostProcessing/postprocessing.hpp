@@ -75,7 +75,11 @@ class PostProcessing {
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   std::string post_processing_directory_;
+
   void get_parameters();
+  void get_specialized_parameters();
+  void get_restart_parameters();
+  void get_common_parameters();
 
   bool need_to_be_saved(const int iteration, const double time);
 
@@ -88,7 +92,7 @@ class PostProcessing {
   PostProcessing& operator=(PostProcessing&&) = default;
 
   PostProcessing(SpatialDiscretization<T, DIM>* space, const Parameters& params);
-  void save_variables(const Variables<T, DIM>& vars, const int& iter, const double& time);
+  void save_variables(Variables<T, DIM>& vars, const int& iter, const double& time);
   void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,
                         std::string filename = "time_specialized.csv");
   void save_iso_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,
@@ -101,6 +105,10 @@ class PostProcessing {
   std::map<std::string, std::tuple<double, double>> get_integral_to_compute();
 
   virtual ~PostProcessing() = default;
+
+  void collect_vtk_fields(Variables<T, DIM>& vars,
+                          std::map<std::string, mfem::ParGridFunction*>& all_fields);
+  std::shared_ptr<DC> get_shared_dc();
 };
 
 #include "PostProcessing/postprocessing.tpp"
