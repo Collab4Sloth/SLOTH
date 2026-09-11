@@ -35,17 +35,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -153,7 +143,8 @@ int main(int argc, char* argv[]) {
   // Problem 1:
   Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
   std::vector<SPA*> spatials{&spatial, &spatial};
-  OPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit, "SplitTimeDerivative");
+  TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                    "SplitTimeDerivative");
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
@@ -164,7 +155,7 @@ int main(int argc, char* argv[]) {
   oper.overload_preconditioner(precond);
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
+  TransientPB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
 
   // Coupling 1
   auto cc = Coupling("CahnHilliard Coupling", problem1);

@@ -34,16 +34,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 1;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth1D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -140,11 +131,11 @@ int main(int argc, char* argv[]) {
                  Parameter("level_of_detail", level_of_detail));
 
   // Problem 1:
-  OPE oper({&spatial}, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  TransientOPE oper({&spatial}, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   Coefficients coef_pb1(double_well_imp, capillary, mobility, grad_energy, explicit_time_A,
                         explicit_time_B);
   auto pst = PST(&spatial, p_pst1);
-  PB problem1(oper, vars, {coef_pb1}, pst);
+  TransientPB problem1(oper, vars, {coef_pb1}, pst);
 
   // Problem 2:
   calculation_path = "Problem2";
@@ -152,11 +143,11 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE oper2({&spatial}, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
+  TransientOPE oper2({&spatial}, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
   Coefficients coef_pb2(double_well_exp, capillary, mobility, grad_energy, explicit_time_A,
                         explicit_time_B);
   auto pst2 = PST(&spatial, p_pst2);
-  PB problem2(oper2, vars2, {coef_pb2}, pst2);
+  TransientPB problem2(oper2, vars2, {coef_pb2}, pst2);
 
   // Problem 3:
   calculation_path = "Problem3";
@@ -164,9 +155,9 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE oper3({&spatial}, {"AllenCahn"}, TimeScheme::SDIRK33, "TimeDerivative");
+  TransientOPE oper3({&spatial}, {"AllenCahn"}, TimeScheme::SDIRK33, "TimeDerivative");
   auto pst3 = PST(&spatial, p_pst3);
-  PB problem3(oper3, vars3, {coef_pb1}, pst3);
+  TransientPB problem3(oper3, vars3, {coef_pb1}, pst3);
 
   // Problem 4:
   calculation_path = "Problem4";
@@ -174,9 +165,9 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE oper4({&spatial}, {"AllenCahn"}, TimeScheme::SDIRK23, "TimeDerivative");
+  TransientOPE oper4({&spatial}, {"AllenCahn"}, TimeScheme::SDIRK23, "TimeDerivative");
   auto pst4 = PST(&spatial, p_pst4);
-  PB problem4(oper4, vars4, {coef_pb1}, pst4);
+  TransientPB problem4(oper4, vars4, {coef_pb1}, pst4);
 
   // Problem 5:
   calculation_path = "Problem5";
@@ -184,9 +175,9 @@ int main(int argc, char* argv[]) {
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail));
-  OPE oper5({&spatial}, {"AllenCahn"}, TimeScheme::RungeKutta4, "TimeDerivative");
+  TransientOPE oper5({&spatial}, {"AllenCahn"}, TimeScheme::RungeKutta4, "TimeDerivative");
   auto pst5 = PST(&spatial, p_pst5);
-  PB problem5(oper5, vars5, {coef_pb1}, pst5);
+  TransientPB problem5(oper5, vars5, {coef_pb1}, pst5);
 
   // Coupling 1
   auto cc = Coupling("coupling 1 ", problem1, problem2, problem3, problem4, problem5);

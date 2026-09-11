@@ -35,22 +35,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  // ALLEN-CAHN
-  using AC_OPE = TransientOperator<FECollection, DIM>;
-  using AC_PB = Problem<AC_OPE, VARS, PST>;
-
-  // Heat
-  using HEAT_OPE = TransientOperator<FECollection, DIM>;
-  using HEAT_PB = Problem<HEAT_OPE, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -186,23 +171,23 @@ int main(int argc, char* argv[]) {
   // AllenCahn:
   Coefficients ac_coef(double_well, capillary, mobility, interpolation, grad_energy);
   std::vector<SPA*> spatials{&spatial};
-  AC_OPE oper(spatials, {"AllenCahn", "MeltingTemperature"}, ac_params, TimeScheme::EulerImplicit,
-              "TimeDerivative");
+  TransientOPE oper(spatials, {"AllenCahn", "MeltingTemperature"}, ac_params,
+                    TimeScheme::EulerImplicit, "TimeDerivative");
 
-  AC_PB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
+  TransientPB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
 
   // Heat:
   Coefficients heat_coef(density, heat_capacity, conductivity);
   std::vector<AnalyticalFunctions<DIM> > src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
-  HEAT_OPE oper_heat(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                     src_term);
+  TransientOPE oper_heat(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                         src_term);
   oper_heat.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
                                        Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),
                                        Parameter("abs_tol", 1.e-11), Parameter("iter_max", 1000)));
 
-  HEAT_PB heat_pb("Heat", oper_heat, heat_vars, {heat_coef}, pst2);
+  TransientPB heat_pb("Heat", oper_heat, heat_vars, {heat_coef}, pst2);
 
   // Coupling 1
   auto cc = Coupling("AC-Heat coupling", allencahn_pb, heat_pb);

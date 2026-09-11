@@ -36,16 +36,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-
-  using OPE = SteadyOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -118,13 +109,13 @@ int main(int argc, char* argv[]) {
   // Heat
   Coefficients coef_pb(conductivity, robin_a, robin_b);
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"Fourier"});
+  SteadyOPE oper(spatials, {"Fourier"});
 
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
                  Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-12)));
-  PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
+  SteadyPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
 
   // Coupling 1
   auto cc = Coupling("Heat transfer", Heat_pb);

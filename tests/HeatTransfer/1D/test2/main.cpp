@@ -34,16 +34,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 1;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth1D;
 
   // ###########################################
   // ###########################################
@@ -131,12 +122,12 @@ int main(int argc, char* argv[]) {
   // Heat
   Coefficients coef_pb(density, heat_capacity, conductivity, robin_a, robin_b);
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative");
+  TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative");
 
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-10)));
-  PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
+  TransientPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
 
   // Coupling 1
   auto cc = Coupling("Heat transfer", Heat_pb);

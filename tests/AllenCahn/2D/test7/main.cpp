@@ -33,19 +33,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using OPE2 = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
-  using PB2 = Problem<OPE2, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -135,18 +123,18 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
+  TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerExplicit, "TimeDerivative");
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, {coef_ac}, pst);
+  TransientPB problem1(oper, vars, {coef_ac}, pst);
 
   // Problem 2:
 
   Coefficient D(Glossary::Diffusivity, mob);
   Coefficients CoeffDiffusion(D);
-  OPE2 oper2(spatials, {"Fick"}, TimeScheme::EulerExplicit, "TimeDerivative");
+  TransientOPE oper2(spatials, {"Fick"}, TimeScheme::EulerExplicit, "TimeDerivative");
   auto pst2 = PST(&spatial, p_pst2);
-  PB2 problem2(oper2, vars2, {CoeffDiffusion}, pst2);
+  TransientPB problem2(oper2, vars2, {CoeffDiffusion}, pst2);
 
   // Coupling 1
   auto cc = Coupling("AllenCahn + Diffusion", problem1, problem2);

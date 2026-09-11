@@ -35,16 +35,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -214,10 +205,11 @@ int main(int argc, char* argv[]) {
       src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
 
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative", src_term);
+      TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative",
+                        src_term);
 
       auto pst = PST(&spatial, p_pst);
-      PB problem1(oper, vars, {coef_ac}, pst);
+      TransientPB problem1(oper, vars, {coef_ac}, pst);
 
       // Coupling 1
       auto cc = Coupling("Default Coupling", problem1);
