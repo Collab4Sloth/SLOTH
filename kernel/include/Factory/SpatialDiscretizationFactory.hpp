@@ -43,29 +43,6 @@
  *        one's mesh, exactly like building `spatial_phi1`, `spatial_phi2`,
  *        ... from `spatial_phi0.get_mesh()` by hand.
  *
- * @details A single templated, perfectly-forwarding function is used instead
- *          of one factory per constructor, so this stays in sync with
- *          `SpatialDiscretization`'s constructors automatically. `args...`
- *          must be exactly the argument list of one of the existing
- *          constructors (everything except `N` and `shared_is_periodic`).
- *
- *          `T` and `DIM` cannot be deduced from `args...`, so they must
- *          always be given explicitly at the call site:
- *          `setSpatialDiscretization<mfem::H1_FECollection, 2>(30, false, ...)`.
- *
- *          In all constructors, `fe_order` is always the 2nd parameter;
- *          `std::get<1>` on the forwarded pack recovers it generically to
- *          build the shared-mesh elements via the existing-mesh constructor.
- *
- * @warning OWNERSHIP: each element is allocated with `new` and returned as a
- *          raw pointer - the caller now owns them and MUST eventually
- *          release them with `deleteSpatialDiscretization` (below), not with
- *          a manual loop of `delete`. `result[0]` owns the mesh (its
- *          destructor deletes it); `result[1..N-1]` reference it without
- *          owning it. Deleting `result[0]` before `result[1..N-1]` would
- *          free the mesh while they still use it (use-after-free) -
- *          `deleteSpatialDiscretization` deletes in the correct (reverse)
- *          order for you.
  *
  * @tparam T Finite element collection type. Must be given explicitly.
  * @tparam DIM Spatial dimension. Must be given explicitly.
@@ -129,12 +106,6 @@ std::vector<SpatialDiscretization<T, DIM>*> setSpatialDiscretization(std::size_t
 /**
  * @brief Release a `SPAS`-shaped vector produced by `setSpatialDiscretization`.
  *
- * @details Deletes elements in reverse order (`spatials.back()` down to
- *          `spatials.front()`), so the mesh-owning element (`spatials[0]`,
- *          built from the mesh-creating constructor) is always deleted
- *          last, after every element referencing its mesh has already been
- *          destroyed. Clears `spatials` afterwards so it cannot be used
- *          again by mistake.
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.

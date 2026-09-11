@@ -1,7 +1,7 @@
 /**
  * @file ListFactory.hpp
  * @author ci230846  (clement.introini@cea.fr)
- * @brief
+ * @brief List of Factory used to simplify tests setup
  * @version 0.1
  * @date 2026-09-05
  *
