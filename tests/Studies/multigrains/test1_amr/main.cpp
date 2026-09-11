@@ -195,8 +195,8 @@ int main(int argc, char* argv[]) {
   Coefficient double_well_exp_i(Glossary::FreeEnergy, Scheme::Implicit, ExplicitGrainGw());
   Coefficient capillary_i(Glossary::Capillary, lambda);
   Coefficient mobility_i(Glossary::Mobility, mob);
-  Coefficient swithchingFct(Glossary::PhaseField, Scheme::Implicit, SwitchingFunction());
-  swithchingFct.set_name("SWF");
+  Coefficient squares(Glossary::PhaseField, Scheme::Implicit, SumOfSquares());
+  squares.set_name("Squares");
   std::vector<Coefficients> coeffs_i{
       Coefficients(double_well_exp_i, capillary_i, mobility_i, grad_energy_i)};
 
@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
     ac_pbs.back().set_amr(amr_i);
     //
   }
-  ac_pbs.back().set_vtk_coefficients({swithchingFct});
+  ac_pbs.back().set_vtk_coefficients({squares});
 
   // ###########################################
   // ###########################################

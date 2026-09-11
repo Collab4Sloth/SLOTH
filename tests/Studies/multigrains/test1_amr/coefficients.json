@@ -11,7 +11,7 @@
     "expression":"y*y+Sum(x[i]*x[i], (i,1,29))",
     "variables":"y",
     "auxiliary_variables":"x(1..29)",
-    "class_name":"SwitchingFunction",
+    "class_name":"SumOfSquares",
     "outputfile":"GrainsCoefficients"
     },
     {
