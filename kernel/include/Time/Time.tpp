@@ -376,11 +376,20 @@ void TimeDiscretization<Args...>::save_vtk_unified(const int& iter, const double
   std::apply([&all_fields](auto&... coupling) { (coupling.collect_vtk_fields(all_fields), ...); },
              this->couplings_);
 
+  std::map<std::string, mfem::ParGridFunction*> all_coefficients;
+
+  std::apply([&all_coefficients](
+                 auto&... coupling) { (coupling.collect_vtk_coefficients(all_coefficients), ...); },
+             this->couplings_);
+
   auto dc = std::get<0>(this->couplings_).get_shared_dc();
   dc->SetCycle(iter);
   dc->SetTime(current_time);
   for (auto& [name, gf_ptr] : all_fields) {
     dc->RegisterField(name, gf_ptr);
+  }
+  for (auto& [name, coef_ptr] : all_coefficients) {
+    dc->RegisterField(name, coef_ptr);
   }
   dc->Save();
 }

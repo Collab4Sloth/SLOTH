@@ -69,6 +69,7 @@ class Coupling {
   void initialize(const int& iter, const double& initial_time, const double time_step,
                   bool vtk_unified, std::vector<VAR*> all_vars);
   void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields);
+  void collect_vtk_coefficients(std::map<std::string, mfem::ParGridFunction*>& all_coefficients);
   auto get_shared_dc() { return std::get<0>(this->problems_).get_shared_dc(); }
   void check_duplicate_post_processing_directory(std::size_t nb_couplings,
                                                  const std::map<std::string, int>& directory_count);

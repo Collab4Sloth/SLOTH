@@ -44,6 +44,7 @@
  */
 class SlothBaseCoefficient {
  private:
+  std::string name_;
   GlossaryQuantity coefficient_quantity_;
   std::shared_ptr<FunctionCoefficient> coefficient_;
   std::vector<int> bdr_index_;
@@ -116,6 +117,9 @@ class SlothBaseCoefficient {
   bool is_scalar() const;
 
   void set_time(double time);
+
+  std::string get_name();
+  void set_name(const std::string& name);
   void set_bdr_index_coef(std::vector<int> ids);
   std::vector<int> get_bdr_index_coef() const;
 };

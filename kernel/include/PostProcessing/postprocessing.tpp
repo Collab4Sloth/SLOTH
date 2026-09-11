@@ -224,6 +224,81 @@ void PostProcessing<T, DC, DIM>::save_variables(Variables<T, DIM>& vars, const i
 }
 
 /**
+ * @brief Projects each Coefficient in `coeffs` onto a grid function, using
+ *        `vars` and the flattened auxiliary-variable grid functions from
+ *        `vect_aux_var`. Results are stored in this->projected_coeffs_
+ *        (cleared and refilled by this call) so ownership stays in one
+ *        place - callers (including ProblemBase via its PST member) don't
+ *        need to manage their own storage vector.
+ *
+ * @return Map from coefficient name to a pointer into this->projected_coeffs_.
+ */
+template <class T, class DC, int DIM>
+std::map<std::string, mfem::ParGridFunction*> PostProcessing<T, DC, DIM>::project_coefficients(
+    std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
+    std::vector<Variables<T, DIM>*> vect_aux_var) {
+  // Auxiliary variables
+  std::vector<mfem::ParGridFunction> vaux_gf;
+  for (const auto& auxvar_vec : vect_aux_var) {
+    std::map<std::string, mfem::ParGridFunction*> map_aux_var = auxvar_vec->get_map_gridfunction();
+    for (const auto& [aux_name, vgf] : map_aux_var) {
+      vaux_gf.emplace_back(*vgf);
+    }
+  }
+
+  this->projected_coeffs_.clear();
+  this->projected_coeffs_.reserve(coeffs.size());
+
+  // TODO: v_gf is passed both as current-time and previous-time values below
+  // (vu == vun), so explicit/semi-implicit coefficients cannot actually see
+  // a different state at t^n vs t^{n-1}. Needs Variables<T, DIM> to expose
+  // the previous-time grid functions (e.g. get_gf_previous()) so a distinct
+  // vgf_prev can be built and passed as the 3rd argument instead of v_gf.
+
+  std::vector<mfem::ParGridFunction> v_gf;
+  for (const auto& v : vars.getVariables()) {
+    v_gf.emplace_back(v.get_gf());
+  }
+
+  std::map<std::string, mfem::ParGridFunction*> result;
+
+  for (auto& coef : coeffs) {
+    MfemCoefficient mfem_coef(coef, v_gf, v_gf, vaux_gf);
+    this->projected_coeffs_.push_back(mfem_coef.ProjectToGridFunction());
+    result.emplace(coef.get_name(), &this->projected_coeffs_.back());
+  }
+
+  return result;
+}
+
+/**
+ * @brief Save Coefficients at a given iteration/time
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param vars
+ * @param iter
+ * @param time
+ */
+template <class T, class DC, int DIM>
+void PostProcessing<T, DC, DIM>::save_coefficients(std::vector<Coefficient>& coeffs,
+                                                   Variables<T, DIM>& vars,
+                                                   std::vector<Variables<T, DIM>*> vect_aux_var,
+                                                   const int& iter, const double& time) {
+  // VTK
+  if (this->need_to_be_saved(iter, time)) {
+    this->dc_->SetCycle(iter);
+    this->dc_->SetTime(time);
+    auto field_map = this->project_coefficients(coeffs, vars, vect_aux_var);
+    for (const auto& [name, gf_ptr] : field_map) {
+      this->dc_->RegisterField(name, gf_ptr);
+    }
+    this->dc_->Save();
+  }
+}
+
+/**
  * @brief Get the frequency of post-processing in terms of number of iterations (1 means each
  * iteration)
  *

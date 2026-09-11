@@ -79,6 +79,7 @@ class ProblemBase {
   std::vector<VAR*> auxvariables_;
 
   std::vector<Coefficients> coefficients_;
+  std::vector<Coefficient> vect_vtk_coefficient_;
 
   std::optional<std::reference_wrapper<PST>> pst_;
 
@@ -97,6 +98,8 @@ class ProblemBase {
 
   void initialize_amr(const std::vector<VAR*>& all_vars);
   void save_amr(const std::vector<VAR*>& all_vars);
+  void save_coefficients(const int iter, const double current_time);
+  void set_vtk_coefficients(const std::vector<Coefficient>& Coeff);
 
   // With PST object
   template <PbVar<VAR>... Args>
@@ -154,6 +157,8 @@ class ProblemBase {
   std::vector<std::tuple<std::string, bool, double>> get_convergence();
 
   void setGeometry(Geometry geometry);
+
+  void set_auxvariables(std::vector<VAR*> auxiliary_variables);
   /////////////////////////////////////////////////////
 
   virtual void initialize([[maybe_unused]] const double& initial_time,
@@ -177,6 +182,7 @@ class ProblemBase {
   virtual void set_time_coefficients(double) {}
 
   void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields);
+  void collect_vtk_coefficients(std::map<std::string, mfem::ParGridFunction*>& all_coefficients);
   auto get_shared_dc() { return this->pst_->get().get_shared_dc(); }
 };
 
