@@ -36,17 +36,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 1;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth1D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -157,11 +147,13 @@ int main(int argc, char* argv[]) {
       Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
       Coefficients coef_pb(Dstab);
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit, "TimeDerivative");
+      TransientOPE oper(spatials, {"MassFlux"}, td_parameters, TimeScheme::EulerImplicit,
+                        "TimeDerivative");
 
       auto pst = PST(&spatial, p_pst);
 
-      PB problem1(oper, vars, {coef_pb}, pst, mua_var, mub_var, moba_var, mobb_var, fictitious_Mob);
+      TransientPB problem1(oper, vars, {coef_pb}, pst, mua_var, mub_var, moba_var, mobb_var,
+                           fictitious_Mob);
 
       // Coupling 1
       auto cc = Coupling("coupling 1 ", problem1);

@@ -75,7 +75,7 @@ class PostProcessing {
   const Parameters& params_;
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   std::string post_processing_directory_;
-
+  std::vector<mfem::ParGridFunction> projected_coeffs_;
   void get_parameters();
   void get_specialized_parameters();
   void get_restart_parameters();
@@ -93,6 +93,14 @@ class PostProcessing {
 
   PostProcessing(SpatialDiscretization<T, DIM>* space, const Parameters& params);
   void save_variables(Variables<T, DIM>& vars, const int& iter, const double& time);
+
+  std::map<std::string, mfem::ParGridFunction*> project_coefficients(
+      std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
+      std::vector<Variables<T, DIM>*> vect_aux_var);
+  void save_coefficients(std::vector<Coefficient>& coefficients, Variables<T, DIM>& vars,
+                         std::vector<Variables<T, DIM>*> vect_aux_var, const int& iter,
+                         const double& time);
+
   void save_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,
                         std::string filename = "time_specialized.csv");
   void save_iso_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,

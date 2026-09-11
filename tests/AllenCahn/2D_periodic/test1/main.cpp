@@ -37,17 +37,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -126,10 +116,11 @@ int main(int argc, char* argv[]) {
       std::vector<SPA*> spatials{&spatial};
       std::vector<AnalyticalFunctions<DIM> > src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega));
-      OPE oper(spatials, {"AllenCahn"}, TimeScheme::from(time_scheme), "TimeDerivative", src_term);
+      TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::from(time_scheme), "TimeDerivative",
+                        src_term);
 
       auto pst = PST(&spatial, p_pst);
-      PB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
+      TransientPB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
 
       // Coupling 1
       auto cc = Coupling("AllenCahn Coupling", problem1);

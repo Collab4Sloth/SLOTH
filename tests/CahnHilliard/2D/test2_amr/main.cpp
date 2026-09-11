@@ -23,6 +23,7 @@
 /// Main program
 ///---------------
 int main(int argc, char* argv[]) {
+  using namespace Sloth2D;
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
@@ -36,17 +37,6 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  using PST = Test<DIM>::PST;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -162,8 +152,9 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
-  std::vector<SPA*> spatials{&spatial_phi, &spatial_mu};
-  OPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit, "SplitTimeDerivative");
+  SPAS spatials{&spatial_phi, &spatial_mu};
+  TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                    "SplitTimeDerivative");
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
                                      Parameter("print_level", -1), Parameter("rel_tol", 1.e-12),
@@ -174,7 +165,7 @@ int main(int argc, char* argv[]) {
   oper.overload_preconditioner(precond);
 
   auto pst = PST(&spatial_phi, p_pst);
-  PB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
+  TransientPB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
 
   // AMR
   mfem::ConstantCoefficient amr_coef{1.0};

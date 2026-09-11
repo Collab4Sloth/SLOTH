@@ -241,6 +241,23 @@ void Coupling<Args...>::collect_vtk_fields(
 }
 
 /**
+ * @brief Collect the grid functions of every Problem in this coupling
+ *        into a shared coefficient map.
+ *
+ * @tparam Args Problem types in this coupling.
+ * @param all_coefficients Output map, accumulated across every Problem, for a
+ *                   single unified VTK save (see
+ *                   `TimeDiscretization::save_vtk_unified()`).
+ */
+template <class... Args>
+void Coupling<Args...>::collect_vtk_coefficients(
+    std::map<std::string, mfem::ParGridFunction*>& all_coefficients) {
+  std::apply([&all_coefficients](
+                 auto&... problem) { (problem.collect_vtk_coefficients(all_coefficients), ...); },
+             this->problems_);
+}
+
+/**
  * @brief Solve all the problems inside the coupling
  *
  * @tparam Args Types of the problems stored in the coupling.

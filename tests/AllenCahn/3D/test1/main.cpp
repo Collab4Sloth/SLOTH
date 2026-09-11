@@ -35,16 +35,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 3;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth3D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -63,7 +54,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto boundaries = {Boundary("rear", 0, "Neumann"),    Boundary("lower", 1, "Neumann"),
+  auto boundaries = {Boundary("rear", 0, "Neumann"),        Boundary("lower", 1, "Neumann"),
                      Boundary("right", 2, "Dirichlet", 1.), Boundary("upper", 3, "Neumann"),
                      Boundary("left", 4, "Dirichlet", 0.),  Boundary("front", 5, "Neumann")};
   auto bcs = BCS(&spatial, boundaries);
@@ -130,10 +121,10 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
+  TransientPB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

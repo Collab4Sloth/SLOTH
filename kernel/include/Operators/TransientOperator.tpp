@@ -310,8 +310,9 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     // Sloth coefficients are either scalar or explicit (variable + {auxiliary variables})
     mfem::ParGridFunction un(this->fes_[i]);
     un.SetFromTrueDofs(u_vect[i]);
-    auto coef_a_exp = MfemCoefficient(0, this->explicit_time_coefficients_, un, vauxn);
-    auto coef_b_exp = MfemCoefficient(1, this->explicit_time_coefficients_, un, vauxn);
+
+    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], {un}, {un}, vauxn);
+    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], {un}, {un}, vauxn);
     mfem::ProductCoefficient mass_coefficient = mfem::ProductCoefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));

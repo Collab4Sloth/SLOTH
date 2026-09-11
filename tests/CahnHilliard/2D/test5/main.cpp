@@ -42,17 +42,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -82,9 +72,8 @@ int main(int argc, char* argv[]) {
         // ##############################
         //     Boundary conditions     //
         // ##############################
-        auto boundaries = {
-            Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 0.),
-            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 0.)};
+        auto boundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 0.),
+                           Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 0.)};
         auto bcs_phi = BCS(&spatial, boundaries);
         auto boundaries_mu = {
             Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 0.),
@@ -202,8 +191,8 @@ int main(int argc, char* argv[]) {
         src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
         // OPE oper(spatials, params, src_term);
 
-        OPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
-                 "SplitTimeDerivative", src_term);
+        TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                          "SplitTimeDerivative", src_term);
 
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
@@ -215,7 +204,7 @@ int main(int argc, char* argv[]) {
         oper.overload_preconditioner(precond, Parameters(Parameter("type", 1)));
 
         auto pst = PST(&spatial, p_pst);
-        PB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
+        TransientPB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);

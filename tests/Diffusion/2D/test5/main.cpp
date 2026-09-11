@@ -34,13 +34,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Common aliases
   //---------------------------------------
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
+  using namespace Sloth2D;
   //---------------------------------------
   // Meshing & Boundary Conditions
   //---------------------------------------
@@ -118,11 +112,11 @@ int main(int argc, char* argv[]) {
   Coefficient explicit_time_B(Glossary::ExplicitTime_B, 1.0);
   Coefficient Dstab(Glossary::Diffusivity, stabCoeff);
   Coefficients coef_inter(Dstab, explicit_time_A, explicit_time_B);
-  TransientOperator<FECollection, DIM> interdiffu_oper(spatials, {"MassFlux"}, td_parameters,
-                                                       TimeScheme::RungeKutta4, "TimeDerivative");
+  TransientOPE interdiffu_oper(spatials, {"MassFlux"}, td_parameters, TimeScheme::RungeKutta4,
+                               "TimeDerivative");
 
-  TransientOperator<FECollection, DIM> interdiffu_oper_b(spatials, {"MassFlux"}, td_parameters,
-                                                         TimeScheme::RungeKutta4, "TimeDerivative");
+  TransientOPE interdiffu_oper_b(spatials, {"MassFlux"}, td_parameters, TimeScheme::RungeKutta4,
+                                 "TimeDerivative");
 
   //==========================================
   //======      CALPHAD Analytical      ======
@@ -196,30 +190,30 @@ int main(int argc, char* argv[]) {
   //======================
   // Calphad
   //======================
-  Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST> cc_problem(
-      calphad_parameters, mu_var, cc_pst, heat_vars, p_vars, var_a, var_b);
+  PB_CALPHAD<AnalyticalIdealSolution<mfem::Vector>> cc_problem(calphad_parameters, mu_var, cc_pst,
+                                                               heat_vars, p_vars, var_a, var_b);
 
   auto ppa_parameters =
       Parameters(Parameter("Description", "A Mobilities"), Parameter("first_component", "A"),
                  Parameter("last_component", "C"), Parameter("primary_phase", "SOLID"));
 
-  Property_problem<InterDiffusionCoefficient, VARS, PST> a_interdiffusion_mobilities(
+  PB_PROPERTY<InterDiffusionCoefficient> a_interdiffusion_mobilities(
       "A inter-diffusion mobilities", ppa_parameters, MA, mob_pst_a, var_a, var_b, heat_vars,
       mobilities);
 
-  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_a(
-      "Interdiffusion A", interdiffu_oper, var_a, {coef_inter}, interdiffu_pst, mu_var, MA);
+  TransientPB interdiffu_problem_a("Interdiffusion A", interdiffu_oper, var_a, {coef_inter},
+                                   interdiffu_pst, mu_var, MA);
 
   auto ppb_parameters =
       Parameters(Parameter("Description", "B Mobilities"), Parameter("first_component", "B"),
                  Parameter("last_component", "C"), Parameter("primary_phase", "SOLID"));
 
-  Property_problem<InterDiffusionCoefficient, VARS, PST> b_interdiffusion_mobilities(
+  PB_PROPERTY<InterDiffusionCoefficient> b_interdiffusion_mobilities(
       "B inter-diffusion mobilities", ppb_parameters, MB, mob_pst_b, var_a, var_b, heat_vars,
       mobilities);
 
-  Problem<TransientOperator<FECollection, DIM>, VARS, PST> interdiffu_problem_b(
-      "Interdiffusion B", interdiffu_oper_b, var_b, {coef_inter}, interdiffu_pst_b, mu_var, MB);
+  TransientPB interdiffu_problem_b("Interdiffusion B", interdiffu_oper_b, var_b, {coef_inter},
+                                   interdiffu_pst_b, mu_var, MB);
 
   //-----------------------
   // Coupling

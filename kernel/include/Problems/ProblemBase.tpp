@@ -290,6 +290,22 @@ void ProblemBase<VAR, PST>::set_name(const std::string& new_name) {
 }
 
 /**
+ * @brief Set the vector of Coefficient to save in VTK files
+ *
+ * @param vtk_coeffs
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::set_vtk_coefficients(const std::vector<Coefficient>& vtk_coeffs) {
+  this->vect_vtk_coefficient_ = vtk_coeffs;
+  for (auto& coef : this->vect_vtk_coefficient_) {
+    std::string coef_name = coef.get_name();
+    MFEM_VERIFY(!coef_name.empty(),
+                "Error while loading VTK coefficients. Please use define the name of the "
+                "coefficients using set_name()");
+  }
+}
+
+/**
  *
  * @brief Set the name for global specialized CSV file of the problem
  *
@@ -468,6 +484,11 @@ void ProblemBase<VAR, PST>::save_vtk(const int iter, const double& current_time)
   if (this->has_pst()) {
     auto vars = this->get_problem_variables();
     this->get_pst().save_variables(vars, iter, current_time);
+
+    if (!this->vect_vtk_coefficient_.empty()) {
+      this->get_pst().save_coefficients(this->vect_vtk_coefficient_, vars, this->auxvariables_,
+                                        iter, current_time);
+    }
   }
 }
 
@@ -551,4 +572,36 @@ void ProblemBase<VAR, PST>::collect_vtk_fields(
   if (this->has_pst()) {
     this->get_pst().collect_vtk_fields(this->variables_, all_fields);
   }
+}
+
+/**
+ * @brief Collect this Problem's grid functions into a shared coefficient map,
+ *        if a PostProcessing object is attached.
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ * @param all_fields Output map, accumulated across every Problem for a
+ *                   unified VTK save (see `Coupling`/`TimeDiscretization`).
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::collect_vtk_coefficients(
+    std::map<std::string, mfem::ParGridFunction*>& all_coefficients) {
+  if (this->has_pst()) {
+    auto field_map = this->get_pst().project_coefficients(this->vect_vtk_coefficient_,
+                                                          this->variables_, this->auxvariables_);
+
+    all_coefficients.insert(field_map.begin(), field_map.end());
+  }
+}
+/**
+ * @brief Set (replace) the auxiliary variables of this problem
+ *
+ *
+ * @param auxiliary_variables Pointers to auxiliary VAR objects, replacing
+ *                             any previously set (via the constructor's
+ *                             variadic pack or a prior call to this method).
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::set_auxvariables(std::vector<VAR*> auxiliary_variables) {
+  this->auxvariables_ = std::move(auxiliary_variables);
 }

@@ -34,19 +34,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using PB = Calphad_Problem<AnalyticalIdealSolution<mfem::Vector>, VARS, PST>;
-
-  // Heat
-  using OPE2 = TransientOperator<FECollection, DIM>;
-  using PB2 = Problem<OPE2, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -62,12 +50,10 @@ int main(int argc, char* argv[]) {
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto Calphadboundaries = {Boundary("lower", 0, "Neumann"),
-                            Boundary("external", 2, "Neumann"),
+  auto Calphadboundaries = {Boundary("lower", 0, "Neumann"), Boundary("external", 2, "Neumann"),
                             Boundary("upper", 1, "Neumann")};
   auto Calphadbcs = BCS(&spatial, Calphadboundaries);
-  auto Tboundaries = {Boundary("lower", 0, "Neumann"),
-                      Boundary("external", 2, "Dirichlet", 750.),
+  auto Tboundaries = {Boundary("lower", 0, "Neumann"), Boundary("external", 2, "Dirichlet", 750.),
                       Boundary("upper", 1, "Neumann")};
   auto Tbcs = BCS(&spatial, Tboundaries);
   // ####################
@@ -163,19 +149,21 @@ int main(int argc, char* argv[]) {
   Coefficient conductivity(Glossary::Conductivity, cond);
   Coefficients coef_heat(density, heat_capacity, conductivity);
 
-  std::vector<AnalyticalFunctions<DIM> > src_term;
+  std::vector<AnalyticalFunctions<DIM>> src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
   std::vector<SPA*> spatials{&spatial};
-  OPE2 Heat_op(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative", src_term);
+  TransientOPE Heat_op(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                       src_term);
   Heat_op.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));
-  PB2 Heat_pb("Heat", Heat_op, heat_vars, {coef_heat}, Heat_pst);
+  TransientPB Heat_pb("Heat", Heat_op, heat_vars, {coef_heat}, Heat_pst);
 
   //---------------
   // Calphad
   //---------------
-  PB Calphad_pb(calphad_parameters, outputs, Calphad_pst, heat_vars, p_vars, compo_vars);
+  PB_CALPHAD<AnalyticalIdealSolution<mfem::Vector>> Calphad_pb(
+      calphad_parameters, outputs, Calphad_pst, heat_vars, p_vars, compo_vars);
 
   // ####################
   //     Coupling      //

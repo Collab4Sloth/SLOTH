@@ -35,18 +35,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = SteadyOperator<FECollection, DIM>;
-
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -128,9 +117,9 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"AllenCahn"});
+  SteadyOPE oper(spatials, {"AllenCahn"});
   auto pst = PST(&spatial, p_pst);
-  PB problem1("Steady AllenCahn", oper, vars, {coef_ac}, pst);
+  SteadyPB problem1("Steady AllenCahn", oper, vars, {coef_ac}, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

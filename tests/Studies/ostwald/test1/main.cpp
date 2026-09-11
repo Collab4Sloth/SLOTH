@@ -79,15 +79,7 @@ int main(int argc, char* argv[]) {
   common_parameters(args, p);
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  /////////////////////////
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -364,17 +356,18 @@ int main(int argc, char* argv[]) {
 
   // CahnHilliard
   std::vector<SPA*> spatials{&spatial, &spatial};
-  OPE ch_oper(spatials, {"CahnHilliard"}, TimeScheme::EulerImplicit, "SplitTimeDerivative");
+  TransientOPE ch_oper(spatials, {"CahnHilliard"}, TimeScheme::EulerImplicit,
+                       "SplitTimeDerivative");
   ch_oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
 
   auto ch_pst = PST(&spatial, ch_p_pst);
-  PB ch_pb("CahnHilliard", ch_oper, ch_vars, {ch_coef, ch_coef}, ch_pst, ac_vars);
+  TransientPB ch_pb("CahnHilliard", ch_oper, ch_vars, {ch_coef, ch_coef}, ch_pst, ac_vars);
 
   std::vector<SPA*> ac_spatials{&spatial, &spatial, &spatial, &spatial};
-  OPE ac_oper(ac_spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  TransientOPE ac_oper(ac_spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   ac_oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "LBFGS solver "), Parameter("print_level", -1),
@@ -384,7 +377,8 @@ int main(int argc, char* argv[]) {
   ac_oper.overload_solver(solver);
   ac_oper.overload_preconditioner(precond);
   auto ac_pst = PST(&spatial, ac_p_pst);
-  PB ac_pb("AllenCahn", ac_oper, ac_vars, {ac_coef, ac_coef, ac_coef, ac_coef}, ac_pst, ch_vars);
+  TransientPB ac_pb("AllenCahn", ac_oper, ac_vars, {ac_coef, ac_coef, ac_coef, ac_coef}, ac_pst,
+                    ch_vars);
 
   // Coupling 1
   auto cc = Coupling("CahnHilliard/AllenCahn Coupling", ac_pb, ch_pb);

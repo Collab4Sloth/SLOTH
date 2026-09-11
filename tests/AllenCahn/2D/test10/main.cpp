@@ -34,17 +34,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -114,15 +104,15 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"AllenCahn", "MeltingConstant"}, params, TimeScheme::EulerImplicit,
-           "TimeDerivative");
+  TransientOPE oper(spatials, {"AllenCahn", "MeltingConstant"}, params, TimeScheme::EulerImplicit,
+                    "TimeDerivative");
 
   auto nl_params = Parameters(Parameter("description", "Newton Algorithm"),
                               Parameter("abs_tol", 1.e-20), Parameter("rel_tol", 1.e-20));
 
   oper.overload_nl_solver(NLSolverType::NEWTON, nl_params);
 
-  PB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
+  TransientPB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
 
   // Coupling 1
   auto cc = Coupling("Default Coupling", problem1);

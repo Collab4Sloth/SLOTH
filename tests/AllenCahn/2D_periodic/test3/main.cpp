@@ -31,18 +31,7 @@ int main(int argc, char* argv[]) {
   //
   // ---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = SteadyOperator<FECollection, DIM>;
-
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -148,9 +137,9 @@ int main(int argc, char* argv[]) {
       std::vector<AnalyticalFunctions<DIM> > src_term;
       src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
-      OPE oper(spatials, {"AllenCahn"}, src_term);
+      SteadyOPE oper(spatials, {"AllenCahn"}, src_term);
       auto pst = PST(&spatial, p_pst);
-      PB problem1("PSteady AllenCahn", oper, vars, {coef_ac}, pst);
+      SteadyPB problem1("PSteady AllenCahn", oper, vars, {coef_ac}, pst);
 
       // Coupling 1
       auto cc = Coupling("Default Coupling", problem1);

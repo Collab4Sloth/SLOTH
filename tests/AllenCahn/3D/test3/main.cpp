@@ -36,16 +36,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 3;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth3D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -125,12 +116,12 @@ int main(int argc, char* argv[]) {
   //     operator     //
   // ####################
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
   // ####################
   //     Problem       //
   // ####################
-  PB problem1(oper, vars, {coef_ac}, pst);
+  TransientPB problem1(oper, vars, {coef_ac}, pst);
 
   // ####################
   //     Coupling      //

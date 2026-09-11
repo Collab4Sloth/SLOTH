@@ -33,16 +33,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  //
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -58,8 +49,7 @@ int main(int argc, char* argv[]) {
   // ##############################
   //     Boundary conditions     //
   // ##############################
-  auto Tboundaries = {Boundary("lower", 0, "Neumann"),
-                      Boundary("external", 2, "Dirichlet", 750.),
+  auto Tboundaries = {Boundary("lower", 0, "Neumann"), Boundary("external", 2, "Dirichlet", 750.),
                       Boundary("upper", 1, "Neumann")};
   auto Tbcs = BCS(&spatial, Tboundaries);
   // ###########################################
@@ -118,12 +108,13 @@ int main(int argc, char* argv[]) {
   std::vector<AnalyticalFunctions<DIM> > src_term;
   src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
   std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative", src_term);
+  TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                    src_term);
 
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),
                                      Parameter("print_level", 1), Parameter("abs_tol", 1.e-10)));
-  PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
+  TransientPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
 
   // Coupling 1
   auto cc = Coupling("Heat transfer", Heat_pb);

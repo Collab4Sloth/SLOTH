@@ -36,16 +36,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -78,11 +69,11 @@ int main(int argc, char* argv[]) {
         // ##############################
 
         auto boundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet"),
-                          Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet")};
+                           Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet")};
         auto bcs = BCS(&spatial, boundaries);
 
         auto Xboundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
-          Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
+                            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
         auto Xbcs = BCS(&spatial, Xboundaries);
 
         // ###########################################
@@ -100,8 +91,9 @@ int main(int argc, char* argv[]) {
         Coefficient conductivity(Glossary::Conductivity, 1.);
         Coefficient neumann(Glossary::Neumann, Scheme::Implicit, NeumannCoefficient());
         Coefficient dirichlet_left(Glossary::Dirichlet, Scheme::Implicit, DirichletCoefficient());
-  Coefficient dirichlet_right(Glossary::Dirichlet, Scheme::Implicit, DirichletCoefficient(-1));
-        neumann.set_bdr_index_coef(std::vector<int>{0,2});
+        Coefficient dirichlet_right(Glossary::Dirichlet, Scheme::Implicit,
+                                    DirichletCoefficient(-1));
+        neumann.set_bdr_index_coef(std::vector<int>{0, 2});
         dirichlet_left.set_bdr_index_coef(std::vector<int>{3});
         dirichlet_right.set_bdr_index_coef(std::vector<int>{1});
 
@@ -110,26 +102,26 @@ int main(int argc, char* argv[]) {
         // ####################
 
         auto user_func = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& x, double time) {
-            const auto xx = x[0];
-            const auto yy = x[1];
-            const auto func = time * std::cos(M_PI*xx) * std::sin(M_PI*yy);
-            return func;
-          });
+            [](const mfem::Vector& x, double time) {
+              const auto xx = x[0];
+              const auto yy = x[1];
+              const auto func = time * std::cos(M_PI * xx) * std::sin(M_PI * yy);
+              return func;
+            });
         auto T_analytical = AnalyticalFunctions<DIM>(user_func);
 
-  auto heat_vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 0, T_analytical));
+        auto heat_vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 0, T_analytical));
 
         // Coord
         auto xcoord = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& vcoord, double time) { return vcoord[0]; });
+            [](const mfem::Vector& vcoord, double time) { return vcoord[0]; });
         auto ycoord = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& vcoord, double time) { return vcoord[1]; });
+            [](const mfem::Vector& vcoord, double time) { return vcoord[1]; });
         auto XC = VAR(&spatial, Xbcs, "XCOORD", Glossary::Coordinate, 2,
-                    AnalyticalFunctions<DIM>(xcoord));
+                      AnalyticalFunctions<DIM>(xcoord));
         XC.set_additional_information("XCOORD");
         auto YC = VAR(&spatial, Xbcs, "YCOORD", Glossary::Coordinate, 2,
-                    AnalyticalFunctions<DIM>(ycoord));
+                      AnalyticalFunctions<DIM>(ycoord));
         YC.set_additional_information("YCOORD");
         auto coord = VARS(XC, YC);
 
@@ -144,10 +136,11 @@ int main(int argc, char* argv[]) {
         const auto& frequency = 1;
         // Heat
         const std::string& calculation_path = "Problem1";
-        auto p_pst = Parameters(
-            Parameter("main_folder_path", main_folder_path),
-            Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
-            Parameter("level_of_detail", level_of_detail), Parameter("enable_compute_energies", false));
+        auto p_pst = Parameters(Parameter("main_folder_path", main_folder_path),
+                                Parameter("calculation_path", calculation_path),
+                                Parameter("frequency", frequency),
+                                Parameter("level_of_detail", level_of_detail),
+                                Parameter("enable_compute_energies", false));
         auto pst = PST(&spatial, p_pst);
 
         // ####################
@@ -155,26 +148,29 @@ int main(int argc, char* argv[]) {
         // ####################
 
         auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& x, [[maybe_unused]] double time) {
-            const auto xx = x[0];
-            const auto yy = x[1];
-            const auto func = (1+2*M_PI*M_PI*time) * std::cos(M_PI*xx) * std::sin(M_PI*yy);
-            return func;
-          });
+            [](const mfem::Vector& x, [[maybe_unused]] double time) {
+              const auto xx = x[0];
+              const auto yy = x[1];
+              const auto func =
+                  (1 + 2 * M_PI * M_PI * time) * std::cos(M_PI * xx) * std::sin(M_PI * yy);
+              return func;
+            });
 
         std::vector<AnalyticalFunctions<DIM> > src_term;
         src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
-        
+
         // Heat
-        Coefficients coef_pb(density, heat_capacity, conductivity, neumann, dirichlet_left, dirichlet_right);
+        Coefficients coef_pb(density, heat_capacity, conductivity, neumann, dirichlet_left,
+                             dirichlet_right);
         std::vector<SPA*> spatials{&spatial};
-  OPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative", src_term);
+        TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                          src_term);
 
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                      Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-12)));
-        PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst, coord);
+                       Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-12)));
+        TransientPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst, coord);
 
         // Coupling 1
         auto cc = Coupling("Heat transfer", Heat_pb);

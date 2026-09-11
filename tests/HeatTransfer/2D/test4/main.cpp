@@ -33,16 +33,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  //
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
 
   // ###########################################
   // ###########################################
@@ -153,14 +144,15 @@ int main(int argc, char* argv[]) {
     std::vector<AnalyticalFunctions<DIM> > src_term;
     src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
 
-    OPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative", src_term);
+    TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
+                      src_term);
 
     oper.overload_nl_solver(
         NLSolverType::NEWTON,
         Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
                    Parameter("rel_tol", 1.e-9), Parameter("abs_tol", 1.e-9)));
 
-    PB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
+    TransientPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
     Heat_pb.setGeometry(Geometry::Axisymmetric);
     // Coupling 1
     auto cc = Coupling("Heat transfer", Heat_pb);

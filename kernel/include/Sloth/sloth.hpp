@@ -42,6 +42,7 @@
 #include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
 #include "Couplings/Coupling.hpp"
+#include "Factory/ListFactory.hpp"
 #include "Operators/ListOperators.hpp"
 #include "PostProcessing/postprocessing.hpp"
 #include "Problems/ListProblems.hpp"

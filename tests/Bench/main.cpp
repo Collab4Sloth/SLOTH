@@ -114,17 +114,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().active_trace();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 3;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  using BCS = Test<DIM>::BCS;
-  /////////////////////////
-
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth3D;
 
   // ################ //
   // ################ //
@@ -268,7 +258,7 @@ int main(int argc, char* argv[]) {
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial, &spatial};
-  OPE oper(spatials, {"CahnHilliard"}, TimeScheme::EulerImplicit, "SplitTimeDerivative");
+  TransientOPE oper(spatials, {"CahnHilliard"}, TimeScheme::EulerImplicit, "SplitTimeDerivative");
   oper.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("print_level", p.verbosity),
@@ -292,7 +282,7 @@ int main(int argc, char* argv[]) {
   }
 
   auto pst = PST(&spatial, p_pst);
-  PB problem1(oper, vars, {coef_ch, coef_ch}, pst);
+  TransientPB problem1(oper, vars, {coef_ch, coef_ch}, pst);
 
   // Coupling 1
   auto cc = Coupling("CahnHilliard Coupling", problem1);
