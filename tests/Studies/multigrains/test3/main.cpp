@@ -43,15 +43,7 @@ int main(int argc, char* argv[]) {
   Profiling::getInstance().enable();
   //---------------------------------------
   /////////////////////////
-  const int DIM = 2;
-  using FECollection = Test<DIM>::FECollection;
-  using VARS = Test<DIM>::VARS;
-  using VAR = Test<DIM>::VAR;
-  using PST = Test<DIM>::PST;
-  using SPA = Test<DIM>::SPA;
-  /////////////////////////
-  using OPE = TransientOperator<FECollection, DIM>;
-  using PB = Problem<OPE, VARS, PST>;
+  using namespace Sloth2D;
   // ###########################################
   // ###########################################
   //         Spatial Discretization           //
@@ -243,7 +235,7 @@ int main(int argc, char* argv[]) {
       &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
       &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial, &spatial,
       &spatial, &spatial, &spatial};
-  OPE ope_ac_grains(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  TransientOPE ope_ac_grains(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
 
   ope_ac_grains.overload_nl_solver(
       NLSolverType::LBFGS,
@@ -272,7 +264,7 @@ int main(int argc, char* argv[]) {
       coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
       coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains, coef_ac_grains,
       coef_ac_grains, coef_ac_grains};
-  PB problem_ac_grains(ope_ac_grains, var_grains, vcoeff, pst);
+  TransientPB problem_ac_grains(ope_ac_grains, var_grains, vcoeff, pst);
   // // Coupling 1
   auto cc = Coupling("Multigrains ", problem_ac_grains);
 
