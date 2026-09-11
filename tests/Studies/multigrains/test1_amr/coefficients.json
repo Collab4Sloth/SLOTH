@@ -1,0 +1,26 @@
+[
+    {
+    "expression":"-A*(y*y)/2.0 + B*(y*y*y*y)/4.0 + 2.0*y*y*Sum(x[i]*x[i], (i,1,29))",
+    "variables":"y",
+    "auxiliary_variables":"x(1..29)",
+    "constants":"(A:1.0),(B:1.0)",
+    "class_name":"ExplicitGrainGw",
+    "outputfile":"GrainsCoefficients"
+    },
+    {
+    "expression":"y*y+Sum(x[i]*x[i], (i,1,29))",
+    "variables":"y",
+    "auxiliary_variables":"x(1..29)",
+    "class_name":"SwitchingFunction",
+    "outputfile":"GrainsCoefficients"
+    },
+    {
+    "expression":"kappa*dot(y,y)+kappa*(sdot(x(1..29)))",
+    "variables":"y",
+    "auxiliary_variables":"x(1..29)",
+    "constants":"(kappa:10.1)",
+    "class_name":"GrainGradient",
+    "outputfile":"GrainsCoefficients",
+    "gradient":true
+    }
+]
