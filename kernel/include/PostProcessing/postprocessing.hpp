@@ -115,7 +115,12 @@ class PostProcessing {
   virtual ~PostProcessing() = default;
 
   void collect_vtk_fields(Variables<T, DIM>& vars,
-                          std::map<std::string, mfem::ParGridFunction*>& all_fields);
+                          std::map<std::string, mfem::ParGridFunction*>& all_fields,
+                          const int& iter, const double& time);
+  void collect_vtk_coefficients(std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
+                                std::vector<Variables<T, DIM>*> vect_aux_var,
+                                std::map<std::string, mfem::ParGridFunction*>& all_coefficients,
+                                const int& iter, const double& time);
   std::shared_ptr<DC> get_shared_dc();
 };
 

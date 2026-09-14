@@ -181,8 +181,10 @@ class ProblemBase {
   virtual void finalize();
   virtual void set_time_coefficients(double) {}
 
-  void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields);
-  void collect_vtk_coefficients(std::map<std::string, mfem::ParGridFunction*>& all_coefficients);
+  void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields,
+                          const int& iter, const double& current_time);
+  void collect_vtk_coefficients(std::map<std::string, mfem::ParGridFunction*>& all_coefficients,
+                                const int& iter, const double& current_time);
   auto get_shared_dc() { return this->pst_->get().get_shared_dc(); }
 };
 
