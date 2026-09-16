@@ -235,13 +235,9 @@ std::vector<typename Coupling<Args...>::VAR*> Coupling<Args...>::CollectAllVaria
  */
 template <class... Args>
 void Coupling<Args...>::collect_vtk_fields(
-    std::map<std::string, mfem::ParGridFunction*>& all_fields, const int& iter,
-    const double& current_time) {
-  std::apply(
-      [&all_fields, iter, current_time](auto&... problem) {
-        (problem.collect_vtk_fields(all_fields, iter, current_time), ...);
-      },
-      this->problems_);
+    std::map<std::string, mfem::ParGridFunction*>& all_fields) {
+  std::apply([&all_fields](auto&... problem) { (problem.collect_vtk_fields(all_fields), ...); },
+             this->problems_);
 }
 
 /**
@@ -255,13 +251,10 @@ void Coupling<Args...>::collect_vtk_fields(
  */
 template <class... Args>
 void Coupling<Args...>::collect_vtk_coefficients(
-    std::map<std::string, mfem::ParGridFunction*>& all_coefficients, const int& iter,
-    const double& current_time) {
-  std::apply(
-      [&all_coefficients, iter, current_time](auto&... problem) {
-        (problem.collect_vtk_coefficients(all_coefficients, iter, current_time), ...);
-      },
-      this->problems_);
+    std::map<std::string, mfem::ParGridFunction*>& all_coefficients) {
+  std::apply([&all_coefficients](
+                 auto&... problem) { (problem.collect_vtk_coefficients(all_coefficients), ...); },
+             this->problems_);
 }
 
 /**

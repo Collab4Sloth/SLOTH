@@ -508,36 +508,9 @@ void PostProcessing<T, DC, DIM>::clean_output_directory() {
  */
 template <class T, class DC, int DIM>
 void PostProcessing<T, DC, DIM>::collect_vtk_fields(
-    Variables<T, DIM>& vars, std::map<std::string, mfem::ParGridFunction*>& all_fields,
-    const int& iter, const double& time) {
-  if (this->need_to_be_saved(iter, time)) {
-    auto map_var = vars.get_map_gridfunction();
-    all_fields.insert(map_var.begin(), map_var.end());
-  }
-}
-
-/**
- * @brief Collect this Problem's coefficients into a shared coefficient map,
- *
- * @tparam T mfem FECollection
- * @tparam DC mfem DataCollection
- * @tparam DIM Spatial dimension
- * @param coeffs Coefficients to project.
- * @param vars Variables used for the projection.
- * @param vect_aux_var Auxiliary variables used for the projection.
- * @param all_coefficients Output map, accumulated across multiple Problems
- *                        for a unified VTK save (not cleared by this call).
- */
-template <class T, class DC, int DIM>
-void PostProcessing<T, DC, DIM>::collect_vtk_coefficients(
-    std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
-    std::vector<Variables<T, DIM>*> vect_aux_var,
-    std::map<std::string, mfem::ParGridFunction*>& all_coefficients, const int& iter,
-    const double& time) {
-  if (this->need_to_be_saved(iter, time)) {
-    auto field_map = this->project_coefficients(coeffs, vars, vect_aux_var);
-    all_coefficients.insert(field_map.begin(), field_map.end());
-  }
+    Variables<T, DIM>& vars, std::map<std::string, mfem::ParGridFunction*>& all_fields) {
+  auto map_var = vars.get_map_gridfunction();
+  all_fields.insert(map_var.begin(), map_var.end());
 }
 
 /**

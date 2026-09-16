@@ -568,10 +568,9 @@ void ProblemBase<VAR, PST>::save_amr(const std::vector<VAR*>& all_vars) {
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::collect_vtk_fields(
-    std::map<std::string, mfem::ParGridFunction*>& all_fields, const int& iter,
-    const double& current_time) {
+    std::map<std::string, mfem::ParGridFunction*>& all_fields) {
   if (this->has_pst()) {
-    this->get_pst().collect_vtk_fields(this->variables_, all_fields, iter, current_time);
+    this->get_pst().collect_vtk_fields(this->variables_, all_fields);
   }
 }
 
@@ -586,15 +585,14 @@ void ProblemBase<VAR, PST>::collect_vtk_fields(
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::collect_vtk_coefficients(
-    std::map<std::string, mfem::ParGridFunction*>& all_coefficients, const int& iter,
-    const double& current_time) {
+    std::map<std::string, mfem::ParGridFunction*>& all_coefficients) {
   if (this->has_pst()) {
-    this->get_pst().collect_vtk_coefficients(this->vect_vtk_coefficient_, this->variables_,
-                                             this->auxvariables_, all_coefficients, iter,
-                                             current_time);
+    auto field_map = this->get_pst().project_coefficients(this->vect_vtk_coefficient_,
+                                                          this->variables_, this->auxvariables_);
+
+    all_coefficients.insert(field_map.begin(), field_map.end());
   }
 }
-
 /**
  * @brief Set (replace) the auxiliary variables of this problem
  *
