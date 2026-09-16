@@ -371,6 +371,8 @@ template <class... Args>
 void TimeDiscretization<Args...>::save_vtk_unified(const int& iter, const double& current_time) {
   if (!this->vtk_unified_) return;
 
+  if (!std::get<0>(this->couplings_).need_to_be_saved(iter, current_time)) return;
+
   std::map<std::string, mfem::ParGridFunction*> all_fields;
 
   std::apply([&all_fields](auto&... coupling) { (coupling.collect_vtk_fields(all_fields), ...); },

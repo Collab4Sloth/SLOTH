@@ -81,8 +81,6 @@ class PostProcessing {
   void get_restart_parameters();
   void get_common_parameters();
 
-  bool need_to_be_saved(const int iteration, const double time);
-
   void clean_output_directory();
 
  public:
@@ -117,6 +115,7 @@ class PostProcessing {
   void collect_vtk_fields(Variables<T, DIM>& vars,
                           std::map<std::string, mfem::ParGridFunction*>& all_fields);
   std::shared_ptr<DC> get_shared_dc();
+  bool need_to_be_saved(const int iteration, const double time);
 };
 
 #include "PostProcessing/postprocessing.tpp"
