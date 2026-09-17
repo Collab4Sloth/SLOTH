@@ -184,6 +184,10 @@ class ProblemBase {
   void collect_vtk_fields(std::map<std::string, mfem::ParGridFunction*>& all_fields);
   void collect_vtk_coefficients(std::map<std::string, mfem::ParGridFunction*>& all_coefficients);
   auto get_shared_dc() { return this->pst_->get().get_shared_dc(); }
+
+  bool need_to_be_saved(const int iteration, const double time) {
+    return this->pst_->get().need_to_be_saved(iteration, time);
+  };
 };
 
 #include "Problems/ProblemBase.tpp"
