@@ -34,11 +34,12 @@
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+#ifdef SLOTH_USE_MUMPS
 /**
- * @brief Construct a new SolverUMFPACK::SolverUMFPACK object
+ * @brief Construct a new SolverMUMPS::SolverMUMPS object
  *
  */
-SolverUMFPACK::SolverUMFPACK() {}
+SolverMUMPS::SolverMUMPS() {}
 
 /**
  * @brief Create a direct solver based of the SolverType and a list of Parameters
@@ -47,26 +48,33 @@ SolverUMFPACK::SolverUMFPACK() {}
  * @param params
  * @return std::shared_ptr<mfem::Solver>
  */
-std::shared_ptr<mfem::UMFPackSolver> SolverUMFPACK::create_solver(const Parameters& params) {
-  // TODO(cci): mettre un check sur le param de base name
-  // TODO(cc) : mettre un getinfo pour la doc
+std::shared_ptr<mfem::MUMPSSolver> SolverMUMPS::create_solver(const Parameters& params) {
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
 
-  int print_level = UMFPACK_DefaultConstant::print_level;
+  int print_level = MUMPS_DefaultConstant::print_level;
 
   if (verbose_at_least(Verbosity::Verbose)) {
     print_level =
-        params.get_param_value_or_default<int>("print_level", UMFPACK_DefaultConstant::print_level);
+        params.get_param_value_or_default<int>("print_level", MUMPS_DefaultConstant::print_level);
   }
 
-  auto ss = std::make_shared<mfem::UMFPackSolver>(MPI_COMM_WORLD);
+  const int mat_type =
+      params.get_param_value_or_default<int>("mat_type", MUMPS_DefaultConstant::mat_type);
+  const int reordering_strategy = params.get_param_value_or_default<int>(
+      "reordering_strategy", MUMPS_DefaultConstant::reordering_strategy);
+
+  auto ss = std::make_shared<mfem::MUMPSSolver>(MPI_COMM_WORLD);
   ss->SetPrintLevel(print_level);
+  ss->SetMatrixSymType(static_cast<mfem::MUMPSSolver::MatType>(mat_type));
+  ss->SetReorderingStrategy(
+      static_cast<mfem::MUMPSSolver::ReorderingStrategy>(reordering_strategy));
   return ss;
 }
 
 /**
- * @brief Destroy the SolverUMFPACK::SolverUMFPACK object
+ * @brief Destroy the SolverMUMPS::SolverMUMPS object
  *
  */
-SolverUMFPACK::~SolverUMFPACK() {}
+SolverMUMPS::~SolverMUMPS() {}
+#endif

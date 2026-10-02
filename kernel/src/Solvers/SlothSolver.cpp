@@ -58,10 +58,12 @@ VSharedMFEMSolver SlothSolver::get_value() {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, DirectSolverType>) {
           switch (arg) {
-            case DirectSolverType::UMFPACK: {
-              SolverUMFPACK hh;
-              return hh.create_solver(params_ + Parameter("description", "UMFPACK"));
+#ifdef SLOTH_USE_MUMPS
+            case DirectSolverType::MUMPS: {
+              SolverMUMPS hh;
+              return hh.create_solver(params_ + Parameter("description", "MUMPS"));
             }
+#endif
             default:
               mfem::mfem_error("Unhandled DirectSolverType enum value");
           }
