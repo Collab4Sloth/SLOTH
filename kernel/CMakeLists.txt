@@ -53,6 +53,14 @@ if(MFEM_USE_PETSC)
 endif(MFEM_USE_PETSC)
 
 
+# ########################
+# MUMPS ??
+# ########################
+if(MFEM_USE_MUMPS)
+  target_link_libraries(Sloth PUBLIC ${MUMPS_LIBRARIES})
+  target_compile_definitions(Sloth PUBLIC SLOTH_USE_MUMPS=1)
+endif()
+
 # EXTERNAL??
 option(SLOTH_USE_EXTERNAL "Enable the use of an external package that requires linking with external library" OFF)
 if(SLOTH_USE_EXTERNAL)
