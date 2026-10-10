@@ -251,10 +251,12 @@ void Coupling<Args...>::collect_vtk_fields(
  */
 template <class... Args>
 void Coupling<Args...>::collect_vtk_coefficients(
-    std::map<std::string, mfem::ParGridFunction*>& all_coefficients) {
-  std::apply([&all_coefficients](
-                 auto&... problem) { (problem.collect_vtk_coefficients(all_coefficients), ...); },
-             this->problems_);
+    std::map<std::string, mfem::ParGridFunction*>& all_coefficients, const double current_time) {
+  std::apply(
+      [&all_coefficients, current_time](auto&... problem) {
+        (problem.collect_vtk_coefficients(all_coefficients, current_time), ...);
+      },
+      this->problems_);
 }
 
 /**

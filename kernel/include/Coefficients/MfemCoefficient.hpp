@@ -38,7 +38,6 @@
  */
 class MfemCoefficient : public mfem::Coefficient {
  private:
-  int id_ = 0;
   ::Coefficient sloth_coefficient_;
 
   const std::vector<mfem::ParGridFunction>& gf_;
@@ -60,81 +59,3 @@ class MfemCoefficient : public mfem::Coefficient {
 
   virtual ~MfemCoefficient() = default;
 };
-
-/**
- * @brief Construct a new MfemCoefficient object.
- *
- * @param coef SLOTH coefficient to wrap.
- * @param vu Current-time vector of grid function for the coefficient's own variable.
- * @param vun Previous-time vector of grid function for the coefficient's own variable.
- * @param vauxn Grid functions of the auxiliary variables.
- */
-MfemCoefficient::MfemCoefficient(::Coefficient coef, const std::vector<mfem::ParGridFunction>& vu,
-                                 const std::vector<mfem::ParGridFunction>& vun,
-                                 const std::vector<mfem::ParGridFunction>& vauxn)
-    : sloth_coefficient_(coef), gf_(vu), gfn_(vun), vaux_gf_(vauxn) {
-  MFEM_VERIFY(this->gf_.size() == this->gfn_.size(),
-              "Error of consistency between Current-time and Previous-time vectors of grid "
-              "function. Please check their sizes.");
-}
-
-/**
- * @brief Evaluate the wrapped coefficient at an integration point.
- *
- * Dispatches on the coefficient's scheme (scalar/semi-implicit/
- * explicit/implicit) to call the matching ::Coefficient::compute overload.
- *
- * @param T Element transformation at the integration point.
- * @param ip Integration point.
- * @return Coefficient value.
- */
-double MfemCoefficient::Eval(mfem::ElementTransformation& T, const mfem::IntegrationPoint& ip) {
-  if (this->sloth_coefficient_.is_scalar()) {
-    return this->sloth_coefficient_.compute();
-  }
-
-  this->vaux_gf_at_ip_.resize(this->vaux_gf_.size());
-  for (size_t k = 0; k < this->vaux_gf_.size(); ++k) {
-    this->vaux_gf_at_ip_[k] = this->vaux_gf_[k].GetValue(T, ip);
-  }
-
-  this->gf_at_ip_.resize(this->gf_.size());
-  this->gfn_at_ip_.resize(this->gfn_.size());
-  for (size_t k = 0; k < this->gf_.size(); ++k) {
-    this->gf_at_ip_[k] = this->gf_[k].GetValue(T, ip);
-    this->gfn_at_ip_[k] = this->gfn_[k].GetValue(T, ip);
-  }
-
-  if (this->sloth_coefficient_.is_semi_implicit()) {
-    return this->sloth_coefficient_.compute(std::span<const double>(this->gf_at_ip_),
-                                            std::span<const double>(this->gfn_at_ip_),
-                                            std::span<const double>(this->vaux_gf_at_ip_));
-  } else if (this->sloth_coefficient_.is_explicit()) {
-    return this->sloth_coefficient_.compute(std::span<const double>(this->gfn_at_ip_),
-                                            std::span<const double>(this->vaux_gf_at_ip_));
-  } else {
-    return this->sloth_coefficient_.compute(std::span<const double>(this->gf_at_ip_),
-                                            std::span<const double>(this->vaux_gf_at_ip_));
-  }
-}
-/**
- * @brief Project the coefficient onto a grid function on a given space.
- *
- * @param fespace Finite element space to project onto.
- * @return Grid function holding the projected values.
- */
-mfem::ParGridFunction MfemCoefficient::ProjectToGridFunction(mfem::ParFiniteElementSpace& fespace) {
-  mfem::ParGridFunction result(&fespace);
-  result.ProjectCoefficient(*this);
-  return result;
-}
-
-/**
- * @brief Project the coefficient onto a grid function, using the finite
- *        element space of the first index in `gf_` (assumption of homogeneous FESpace)
- *
- * @return Grid function holding the projected values.
- */
-mfem::ParGridFunction MfemCoefficient::ProjectToGridFunction() {
-  return ProjectToGridFunction(*gf_[0].ParFESpace());
-}

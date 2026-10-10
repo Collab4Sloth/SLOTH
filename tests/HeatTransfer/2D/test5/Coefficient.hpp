@@ -26,11 +26,9 @@
 #include <span>
 #include <vector>
 
-
 #include "Options/PhysicalPropertiesOptions.hpp"
-  
+
 #include "Coefficients/FunctionCoefficient.hpp"
-  
 
 #pragma once
 
@@ -43,14 +41,21 @@
 class NeumannCoefficient : public FunctionCoefficient {
  private:
   double prefactor_;
+
  protected:
-  std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> F() final;
-  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> GradientF() final;
-  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
+                       const std::span<const double>&, const unsigned int dimension)>
+  F() final;
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int dimension)>
+  GradientF() final;
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int dimension)>
+  HessianF() final;
 
  public:
   NeumannCoefficient() : prefactor_(1.0) {}
- explicit NeumannCoefficient(const double prefactor): prefactor_(prefactor) {}
+  explicit NeumannCoefficient(const double prefactor) : prefactor_(prefactor) {}
   virtual ~NeumannCoefficient() = default;
 };
 
@@ -59,15 +64,21 @@ class NeumannCoefficient : public FunctionCoefficient {
  * @brief C++ function of the expression
  *
  *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
+ * std::span<const double>&, const unsigned int dimension)>
  */
- std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> NeumannCoefficient::F() {
-  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {
+std::function<double(const std::span<const double>&, const std::span<const double>&,
+                     const std::span<const double>&, const unsigned int dimension)>
+NeumannCoefficient::F() {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
     double x = auxiliary_vector[0];
     double y = auxiliary_vector[1];
     double t = this->time_;
- double   F = -M_PI*t*std::cos(M_PI*x);
+    double F = -M_PI * t * std::cos(M_PI * x);
     return this->prefactor_ * F;
   };
   return func;
@@ -76,11 +87,17 @@ class NeumannCoefficient : public FunctionCoefficient {
 /**
  *
  * @brief Gradient
- * 
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
+ *
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> NeumannCoefficient::GradientF() {
-  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                  const std::span<const double>&, const unsigned int dimension)>
+NeumannCoefficient::GradientF() {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
     double x = auxiliary_vector[0];
     double y = auxiliary_vector[1];
@@ -96,11 +113,17 @@ std::function<std::vector<double>(const std::span<const double>&,const std::span
  *
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
- * 
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> 
+ *
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> NeumannCoefficient::HessianF() {
-  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                  const std::span<const double>&, const unsigned int dimension)>
+NeumannCoefficient::HessianF() {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
     double x = auxiliary_vector[0];
     double y = auxiliary_vector[1];
@@ -120,14 +143,21 @@ std::function<std::vector<double>(const std::span<const double>&,const std::span
 class DirichletCoefficient : public FunctionCoefficient {
  private:
   double prefactor_;
+
  protected:
-  std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> F() final;
-  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> GradientF() final;
-  std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> HessianF() final;
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
+                       const std::span<const double>&, const unsigned int dimension)>
+  F() final;
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int dimension)>
+  GradientF() final;
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int dimension)>
+  HessianF() final;
 
  public:
   DirichletCoefficient() : prefactor_(1.0) {}
- explicit DirichletCoefficient(const double prefactor): prefactor_(prefactor) {}
+  explicit DirichletCoefficient(const double prefactor) : prefactor_(prefactor) {}
   virtual ~DirichletCoefficient() = default;
 };
 
@@ -136,15 +166,21 @@ class DirichletCoefficient : public FunctionCoefficient {
  * @brief C++ function of the expression
  *
  *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
+ * std::span<const double>&, const unsigned int dimension)>
  */
- std::function<double(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> DirichletCoefficient::F() {
-  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {
+std::function<double(const std::span<const double>&, const std::span<const double>&,
+                     const std::span<const double>&, const unsigned int dimension)>
+DirichletCoefficient::F() {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
     double x = auxiliary_vector[0];
     double y = auxiliary_vector[1];
     double t = this->time_;
- double   F = t*std::sin(M_PI*y);
+    double F = t * std::sin(M_PI * y);
     return this->prefactor_ * F;
   };
   return func;
@@ -153,11 +189,17 @@ class DirichletCoefficient : public FunctionCoefficient {
 /**
  *
  * @brief Gradient
- * 
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const unsigned int dimension)> 
+ *
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> DirichletCoefficient::GradientF() {
-  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                  const std::span<const double>&, const unsigned int dimension)>
+DirichletCoefficient::GradientF() {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
     double x = auxiliary_vector[0];
     double y = auxiliary_vector[1];
@@ -173,11 +215,17 @@ std::function<std::vector<double>(const std::span<const double>&,const std::span
  *
  * @brief Hessian
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
- * 
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> 
+ *
+ * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
+ * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
-std::function<std::vector<double>(const std::span<const double>&,const std::span<const double>&, const std::span<const double>&, const unsigned int dimension)> DirichletCoefficient::HessianF() {
-  auto func = [&](const std::span<const double>& input_vector, [[maybe_unused]] const std::span<const double>&,const std::span<const double>& auxiliary_vector, [[maybe_unused]] const unsigned int dimension) {
+std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                  const std::span<const double>&, const unsigned int dimension)>
+DirichletCoefficient::HessianF() {
+  auto func = [&](const std::span<const double>& input_vector,
+                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
     double x = auxiliary_vector[0];
     double y = auxiliary_vector[1];

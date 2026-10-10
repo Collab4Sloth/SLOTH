@@ -141,7 +141,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       // Get aux values at ip TODO(cci) (move in method)
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {
@@ -215,7 +215,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
 
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       // Get aux values at ip TODO(cci) (move in method)
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {

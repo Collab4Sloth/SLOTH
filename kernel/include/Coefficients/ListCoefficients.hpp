@@ -27,5 +27,7 @@
 
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/CommonCoefficients.hpp"
+#include "Coefficients/FileCoefficient.hpp"
+#include "Coefficients/MfemFileCoefficient.hpp"
 #include "Coefficients/ProductFunctionCoefficients.hpp"
 #include "Coefficients/SumFunctionCoefficients.hpp"

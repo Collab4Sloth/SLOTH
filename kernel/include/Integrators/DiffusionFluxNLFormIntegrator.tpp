@@ -164,7 +164,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
 
     el[blk]->CalcShape(ip, Psi);
-    Tr.SetIntPoint(&ip);
+    this->set_int_point(Tr, ip);
 
     // Get aux values at ip TODO(cci) (move in method)
     vaux_gf_at_ip.clear();
@@ -252,7 +252,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
       u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
     }
 
-    Tr.SetIntPoint(&ip);
+    this->set_int_point(Tr, ip);
 
     double weight_coef = ip.weight * Tr.Weight();
     if (this->isAxisymmetric()) {

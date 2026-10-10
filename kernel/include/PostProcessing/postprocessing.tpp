@@ -38,6 +38,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Coefficients/MfemFileCoefficient.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variable.hpp"
@@ -235,7 +236,7 @@ void PostProcessing<T, DC, DIM>::save_variables(Variables<T, DIM>& vars, const i
  */
 template <class T, class DC, int DIM>
 std::map<std::string, mfem::ParGridFunction*> PostProcessing<T, DC, DIM>::project_coefficients(
-    std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
+    const double current_time, std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
     std::vector<Variables<T, DIM>*> vect_aux_var) {
   // Auxiliary variables
   std::vector<mfem::ParGridFunction> vaux_gf;
@@ -263,8 +264,14 @@ std::map<std::string, mfem::ParGridFunction*> PostProcessing<T, DC, DIM>::projec
   std::map<std::string, mfem::ParGridFunction*> result;
 
   for (auto& coef : coeffs) {
-    MfemCoefficient mfem_coef(coef, v_gf, v_gf, vaux_gf);
-    this->projected_coeffs_.push_back(mfem_coef.ProjectToGridFunction());
+    coef.set_time(current_time);
+    if (!coef.is_file()) {
+      MfemCoefficient mfem_coef(coef, v_gf, v_gf, vaux_gf);
+      this->projected_coeffs_.push_back(mfem_coef.ProjectToGridFunction());
+    } else {
+      MfemFileCoefficient mfem_file_coef(coef, v_gf);
+      this->projected_coeffs_.push_back(mfem_file_coef.ProjectToGridFunction());
+    }
     result.emplace(coef.get_name(), &this->projected_coeffs_.back());
   }
 
@@ -290,7 +297,7 @@ void PostProcessing<T, DC, DIM>::save_coefficients(std::vector<Coefficient>& coe
   if (this->need_to_be_saved(iter, time)) {
     this->dc_->SetCycle(iter);
     this->dc_->SetTime(time);
-    auto field_map = this->project_coefficients(coeffs, vars, vect_aux_var);
+    auto field_map = this->project_coefficients(time, coeffs, vars, vect_aux_var);
     for (const auto& [name, gf_ptr] : field_map) {
       this->dc_->RegisterField(name, gf_ptr);
     }

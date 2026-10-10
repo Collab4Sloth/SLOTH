@@ -585,9 +585,9 @@ void ProblemBase<VAR, PST>::collect_vtk_fields(
  */
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::collect_vtk_coefficients(
-    std::map<std::string, mfem::ParGridFunction*>& all_coefficients) {
+    std::map<std::string, mfem::ParGridFunction*>& all_coefficients, const double current_time) {
   if (this->has_pst()) {
-    auto field_map = this->get_pst().project_coefficients(this->vect_vtk_coefficient_,
+    auto field_map = this->get_pst().project_coefficients(current_time, this->vect_vtk_coefficient_,
                                                           this->variables_, this->auxvariables_);
 
     all_coefficients.insert(field_map.begin(), field_map.end());

@@ -35,6 +35,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/FileCoefficient.hpp"
 #include "Coefficients/FunctionCoefficient.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
@@ -44,6 +45,20 @@
 #include "Coefficients/ExprTkSloth.hpp"  // NOLINT [no include the directory when naming exprtk include file]
 #endif
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+namespace {
+/**
+ * @brief Checks that a shared coefficient pointer is not null before forwarding it.
+ *
+ * @tparam T Coefficient type
+ * @param ptr Pointer to check
+ * @return The same pointer, moved
+ */
+template <class T>
+std::shared_ptr<T> non_null(std::shared_ptr<T> ptr) {
+  MFEM_VERIFY(ptr != nullptr, "Coefficient: null coefficient pointer");
+  return ptr;
+}
+}  // namespace
 
 /**
  * @brief Constructs a Coefficient object from a user-provided function coefficient.
@@ -53,11 +68,11 @@
  *
  * @param type Quantity associated with this coefficient.
  * @param scheme Discretization scheme used by this coefficient.
- * @param coef Shared pointer to the function-based coefficient.
+ * @param coef Shared pointer to the function-based coefficient (must not be null).
  */
 Coefficient::Coefficient(GlossaryQuantity type, Scheme scheme,
                          std::shared_ptr<FunctionCoefficient> coef)
-    : SlothBaseCoefficient(type, scheme, std::move(coef)) {}
+    : SlothBaseCoefficient(type, scheme, non_null(std::move(coef))) {}
 
 /**
  * @brief Constructs a Coefficient object with a constant value.
@@ -65,5 +80,26 @@ Coefficient::Coefficient(GlossaryQuantity type, Scheme scheme,
  * @param type Quantity associated with this coefficient.
  * @param coef Constant coefficient value.
  */
-Coefficient::Coefficient(GlossaryQuantity type, double coef)
-    : SlothBaseCoefficient(type, std::move(coef)) {}
+Coefficient::Coefficient(GlossaryQuantity type, double coef) : SlothBaseCoefficient(type, coef) {}
+
+/**
+ * @brief Constructs a Coefficient object from a file-based coefficient (CSV).
+ *
+ * The discretization scheme is set to Scheme::File.
+ *
+ * @param type Quantity associated with this coefficient.
+ * @param coef Shared pointer to the file-based coefficient (must not be null).
+ */
+Coefficient::Coefficient(GlossaryQuantity type, std::shared_ptr<FileCoefficient> coef)
+    : SlothBaseCoefficient(type, Scheme::File, non_null(std::move(coef))) {}
+
+/**
+ * @brief Constructs a Coefficient object from a file-based coefficient (CSV),
+ *        with Glossary::Default as quantity.
+ *
+ * The discretization scheme is set to Scheme::File.
+ *
+ * @param coef Shared pointer to the file-based coefficient (must not be null).
+ */
+Coefficient::Coefficient(std::shared_ptr<FileCoefficient> coef)
+    : SlothBaseCoefficient(Glossary::Default, Scheme::File, non_null(std::move(coef))) {}

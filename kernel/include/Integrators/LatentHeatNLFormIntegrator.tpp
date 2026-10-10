@@ -163,7 +163,7 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       for (size_t k = 0; k < this->nb_vaux_; ++k) {
         vaux_gf_at_ip[k] = this->vaux_gf_[k].GetValue(Tr, ip);

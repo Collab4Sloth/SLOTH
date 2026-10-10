@@ -36,6 +36,7 @@
 #include "BCs/Boundary.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
+#include "Coefficients/MfemFileCoefficient.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -219,20 +220,36 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(
 
       if (has_dirichlet_coef) {
         mfem::Vector dirichlet_at_dofs(dof_list.Size());
-        // Loop over essential dofs and compute the coefficient at the dofs
-        for (int j = 0; j < dof_list.Size(); j++) {
-          u_values.clear();
-          vaux_values.clear();
 
-          int dof = dof_list[j];
-          u_values.push_back(u(dof));
-          for (auto aux : auxvars_unk) vaux_values.emplace_back(aux(dof));
+        if (dirichlet_coef.is_file()) {
+          // Coefficient from file: project once on boundary i (as in PostProcessing),
+          // then read the values at the essential true dofs
+          MfemFileCoefficient mfem_file_coef(dirichlet_coef);
 
-          dirichlet_at_dofs[j] =
-              compute_dirichlet_coefficient(dirichlet_coef, std::span<const double>(u_values),
-                                            std::span<const double>(vaux_values));
+          mfem::ParGridFunction g_bdr(this->fespace_);
+          g_bdr = 0.0;
+          g_bdr.ProjectBdrCoefficient(mfem_file_coef, tmp_array_bdr);
+
+          mfem::Vector g_tdofs;
+          g_bdr.GetTrueDofs(g_tdofs);
+          for (int j = 0; j < dof_list.Size(); j++) {
+            dirichlet_at_dofs[j] = g_tdofs(dof_list[j]);
+          }
+        } else {
+          // Loop over essential dofs and compute the coefficient at the dofs
+          for (int j = 0; j < dof_list.Size(); j++) {
+            u_values.clear();
+            vaux_values.clear();
+
+            int dof = dof_list[j];
+            u_values.push_back(u(dof));
+            for (auto aux : auxvars_unk) vaux_values.emplace_back(aux(dof));
+
+            dirichlet_at_dofs[j] =
+                compute_dirichlet_coefficient(dirichlet_coef, std::span<const double>(u_values),
+                                              std::span<const double>(vaux_values));
+          }
         }
-
         // SetSubVector with the calculated dirichlet values
         u.SetSubVector(dof_list, dirichlet_at_dofs);
       } else {
