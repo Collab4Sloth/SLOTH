@@ -97,4 +97,5 @@ class FunctionCoefficient {
                       std::optional<int> dimension = std::nullopt);
 
   virtual void set_time(double time);
+  double get_time() const;
 };

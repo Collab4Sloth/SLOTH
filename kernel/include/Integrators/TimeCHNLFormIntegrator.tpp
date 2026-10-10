@@ -213,7 +213,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
       // Get aux values at ip TODO(cci) (move in method)
@@ -315,7 +315,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     ///// CCI
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
       el[blk]->CalcPhysShape(Tr, Psi);
 
       // Get aux values at ip TODO(cci) (move in method)

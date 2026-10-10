@@ -45,6 +45,7 @@
 #include "Factory/ListFactory.hpp"
 #include "Operators/ListOperators.hpp"
 #include "PostProcessing/postprocessing.hpp"
+#include "PreProcessing/TabulatedFunction.hpp"
 #include "Problems/ListProblems.hpp"
 #include "Property/InterDiffusionCoefficient.hpp"
 #include "Property/PropertyBase.hpp"

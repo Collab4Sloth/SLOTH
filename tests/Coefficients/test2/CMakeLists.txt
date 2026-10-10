@@ -5,7 +5,6 @@ set(CURRENT_EXE CoefficientTest2)
 add_executable(${CURRENT_EXE} main.cpp)
 target_link_libraries(${CURRENT_EXE} Sloth)
 target_include_directories(${CURRENT_EXE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(${CURRENT_EXE} PRIVATE ${CMAKE_SOURCE_DIR}/kernel/Coefficients)
 
 
 add_test(NAME CoefficientTest20 COMMAND mpirun -np 1 ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} --test-case 0)

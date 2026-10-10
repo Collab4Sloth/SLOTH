@@ -93,7 +93,7 @@ class PostProcessing {
   void save_variables(Variables<T, DIM>& vars, const int& iter, const double& time);
 
   std::map<std::string, mfem::ParGridFunction*> project_coefficients(
-      std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
+      const double current_time, std::vector<Coefficient>& coeffs, Variables<T, DIM>& vars,
       std::vector<Variables<T, DIM>*> vect_aux_var);
   void save_coefficients(std::vector<Coefficient>& coefficients, Variables<T, DIM>& vars,
                          std::vector<Variables<T, DIM>*> vect_aux_var, const int& iter,

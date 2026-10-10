@@ -250,3 +250,9 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
  *
  */
 void FunctionCoefficient::set_time(double time) { this->time_ = time; }
+
+/**
+ * @brief Return the time associated with the coefficient
+ *
+ */
+double FunctionCoefficient::get_time() const { return this->time_; }

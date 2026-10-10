@@ -41,13 +41,13 @@
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/FileCoefficient.hpp"
+#include "Coefficients/MfemFileCoefficient.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
-////////////////////////////////
-// Without attributes names   //
-////////////////////////////////
 /**
  * @brief Construct a new Variable:: Variable object
  *
@@ -72,6 +72,35 @@ Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
 
   this->additional_variable_info_.resize(0);
 }
+
+/**
+ * @brief Construct a new Variable:: Variable object
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param fespace
+ * @param variable_name
+ * @param depth
+ * @param input_file_coeff
+ */
+template <class T, int DIM>
+Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
+                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
+                           GlossaryQuantity type, const int& depth,
+                           const Coefficient& input_file_coeff)
+    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
+  this->fespace_ = spatial->get_finite_element_space();
+
+  this->uh_.SetSpace(fespace_);
+  this->setInitialCondition(input_file_coeff);
+  this->setVariableDepth(depth);
+
+  this->additional_variable_info_.resize(0);
+}
+
+////////////////////////////////
+// Without attributes names   //
+////////////////////////////////
 
 /**
  * @brief Construct a new Variable:: Variable object
@@ -768,6 +797,29 @@ void Variable<T, DIM>::setInitialCondition(
     }
   } else {
     this->uh_.ProjectCoefficient(ic_fc);
+  }
+  this->uh_.GetTrueDofs(this->unk_);
+}
+
+/**
+ * @brief Define an initial condition on the basis of a FileCoefficient
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param initial_condition_file_coef
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::setInitialCondition(const Coefficient& initial_condition_file_coef) {
+  MfemFileCoefficient mfem_file_coef(initial_condition_file_coef);
+  this->uh_ = 0.;
+  if (this->el_attr_.Size() > 0) {
+    mfem::VectorArrayCoefficient vc(1);
+    vc.Set(0, &mfem_file_coef, false);
+    for (int i = 0; i < this->el_attr_.Size(); i++) {
+      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
+    }
+  } else {
+    this->uh_.ProjectCoefficient(mfem_file_coef);
   }
   this->uh_.GetTrueDofs(this->unk_);
 }

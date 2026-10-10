@@ -151,7 +151,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       const auto& eta = *elfun[off_blk] * Psi;
 
@@ -206,7 +206,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       const auto& eta = *elfun[blk] * Psi;
       vaux_gf_at_ip.clear();
@@ -281,7 +281,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
       // Get aux values at ip TODO(cci) (move in method)
       vaux_gf_at_ip.clear();
       for (const auto& aux_gf : vaux_gf_) {
@@ -332,7 +332,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -376,7 +376,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       vaux_gf_at_ip.clear();
       for (const auto& aux_gf : vaux_gf_) {

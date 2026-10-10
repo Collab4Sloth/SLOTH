@@ -3,3 +3,4 @@ if(SLOTH_USE_EXPRTK)
 endif(SLOTH_USE_EXPRTK)
 
 add_subdirectory(test2)
+add_subdirectory(test3)

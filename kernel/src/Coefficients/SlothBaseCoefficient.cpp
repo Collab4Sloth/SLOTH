@@ -344,6 +344,14 @@ bool SlothBaseCoefficient::is_semi_implicit() const {
 bool SlothBaseCoefficient::is_scalar() const { return this->scheme_ == Scheme::Constant; }
 
 /**
+ * @brief Indicates whether the coefficient comes from a file.
+ *
+ * @return true if the associated type is File,
+ *         false otherwise.
+ */
+bool SlothBaseCoefficient::is_file() const { return this->scheme_ == Scheme::File; }
+
+/**
  * @brief Update the time associated with the coefficient
  *
  * @note this->time_ is the variable used to define time in FunctionCoefficients

@@ -115,6 +115,7 @@ class SlothBaseCoefficient {
   bool is_explicit() const;
   bool is_semi_implicit() const;
   bool is_scalar() const;
+  bool is_file() const;
 
   void set_time(double time);
 

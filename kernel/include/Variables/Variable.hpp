@@ -37,6 +37,8 @@
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
+#include "Coefficients/Coefficient.hpp"
+#include "Coefficients/FileCoefficient.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -74,7 +76,7 @@ class Variable {
   void setInitialCondition(const double& initial_condition_value);
   void setInitialCondition(mfem::ParMesh* pmesh,
                            const std::tuple<std::string, std::string>& input_file_dir);
-
+  void setInitialCondition(const Coefficient& initial_condition_file_coef);
   void setAnalyticalSolution(const AnalyticalFunctions<DIM>& analytical_solution_name);
   void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
   void saveBeforeUpdate();
@@ -82,12 +84,16 @@ class Variable {
                       const std::set<std::string>& attribute_names);
 
  public:
-  /////////////////////////////
-  // Without attributes names   //
-  /////////////////////////////
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, GlossaryQuantity type, const int& depth,
            const std::tuple<std::string, std::string>& input_file_dir);
+
+  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
+           const std::string& variable_name, GlossaryQuantity type, const int& depth,
+           const Coefficient& input_file_coefficient);
+  /////////////////////////////
+  // Without attributes names   //
+  /////////////////////////////
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, GlossaryQuantity type, const int& depth,

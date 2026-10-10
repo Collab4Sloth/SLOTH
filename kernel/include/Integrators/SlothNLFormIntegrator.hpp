@@ -60,6 +60,15 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   Geometry geometry_ = Geometry::Cartesian;
   double time_step_;
   std::string integrator_name_ = "";
+
+  // Current integration point (used by file-based coefficients)
+  mfem::ElementTransformation* current_tr_ = nullptr;  ///< Transformation of the current element
+  mfem::Vector x_ip_;        ///< Physical coordinates of the current integration point
+  bool x_ip_valid_ = false;  ///< True if x_ip_ matches the current integration point
+
+  void set_int_point(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
+  std::span<const double> get_physical_point();
+
   virtual void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                                      mfem::ElementTransformation& Tr,
                                      const mfem::Array<const mfem::Vector*>& elfun,

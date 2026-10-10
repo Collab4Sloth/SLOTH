@@ -142,7 +142,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
 
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {
         vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
@@ -219,7 +219,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
     // elmat = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-      Tr.SetIntPoint(&ip);
+      this->set_int_point(Tr, ip);
       el[blk]->CalcShape(ip, Psi);
       // Get aux values at ip TODO(cci) (move in method)
       for (size_t k = 0; k < vaux_gf_.size(); ++k) {

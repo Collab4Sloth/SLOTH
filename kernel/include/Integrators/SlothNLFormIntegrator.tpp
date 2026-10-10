@@ -191,6 +191,46 @@ std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(const in
 }
 
 /**
+ * @brief Set the current integration point.
+ *
+ * Wraps Tr.SetIntPoint(&ip) and keeps a pointer to the transformation so that
+ * file-based coefficients can retrieve the physical coordinates of the point.
+ * The physical coordinates are computed lazily (only if requested).
+ *
+ * @tparam VARS Template parameter defining the variables.
+ * @param Tr Element transformation.
+ * @param ip Integration point (reference coordinates).
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::set_int_point(mfem::ElementTransformation& Tr,
+                                                const mfem::IntegrationPoint& ip) {
+  Tr.SetIntPoint(&ip);
+  this->current_tr_ = &Tr;
+  this->x_ip_valid_ = false;
+}
+
+/**
+ * @brief Return the physical coordinates of the current integration point.
+ *
+ * Computed once per integration point, then cached until the next call to set_int_point().
+ *
+ * @tparam VARS Template parameter defining the variables.
+ * @return Physical coordinates of the current integration point.
+ */
+template <class VARS>
+std::span<const double> SlothNLFormIntegrator<VARS>::get_physical_point() {
+  MFEM_VERIFY(this->current_tr_ != nullptr,
+              "Error in " + this->integrator_name_ +
+                  ": no integration point set. Use set_int_point(Tr, ip) instead of "
+                  "Tr.SetIntPoint(&ip).");
+  if (!this->x_ip_valid_) {
+    this->current_tr_->Transform(this->current_tr_->GetIntPoint(), this->x_ip_);
+    this->x_ip_valid_ = true;
+  }
+  return std::span<const double>(this->x_ip_.GetData(), this->x_ip_.Size());
+}
+
+/**
  * @brief Return the value of the coefficient
  * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
  * class variable aux_gf_
@@ -206,6 +246,9 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                                                         const std::span<const double>& values,
                                                         const std::span<const double>& aux_values) {
+  if (coef.is_file()) {
+    return coef.compute(this->get_physical_point(), std::span<const double>());
+  }
   if (coef.is_scalar()) {
     return coef.compute();
   } else {
@@ -241,7 +284,7 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
     Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  if (coef.is_scalar() || coef.is_explicit()) {
+  if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
   } else {
     std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
@@ -280,7 +323,7 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
     Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  if (coef.is_scalar()) {
+  if (coef.is_scalar() || coef.is_file()) {
     return 0.0;
   } else {
     std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
@@ -318,7 +361,7 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
-  if (coef.is_scalar() || coef.is_explicit()) {
+  if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
   } else {
     std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
