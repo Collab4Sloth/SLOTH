@@ -214,6 +214,7 @@ if [[ "$local_mfem_version" == "Yes" ]]; then
     export HYPRE_DIR="$MFEM4SLOTH/hypre/src/hypre/"
     export METIS_DIR="$MFEM4SLOTH/metis-4.0/"
     export SuiteSparse_DIR="$MFEM4SLOTH/SuiteSparse/"
+    # export MUMPS_DIR="$MFEM4SLOTH/MUMPS/"
 else
     #=============================================
     #=============================================

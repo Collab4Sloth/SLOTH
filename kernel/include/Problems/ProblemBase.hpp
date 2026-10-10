@@ -141,7 +141,7 @@ class ProblemBase {
     return pst_->get();
   }
 
-  bool disableTimeSpecialized() { this->enable_time_specialized_ = false; };
+  void disableTimeSpecialized() { this->enable_time_specialized_ = false; };
 
   //
 

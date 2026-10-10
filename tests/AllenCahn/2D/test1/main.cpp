@@ -16,6 +16,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Parameters/Parameters.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 ///---------------
@@ -143,11 +144,23 @@ int main(int argc, char* argv[]) {
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
                        Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12),
                        Parameter("iter_max", 1000)));
+#ifdef SLOTH_USE_MUMPS
+        if (NN == 30) {
+          oper.overload_solver(DirectSolverType::MUMPS,
+                               Parameters(Parameter("mat_type", 1),  // SYMMETRIC_POSITIVE_DEFINITE
+                                          Parameter("reordering_strategy", 0)  // AUTOMATIC
+                                          ));
+          oper.overload_preconditioner(PreconditionerType::NO);
+        } else {
+          oper.overload_solver(HypreSolverType::HYPRE_GMRES);
+          oper.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU);
+        }
+#else
         const auto& solver = HypreSolverType::HYPRE_GMRES;
         const auto& precond = HyprePreconditionerType::HYPRE_ILU;
         oper.overload_solver(solver);
         oper.overload_preconditioner(precond);
-
+#endif
         auto phi_cvg = PhysicalConvergence(ConvergenceType::ABSOLUTE_MAX, 1.e-12);
         auto CVG = Convergence(phi_cvg);
         auto pst = PST(&spatial, p_pst);

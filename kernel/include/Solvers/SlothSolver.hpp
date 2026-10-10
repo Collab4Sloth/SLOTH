@@ -59,11 +59,15 @@ using VHypreSolver =
     std::variant<sptr<mfem::HyprePCG>, sptr<mfem::HypreGMRES>, sptr<mfem::HypreFGMRES>>;
 using VIterativeSolver = std::variant<sptr<mfem::BiCGSTABSolver>, sptr<mfem::MINRESSolver>,
                                       sptr<mfem::CGSolver>, sptr<mfem::GMRESSolver>>;
-using VDirectSolver = std::variant<sptr<mfem::UMFPackSolver>>;
 
 using VNLSolver = std::variant<sptr<mfem::NewtonSolver>, sptr<mfem::LBFGSSolver>>;
 
+#ifdef SLOTH_USE_MUMPS
+using VDirectSolver = std::variant<sptr<mfem::MUMPSSolver>>;
 using VSolvers = concat_variant_type<VHypreSolver, VIterativeSolver, VDirectSolver, VNLSolver>;
+#else
+using VSolvers = concat_variant_type<VHypreSolver, VIterativeSolver, VNLSolver>;
+#endif
 
 //-------------------
 // Preconditionners
@@ -157,6 +161,10 @@ struct UtilsSolvers {
         SlothInfo::debug("Solver used: NewtonSolver ");
       else if constexpr (std::is_same<Solv, sptr<mfem::LBFGSSolver>>::value)
         SlothInfo::debug("Solver used: LBFGSSolver ");
+#ifdef SLOTH_USE_MUMPS
+      else if constexpr (std::is_same<Solv, sptr<mfem::MUMPSSolver>>::value)
+        SlothInfo::debug("Solver used: MUMPSSolver ");
+#endif
       else
         SlothInfo::debug("Solver used: unknown ");
     }
@@ -230,6 +238,13 @@ struct SetPrecondSolver {
           UtilsSolvers::setter_hypre(solv, prec);
         }
       }
+#ifdef SLOTH_USE_MUMPS
+      if constexpr (is_in_variant_v<TT, VDirectSolver>) {
+        MFEM_VERIFY(false,
+                    "SetPrecondSolver: direct solvers (MUMPS) do not use a preconditioner; "
+                    "use PreconditionerType::NO or HyprePreconditionerType::NO");
+      }
+#endif
     }
 
     if constexpr (!std::is_same_v<TT, sptr<std::monostate>>) {
@@ -283,6 +298,13 @@ struct SetPrecondNLSolver {
           UtilsSolvers::setter_hypre(solv, prec);
         }
       }
+#ifdef SLOTH_USE_MUMPS
+      if constexpr (is_in_variant_v<TT, VDirectSolver>) {
+        MFEM_VERIFY(false,
+                    "SetPrecondNLSolver: direct solvers (MUMPS) do not use a preconditioner; "
+                    "use PreconditionerType::NO or HyprePreconditionerType::NO");
+      }
+#endif
     }
 
     SlothInfo::debug("SetPrecondNLSolver: setting operator ");

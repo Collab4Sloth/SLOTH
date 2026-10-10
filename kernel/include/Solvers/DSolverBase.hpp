@@ -33,10 +33,12 @@
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
-class SolverUMFPACK : public SolverBase<mfem::UMFPackSolver, DirectSolverType> {
+#ifdef SLOTH_USE_MUMPS
+class SolverMUMPS : public SolverBase<mfem::MUMPSSolver, DirectSolverType> {
  public:
-  SolverUMFPACK();
-  std::shared_ptr<mfem::UMFPackSolver> create_solver(const Parameters& params) override;
+  SolverMUMPS();
+  std::shared_ptr<mfem::MUMPSSolver> create_solver(const Parameters& params) override;
 
-  ~SolverUMFPACK();
+  ~SolverMUMPS();
 };
+#endif

@@ -32,7 +32,7 @@
 ///////////////////////////////////////////////////
 enum class NLSolverType { NEWTON, LBFGS };
 enum class IterativeSolverType { BICGSTAB, GMRES, CG, MINRES };
-enum class DirectSolverType { UMFPACK };
+enum class DirectSolverType { MUMPS };
 enum class HypreSolverType { HYPRE_PCG, HYPRE_GMRES, HYPRE_FGMRES };
 
 ///////////////////////////////////////////////////
@@ -131,9 +131,13 @@ const auto print_level = -1;
  * @brief Default constant used by Mass Solver
  *
  */
-namespace UMFPACK_DefaultConstant {
-const auto print_level = -1;
-}  // namespace UMFPACK_DefaultConstant
+namespace MUMPS_DefaultConstant {
+const int print_level = -1;
+const int mat_type =
+    0;  // (From MFEM) UNSYMMETRIC = 0, SYMMETRIC_POSITIVE_DEFINITE = 1, SYMMETRIC_INDEFINITE = 2
+const int reordering_strategy =
+    0;  // (From MFEM) AUTOMATIC = 0, AMD, AMF,PORD, METIS, PARMETIS, SCOTCH, PTSCOTCH
+}  // namespace MUMPS_DefaultConstant
 
 //////////////////////////////////////////
 //  PRECONDITIONERS

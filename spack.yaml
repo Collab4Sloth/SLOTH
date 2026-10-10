@@ -1,12 +1,18 @@
 spack:
   specs:
-    - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist %gcc@14
+    - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist +mumps %gcc@14
     - exprtk
 
   concretizer:
     unify: true
 
   packages:
+    c:
+      require: [gcc@14]
+    cxx:
+      require: [gcc@14]
+    fortran:
+      require: [gcc@14]
     mpi:
       buildable: false
     openblas:
