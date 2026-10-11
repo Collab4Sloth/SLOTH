@@ -11,7 +11,7 @@ create_col_comparison("CompareNucleation1_101" "ref101/time_specialized.csv" "Sa
 
 add_test(
     NAME Nucleation1_plot
-    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/plot.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/plot.py
 )
 
 set_tests_properties(
