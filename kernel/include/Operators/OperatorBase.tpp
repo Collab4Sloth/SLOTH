@@ -1042,7 +1042,6 @@ void OperatorBase<T, DIM>::overload_nl_solver(NLSolverType NLSOLVER, const Param
 
 /**
  * @brief  Overload the default linear solver used for the LHS
- * @remark only used for explicit time-scheme
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
@@ -1056,7 +1055,6 @@ void OperatorBase<T, DIM>::overload_solver(VSolverType SOLVER) {
 
 /**
  * @brief  Overload the parameter for the linear solver used for the LHS
- * @remark only used for explicit time-scheme
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension

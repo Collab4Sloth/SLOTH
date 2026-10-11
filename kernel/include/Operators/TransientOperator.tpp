@@ -192,7 +192,8 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
     }
     default:
       mfem::mfem_error(
-          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4 are "
+          "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4, SDIRK23, "
+          "SDIRK33 are "
           "available");
       break;
   }
