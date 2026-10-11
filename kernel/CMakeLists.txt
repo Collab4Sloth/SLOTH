@@ -1,5 +1,4 @@
-# Create the library
-option(SLOTH_USE_SHARED "Enable static library for Sloth" OFF)
+# Create the library (SLOTH_* options are declared in the top-level CMakeLists.txt)
 if(SLOTH_USE_SHARED)
     add_library(Sloth SHARED)
 else()
@@ -38,9 +37,34 @@ target_include_directories(Sloth
 target_include_directories(Sloth SYSTEM PUBLIC
     $<BUILD_INTERFACE:${MFEM_DIR}/include>
 )
-target_include_directories(Sloth SYSTEM PUBLIC
-    $<BUILD_INTERFACE:$ENV{ExprTk_INCLUDE_DIR}>
-)
+# ExprTk (header-only): directory containing exprtk.hpp, stored in the cache
+# variable ExprTk_INCLUDE_DIR.
+#   - envSloth.sh --exprtk=DIR exports the environment variable
+#     ExprTk_INCLUDE_DIR, which takes priority (a new --exprtk path in an
+#     existing build directory is taken into account);
+#   - otherwise the cached value is kept (a plain "cmake ." keeps ExprTk);
+#   - -DExprTk_INCLUDE_DIR=DIR can also be given directly.
+if(SLOTH_USE_EXPRTK)
+    if(NOT "$ENV{ExprTk_INCLUDE_DIR}" STREQUAL ""
+       AND NOT "$ENV{ExprTk_INCLUDE_DIR}" STREQUAL "${ExprTk_INCLUDE_DIR}")
+        unset(ExprTk_INCLUDE_DIR CACHE)
+    endif()
+    find_path(ExprTk_INCLUDE_DIR
+        NAMES exprtk.hpp
+        HINTS ENV ExprTk_INCLUDE_DIR
+        PATH_SUFFIXES exprtk include/exprtk
+        DOC "Directory containing exprtk.hpp"
+    )
+    if(NOT ExprTk_INCLUDE_DIR)
+        message(FATAL_ERROR
+            "SLOTH_USE_EXPRTK is ON but exprtk.hpp was not found.\n"
+            "Use envSloth.sh --exprtk=<dir containing exprtk.hpp> "
+            "or -DExprTk_INCLUDE_DIR=<dir>.")
+    endif()
+    target_include_directories(Sloth SYSTEM PUBLIC
+        $<BUILD_INTERFACE:${ExprTk_INCLUDE_DIR}>
+    )
+endif()
 
 # target_link_directories(Sloth PUBLIC ${MFEM_DIR}/lib  $ENV{HYPRE_DIR}/lib $ENV{MPI_DIR}/lib $ENV{PETSC_DIR}/lib $ENV{METIS_DIR}/lib )
 
@@ -62,10 +86,52 @@ if(MFEM_USE_MUMPS)
 endif()
 
 # EXTERNAL??
-option(SLOTH_USE_EXTERNAL "Enable the use of an external package that requires linking with external library" OFF)
+# External library (envSloth.sh --external=EXT_LIBDIR,EXT_LIBNAME)
+#   SLOTH_EXTERNAL_LIBDIR  : directory containing the library
+#   SLOTH_EXTERNAL_LIBNAME : library name, as given to the linker
+# Linking is unchanged: link directory + library name.
+# The values are stored in the cache: the environment variables EXT_LIBDIR /
+# EXT_LIBNAME (exported by envSloth.sh) take priority; otherwise the cached
+# values are kept (a plain "cmake ." keeps the external library). They can also
+# be given directly with -DSLOTH_EXTERNAL_LIBDIR=... -DSLOTH_EXTERNAL_LIBNAME=...
 if(SLOTH_USE_EXTERNAL)
-        target_link_directories(Sloth PUBLIC $ENV{EXT_LIBDIR} )
-        target_link_libraries(Sloth PUBLIC $ENV{EXT_LIBNAME})
+    set(SLOTH_EXTERNAL_LIBDIR "" CACHE PATH "External library: directory (EXT_LIBDIR)")
+    set(SLOTH_EXTERNAL_LIBNAME "" CACHE STRING "External library: name given to the linker (EXT_LIBNAME)")
+    if(NOT "$ENV{EXT_LIBDIR}" STREQUAL "")
+        set(SLOTH_EXTERNAL_LIBDIR "$ENV{EXT_LIBDIR}" CACHE PATH "External library: directory (EXT_LIBDIR)" FORCE)
+    endif()
+    if(NOT "$ENV{EXT_LIBNAME}" STREQUAL "")
+        set(SLOTH_EXTERNAL_LIBNAME "$ENV{EXT_LIBNAME}" CACHE STRING "External library: name given to the linker (EXT_LIBNAME)" FORCE)
+    endif()
+
+    if(SLOTH_EXTERNAL_LIBDIR STREQUAL "" OR NOT IS_DIRECTORY "${SLOTH_EXTERNAL_LIBDIR}")
+        message(FATAL_ERROR
+            "SLOTH_USE_EXTERNAL is ON but the external library directory "
+            "'${SLOTH_EXTERNAL_LIBDIR}' does not exist.\n"
+            "Use envSloth.sh --external=EXT_LIBDIR,EXT_LIBNAME "
+            "or -DSLOTH_EXTERNAL_LIBDIR=<dir>.")
+    endif()
+    if(SLOTH_EXTERNAL_LIBNAME STREQUAL "")
+        message(FATAL_ERROR
+            "SLOTH_USE_EXTERNAL is ON but no external library name was given.\n"
+            "Use envSloth.sh --external=EXT_LIBDIR,EXT_LIBNAME "
+            "or -DSLOTH_EXTERNAL_LIBNAME=<name>.")
+    endif()
+
+    # Early check (warning only, linking is left unchanged): does the library
+    # exist in SLOTH_EXTERNAL_LIBDIR? Accepts "name", "libname.*" or a file name.
+    file(GLOB _sloth_ext_candidates
+         "${SLOTH_EXTERNAL_LIBDIR}/${SLOTH_EXTERNAL_LIBNAME}"
+         "${SLOTH_EXTERNAL_LIBDIR}/lib${SLOTH_EXTERNAL_LIBNAME}.*")
+    if(NOT _sloth_ext_candidates AND NOT EXISTS "${SLOTH_EXTERNAL_LIBNAME}")
+        message(WARNING
+            "External library '${SLOTH_EXTERNAL_LIBNAME}' not found in "
+            "'${SLOTH_EXTERNAL_LIBDIR}' (looked for '${SLOTH_EXTERNAL_LIBNAME}' "
+            "and 'lib${SLOTH_EXTERNAL_LIBNAME}.*'). Linking may fail.")
+    endif()
+
+    target_link_directories(Sloth PUBLIC ${SLOTH_EXTERNAL_LIBDIR})
+    target_link_libraries(Sloth PUBLIC ${SLOTH_EXTERNAL_LIBNAME})
 endif(SLOTH_USE_EXTERNAL)
 
 
@@ -84,25 +150,42 @@ endif(SLOTH_USE_LIBTORCH)
 # VORO++ API ??
 # ########################
 if(SLOTH_USE_VORO)
-    
+    # Search order:
+    #   1. $ENV{VORO} (set by envSloth.sh --voro=DIR): DIR/include, DIR/lib
+    #   2. Homebrew / /usr/local
+    #   3. CMake default locations (CMAKE_PREFIX_PATH, system)
+    # Results are cached (VORO_INCLUDE_DIR, VORO_LIBRARY): a plain "cmake ."
+    # keeps them. When --voro points to another directory than at the
+    # previous configure, the search is done again.
+    # (Previously $ENV{VORO} came after the Homebrew paths, so --voro was
+    # ignored whenever voro++ was also installed with Homebrew.)
+    if(NOT "$ENV{VORO}" STREQUAL "" AND NOT "$ENV{VORO}" STREQUAL "${SLOTH_VORO_ROOT_USED}")
+        unset(VORO_INCLUDE_DIR CACHE)
+        unset(VORO_LIBRARY CACHE)
+        set(SLOTH_VORO_ROOT_USED "$ENV{VORO}" CACHE INTERNAL "Voro++ root (--voro) used for the cached search")
+    endif()
+
+    set(_voro_inc_hints /opt/homebrew/include /usr/local/include)
+    set(_voro_lib_hints /opt/homebrew/lib /usr/local/lib)
+    if(NOT "$ENV{VORO}" STREQUAL "")
+        list(INSERT _voro_inc_hints 0 "$ENV{VORO}/include")
+        list(INSERT _voro_lib_hints 0 "$ENV{VORO}/lib")
+    endif()
+
     find_path(
         VORO_INCLUDE_DIR
         NAMES
         voro++.hh
         voro++/voro++.hh
-        HINTS
-        /opt/homebrew/include
-        /usr/local/include
-        $ENV{VORO}/include
+        HINTS ${_voro_inc_hints}
+        DOC "Voro++ include directory"
     )
 
     find_library(
         VORO_LIBRARY
         NAMES voro++ libvoro++
-        HINTS
-        /opt/homebrew/lib
-        /usr/local/lib
-        $ENV{VORO}/lib
+        HINTS ${_voro_lib_hints}
+        DOC "Voro++ library"
     )
 
     message(STATUS "VORO_INCLUDE_DIR=${VORO_INCLUDE_DIR}")
@@ -129,15 +212,11 @@ endif(SLOTH_USE_VORO)
 
 
 # ExprTk ??
-option(SLOTH_USE_EXPRTK "Sloth use ExprTk" OFF)
-
 if(SLOTH_USE_EXPRTK)
     target_compile_definitions(Sloth PUBLIC SLOTH_USE_EXPRTK=1)
 endif()
 
 ## Debug option
-option(MATOOLS_VERBOSITY_LEVEL_1 "add verbosity level 1" OFF)
-
 if(MATOOLS_VERBOSITY_LEVEL_1)
   target_compile_definitions(Sloth PUBLIC MATIMERS_VEROBSITY_LEVEL_1)
 endif()

@@ -61,7 +61,7 @@ endif(MFEM_USE_SUITESPARSE)
 find_package(METIS REQUIRED)
 
 # HYPRE version
-include(hypre)
+include(HYPRE4SLOTH)
 set(MFEM_HYPRE_VERSION ${HYPRE_VERSION}) 
 
 add_compile_definitions(MFEM_HYPRE_VERSION=${MFEM_HYPRE_VERSION})
