@@ -105,11 +105,11 @@ std::shared_ptr<mfem::LBFGSSolver> SolverLBFGS::create_solver(const Parameters& 
   const int history_size =
       params.get_param_value_or_default<int>("history_size", LBFGSDefaultConstant::history_size);
   const int n_iter_max =
-      params.get_param_value_or_default<int>("iter_max", NewtonDefaultConstant::iter_max);
+      params.get_param_value_or_default<int>("iter_max", LBFGSDefaultConstant::iter_max);
   const double n_rel_tol =
-      params.get_param_value_or_default<double>("rel_tol", NewtonDefaultConstant::rel_tol);
+      params.get_param_value_or_default<double>("rel_tol", LBFGSDefaultConstant::rel_tol);
   const double n_abs_tol =
-      params.get_param_value_or_default<double>("abs_tol", NewtonDefaultConstant::abs_tol);
+      params.get_param_value_or_default<double>("abs_tol", LBFGSDefaultConstant::abs_tol);
 
   auto ss = std::make_shared<mfem::LBFGSSolver>(MPI_COMM_WORLD);
 

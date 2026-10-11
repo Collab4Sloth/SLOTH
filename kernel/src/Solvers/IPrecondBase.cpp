@@ -53,10 +53,13 @@ std::shared_ptr<mfem::DSmoother> PrecondDSmoother::create_solver(const Parameter
   this->solver_description_ = params.get_param_value<std::string>("description");
   SlothInfo::debug(" Create ", this->get_description());
 
-  const int type = params.get_param_value_or_default<int>("type", 1);
-  const double scale = params.get_param_value_or_default<double>("scale", 1.);
-  const int its = params.get_param_value_or_default<int>("iterations", 1);
-  const bool use_abs_diag = params.get_param_value_or_default<int>("use_abs_diag", true);
+  const int type = params.get_param_value_or_default<int>("type", DSMOOTHER_DefaultConstant::type);
+  const double scale =
+      params.get_param_value_or_default<double>("scale", DSMOOTHER_DefaultConstant::scale);
+  const int its =
+      params.get_param_value_or_default<int>("iterations", DSMOOTHER_DefaultConstant::iterations);
+  const bool use_abs_diag = params.get_param_value_or_default<bool>(
+      "use_abs_diag", DSMOOTHER_DefaultConstant::positive_diagonal);
 
   auto pp = std::make_shared<mfem::DSmoother>(type, scale, its);
   pp->SetPositiveDiagonal(use_abs_diag);

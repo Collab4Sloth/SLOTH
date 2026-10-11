@@ -148,7 +148,9 @@ const int reordering_strategy =
  */
 namespace DSMOOTHER_DefaultConstant {
 const auto type = 0;  // 0, 1, 2 - scaled Jacobi, scaled l1-Jacobi, scaled lumped-Jacobi
-const bool positive_diagonal = false;
+const bool positive_diagonal = true;
+const auto scale = 1.;
+const auto iterations = 1;
 const auto print_level = -1;
 }  // namespace DSMOOTHER_DefaultConstant
 
