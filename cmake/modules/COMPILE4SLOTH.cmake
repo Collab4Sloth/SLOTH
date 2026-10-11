@@ -30,17 +30,33 @@ set(WARNINGS -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -W
 # Debug 
 set(DEBUG_OPTIONS -g -fstack-protector -O0 -gdwarf-4 -pedantic ${WARNINGS})
 
-# Release
-set(RELEASE_OPTIONS -O3 -DNDEBUG -DNO_BOUND_CHECK -march=native -flto -fno-plt)
+# Note: for the standard build types (Release, RelWithDebInfo, MinSizeRel),
+# CMake already adds its own flags through CMAKE_CXX_FLAGS_<CONFIG>
+# (Release: -O3 -DNDEBUG, RelWithDebInfo: -O2 -g -DNDEBUG,
+#  MinSizeRel: -Os -DNDEBUG). They are not repeated below.
 
-# Portable Release
-set(PORTABLE_REL_OPTIONS -O3 -DNDEBUG -march=x86-64 -mtune=generic )
+# Release
+set(RELEASE_OPTIONS -DNO_BOUND_CHECK -march=native -flto)
+if(NOT APPLE)
+  # -fno-plt only makes sense for ELF binaries (Linux); no effect on macOS
+  list(APPEND RELEASE_OPTIONS -fno-plt)
+endif()
+
+# Portable Release (custom build type: no CMAKE_CXX_FLAGS_PORTABLERELEASE,
+# so optimisation flags are set here)
+set(PORTABLE_REL_OPTIONS -O3 -DNDEBUG)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i.86)$")
+  # Generic x86-64 target
+  list(APPEND PORTABLE_REL_OPTIONS -march=x86-64 -mtune=generic)
+endif()
+# On arm64/aarch64, no -march: the compiler default target is already generic
+# (-march=x86-64 is invalid there)
 
 # RelWithDebInfo
-set(RELEASEWITHDEBINFO_OPTIONS -O2 -g -march=native -fno-omit-frame-pointer)
+set(RELEASEWITHDEBINFO_OPTIONS -march=native -fno-omit-frame-pointer)
 
 # MinSizeRel
-set(MINSIZEREL_OPTIONS -Os -DNDEBUG -flto )
+set(MINSIZEREL_OPTIONS -flto)
 
 # Optim
 set(OPTIM_OPTIONS -g -O2)

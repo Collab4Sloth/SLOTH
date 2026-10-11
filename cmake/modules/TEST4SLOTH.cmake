@@ -1,17 +1,28 @@
 add_custom_target(tests
     COMMENT "Build all tests " DEPENDS Sloth
 )
+
+# MPI launcher used by the tests.
+# MPIEXEC_EXECUTABLE / MPIEXEC_NUMPROC_FLAG are normally provided by
+# find_package(MPI) (FindMFEM.cmake). They can be overridden on the command
+# line, e.g. -DMPIEXEC_EXECUTABLE=/path/to/mpirun.
+# Fallback (MFEM without MPI): look for mpiexec/mpirun as before.
+if(NOT MPIEXEC_EXECUTABLE)
+  find_program(MPIEXEC_EXECUTABLE NAMES mpiexec mpirun)
+endif()
+if(NOT MPIEXEC_NUMPROC_FLAG)
+  set(MPIEXEC_NUMPROC_FLAG "-np")
+endif()
 # COMPARISON test
 function(create_col_comparison test_name reference_file results_file cols criterion threshold test_will_fail test_depend test_label)
   set(DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/ref_${test_name})
   file(GLOB_RECURSE REF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/ref/${reference_file})
   file(MAKE_DIRECTORY ${DEST_DIR})
   configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
-  configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
   configure_file(${CMAKE_SOURCE_DIR}/tests/tools/col_compare.py ${CMAKE_CURRENT_BINARY_DIR}/col_compare.py COPYONLY)
 
-  add_test(NAME ${test_name} COMMAND python3 col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1)
-  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+  add_test(NAME ${test_name} COMMAND ${Python3_EXECUTABLE} col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1)
+  set_tests_properties(${test_name} PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES DEPENDS ${test_depend})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 endfunction() # COMPARISON test
@@ -22,12 +33,10 @@ function(create_col_comparison_convergence test_name reference_file results_file
   file(GLOB_RECURSE REF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/ref/${reference_file})
   file(MAKE_DIRECTORY ${DEST_DIR})
   configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
-  configure_file(${REF_FILE} ${DEST_DIR}/${reference_file} COPYONLY)
   configure_file(${CMAKE_SOURCE_DIR}/tests/tools/col_compare.py ${CMAKE_CURRENT_BINARY_DIR}/col_compare.py COPYONLY)
 
-	
-  add_test(NAME ${test_name} COMMAND bash -c "python3 convergence_study.py -l ${domaine_size} -t ${time_step_to_study} && python3 col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1" )
-  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+  add_test(NAME ${test_name} COMMAND bash -c "\"${Python3_EXECUTABLE}\" convergence_study.py -l ${domaine_size} -t ${time_step_to_study} && \"${Python3_EXECUTABLE}\" col_compare.py -f ${results_file} ${DEST_DIR}/${reference_file} -c ${cols} -e ${criterion} -k ${threshold} -w 1" )
+  set_tests_properties(${test_name} PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES DEPENDS ${test_depend})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 endfunction() # COMPARISON test
@@ -44,6 +53,9 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
           $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/tests>
           $<INSTALL_INTERFACE:tests>
   )
+  # Headers generated at configure time (GenerateCoefficient.py) are written
+  # in the build directory of the test, not in the source tree.
+  target_include_directories(${CURRENT_EXE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   # RPATH depending on OS
   if(APPLE)
       set_target_properties(${CURRENT_EXE} PROPERTIES
@@ -55,8 +67,8 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
       )
   endif()
 
-  add_test(NAME ${test_name} COMMAND mpirun -np ${test_cpu} ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE})
-  set_tests_properties(PROPERTIES WILL_FAIL ${test_will_fail})
+  add_test(NAME ${test_name} COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${test_cpu} ${MPIEXEC_PREFLAGS} ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_EXE} ${MPIEXEC_POSTFLAGS})
+  set_tests_properties(${test_name} PROPERTIES WILL_FAIL ${test_will_fail})
   set_tests_properties(${test_name} PROPERTIES LABELS ${test_label})
 
   set_compile_options(${CURRENT_EXE})

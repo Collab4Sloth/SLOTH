@@ -68,12 +68,33 @@ find_path(MFEM_INCLUDE_DIRS mfem.hpp
   DOC "MFEM header location.")
 find_path(MFEM_INCLUDE_DIRS mfem.hpp)
 
-set(DISCOVER_EXTRA_INC_DIRS ${MFEM_TPLFLAGS})
-string(REPLACE " " ";" MFEM_EXTRA_INC_DIRS ${DISCOVER_EXTRA_INC_DIRS})
-
-foreach(FLAG IN LISTS MFEM_EXTRA_INC_DIRS)
-  add_compile_options(-isystem ${FLAG})
-endforeach(FLAG)
+# MFEM_TPLFLAGS (from config.mk) holds the third-party include flags used to
+# build MFEM, e.g. "-I/opt/homebrew/include -I/path/to/hypre/include".
+# Include paths are added as SYSTEM include directories (-isystem <dir>);
+# any other flag is forwarded unchanged.
+# (Previously each flag was prefixed with -isystem, giving the invalid
+# "-isystem -I<dir>" sequence.)
+if(MFEM_TPLFLAGS)
+  separate_arguments(MFEM_TPLFLAGS_LIST UNIX_COMMAND "${MFEM_TPLFLAGS}")
+  set(MFEM_EXTRA_INC_DIRS "")
+  set(_mfem_next_is_incdir FALSE)
+  foreach(FLAG IN LISTS MFEM_TPLFLAGS_LIST)
+    if(_mfem_next_is_incdir)
+      # Path given as a separate argument: "-I <dir>" or "-isystem <dir>"
+      list(APPEND MFEM_EXTRA_INC_DIRS "${FLAG}")
+      set(_mfem_next_is_incdir FALSE)
+    elseif(FLAG STREQUAL "-I" OR FLAG STREQUAL "-isystem")
+      set(_mfem_next_is_incdir TRUE)
+    elseif(FLAG MATCHES "^-I(.+)$")
+      list(APPEND MFEM_EXTRA_INC_DIRS "${CMAKE_MATCH_1}")
+    elseif(FLAG MATCHES "^-isystem(.+)$")
+      list(APPEND MFEM_EXTRA_INC_DIRS "${CMAKE_MATCH_1}")
+    elseif(NOT FLAG STREQUAL "")
+      add_compile_options(${FLAG})
+    endif()
+  endforeach(FLAG)
+  include_directories(SYSTEM ${MFEM_EXTRA_INC_DIRS})
+endif()
 
 # Find the library
 find_library(MFEM_LIBRARY mfem
@@ -110,7 +131,10 @@ if(MFEM_USE_MPI)
     HYPRE::HYPRE
     METIS::METIS
   )
-  include_directories(MFEM::mfem SYSTEM INTERFACE ${MPI_INCLUDE_PATH})
+  # MPI headers as system include directories.
+  # (Previously: include_directories(MFEM::mfem SYSTEM INTERFACE ...), where
+  # "MFEM::mfem" and "INTERFACE" were wrongly taken as include paths.)
+  include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 endif(MFEM_USE_MPI)
 
 if (NOT MFEM_USE_SUITESPARSE)
