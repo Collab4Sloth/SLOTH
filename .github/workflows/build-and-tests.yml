@@ -73,8 +73,8 @@ jobs:
       shell: spack-bash {0}    
       run: | 
         spack env activate .
-        source pysloth/bin/activate
-        
+        export PATH="$pythonLocation/bin:$PATH"
+
         cd ${{ github.workspace }}/build
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -j $CORES --output-on-failure
@@ -118,7 +118,6 @@ jobs:
    
     - name: Build SLOTH 
       run: | 
-        source pysloth/bin/activate
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
         bash ../envSloth.sh --coverage --exprtk=$ExprTk_INCLUDE_DIR --voro=$(brew --prefix voro++)  
@@ -126,7 +125,6 @@ jobs:
 
     - name: Test SLOTH 
       run: | 
-        source pysloth/bin/activate
         cd ${{ github.workspace }}/build
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -j $CORES --output-on-failure
@@ -142,7 +140,6 @@ jobs:
     - name: Code Coverage Analysis 
       if: ${{ always() }}
       run: | 
-        source pysloth/bin/activate
         cd ${{ github.workspace }}/build
         make cc
 
@@ -164,5 +161,4 @@ jobs:
         --counting=total \
         --extensions=cpp,cxx,hpp,h,hxx,tpp \
         --linelength=100 \
-        --recursive ../kernel ../tests 
-    
+        --recursive ../kernel ../tests
