@@ -55,17 +55,13 @@ jobs:
         python-version: "3.13"
 
     - name: Install Python dependencies 
-      run: |
-        python -m venv pysloth
-        source pysloth/bin/activate
-        python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
-        
+      run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
+
     - name: Build SLOTH
       shell: spack-bash {0}    
       run: | 
         spack env activate .
-        
-        source pysloth/bin/activate
+        export PATH="$pythonLocation/bin:$PATH"
 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
@@ -111,10 +107,7 @@ jobs:
         python-version: "3.13"
 
     - name: Install Python dependencies 
-      run: |
-        python -m venv pysloth
-        source pysloth/bin/activate
-        python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
+      run: python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
 
     - name: Install ExprTk
       run: |
