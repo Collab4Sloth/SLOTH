@@ -65,7 +65,6 @@ if(SLOTH_USE_EXPRTK)
     endif()
     target_include_directories(Sloth SYSTEM PUBLIC
         $<BUILD_INTERFACE:${ExprTk_INCLUDE_DIR}>
-        $<INSTALL_INTERFACE:${ExprTk_INCLUDE_DIR}>
     )
 endif()
 
