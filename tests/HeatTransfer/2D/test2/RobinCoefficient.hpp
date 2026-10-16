@@ -24,6 +24,7 @@
 #include <functional>
 #include <numeric>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 #include "Options/PhysicalPropertiesOptions.hpp"

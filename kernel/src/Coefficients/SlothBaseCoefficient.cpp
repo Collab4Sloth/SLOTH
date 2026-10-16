@@ -359,6 +359,22 @@ bool SlothBaseCoefficient::is_file() const { return this->scheme_ == Scheme::Fil
 void SlothBaseCoefficient::set_time(double time) { this->coefficient_->set_time(time); }
 
 /**
+ * @brief Indicates whether the coefficient depends on the spatial coordinates
+ */
+bool SlothBaseCoefficient::uses_coordinates() const {
+  return this->coefficient_ != nullptr && this->coefficient_->uses_coordinates();
+}
+
+/**
+ * @brief Set the physical coordinates of the point where the coefficient is evaluated
+ *
+ * @param x Physical coordinates
+ */
+void SlothBaseCoefficient::set_coordinates(std::span<const double> x) {
+  this->coefficient_->set_coordinates(x);
+}
+
+/**
  * @brief Set the boundary index for a coefficient.
  *
  * @param ids Vector of boundary ids where the coefficient should apply.

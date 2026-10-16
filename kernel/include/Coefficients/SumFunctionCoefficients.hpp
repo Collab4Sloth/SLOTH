@@ -67,4 +67,6 @@ class SumCoefficient : public FunctionCoefficient {
   virtual ~SumCoefficient() = default;
 
   void set_time(double time) override;
+  bool uses_coordinates() const override;
+  void set_coordinates(std::span<const double> x) override;
 };

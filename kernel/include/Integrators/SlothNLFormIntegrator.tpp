@@ -246,6 +246,9 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
                                                         const std::span<const double>& values,
                                                         const std::span<const double>& aux_values) {
+  if (coef.uses_coordinates()) {
+    coef.set_coordinates(this->get_physical_point());
+  }
   if (coef.is_file()) {
     return coef.compute(this->get_physical_point(), std::span<const double>());
   }
@@ -284,6 +287,9 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
     Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
+  if (coef.uses_coordinates()) {
+    coef.set_coordinates(this->get_physical_point());
+  }
   if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
   } else {
@@ -323,6 +329,9 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
     Coefficient coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
+  if (coef.uses_coordinates()) {
+    coef.set_coordinates(this->get_physical_point());
+  }
   if (coef.is_scalar() || coef.is_file()) {
     return 0.0;
   } else {
@@ -361,6 +370,9 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
     Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
+  if (coef.uses_coordinates()) {
+    coef.set_coordinates(this->get_physical_point());
+  }
   if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
   } else {

@@ -38,6 +38,40 @@ def print_gradient(f, gradient, n):
     for k in range(n):
         f.write(f"    gradient[{k}] = this->prefactor_ * ({sp.cxxcode(gradient[k])});\n")
 
+def get_coordinates(coordinate_names: str) -> List[str]:
+    """
+    Parse the optional 'coordinates' attribute, e.g. "X,Y" or "r,z".
+    Names are mapped, in order, to the components of the physical point of the
+    integration point (coordinates_[0], coordinates_[1], ...).
+    """
+    if not coordinate_names:
+        return []
+    names = [c.strip() for c in coordinate_names.split(',') if c.strip()]
+    if len(names) > 3:
+        raise ValueError("Error: at most three coordinates can be declared. Please check your data.")
+    for c in names:
+        if not re.match(r'^[a-zA-Z_]\w*$', c):
+            raise ValueError(f"Error: invalid coordinate name '{c}'. Please check your data.")
+    if len(set(names)) != len(names):
+        raise ValueError("Error: duplicated coordinate names. Please check your data.")
+    return names
+
+
+def write_coordinates(f, coord_vars, class_name):
+    """
+    Write the local variables associated with the spatial coordinates.
+    Coordinates are set by SLOTH (set_coordinates) before each evaluation.
+    """
+    if not coord_vars:
+        return
+    f.write(f"    if (this->coordinates_.size() < {len(coord_vars)}) {{\n")
+    f.write(f"      throw std::runtime_error(\"{class_name}: spatial coordinates not set or "
+            f"inconsistent with the dimension of the problem\");\n")
+    f.write("    }\n")
+    for i, c in enumerate(coord_vars):
+        f.write(f"    double {c} = this->coordinates_[{i}];\n")
+
+
 def check_bounds_consistency(expressions):
     for i in range(1, len(expressions)):
         _, _, _, _, upper_prev, upper_strict_prev = expressions[i-1]
@@ -261,6 +295,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 #include <functional>
 #include <numeric>
 #include <span>
+#include <stdexcept>
 #include <vector>\n
 
 #include "Options/PhysicalPropertiesOptions.hpp"\n  
@@ -270,7 +305,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 """)
         
     
-def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression):
+def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression, coordinate_names=""):
     
     # Get constants
     has_constants = False
@@ -300,6 +335,24 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
         has_explicit_variables = True
         explicit_var_names+=","
         explicit_vars = sp.symbols(explicit_var_names)
+
+    # Spatial coordinates (optional): not differentiated (they are not unknowns)
+    coord_vars = get_coordinates(coordinate_names)
+    has_coordinates = len(coord_vars) > 0
+    if has_coordinates:
+        if is_gradient_coefficient:
+            raise ValueError("Error: coordinates are not extended to gradient expression.")
+        other_names = set(str(v) for v in spvars)
+        if has_auxiliary_variables:
+            other_names |= set(str(v) for v in auxiliary_vars)
+        if has_explicit_variables:
+            other_names |= set(str(v) for v in explicit_vars)
+        if has_constants:
+            other_names |= set(dict_constants.keys())
+        clash = other_names & set(coord_vars)
+        if clash:
+            raise ValueError(f"Error: coordinate names {sorted(clash)} are already used as variables "
+                             "or constants. Please check your data.")
 
     # translate sdot contributions before managing expressions with sympy    
     # pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
@@ -375,6 +428,8 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
         f.write(f"  {class_name}() : prefactor_(1.0) {{}}\n")
         f.write(f" explicit {class_name}(const double prefactor): prefactor_(prefactor) {{}}\n")
         f.write(f"  virtual ~{class_name}() = default;\n")
+        if has_coordinates:
+            f.write("  bool uses_coordinates() const final { return true; }\n")
         f.write("};\n\n")
 
 
@@ -450,6 +505,7 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
             if(has_constants):
                 for const in dict_constants:
                     f.write(f"    double {const} = {dict_constants[const]};\n")
+            write_coordinates(f, coord_vars, class_name)
    
             #====================================================
             #====================================================
@@ -575,6 +631,7 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
             if(has_constants):
                 for const in dict_constants:
                     f.write(f"    double {const} = {dict_constants[const]};\n")
+            write_coordinates(f, coord_vars, class_name)
                     
             f.write(f"    std::vector<double> gradient({n});\n")
 
@@ -670,6 +727,7 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
             if(has_constants):
                 for const in dict_constants:
                     f.write(f"    double {const} = {dict_constants[const]};\n")
+            write_coordinates(f, coord_vars, class_name)
                     
             f.write(f"    std::vector<double> hessian({n*n});\n")
        
@@ -838,6 +896,7 @@ if __name__ == "__main__":
                     constants = item["constants"]
                 else:
                     constants = ""
+                coordinates = item.get("coordinates", "")
 
                 expressions = []
                 
@@ -894,7 +953,7 @@ if __name__ == "__main__":
                 else:
                     raise ValueError("Error: either expression or expressions must be defined.")
 
-                coefficients.append((expressions, item["variables"], explicit, auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression))
+                coefficients.append((expressions, item["variables"], explicit, auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression, coordinates))
             
         except json.JSONDecodeError:
             print("Error: Failed to decode JSON from the file.")         
@@ -902,7 +961,7 @@ if __name__ == "__main__":
     # Remove existing Cpp files
     if args.remove:
         for coef in coefficients:
-            output_cpp_file = coef[-3]        
+            output_cpp_file = coef[6]        
             cpp_file = f"{output_cpp_file}.hpp"
             path = Path(cpp_file).resolve()
             if path.is_file():
@@ -910,6 +969,6 @@ if __name__ == "__main__":
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression] = coef
-        generate_class_with_functions(expr_str, var_names, explicit_var_names,auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression)
-    
+        [expr_str, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression, coordinate_names] = coef
+        generate_class_with_functions(expr_str, var_names, explicit_var_names,auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression, coordinate_names)
+        

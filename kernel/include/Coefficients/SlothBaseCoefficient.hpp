@@ -118,6 +118,8 @@ class SlothBaseCoefficient {
   bool is_file() const;
 
   void set_time(double time);
+  bool uses_coordinates() const;
+  void set_coordinates(std::span<const double> x);
 
   std::string get_name();
   void set_name(const std::string& name);

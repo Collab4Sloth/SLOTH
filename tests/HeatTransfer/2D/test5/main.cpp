@@ -72,10 +72,6 @@ int main(int argc, char* argv[]) {
                            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet")};
         auto bcs = BCS(&spatial, boundaries);
 
-        auto Xboundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
-                            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
-        auto Xbcs = BCS(&spatial, Xboundaries);
-
         // ###########################################
         // ###########################################
         //            Physical models               //
@@ -111,19 +107,6 @@ int main(int argc, char* argv[]) {
         auto T_analytical = AnalyticalFunctions<DIM>(user_func);
 
         auto heat_vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 0, T_analytical));
-
-        // Coord
-        auto xcoord = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& vcoord, double time) { return vcoord[0]; });
-        auto ycoord = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& vcoord, double time) { return vcoord[1]; });
-        auto XC = VAR(&spatial, Xbcs, "XCOORD", Glossary::Coordinate, 2,
-                      AnalyticalFunctions<DIM>(xcoord));
-        XC.set_additional_information("XCOORD");
-        auto YC = VAR(&spatial, Xbcs, "YCOORD", Glossary::Coordinate, 2,
-                      AnalyticalFunctions<DIM>(ycoord));
-        YC.set_additional_information("YCOORD");
-        auto coord = VARS(XC, YC);
 
         // ###########################################
         // ###########################################
@@ -170,7 +153,7 @@ int main(int argc, char* argv[]) {
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
                        Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-12)));
-        TransientPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst, coord);
+        TransientPB Heat_pb("Heat", oper, heat_vars, {coef_pb}, pst);
 
         // Coupling 1
         auto cc = Coupling("Heat transfer", Heat_pb);

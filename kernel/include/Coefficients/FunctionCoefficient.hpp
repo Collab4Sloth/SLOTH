@@ -45,6 +45,7 @@
 class FunctionCoefficient {
  protected:
   double time_;
+  std::vector<double> coordinates_;  ///< physical point of the current evaluation (if used)
   virtual std::function<
       double(const std::span<const double>& values, const std::span<const double>& exp_values,
              const std::span<const double>& aux_values, const unsigned int dimension)>
@@ -98,4 +99,8 @@ class FunctionCoefficient {
 
   virtual void set_time(double time);
   double get_time() const;
+
+  /// True if the expression depends on the spatial coordinates ("coordinates" in the JSON file)
+  virtual bool uses_coordinates() const { return false; }
+  virtual void set_coordinates(std::span<const double> x);
 };

@@ -24,6 +24,7 @@
 #include <functional>
 #include <numeric>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 #include "Options/PhysicalPropertiesOptions.hpp"
@@ -57,6 +58,7 @@ class NeumannCoefficient : public FunctionCoefficient {
   NeumannCoefficient() : prefactor_(1.0) {}
   explicit NeumannCoefficient(const double prefactor) : prefactor_(prefactor) {}
   virtual ~NeumannCoefficient() = default;
+  bool uses_coordinates() const final { return true; }
 };
 
 /**
@@ -72,12 +74,17 @@ std::function<double(const std::span<const double>&, const std::span<const doubl
 NeumannCoefficient::F() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
-    double x = auxiliary_vector[0];
-    double y = auxiliary_vector[1];
     double t = this->time_;
+    if (this->coordinates_.size() < 2) {
+      throw std::runtime_error(
+          "NeumannCoefficient: spatial coordinates not set or inconsistent with the dimension of "
+          "the problem");
+    }
+    double x = this->coordinates_[0];
+    double y = this->coordinates_[1];
     double F = -M_PI * t * std::cos(M_PI * x);
     return this->prefactor_ * F;
   };
@@ -96,12 +103,17 @@ std::function<std::vector<double>(const std::span<const double>&, const std::spa
 NeumannCoefficient::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
-    double x = auxiliary_vector[0];
-    double y = auxiliary_vector[1];
     double t = this->time_;
+    if (this->coordinates_.size() < 2) {
+      throw std::runtime_error(
+          "NeumannCoefficient: spatial coordinates not set or inconsistent with the dimension of "
+          "the problem");
+    }
+    double x = this->coordinates_[0];
+    double y = this->coordinates_[1];
     std::vector<double> gradient(1);
     gradient[0] = this->prefactor_ * (0);
     return gradient;
@@ -122,12 +134,17 @@ std::function<std::vector<double>(const std::span<const double>&, const std::spa
 NeumannCoefficient::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
-    double x = auxiliary_vector[0];
-    double y = auxiliary_vector[1];
     double t = this->time_;
+    if (this->coordinates_.size() < 2) {
+      throw std::runtime_error(
+          "NeumannCoefficient: spatial coordinates not set or inconsistent with the dimension of "
+          "the problem");
+    }
+    double x = this->coordinates_[0];
+    double y = this->coordinates_[1];
     std::vector<double> hessian(1);
     hessian[0] = this->prefactor_ * (0);
     return hessian;
@@ -159,6 +176,7 @@ class DirichletCoefficient : public FunctionCoefficient {
   DirichletCoefficient() : prefactor_(1.0) {}
   explicit DirichletCoefficient(const double prefactor) : prefactor_(prefactor) {}
   virtual ~DirichletCoefficient() = default;
+  bool uses_coordinates() const final { return true; }
 };
 
 /**
@@ -174,12 +192,17 @@ std::function<double(const std::span<const double>&, const std::span<const doubl
 DirichletCoefficient::F() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
-    double x = auxiliary_vector[0];
-    double y = auxiliary_vector[1];
     double t = this->time_;
+    if (this->coordinates_.size() < 2) {
+      throw std::runtime_error(
+          "DirichletCoefficient: spatial coordinates not set or inconsistent with the dimension of "
+          "the problem");
+    }
+    double x = this->coordinates_[0];
+    double y = this->coordinates_[1];
     double F = t * std::sin(M_PI * y);
     return this->prefactor_ * F;
   };
@@ -198,12 +221,17 @@ std::function<std::vector<double>(const std::span<const double>&, const std::spa
 DirichletCoefficient::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
-    double x = auxiliary_vector[0];
-    double y = auxiliary_vector[1];
     double t = this->time_;
+    if (this->coordinates_.size() < 2) {
+      throw std::runtime_error(
+          "DirichletCoefficient: spatial coordinates not set or inconsistent with the dimension of "
+          "the problem");
+    }
+    double x = this->coordinates_[0];
+    double y = this->coordinates_[1];
     std::vector<double> gradient(1);
     gradient[0] = this->prefactor_ * (0);
     return gradient;
@@ -224,12 +252,17 @@ std::function<std::vector<double>(const std::span<const double>&, const std::spa
 DirichletCoefficient::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  const std::span<const double>& auxiliary_vector,
+                  [[maybe_unused]] const std::span<const double>&,
                   [[maybe_unused]] const unsigned int dimension) {
     double T = input_vector[0];
-    double x = auxiliary_vector[0];
-    double y = auxiliary_vector[1];
     double t = this->time_;
+    if (this->coordinates_.size() < 2) {
+      throw std::runtime_error(
+          "DirichletCoefficient: spatial coordinates not set or inconsistent with the dimension of "
+          "the problem");
+    }
+    double x = this->coordinates_[0];
+    double y = this->coordinates_[1];
     std::vector<double> hessian(1);
     hessian[0] = this->prefactor_ * (0);
     return hessian;
