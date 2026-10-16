@@ -1,7 +1,6 @@
 spack:
   specs:
     - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist +mumps %gcc@14
-    - exprtk
 
   concretizer:
     unify: true
