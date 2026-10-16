@@ -17,12 +17,19 @@ endif()
 
 target_sources(Sloth PRIVATE ${SLOTH_SRC})
 set_compile_options(Sloth)
+if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    # Programs linking Sloth (tests, installed Sloth::Sloth) must also be
+    # linked with --coverage (coverage runtime of the instrumented library)
+    set_property(TARGET Sloth APPEND PROPERTY INTERFACE_LINK_OPTIONS --coverage)
+endif()
 
 set_target_properties(Sloth PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     CMAKE_CXX_EXTENSIONS OFF
 )
+# Programs using Sloth (tests, installed Sloth::Sloth) are also compiled in C++20
+target_compile_features(Sloth PUBLIC cxx_std_20)
 
 # And the most important part set the include directories
 target_include_directories(Sloth
@@ -58,6 +65,7 @@ if(SLOTH_USE_EXPRTK)
     endif()
     target_include_directories(Sloth SYSTEM PUBLIC
         $<BUILD_INTERFACE:${ExprTk_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${ExprTk_INCLUDE_DIR}>
     )
 endif()
 
@@ -238,10 +246,48 @@ install(
 
 
 
+# Standard location, used by find_package(Sloth): <prefix>/lib/cmake/Sloth
+install(
+    EXPORT SlothTargets
+    FILE SlothTargets.cmake
+    NAMESPACE Sloth::
+    DESTINATION lib/cmake/Sloth
+)
+# Previous location, kept for existing projects that include
+# <prefix>/cmake/Sloth/SlothTargets.cmake directly (e.g. SlothExternalApplication)
 install(
     EXPORT SlothTargets
     FILE SlothTargets.cmake
     NAMESPACE Sloth::
     DESTINATION cmake/Sloth
+)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/cmake/SlothConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/SlothConfig.cmake
+    INSTALL_DESTINATION lib/cmake/Sloth
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/SlothConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/SlothConfig.cmake
+          ${CMAKE_CURRENT_BINARY_DIR}/SlothConfigVersion.cmake
+    DESTINATION lib/cmake/Sloth
+)
+
+# Result comparison script (used by the example's tests)
+install(
+    FILES ${PROJECT_SOURCE_DIR}/tests/tools/col_compare.py
+    DESTINATION share/sloth/tools
+)
+
+# Minimal example (starting point for a user program)
+install(
+    DIRECTORY ${PROJECT_SOURCE_DIR}/examples/
+    DESTINATION share/sloth/examples
 )
 
