@@ -1,14 +1,15 @@
 # MFEM
 find_package(MFEM REQUIRED)
 
-set(MFEM_INC "${MFEM_INSTALL_DIR}/include/mfem")
 
 if(MFEM_USE_MPI)
   message(STATUS "MFEM: using MPI, so SLOTH will use MPI (with HYPRE, METIS)")
 
-  # The following include directories are automatically filled within FindMFEM.cmake
-  include_directories(SYSTEM ${HYPRE_INCLUDE_DIRS})
-  include_directories(SYSTEM ${METIS_INCLUDE_DIRS})
+  if(SLOTH_LEGACY_DEPS)
+    # The following include directories are automatically filled within FindMFEM.cmake
+    include_directories(SYSTEM ${HYPRE_INCLUDE_DIRS})
+    include_directories(SYSTEM ${METIS_INCLUDE_DIRS})
+  endif()
 endif(MFEM_USE_MPI)
 
 # Support for OpenMP
@@ -36,6 +37,8 @@ if(MFEM_USE_MUMPS)
   endif()
 
   set(MUMPS_LIBRARIES "")
+  # Legacy only: with SlothMFEM, MUMPS comes from MFEM_EXT_LIBS
+  if(SLOTH_LEGACY_DEPS)
   foreach(_lib dmumps mumps_common pord)
     find_library(MUMPS_${_lib}_LIBRARY NAMES ${_lib}
                  HINTS $ENV{MUMPS_DIR} PATH_SUFFIXES lib lib64)
@@ -45,20 +48,26 @@ if(MFEM_USE_MUMPS)
       message(FATAL_ERROR "MFEM built with MUMPS but lib${_lib} not found (set MUMPS_DIR)")
     endif()
   endforeach()
+  endif(SLOTH_LEGACY_DEPS)
   message(STATUS "MUMPS libraries: ${MUMPS_LIBRARIES}")
 endif(MFEM_USE_MUMPS)
 
-# Petsc
-if(MFEM_USE_PETSC)
-  message(STATUS "MFEM: using PETSc, so SLOTH will use PETSc")
-  find_package(PETSc REQUIRED)
-endif(MFEM_USE_PETSC)
+if(SLOTH_LEGACY_DEPS)
+  # Petsc
+  if(MFEM_USE_PETSC)
+    message(STATUS "MFEM: using PETSc, so SLOTH will use PETSc")
+    find_package(PETSc REQUIRED)
+  endif(MFEM_USE_PETSC)
 
-if(MFEM_USE_SUITESPARSE)
-  find_package(SuiteSparse REQUIRED)
-endif(MFEM_USE_SUITESPARSE)
+  if(MFEM_USE_SUITESPARSE)
+    find_package(SuiteSparse REQUIRED)
+  endif(MFEM_USE_SUITESPARSE)
 
-find_package(METIS REQUIRED)
+  find_package(METIS REQUIRED)
+else()
+  # All MFEM third-party libraries from config.mk (target SlothMFEM)
+  include(SLOTHMFEM4SLOTH)
+endif()
 
 # HYPRE version
 include(HYPRE4SLOTH)
