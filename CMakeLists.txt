@@ -41,23 +41,20 @@ endif()
 #   3. default: ../SlothInstall
 # The value is stored in the cache, so that the cache, the configuration
 # summary and "make install" all use the same directory.
-# A prefix is considered "not chosen by the user" (and recomputed at each
-# configure, as before) when it is:
-#   - CMake's own default (first configure, or "/usr/local" found in the cache
-#     of build directories created before this change),
-#   - or the value set automatically by a previous configure (cases 1 and 3),
-#     remembered in SLOTH_AUTO_INSTALL_PREFIX.
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
-   OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local"
-   OR CMAKE_INSTALL_PREFIX STREQUAL "${SLOTH_AUTO_INSTALL_PREFIX}")
-    set(_sloth_prefix_is_auto TRUE)
-else()
-    set(_sloth_prefix_is_auto FALSE)
-endif()
-
+# The default (3) is applied:
+#   - at the first configure (or "/usr/local", CMake's own default, found in
+#     the cache of build directories created before this change);
+#   - when envSloth.sh is run again without --install (it always exports
+#     USER_INSTALL_PATH, empty in that case) and the cached prefix was set
+#     automatically (by a previous --install or by the default), as before.
+# A plain "cmake ." (USER_INSTALL_PATH not in the environment at all) keeps
+# the cached prefix, whatever it is.
 if(NOT "$ENV{USER_INSTALL_PATH}" STREQUAL "")
     set(_sloth_auto_prefix "$ENV{USER_INSTALL_PATH}")
-elseif(_sloth_prefix_is_auto)
+elseif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
+    set(_sloth_auto_prefix "${CMAKE_SOURCE_DIR}/../SlothInstall")
+elseif(DEFINED ENV{USER_INSTALL_PATH}
+       AND CMAKE_INSTALL_PREFIX STREQUAL "${SLOTH_AUTO_INSTALL_PREFIX}")
     set(_sloth_auto_prefix "${CMAKE_SOURCE_DIR}/../SlothInstall")
 else()
     set(_sloth_auto_prefix "")

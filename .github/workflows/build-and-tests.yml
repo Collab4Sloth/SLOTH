@@ -79,6 +79,19 @@ jobs:
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -j $CORES --output-on-failure
 
+    - name: Install SLOTH and build the minimal example (user procedure)
+      shell: spack-bash {0}
+      run: |
+        spack env activate .
+        source pysloth/bin/activate
+        cd ${{ github.workspace }}/build
+        cmake --install . --prefix ${{ github.workspace }}/sloth-installed
+        cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \
+              -B ${{ github.workspace }}/example-build \
+              -DCMAKE_PREFIX_PATH=${{ github.workspace }}/sloth-installed
+        cmake --build ${{ github.workspace }}/example-build
+        cd ${{ github.workspace }}/example-build && ctest --output-on-failure
+
     - name: Save Tests on Failure
       if: ${{ failure() }}
       uses: actions/upload-artifact@v4
@@ -128,6 +141,17 @@ jobs:
         cd ${{ github.workspace }}/build
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -j $CORES --output-on-failure
+
+    - name: Install SLOTH and build the minimal example (user procedure)
+      run: |
+        source pysloth/bin/activate
+        cd ${{ github.workspace }}/build
+        cmake --install . --prefix ${{ github.workspace }}/sloth-installed
+        cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \
+              -B ${{ github.workspace }}/example-build \
+              -DCMAKE_PREFIX_PATH=${{ github.workspace }}/sloth-installed
+        cmake --build ${{ github.workspace }}/example-build
+        cd ${{ github.workspace }}/example-build && ctest --output-on-failure
 
     - name: Save Tests on Failure
       if: ${{ failure() }}
