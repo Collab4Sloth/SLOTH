@@ -2,7 +2,7 @@
     {
     "expression":"-pi*t*cos(pi*x)",
     "variables":"T",
-    "auxiliary_variables":"x,y",
+    "coordinates":"x,y",
     "constants":"(t:T)",
     "class_name":"NeumannCoefficient",
     "outputfile":"Coefficient"
@@ -10,7 +10,7 @@
     {
     "expression":"t*sin(pi*y)",
     "variables":"T",
-    "auxiliary_variables":"x,y",
+    "coordinates":"x,y",
     "constants":"(t:T)",
     "class_name":"DirichletCoefficient",
     "outputfile":"Coefficient"

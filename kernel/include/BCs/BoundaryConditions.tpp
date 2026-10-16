@@ -184,6 +184,23 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(
   std::vector<double> u_values;
   std::vector<double> vaux_values;
 
+  // Coordinates of the true dofs, computed only if a Dirichlet coefficient depends on the
+  // spatial coordinates ("coordinates" in the JSON file). Recomputed at each call (AMR-safe).
+  std::vector<mfem::Vector> coords_tdofs;
+  auto compute_coordinates_at_tdofs = [&]() {
+    if (!coords_tdofs.empty()) return;
+    const int sdim = this->fespace_->GetParMesh()->SpaceDimension();
+    for (int d = 0; d < sdim; d++) {
+      mfem::FunctionCoefficient xd([d](const mfem::Vector& x) { return x(d); });
+      mfem::ParGridFunction gf(this->fespace_);
+      gf.ProjectCoefficient(xd);
+      mfem::Vector tv;
+      gf.GetTrueDofs(tv);
+      coords_tdofs.emplace_back(std::move(tv));
+    }
+  };
+  std::vector<double> x_dof;
+
   // Inline function to compute Dirichlet coefficient
   auto compute_dirichlet_coefficient = [&](Coefficient& coef, const std::span<const double>& values,
                                            const std::span<const double>& aux_values) -> double {
@@ -237,11 +254,20 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(
           }
         } else {
           // Loop over essential dofs and compute the coefficient at the dofs
+          const bool uses_coordinates = dirichlet_coef.uses_coordinates();
+          if (uses_coordinates) {
+            compute_coordinates_at_tdofs();
+            x_dof.resize(coords_tdofs.size());
+          }
           for (int j = 0; j < dof_list.Size(); j++) {
             u_values.clear();
             vaux_values.clear();
 
             int dof = dof_list[j];
+            if (uses_coordinates) {
+              for (std::size_t d = 0; d < coords_tdofs.size(); d++) x_dof[d] = coords_tdofs[d](dof);
+              dirichlet_coef.set_coordinates(std::span<const double>(x_dof));
+            }
             u_values.push_back(u(dof));
             for (auto aux : auxvars_unk) vaux_values.emplace_back(aux(dof));
 

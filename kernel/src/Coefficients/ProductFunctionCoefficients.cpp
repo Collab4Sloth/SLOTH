@@ -170,3 +170,25 @@ void ProductCoefficient::set_time(double time) {
     coef->set_time(time);
   }
 }
+
+/**
+ * @brief True if at least one FunctionCoefficient depends on the spatial coordinates
+ */
+bool ProductCoefficient::uses_coordinates() const {
+  for (const auto* coef : vect_coefficients_) {
+    if (coef->uses_coordinates()) return true;
+  }
+  return false;
+}
+
+/**
+ * @brief Set the spatial coordinates for all FunctionCoefficients
+ *
+ * @param x Physical coordinates
+ */
+void ProductCoefficient::set_coordinates(std::span<const double> x) {
+  this->coordinates_.assign(x.begin(), x.end());
+  for (auto* coef : vect_coefficients_) {
+    coef->set_coordinates(x);
+  }
+}

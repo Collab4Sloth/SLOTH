@@ -256,3 +256,15 @@ void FunctionCoefficient::set_time(double time) { this->time_ = time; }
  *
  */
 double FunctionCoefficient::get_time() const { return this->time_; }
+
+/**
+ * @brief Set the physical coordinates of the point where the coefficient is evaluated
+ *
+ * @remark Only used by coefficients depending on the spatial coordinates
+ *         (see uses_coordinates()). No reallocation after the first call.
+ *
+ * @param x Physical coordinates
+ */
+void FunctionCoefficient::set_coordinates(std::span<const double> x) {
+  this->coordinates_.assign(x.begin(), x.end());
+}
