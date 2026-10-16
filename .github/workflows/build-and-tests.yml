@@ -20,7 +20,12 @@ jobs:
         #   - os: ubuntu-24.04
         #     gcc_version: 11 
     steps:
+    # SLOTH and Spack are cloned side by side in the workspace: the dependencies
+    # installed by Spack must not be inside the SLOTH sources (CMake refuses to
+    # export include directories located in the source directory)
     - uses: actions/checkout@v4
+      with:
+        path: SLOTH
 
     - name: Set number of cores
       run: echo "CORES=$(nproc)" >> $GITHUB_ENV
@@ -31,7 +36,7 @@ jobs:
         ref: develop      # Spack version (examples: develop, releases/v0.21)
         buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
-        path: ${{ runner.temp }}/spack # where to clone spack
+        path: ${{ github.workspace }}/spack  # where to clone Spack (next to SLOTH, not inside)
 
     - name: Install dependencies
       run: |
@@ -42,7 +47,7 @@ jobs:
       run: |
           spack compiler find 
           spack external find openmpi mpich openblas perl
-          spack env activate .
+          spack env activate ${{ github.workspace }}/SLOTH
           spack concretize -f
 
           spack install -j $CORES --fail-fast 
@@ -58,11 +63,11 @@ jobs:
     - name: Build SLOTH
       shell: spack-bash {0}    
       run: | 
-        spack env activate .
+        spack env activate ${{ github.workspace }}/SLOTH
         export PATH="$pythonLocation/bin:$PATH"
 
-        mkdir -p ${{ github.workspace }}/build
-        cd ${{ github.workspace }}/build
+        mkdir -p ${{ github.workspace }}/SLOTH/build
+        cd ${{ github.workspace }}/SLOTH/build
         bash ../envSloth.sh --coverage --np=$CORES
         make -j $CORES tests
         
@@ -70,19 +75,19 @@ jobs:
     - name: Test SLOTH 
       shell: spack-bash {0}    
       run: | 
-        spack env activate .
+        spack env activate ${{ github.workspace }}/SLOTH
         export PATH="$pythonLocation/bin:$PATH"
 
-        cd ${{ github.workspace }}/build
+        cd ${{ github.workspace }}/SLOTH/build
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -j $CORES --output-on-failure
 
     - name: Install SLOTH and build the minimal example (user procedure)
       shell: spack-bash {0}
       run: |
-        spack env activate .
+        spack env activate ${{ github.workspace }}/SLOTH
         export PATH="$pythonLocation/bin:$PATH"
-        cd ${{ github.workspace }}/build
+        cd ${{ github.workspace }}/SLOTH/build
         cmake --install . --prefix ${{ github.workspace }}/sloth-installed
         cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \
               -B ${{ github.workspace }}/example-build \
@@ -93,10 +98,10 @@ jobs:
     - name: Install SLOTH with Spack and build the minimal example (spack procedure)
       shell: spack-bash {0}
       run: |
-        spack env activate .
-        spack repo add ${{ github.workspace }}/spack_repo
+        spack env activate ${{ github.workspace }}/SLOTH
+        spack repo add ${{ github.workspace }}/SLOTH/spack_repo
         spack external find python
-        spack develop --no-clone --path ${{ github.workspace }} sloth@=master
+        spack develop --no-clone --path ${{ github.workspace }}/SLOTH sloth@=master
         spack add sloth@=master
         spack concretize -f
         spack install -j $CORES --fail-fast
@@ -111,7 +116,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-reports-linux
-        path: ${{ github.workspace }}/build/tests
+        path: ${{ github.workspace }}/SLOTH/build/tests
         retention-days: 1
 
   build-MacOS:
