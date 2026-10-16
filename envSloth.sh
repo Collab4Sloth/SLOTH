@@ -42,7 +42,7 @@ Other options:
   -h | --help        print this help
 
 Everything after "--" is passed unchanged to CMake, e.g.:
-  bash ../envSloth.sh --exprtk=../../exprtk -- -DSLOTH_LEGACY_DEPS=OFF
+  bash ../envSloth.sh --exprtk=../../exprtk -- -DMATOOLS_VERBOSITY_LEVEL_1=ON
 USAGE
 }
 #=============================================
