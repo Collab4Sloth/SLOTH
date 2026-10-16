@@ -21,20 +21,18 @@ option(SLOTH_USE_VORO     "Enable Voro++ (Voronoi tessellations)" OFF)
 option(SLOTH_USE_LIBTORCH "Enable the LibTorch API" OFF)
 option(SLOTH_USE_EXTERNAL "Link Sloth with an external library (EXT_LIBDIR, EXT_LIBNAME)" OFF)
 option(MATOOLS_VERBOSITY_LEVEL_1 "MATools profiling: verbosity level 1" OFF)
+# Transition (build system step 3): ON = previous way of finding MFEM's
+# dependencies (FindHYPRE, FindMETIS, FindSuiteSparse, MUMPS, PETSc, ...);
+# OFF = everything taken from MFEM's config.mk (target SlothMFEM).
+option(SLOTH_LEGACY_DEPS "Find MFEM's dependencies one by one (previous behaviour)" ON)
 
 ## Force Release Mode
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+             Release PortableRelease RelWithDebInfo MinSizeRel Optim Debug Coverage)
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
-# Check GCC version for including filesystem
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-    find_package(Filesystem REQUIRED)
-    set(FILESYSTEM_LIB stdc++fs)
-  endif()
-endif()
 
 
 # ########################
@@ -98,7 +96,6 @@ include(COMPILE4SLOTH)
 # ########################
 # # Sloth kernel
 # ########################
-# include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
 
 # ########################

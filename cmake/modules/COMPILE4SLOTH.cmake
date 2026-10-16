@@ -1,6 +1,3 @@
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
 
 ########################
 # User Information
@@ -86,7 +83,8 @@ function(set_compile_options CURRENT_EXE)
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
         target_compile_options(${CURRENT_EXE} PRIVATE ${COVERAGE_OPTIONS})
-        link_libraries(gcov)
+        # --coverage at link time pulls the coverage runtime (libgcov with GCC,
+        # profile runtime with Clang): no explicit -lgcov (absent with AppleClang)
         set_target_properties(${CURRENT_EXE} PROPERTIES LINK_FLAGS ${COVERAGE_LINK_OPTIONS})
     endif()
 endfunction()
