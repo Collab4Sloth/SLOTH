@@ -1,26 +1,47 @@
 # ##############################################################################
-# SlothMFEM: INTERFACE target carrying everything needed to compile and link
-# against MFEM, built from MFEM's own configuration file (config.mk):
-#   - include directories : MFEM_INC_DIR + the -I paths of MFEM_TPLFLAGS
-#   - link                : MFEM_LIB_FILE + MFEM_EXT_LIBS (HYPRE, METIS,
-#                           SuiteSparse, MUMPS, PETSc, BLAS/LAPACK, ...,
-#                           exactly as used to build MFEM) + MPI if needed
-# The third-party libraries of MFEM no longer need to be searched one by one.
+# MFEM for SLOTH, from MFEM's own configuration file (config.mk)
 #
-# Input : MFEM_CONFIG_FILE (path of config.mk, located by FindMFEM.cmake)
-# Output: target SlothMFEM, variables SLOTHMFEM_INCLUDE_DIRS, SLOTHMFEM_LINK
+# 1. Locate config.mk (same search as the former FindMFEM.cmake):
+#    CMAKE_PREFIX_PATH (environment: spack load / spack env / module load),
+#    then MFEM_DIR (CMake or environment variable, set by envSloth.sh:
+#    spack location -i mfem, brew --prefix mfem, or --mfem=DIR),
+#    looking for <dir>/share/mfem/config.mk or <dir>/config.mk.
+# 2. Read it: MFEM_USE_* (YES/NO), include directories, library, and the
+#    third-party libraries exactly as used to build MFEM (MFEM_EXT_LIBS:
+#    HYPRE, METIS, SuiteSparse, MUMPS, PETSc, SUNDIALS, BLAS/LAPACK, ...).
+# 3. Build the INTERFACE target SlothMFEM, linked by Sloth.
+#
+# Outputs: target SlothMFEM, MFEM_CONFIG_FILE, MFEM_USE_*, MFEM_INCLUDE_DIRS,
+#          MFEM_LIBRARY, SLOTHMFEM_INCLUDE_DIRS, SLOTHMFEM_LINK,
+#          SLOTHMFEM_MPI_INCLUDE_DIRS, SLOTHMFEM_MPI_LIBRARIES
 # ##############################################################################
 
-if(NOT EXISTS "${MFEM_CONFIG_FILE}")
-  message(FATAL_ERROR "SlothMFEM: MFEM configuration file not found ('${MFEM_CONFIG_FILE}')")
+# --- 1. Locate config.mk -----------------------------------------------------
+if(MFEM_CONFIG_FILE AND NOT EXISTS "${MFEM_CONFIG_FILE}")
+  # cached path no longer valid (MFEM removed or re-installed elsewhere)
+  unset(MFEM_CONFIG_FILE CACHE)
 endif()
+string(REPLACE ":" ";" _sloth_env_prefix_path "$ENV{CMAKE_PREFIX_PATH}")
+find_file(MFEM_CONFIG_FILE config.mk
+  PATHS ${_sloth_env_prefix_path}
+        ${MFEM_DIR}/build $ENV{MFEM_DIR}/build ${MFEM_DIR} $ENV{MFEM_DIR}
+  PATH_SUFFIXES share/mfem
+  NO_DEFAULT_PATH
+  DOC "MFEM configuration file (config.mk)")
+if(NOT MFEM_CONFIG_FILE)
+  message(FATAL_ERROR
+    "MFEM configuration file (share/mfem/config.mk) not found.\n"
+    "Make MFEM visible with 'spack load mfem' / a spack environment / "
+    "'module load', or use envSloth.sh --mfem=DIR, or -DMFEM_DIR=<MFEM prefix>.")
+endif()
+message(STATUS "Found MFEM: ${MFEM_CONFIG_FILE}")
 
 # Re-run CMake automatically (at the next "make") when config.mk changes,
 # e.g. after "brew upgrade mfem" or a re-installation of MFEM with spack
 set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY
              CMAKE_CONFIGURE_DEPENDS "${MFEM_CONFIG_FILE}")
 
-# --- Read config.mk: "NAME = value" lines ------------------------------------
+# --- 2. Read config.mk: "NAME = value" lines ---------------------------------
 file(STRINGS "${MFEM_CONFIG_FILE}" _mk_lines REGEX "^[A-Za-z_][A-Za-z0-9_]*[ \t]*=")
 set(_mk_names "")
 foreach(_l IN LISTS _mk_lines)
@@ -81,6 +102,22 @@ function(_slothmfem_unversioned_lib out file)
   set(${out} "${_res}" PARENT_SCOPE)
 endfunction()
 
+# MFEM_USE_XXX variables (YES / NO) for the rest of the configuration
+foreach(_n IN LISTS _mk_names)
+  if(_n MATCHES "^MFEM_USE_")
+    _slothmfem_expand(${_n} "${_mk_${_n}}")
+  endif()
+endforeach()
+if(NOT MFEM_USE_SUITESPARSE)
+  message(FATAL_ERROR "SLOTH requires MFEM built with SuiteSparse (MFEM_USE_SUITESPARSE=NO in ${MFEM_CONFIG_FILE}).")
+endif()
+
+# MPI (MFEM parallel build)
+if(MFEM_USE_MPI)
+  message(STATUS "MFEM uses MPI")
+  find_package(MPI REQUIRED)
+endif()
+
 _slothmfem_expand(_mfem_inc_dir  "${_mk_MFEM_INC_DIR}")
 _slothmfem_expand(_mfem_lib_file "${_mk_MFEM_LIB_FILE}")
 _slothmfem_expand(_mfem_tplflags "${_mk_MFEM_TPLFLAGS}")
@@ -92,6 +129,8 @@ endif()
 _slothmfem_stable_path(_mfem_inc_dir "${_mfem_inc_dir}")
 _slothmfem_stable_path(_mfem_lib_file "${_mfem_lib_file}")
 _slothmfem_unversioned_lib(_mfem_lib_file "${_mfem_lib_file}")
+set(MFEM_INCLUDE_DIRS "${_mfem_inc_dir}")
+set(MFEM_LIBRARY "${_mfem_lib_file}")
 
 # --- Include directories -----------------------------------------------------
 set(SLOTHMFEM_INCLUDE_DIRS "${_mfem_inc_dir}")
@@ -145,7 +184,7 @@ foreach(_f IN LISTS _ext)
   list(APPEND SLOTHMFEM_LINK "${_f}")
 endforeach()
 
-# --- Target ------------------------------------------------------------------
+# --- 3. Target ---------------------------------------------------------------
 if(NOT TARGET SlothMFEM)
   add_library(SlothMFEM INTERFACE)
 endif()
@@ -155,7 +194,7 @@ if(MFEM_USE_MPI)
   # MPI may not appear in MFEM_EXT_LIBS when MFEM was built with mpicxx.
   # Plain paths (not the MPI::MPI_CXX target), so that the exported
   # SlothTargets.cmake stays self-contained (no find_package(MPI) needed by
-  # projects using an installed Sloth), as with the previous link line.
+  # projects using an installed Sloth).
   set(SLOTHMFEM_MPI_INCLUDE_DIRS "")
   foreach(_d IN LISTS MPI_CXX_INCLUDE_DIRS)
     _slothmfem_stable_path(_d "${_d}")

@@ -7,8 +7,8 @@
 # 1. Read from MFEM's own configuration header (MFEM_HYPRE_VERSION in
 #    mfem/config/_config.hpp): MFEM was built against this HYPRE version.
 # 2. Fallback: read HYPRE_RELEASE_VERSION (or HYPRE_PACKAGE_VERSION) from
-#    HYPRE_config.h, looked for in the HYPRE include directory found by
-#    FindHYPRE (HYPRE_INCLUDE_DIRS), then in $ENV{HYPRE_DIR}/include.
+#    HYPRE_config.h, looked for in the include directories of MFEM's
+#    config.mk (SLOTHMFEM_INCLUDE_DIRS), then in $ENV{HYPRE_DIR}/include.
 #    Conversion: "X.Y.Z" -> X*10000 + Y*100 + Z (e.g. "2.10.0b" -> 21000).
 #
 # No program is compiled: HYPRE_DIR is not required when MFEM provides the
@@ -36,7 +36,7 @@ if(MFEM_USE_MPI)
 
   # 2. Fallback: HYPRE_config.h
   if(NOT DEFINED _sloth_hypre_version)
-    set(_hypre_incs ${HYPRE_INCLUDE_DIRS})
+    set(_hypre_incs ${SLOTHMFEM_INCLUDE_DIRS})
     if(NOT "$ENV{HYPRE_DIR}" STREQUAL "")
       list(APPEND _hypre_incs "$ENV{HYPRE_DIR}/include")
     endif()
