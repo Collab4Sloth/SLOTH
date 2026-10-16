@@ -31,11 +31,7 @@ target_include_directories(Sloth
         $<INSTALL_INTERFACE:include>
 )
 
-# Include MFEM + ExprTk
-
-target_include_directories(Sloth SYSTEM PUBLIC
-    $<BUILD_INTERFACE:${MFEM_DIR}/include>
-)
+# ExprTk
 # ExprTk (header-only): directory containing exprtk.hpp, stored in the cache
 # variable ExprTk_INCLUDE_DIR.
 #   - envSloth.sh --exprtk=DIR exports the environment variable
@@ -66,24 +62,16 @@ if(SLOTH_USE_EXPRTK)
 endif()
 
 
-if(SLOTH_LEGACY_DEPS)
-    target_link_libraries(Sloth PUBLIC ${MFEM_LIBRARY} ${MPI_CXX_LIBRARIES} z ${HYPRE_LIBRARY} ${SuiteSparse_LIBRARIES} ${METIS_LIBRARY})
-
-    # PETSC ??
-    if(MFEM_USE_PETSC)
-        target_link_libraries(Sloth PUBLIC petsc )
-    endif(MFEM_USE_PETSC)
-else()
-    # MFEM and all its third-party libraries (from MFEM's config.mk)
-    target_link_libraries(Sloth PUBLIC SlothMFEM)
-endif()
+# MFEM and all its third-party libraries (from MFEM's config.mk, see
+# cmake/modules/SLOTHMFEM4SLOTH.cmake)
+target_link_libraries(Sloth PUBLIC SlothMFEM)
 
 
 # ########################
 # MUMPS ??
 # ########################
+# (MUMPS libraries are linked through SlothMFEM)
 if(MFEM_USE_MUMPS)
-  target_link_libraries(Sloth PUBLIC ${MUMPS_LIBRARIES})
   target_compile_definitions(Sloth PUBLIC SLOTH_USE_MUMPS=1)
 endif()
 
@@ -237,10 +225,8 @@ install(
     DESTINATION scripts
 )
 # SlothTargets.cmake creation
-# SlothMFEM (SLOTH_LEGACY_DEPS=OFF): exported with Sloth, which depends on it
-if(TARGET SlothMFEM)
-    install(TARGETS SlothMFEM EXPORT SlothTargets)
-endif()
+# SlothMFEM: exported with Sloth, which depends on it
+install(TARGETS SlothMFEM EXPORT SlothTargets)
 
 install(
     TARGETS Sloth
