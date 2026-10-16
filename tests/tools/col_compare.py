@@ -41,13 +41,15 @@ def _to_float(value):
 
 
 def read_csv(filename):
-    """Return (headers, rows) with rows as lists of floats; blank lines are skipped."""
+    """Return (headers, rows) with rows as lists of strings; blank lines are skipped.
+    Cells are converted to float only when compared (text columns, e.g. the
+    'order 2' label column of the convergence files, are left untouched)."""
     with open(filename, newline='') as f:
         lines = [row for row in csv.reader(f) if any(cell.strip() for cell in row)]
     if not lines:
         raise ValueError(f"Error : empty file '{filename}'")
     headers = lines[0]
-    rows = [[_to_float(cell) for cell in row] for row in lines[1:]]
+    rows = lines[1:]
     return headers, rows
 
 
@@ -67,7 +69,8 @@ def compare_csv_files(file1, file2, columns, error_type, criterion, skip_lines):
         col_name = headers1[col]
         for i in range(nrows):
             if id > 0:
-                error = calculate_error(rows1[i][col], rows2[i][col], error_type)
+                error = calculate_error(_to_float(rows1[i][col]),
+                                        _to_float(rows2[i][col]), error_type)
                 if error > criterion:
                     errors[i + skip_lines][col_name] = error
 
