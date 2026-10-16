@@ -21,10 +21,6 @@ option(SLOTH_USE_VORO     "Enable Voro++ (Voronoi tessellations)" OFF)
 option(SLOTH_USE_LIBTORCH "Enable the LibTorch API" OFF)
 option(SLOTH_USE_EXTERNAL "Link Sloth with an external library (EXT_LIBDIR, EXT_LIBNAME)" OFF)
 option(MATOOLS_VERBOSITY_LEVEL_1 "MATools profiling: verbosity level 1" OFF)
-# Transition (build system step 3): ON = previous way of finding MFEM's
-# dependencies (FindHYPRE, FindMETIS, FindSuiteSparse, MUMPS, PETSc, ...);
-# OFF = everything taken from MFEM's config.mk (target SlothMFEM).
-option(SLOTH_LEGACY_DEPS "Find MFEM's dependencies one by one (previous behaviour)" ON)
 
 ## Force Release Mode
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
