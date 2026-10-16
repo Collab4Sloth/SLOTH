@@ -1,4 +1,10 @@
-# Minimal program using an installed SLOTH.
+# Minimal program using an installed SLOTH, organised as for a practical session:
+# one sub-directory per case.
+#   allen_cahn/  : 1D Allen-Cahn interface at equilibrium (tanh profile), whose
+#                  double-well potential is generated from coefficients.json,
+#                  checked against the analytical solution
+# To add a case: copy allen_cahn/, rename it (and its targets/tests) and add an
+# add_subdirectory() line at the end of this file.
 #
 # SLOTH must be visible to CMake:
 #   - SLOTH installed with envSloth.sh --install=DIR + make install:
@@ -6,10 +12,10 @@
 #   - SLOTH installed with spack:
 #         spack load sloth
 #
-# Build, run and check against the reference results:
+# Build, run and check:
 #   cmake -B build && cmake --build build
 #   cd build && ctest --output-on-failure
-# (or run directly: mpirun -np 1 ./build/main)
+# (or run the case directly: cd build/allen_cahn && mpirun -np 1 ./allen_cahn)
 cmake_minimum_required(VERSION 3.13)
 project(sloth_minimal LANGUAGES CXX)
 
@@ -19,36 +25,26 @@ endif()
 
 find_package(Sloth REQUIRED)
 
-add_executable(main main.cpp)
-target_link_libraries(main PRIVATE Sloth::Sloth)
-
-# ------------------------------------------------------------------------------
-# Tests (ctest): run the program, then compare its results with the reference
-# results (ref/time_specialized.csv). The comparison needs Python 3 (standard
-# library only); without it, only the run test is defined.
-# ------------------------------------------------------------------------------
 enable_testing()
 find_program(MPIEXEC_EXECUTABLE NAMES mpiexec mpirun)
-add_test(NAME minimal_run COMMAND ${MPIEXEC_EXECUTABLE} -n 1 $<TARGET_FILE:main>)
-set_tests_properties(minimal_run PROPERTIES FIXTURES_SETUP minimal_results)
 
 # Python of the active environment first (conda/mamba env, venv), then the
-# first python3 found in PATH (as SLOTH itself does, see SYMPY4SLOTH.cmake)
+# first python3 found in PATH (as SLOTH itself does, see SYMPY4SLOTH.cmake).
+# Needed with SymPy to generate the coefficients from the JSON files; the
+# result checks only use the standard library.
 set(Python3_FIND_VIRTUALENV FIRST)
 set(Python3_FIND_STRATEGY LOCATION)
-find_package(Python3 COMPONENTS Interpreter)
-message(STATUS "Python used for the comparison: ${Python3_EXECUTABLE}")
-if(Python3_FOUND AND EXISTS "${Sloth_COMPARE_SCRIPT}")
-  add_test(NAME minimal_compare
-           COMMAND ${Python3_EXECUTABLE} ${Sloth_COMPARE_SCRIPT}
-                   -f Saves/Problem1/time_specialized.csv
-                      ${CMAKE_CURRENT_SOURCE_DIR}/ref/time_specialized.csv
-                   -c -1 -e relativeEpsilon -k 1e-12 -w 1)
-  # Not run (instead of comparing old or partial results) if minimal_run fails
-  set_tests_properties(minimal_compare PROPERTIES FIXTURES_REQUIRED minimal_results)
-elseif(NOT Python3_FOUND)
-  message(STATUS "Python 3 not found: comparison with the reference results disabled")
-else()
-  message(STATUS "Comparison script not found ('${Sloth_COMPARE_SCRIPT}'): "
-                 "comparison with the reference results disabled")
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+message(STATUS "Python used for the coefficients and the checks: ${Python3_EXECUTABLE}")
+
+execute_process(COMMAND ${Python3_EXECUTABLE} -c "import sympy"
+                RESULT_VARIABLE _no_sympy OUTPUT_QUIET ERROR_QUIET)
+if(NOT _no_sympy EQUAL 0)
+  message(FATAL_ERROR "SymPy not found for ${Python3_EXECUTABLE}: install it (pip install sympy) "
+                      "or activate an environment that provides it")
 endif()
+if(NOT EXISTS "${Sloth_COEFFICIENT_SCRIPT}")
+  message(FATAL_ERROR "SLOTH coefficient generator not found ('${Sloth_COEFFICIENT_SCRIPT}')")
+endif()
+
+add_subdirectory(allen_cahn)

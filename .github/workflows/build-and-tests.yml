@@ -90,6 +90,22 @@ jobs:
         cmake --build ${{ github.workspace }}/example-build
         cd ${{ github.workspace }}/example-build && ctest --output-on-failure
 
+    - name: Install SLOTH with Spack and build the minimal example (spack procedure)
+      shell: spack-bash {0}
+      run: |
+        spack env activate .
+        spack repo add ${{ github.workspace }}/spack_repo
+        spack external find python
+        spack develop --no-clone --path ${{ github.workspace }} sloth@=master
+        spack add sloth@=master
+        spack concretize -f
+        spack install -j $CORES --fail-fast
+        spack load sloth
+        cmake -S $(spack location -i sloth)/share/sloth/examples/minimal \
+              -B ${{ github.workspace }}/spack-example-build
+        cmake --build ${{ github.workspace }}/spack-example-build
+        cd ${{ github.workspace }}/spack-example-build && ctest --output-on-failure
+
     - name: Save Tests on Failure
       if: ${{ failure() }}
       uses: actions/upload-artifact@v4
