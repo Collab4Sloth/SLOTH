@@ -36,9 +36,9 @@ class Sloth(CMakePackage):
     )
 
     depends_on("cmake@3.13:", type="build")
-    # SymPy is required at configure time (generation of coefficient classes)
-    depends_on("python@3:", type="build")
-    depends_on("py-sympy", type="build")
+    # SymPy: configure time (test coefficients) and run time (scripts/GenerateCoefficient.py)
+    depends_on("python@3:", type=("build", "run"))
+    depends_on("py-sympy", type=("build", "run"))
 
     depends_on("mpi")
     # SLOTH only needs a parallel MFEM with SuiteSparse; MFEM's other options

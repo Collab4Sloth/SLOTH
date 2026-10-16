@@ -19,5 +19,7 @@ set(Sloth_BUILD_TYPE   "@CMAKE_BUILD_TYPE@")
 
 # Script comparing result columns with reference files (needs Python 3 + pandas)
 set(Sloth_COMPARE_SCRIPT "${PACKAGE_PREFIX_DIR}/share/sloth/tools/col_compare.py")
+# Symbolic coefficient generator (needs Python with SymPy)
+set(Sloth_COEFFICIENT_SCRIPT "${PACKAGE_PREFIX_DIR}/scripts/GenerateCoefficient.py")
 
 check_required_components(Sloth)

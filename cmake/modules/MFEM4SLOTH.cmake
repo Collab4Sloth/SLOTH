@@ -17,6 +17,10 @@ if(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+    # Exported with SlothMFEM so that applications using find_package(Sloth) link OpenMP too
+    separate_arguments(_sloth_omp_flags UNIX_COMMAND "${OpenMP_CXX_FLAGS}")
+    target_compile_options(SlothMFEM INTERFACE ${_sloth_omp_flags})
+    target_link_libraries(SlothMFEM INTERFACE ${OpenMP_CXX_LIBRARIES})
   endif()
 endif(MFEM_USE_OPENMP OR MFEM_USE_LEGACY_OPENMP)
 
@@ -30,6 +34,8 @@ if(MFEM_USE_MUMPS)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+    # Exported with SlothMFEM so that applications using find_package(Sloth) link the OpenMP runtime
+    target_link_libraries(SlothMFEM INTERFACE ${OpenMP_CXX_LIBRARIES})
   endif()
 endif(MFEM_USE_MUMPS)
 
