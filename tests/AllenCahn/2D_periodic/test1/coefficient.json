@@ -1,0 +1,10 @@
+[
+    {
+        "expression": "(exp(-2*t)*sin(x + y))**3 - exp(-2*t)*sin(x + y)",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "constants": "(t:T)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

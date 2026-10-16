@@ -1,0 +1,9 @@
+[
+    {
+        "expression": "Min(plmax, pl + (t - T0)*pldt)/(2*pi*R**2)",
+        "variables": "T",
+        "constants": "(t:T),(pl:2.6e4),(plmax:12.e4),(pldt:1.e4),(T0:0.),(R:0.00465)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

@@ -1,0 +1,9 @@
+[
+    {
+        "expression": "2*(x*y*(x - 1)*(y - 1))*(1 - 2*(x*y*(x - 1)*(y - 1)))*(1 - (x*y*(x - 1)*(y - 1))) - (2*x*(x - 1) + 2*y*(y - 1))",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

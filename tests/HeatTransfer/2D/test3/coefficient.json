@@ -1,0 +1,10 @@
+[
+    {
+        "expression": "exp(-t)*(-rho*cp*cos(pi*r**2)*cos(pi*z) + cond*(4*pi*sin(pi*r**2)*cos(pi*z) + 4*pi**2*r**2*cos(pi*r**2)*cos(pi*z) + pi**2*cos(pi*r**2)*cos(pi*z)))",
+        "variables": "T",
+        "coordinates": "r,z",
+        "constants": "(t:T),(rho:1.),(cp:1.),(cond:1.)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

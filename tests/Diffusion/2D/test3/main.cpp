@@ -66,7 +66,8 @@ int main(int argc, char* argv[]) {
   std::vector<Coefficients> coeffs;
   Coefficient D(Glossary::Diffusivity, -1.0);
   Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
-  Coefficients CoeffDiffusion(D, FW);
+  Coefficient source(Glossary::SourceTerm, 1.);
+  Coefficients CoeffDiffusion(D, FW, source);
   coeffs.emplace_back(CoeffDiffusion);
   // ####################
   //     variables     //
@@ -92,18 +93,10 @@ int main(int argc, char* argv[]) {
   //     operators     //
   // ####################
 
-  auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-      []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
-        const auto func = 1.;
-        return func;
-      });
-
-  std::vector<AnalyticalFunctions<DIM> > src_term;
-  src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
 
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
-  SteadyOPE oper(spatials, {"Fick"}, src_term);
+  SteadyOPE oper(spatials, {"Fick", "SourceTerm"});
 
   auto pst = PST(&spatial, p_pst);
   SteadyPB problem1("Problem 1", oper, vars, coeffs, pst);

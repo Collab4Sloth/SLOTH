@@ -83,15 +83,6 @@ int main(int argc, char* argv[]) {
     // Heat
     auto pl = 26.e3;
 
-    auto src_func = std::function<double(const mfem::Vector&, double)>(
-        [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
-                            [[maybe_unused]] double time) {
-          const double rr = vcoord[0];
-          const double func = pl * rr / (M_PI * pellet_radius * pellet_radius);
-
-          return func;
-        });
-
     auto T_analytical = std::function<double(const mfem::Vector&, double)>(
         [pl, pellet_radius, T_initial, cond]([[maybe_unused]] const mfem::Vector& vcoord,
                                              [[maybe_unused]] double time) {
@@ -127,12 +118,12 @@ int main(int argc, char* argv[]) {
     // ####################
 
     // Heat:
-    Coefficients coef_pb(density, heat_capacity, conductivity);
-    std::vector<AnalyticalFunctions<DIM> > src_term;
-    src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
+    // Axisymmetric: the r weight is applied by the SourceTerm integrator
+    Coefficient source(Glossary::SourceTerm, pl / (M_PI * pellet_radius * pellet_radius));
+    Coefficients coef_pb(density, heat_capacity, conductivity, source);
     std::vector<SPA*> spatials{&spatial};
-    TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                      src_term);
+    TransientOPE oper(spatials, {"Fourier", "SourceTerm"}, TimeScheme::EulerImplicit,
+                      "HeatTimeDerivative");
 
     oper.overload_nl_solver(
         NLSolverType::NEWTON,
