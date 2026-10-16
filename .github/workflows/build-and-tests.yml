@@ -81,7 +81,7 @@ jobs:
       shell: spack-bash {0}
       run: |
         spack env activate .
-        source pysloth/bin/activate
+        export PATH="$pythonLocation/bin:$PATH"
         cd ${{ github.workspace }}/build
         cmake --install . --prefix ${{ github.workspace }}/sloth-installed
         cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \
@@ -135,7 +135,6 @@ jobs:
 
     - name: Install SLOTH and build the minimal example (user procedure)
       run: |
-        source pysloth/bin/activate
         cd ${{ github.workspace }}/build
         cmake --install . --prefix ${{ github.workspace }}/sloth-installed
         cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \

@@ -21,6 +21,12 @@ option(SLOTH_USE_VORO     "Enable Voro++ (Voronoi tessellations)" OFF)
 option(SLOTH_USE_LIBTORCH "Enable the LibTorch API" OFF)
 option(SLOTH_USE_EXTERNAL "Link Sloth with an external library (EXT_LIBDIR, EXT_LIBNAME)" OFF)
 option(MATOOLS_VERBOSITY_LEVEL_1 "MATools profiling: verbosity level 1" OFF)
+# Optimisation for the build machine (Release / RelWithDebInfo / MinSizeRel).
+# Set them to OFF when SLOTH is built for other machines or used with another
+# compiler (spack package, shared installation): -march=native code may not run
+# on another CPU, and LTO objects can only be linked with the same compiler.
+option(SLOTH_NATIVE_ARCH "Optimise for the CPU of the build machine (-march=native)" ON)
+option(SLOTH_ENABLE_LTO  "Link-time optimisation (Release, MinSizeRel)" ${SLOTH_NATIVE_ARCH})
 
 ## Force Release Mode
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
