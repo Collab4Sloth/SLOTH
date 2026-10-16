@@ -52,14 +52,14 @@ jobs:
     - name: Setup Python 
       uses: actions/setup-python@v5
       with:
-        cache: 'pip'
-      
+        python-version: "3.13"
+
     - name: Install Python dependencies 
       run: |
-        python3 -m venv pysloth
+        python -m venv pysloth
         source pysloth/bin/activate
-        python3 -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
-
+        python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
+        
     - name: Build SLOTH
       shell: spack-bash {0}    
       run: | 
@@ -108,14 +108,13 @@ jobs:
     - name: Setup Python 
       uses: actions/setup-python@v5
       with:
-        cache: 'pip'
+        python-version: "3.13"
 
     - name: Install Python dependencies 
       run: |
-        python3 -m venv pysloth
+        python -m venv pysloth
         source pysloth/bin/activate
-        python3 -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
-
+        python -m pip install --upgrade pip gcovr cpplint matplotlib pandas numpy scipy sympy vtk
 
     - name: Install ExprTk
       run: |
@@ -172,6 +171,5 @@ jobs:
         --counting=total \
         --extensions=cpp,cxx,hpp,h,hxx,tpp \
         --linelength=100 \
-        --recursive ../kernel ../tests \
-        COMMENT "Linting source files"
+        --recursive ../kernel ../tests 
     
