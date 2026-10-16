@@ -98,7 +98,6 @@ class OperatorBase : public mfem::Operator {
   std::vector<BoundaryConditions<T, DIM>*> bcs_;
   std::vector<mfem::Array<int>> array_bdr_;
 
-  std::vector<std::function<double(const mfem::Vector&, double)>> src_func_;
 
   double current_dt_;
   double current_time_;
@@ -125,14 +124,7 @@ class OperatorBase : public mfem::Operator {
                std::vector<SpatialDiscretization<T, DIM>*> spatials);
 
   OperatorBase(const std::vector<std::string>& integrators,
-               std::vector<SpatialDiscretization<T, DIM>*> spatials,
-               const std::vector<AnalyticalFunctions<DIM>>& source_term_name);
-  OperatorBase(const std::vector<std::string>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params);
-
-  OperatorBase(const std::vector<std::string>& integrators,
-               std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params,
-               const std::vector<AnalyticalFunctions<DIM>>& source_term_name);
 
   void set_coefficients(const std::vector<Coefficients>& coefficients,
                         bool enable_compute_energies);
@@ -150,9 +142,6 @@ class OperatorBase : public mfem::Operator {
 
   void ComputeIsoVal(const int& it, const double& t, const double& dt, const int var_id,
                      const std::string& var_name, const mfem::Vector& u, const double& iso_value);
-  void get_source_term(const int id_block,
-                       const std::function<double(const mfem::Vector&, double)>& src_func,
-                       mfem::Vector& source_term, mfem::ParLinearForm* RHHS) const;
 
   const std::multimap<IterationKey, SpecializedValue>& get_time_specialized() const;
   const std::map<std::string, std::multimap<IterationKey, SpecializedValue>>

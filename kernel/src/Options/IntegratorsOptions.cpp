@@ -49,6 +49,11 @@ Integrators::value Integrators::from(const std::string& v) {
       {"MassFlux", Integrators::MassFlux},
       {"LatentHeat", Integrators::LatentHeat},
       {"Neumann", Integrators::Neumann},
-      {"Robin", Integrators::Robin}};
+      {"Robin", Integrators::Robin},
+      {"SourceTerm", Integrators::SourceTerm},
+      {"Advection", Integrators::Advection},
+      {"SplitAdvection", Integrators::SplitAdvection},
+      {"AdvectionBoundary", Integrators::AdvectionBoundary},
+      {"AdvectionBoundaryCH", Integrators::AdvectionBoundaryCH}};
   return m.find("Integrators", v);
 }

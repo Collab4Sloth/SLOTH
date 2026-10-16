@@ -233,47 +233,6 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
  * @param spatial
- * @param source_term_name
- */
-template <class T, int DIM>
-OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
-                                   std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                   const std::vector<AnalyticalFunctions<DIM>>& source_term_name)
-    : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
-      params_(default_params_),
-      RHS(NULL),
-      rhs_solver_(nullptr),
-      current_dt_(0.0),
-      current_time_(0.0),
-      height_(height),
-      z(height),
-      rhs_integrators_(integrators) {
-  this->fes_.SetSize(spatials.size());
-  this->bcs_.reserve(spatials.size());
-  this->ess_tdof_list_.reserve(spatials.size());
-
-  this->block_trueOffsets_.SetSize(spatials.size() + 1);
-
-  this->block_trueOffsets_[0] = 0;
-  int i = 0;
-  for (const auto* s : spatials) {
-    this->fes_[i] = s->get_finite_element_space();
-    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
-    i++;
-  }
-  this->block_trueOffsets_.PartialSum();
-  for (const auto& src : source_term_name) {
-    this->src_func_.emplace_back(std::move(src.getFunction()));
-  }
-  this->set_default_solver();
-}
-
-/**
- * @brief Construct a new OperatorBase object
- *
- * @tparam T Finite Element collection (mfem object)
- * @tparam DIM Spatial dimension
- * @param spatial
  * @param params
  */
 template <class T, int DIM>
@@ -302,51 +261,6 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
     i++;
   }
   this->block_trueOffsets_.PartialSum();
-  this->set_default_solver();
-}
-
-/**
- * @brief  Construct a new Phase Field Operator Base< T,  DIM, NLFI>:: Phase Field Operator
- * Base object
- * @tparam T Finite Element collection (mfem object)
- * @tparam DIM Spatial dimension
- * @param spatial
- * @param params
- * @param vars
- * @param auxvars
- * @param source_term_name
- */
-template <class T, int DIM>
-OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
-                                   std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                   const Parameters& params,
-                                   const std::vector<AnalyticalFunctions<DIM>>& source_term_name)
-    : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
-      params_(params),
-      RHS(NULL),
-      current_dt_(0.0),
-      current_time_(0.0),
-      height_(height),
-      z(height),
-      rhs_integrators_(integrators) {
-  this->fes_.SetSize(spatials.size());
-  this->bcs_.reserve(spatials.size());
-  this->ess_tdof_list_.reserve(spatials.size());
-
-  this->block_trueOffsets_.SetSize(spatials.size() + 1);
-
-  this->block_trueOffsets_[0] = 0;
-  int i = 0;
-  for (const auto* s : spatials) {
-    this->fes_[i] = s->get_finite_element_space();
-    this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
-    i++;
-  }
-  this->block_trueOffsets_.PartialSum();
-  for (const auto& src : source_term_name) {
-    auto s = src.getFunction();
-    this->src_func_.emplace_back(s);
-  }
   this->set_default_solver();
 }
 
@@ -824,28 +738,6 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
 }
 
 /**
- * @brief Get the source term by equation of the PDEs
- *
- * @tparam T Finite Element collection (mfem object)
- * @tparam DIM Spatial dimension
- */
-template <class T, int DIM>
-void OperatorBase<T, DIM>::get_source_term(
-    const int id_block, const std::function<double(const mfem::Vector&, double)>& src_func,
-    mfem::Vector& source_term, mfem::ParLinearForm* RHSS) const {
-  mfem::FunctionCoefficient src(src_func);
-  src.SetTime(this->current_time_ + this->current_dt_);
-
-  RHSS->AddDomainIntegrator(new mfem::DomainLFIntegrator(src));
-  RHSS->Assemble();
-
-  source_term.SetSize(this->fes_[id_block]->GetTrueVSize());
-  RHSS->ParallelAssemble(source_term);
-
-  source_term.SetSubVector(this->ess_tdof_list_[id_block], 0.);
-}
-
-/**
  * @brief Get a of a multimap of integral values calculated at a given iteration (see
  * computeEnergies and computeError)
  *
@@ -972,6 +864,18 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
       return new LatentHeatNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
+    case Integrators::SourceTerm: {
+      return new SourceTermNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+    }
+    case Integrators::Advection: {
+      return new AdvectionNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+    }
+    case Integrators::SplitAdvection: {
+      return new SplitAdvectionNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+    }
     default:
       mfem::mfem_error("RHS Integrators not found. Please check your data.");
   }
@@ -1007,6 +911,18 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_bdr_integrat
                                                           all_params, this->auxvariables_,
                                                           this->coefficients_, block, bdr_id);
       break;
+    }
+    // TODO: AdvectionBoundary / AdvectionBoundaryCH are registered but not yet triggered
+    // automatically in build_rhs_nonlinear_form (boundary hook to be added with Advection).
+    case Integrators::AdvectionBoundary: {
+      return new AdvectionBoundaryNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_,
+          block, bdr_id);
+    }
+    case Integrators::AdvectionBoundaryCH: {
+      return new AdvectionBoundaryCHNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_,
+          block, bdr_id);
     }
     default:
       mfem::mfem_error("Boundary Integrators not found. Please check your data.");

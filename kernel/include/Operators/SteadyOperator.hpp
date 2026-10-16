@@ -57,15 +57,7 @@ class SteadyOperator : public OperatorBase<T, DIM> {
                  const std::vector<std::string>& integrators);
 
   SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                 const std::vector<std::string>& integrators,
-                 std::vector<AnalyticalFunctions<DIM>> source_term_name);
-
-  SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                  const std::vector<std::string>& integrators, const Parameters& params);
-
-  SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                 const std::vector<std::string>& integrators, const Parameters& params,
-                 std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult([[maybe_unused]] const mfem::Vector& k, [[maybe_unused]] mfem::Vector& y)
       const override {  // Nothing to be done because of manage by steadyreducedoperator

@@ -73,33 +73,6 @@ TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T
 
 /**
  * @brief Construct a new TransientOperator object
- * object
- *
- * @tparam T
- * @tparam DIM
- * @param spatials
- * @param ode
- * @param source_term_name
- */
-template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(
-
-    std::vector<SpatialDiscretization<T, DIM>*> spatials,
-    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
-    const std::string lhs_integrator, std::vector<AnalyticalFunctions<DIM>> source_term_name)
-    : OperatorBase<T, DIM>(rhs_integrators, spatials, source_term_name),
-      mfem::TimeDependentOperator(this->compute_total_height(spatials),
-                                  this->compute_total_width(spatials), 0.0),
-      lhs_integrator_(lhs_integrator),
-      M(NULL),
-      LHS(NULL),
-      reduced_oper(NULL) {
-  this->set_ODE_solver(ode);
-  this->set_default_mass_solver();
-}
-
-/**
- * @brief Construct a new TransientOperator object
  *
  * @tparam T
  * @tparam DIM
@@ -113,34 +86,6 @@ TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T
                                              const Parameters& params, TimeScheme::value ode,
                                              const std::string lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials, params),
-      mfem::TimeDependentOperator(this->compute_total_height(spatials),
-                                  this->compute_total_width(spatials), 0.0),
-      lhs_integrator_(lhs_integrator),
-      M(NULL),
-      LHS(NULL),
-      reduced_oper(NULL) {
-  this->set_ODE_solver(ode);
-  this->set_default_mass_solver();
-}
-
-/**
- * @brief Construct a new TransientOperator object
- * @tparam T
- * @tparam DIM
- * @param spatial
- * @param params
- * @param vars
- * @param ode
- * @param auxvars
- * @param source_term_name
- */
-template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                             const std::vector<std::string>& rhs_integrators,
-                                             const Parameters& params, TimeScheme::value ode,
-                                             const std::string lhs_integrator,
-                                             std::vector<AnalyticalFunctions<DIM>> source_term_name)
-    : OperatorBase<T, DIM>(rhs_integrators, spatials, params, source_term_name),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
       lhs_integrator_(lhs_integrator),
@@ -469,22 +414,8 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::BlockVector bb(this->block_trueOffsets_);
 
+  // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
   this->RHS->Mult(v, bb);
-
-  // Source term
-  mfem::BlockVector source_term(this->block_trueOffsets_);
-  source_term = 0.0;
-  if (!this->src_func_.empty()) {
-    for (int i = 0; i < fes_size; ++i) {
-      if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
-        mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, SRC);
-        delete SRC;
-      }
-    }
-    bb -= source_term;
-  }
   bb.Neg();
 
   mfem::BlockVector sol(this->block_trueOffsets_);
@@ -565,29 +496,15 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::stop("ApplyBCs");
   }
 
-  // Source term
-  mfem::BlockVector source_term(this->block_trueOffsets_);
-  source_term = 0.0;
-  {
-    MATools::MATrace::start();
-    Catch_Time_Section("ImplicitSolve::SourceTerm");
-    if (!this->src_func_.empty()) {
-      for (int i = 0; i < fes_size; ++i) {
-        if (this->src_func_[i] != nullptr) {
-          mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
-          mfem::Vector& src_i = source_term.GetBlock(i);
-          this->get_source_term(i, this->src_func_[i], src_i, SRC);
-          delete SRC;
-        }
-      }
-    }
-    MATools::MATrace::stop("SourceTerm");
-  }
+  // Zero right-hand side: source terms are part of the RHS nonlinear form (SourceTerm
+  // integrator)
+  mfem::BlockVector zero_rhs(this->block_trueOffsets_);
+  zero_rhs = 0.0;
 
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
-    this->newton_solver_->Mult(source_term, dv_dt);
+    this->newton_solver_->Mult(zero_rhs, dv_dt);
     MATools::MATrace::stop("Solve");
   }
 

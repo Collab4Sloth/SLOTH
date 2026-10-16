@@ -121,7 +121,9 @@ enum class GlossaryType {
   RobinA,
   RobinB,
   ExplicitTime,
-  Dirichlet
+  Dirichlet,
+  SourceTerm,
+  VelocityPrefactor
 };
 
 struct GlossaryQuantity {
@@ -366,6 +368,21 @@ static const GlossaryQuantity Robin_b =
  */
 static const GlossaryQuantity Dirichlet =
     GlossaryQuantity(GlossaryType::Dirichlet, GlossaryUnit::None, "Dirichlet boundary condition");
+
+/**
+ * @brief Quantity associated with a user-defined source term (SourceTerm integrator)
+ *
+ */
+static const GlossaryQuantity SourceTerm =
+    GlossaryQuantity(GlossaryType::SourceTerm, GlossaryUnit::None, "User-defined source term");
+
+/**
+ * @brief Quantity associated with the velocity prefactor alpha of v = alpha w (Advection
+ * integrators)
+ *
+ */
+static const GlossaryQuantity VelocityPrefactor = GlossaryQuantity(
+    GlossaryType::VelocityPrefactor, GlossaryUnit::None, "Velocity prefactor (advection)");
 
 /**
  * @brief Quantity associated with the MPI rank

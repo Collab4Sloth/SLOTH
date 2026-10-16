@@ -26,6 +26,9 @@
 
 #pragma once
 
+#include "Integrators/AdvectionBoundaryCHNLFormIntegrator.hpp"
+#include "Integrators/AdvectionBoundaryNLFormIntegrator.hpp"
+#include "Integrators/AdvectionNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
 #include "Integrators/BlockAllenCahnNLFormIntegrator.hpp"
 #include "Integrators/CahnHilliardNLFormIntegrator.hpp"
@@ -40,5 +43,7 @@
 #include "Integrators/NeumannNLFormIntegrator.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "Integrators/SourceTermNLFormIntegrator.hpp"
+#include "Integrators/SplitAdvectionNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"
