@@ -9,29 +9,66 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# ########################
+# # SLOTH options
+# ########################
+# All options are declared here, before being used, so that they are listed
+# (with their description) by "cmake -LH" or "ccmake".
+# envSloth.sh sets them through -D... (see its command-line options).
+option(SLOTH_USE_SHARED   "Build Sloth as a shared library (default: static)" OFF)
+option(SLOTH_USE_EXPRTK   "Enable ExprTk (analytical expressions parsed at runtime)" OFF)
+option(SLOTH_USE_VORO     "Enable Voro++ (Voronoi tessellations)" OFF)
+option(SLOTH_USE_LIBTORCH "Enable the LibTorch API" OFF)
+option(SLOTH_USE_EXTERNAL "Link Sloth with an external library (EXT_LIBDIR, EXT_LIBNAME)" OFF)
+option(MATOOLS_VERBOSITY_LEVEL_1 "MATools profiling: verbosity level 1" OFF)
+# Optimisation for the build machine (Release / RelWithDebInfo / MinSizeRel).
+# Set them to OFF when SLOTH is built for other machines or used with another
+# compiler (spack package, shared installation): -march=native code may not run
+# on another CPU, and LTO objects can only be linked with the same compiler.
+option(SLOTH_NATIVE_ARCH "Optimise for the CPU of the build machine (-march=native)" ON)
+option(SLOTH_ENABLE_LTO  "Link-time optimisation (Release, MinSizeRel)" ${SLOTH_NATIVE_ARCH})
+
 ## Force Release Mode
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Coverage RelWithDebInfo Debug)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+             Release PortableRelease RelWithDebInfo MinSizeRel Optim Debug Coverage)
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
-# Check GCC version for including filesystem
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-    find_package(Filesystem REQUIRED)
-    set(FILESYSTEM_LIB stdc++fs)
-  endif()
-endif()
 
 
 # ########################
 # # Global Configuration
 # ########################
 # SlothInstall : default name of the repository for installation
-if("$ENV{USER_INSTALL_PATH}" STREQUAL "")
-    set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../SlothInstall" )
+# Priority:
+#   1. USER_INSTALL_PATH environment variable (set by envSloth.sh --install=...)
+#   2. -DCMAKE_INSTALL_PREFIX=... given explicitly by the user
+#   3. default: ../SlothInstall
+# The value is stored in the cache, so that the cache, the configuration
+# summary and "make install" all use the same directory.
+# The default (3) is applied:
+#   - at the first configure (or "/usr/local", CMake's own default, found in
+#     the cache of build directories created before this change);
+#   - when envSloth.sh is run again without --install (it always exports
+#     USER_INSTALL_PATH, empty in that case) and the cached prefix was set
+#     automatically (by a previous --install or by the default), as before.
+# A plain "cmake ." (USER_INSTALL_PATH not in the environment at all) keeps
+# the cached prefix, whatever it is.
+if(NOT "$ENV{USER_INSTALL_PATH}" STREQUAL "")
+    set(_sloth_auto_prefix "$ENV{USER_INSTALL_PATH}")
+elseif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
+    set(_sloth_auto_prefix "${CMAKE_SOURCE_DIR}/../SlothInstall")
+elseif(DEFINED ENV{USER_INSTALL_PATH}
+       AND CMAKE_INSTALL_PREFIX STREQUAL "${SLOTH_AUTO_INSTALL_PREFIX}")
+    set(_sloth_auto_prefix "${CMAKE_SOURCE_DIR}/../SlothInstall")
 else()
-    set(CMAKE_INSTALL_PREFIX "$ENV{USER_INSTALL_PATH}")
+    set(_sloth_auto_prefix "")
+endif()
+
+if(NOT _sloth_auto_prefix STREQUAL "")
+    set(CMAKE_INSTALL_PREFIX "${_sloth_auto_prefix}" CACHE PATH "Installation directory" FORCE)
+    set(SLOTH_AUTO_INSTALL_PREFIX "${_sloth_auto_prefix}" CACHE INTERNAL "Install prefix set automatically by SLOTH")
 endif()
 
 # ########################
@@ -58,7 +95,6 @@ include(COMPILE4SLOTH)
 # ########################
 # # Sloth kernel
 # ########################
-# include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(kernel)
 
 # ########################
@@ -72,7 +108,6 @@ endif(NOT TARGET doc)
 # ########################
 # LibTorch API ??
 # ########################
-option(SLOTH_USE_LIBTORCH "Enable the use of libtorch API" OFF)
 if(SLOTH_USE_LIBTORCH)
     find_package(Torch REQUIRED)
 endif(SLOTH_USE_LIBTORCH)
@@ -135,3 +170,9 @@ if(NOT TARGET lint)
     COMMENT "Linting source files"
   )
 endif()
+
+# ########################
+# # Configuration summary (read-only)
+# ########################
+include(SUMMARY4SLOTH)
+sloth_print_summary()
