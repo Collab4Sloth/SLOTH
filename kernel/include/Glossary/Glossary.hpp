@@ -123,7 +123,8 @@ enum class GlossaryType {
   ExplicitTime,
   Dirichlet,
   SourceTerm,
-  VelocityPrefactor
+  Velocity,
+  Inflow
 };
 
 struct GlossaryQuantity {
@@ -377,12 +378,24 @@ static const GlossaryQuantity SourceTerm =
     GlossaryQuantity(GlossaryType::SourceTerm, GlossaryUnit::None, "User-defined source term");
 
 /**
- * @brief Quantity associated with the velocity prefactor alpha of v = alpha w (Advection
- * integrators)
+ * @brief Quantities associated with the components of an imposed advection velocity
+ * (Advection integrators). The ID of the quantity is the index of the component.
  *
  */
-static const GlossaryQuantity VelocityPrefactor = GlossaryQuantity(
-    GlossaryType::VelocityPrefactor, GlossaryUnit::None, "Velocity prefactor (advection)");
+static const GlossaryQuantity Velocity_X = GlossaryQuantity(
+    GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, x (or r) component", 0);
+static const GlossaryQuantity Velocity_Y = GlossaryQuantity(
+    GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, y (or z) component", 1);
+static const GlossaryQuantity Velocity_Z = GlossaryQuantity(
+    GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, z component", 2);
+
+/**
+ * @brief Quantity associated with the value of the advected variable entering the domain
+ * through an open boundary (AdvectionBoundary integrators). Attached to boundaries.
+ *
+ */
+static const GlossaryQuantity Inflow = GlossaryQuantity(
+    GlossaryType::Inflow, GlossaryUnit::None, "Inflow value of the advected variable");
 
 /**
  * @brief Quantity associated with the MPI rank
