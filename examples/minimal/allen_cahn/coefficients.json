@@ -1,0 +1,8 @@
+[
+    {
+    "expression":"phi*phi*(1.0 - phi)*(1.0 - phi)",
+    "variables":"phi",
+    "class_name":"DoubleWell",
+    "outputfile":"AllenCahnCoefficients"
+    }
+]

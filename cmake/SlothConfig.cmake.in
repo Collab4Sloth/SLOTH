@@ -1,0 +1,25 @@
+# SlothConfig.cmake: makes an installed SLOTH usable with
+#     find_package(Sloth REQUIRED)
+#     target_link_libraries(<target> PRIVATE Sloth::Sloth)
+# Sloth::Sloth carries everything needed to compile and link against SLOTH:
+# include directories, C++20, compile definitions, and MFEM with its
+# third-party libraries (Sloth::SlothMFEM, as used to build SLOTH).
+
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/SlothTargets.cmake")
+
+# Options SLOTH was built with (information for the user)
+set(Sloth_USE_EXPRTK   @SLOTH_USE_EXPRTK@)
+set(Sloth_USE_VORO     @SLOTH_USE_VORO@)
+set(Sloth_USE_LIBTORCH @SLOTH_USE_LIBTORCH@)
+set(Sloth_USE_EXTERNAL @SLOTH_USE_EXTERNAL@)
+set(Sloth_USE_SHARED   @SLOTH_USE_SHARED@)
+set(Sloth_BUILD_TYPE   "@CMAKE_BUILD_TYPE@")
+
+# Script comparing result columns with reference files (Python 3, standard library only)
+set(Sloth_COMPARE_SCRIPT "${PACKAGE_PREFIX_DIR}/share/sloth/tools/col_compare.py")
+# Symbolic coefficient generator (needs Python with SymPy)
+set(Sloth_COEFFICIENT_SCRIPT "${PACKAGE_PREFIX_DIR}/scripts/GenerateCoefficient.py")
+
+check_required_components(Sloth)
