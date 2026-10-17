@@ -12,8 +12,8 @@ import sys
 
 RESULTS = "Saves/Problem1/time_specialized.csv"
 SIGMA = 6.e-2              # interfacial energy given in main.cpp [J.m-2]
-TOL_PROFILE = 1.e-2        # max normalized L2 error with respect to the tanh profile
-TOL_SIGMA = 2.e-2          # max relative error on the interfacial energy
+TOL_PROFILE = 1.e-3        # max normalized L2 error with respect to the tanh profile
+TOL_SIGMA = 2.e-3          # max relative error on the interfacial energy
 
 
 def column(row, suffix):
