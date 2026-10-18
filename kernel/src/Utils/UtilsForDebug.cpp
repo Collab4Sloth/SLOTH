@@ -47,7 +47,7 @@ rusage UtilsForDebug::make_memory_checkpoint() {
   rusage obj;
   int who = 0;
   [[maybe_unused]] auto res = getrusage(who, &obj);
-  assert((res = -1) && "error: getrusage has failed");
+  assert((res != -1) && "error: getrusage has failed");
   return obj;
 }
 

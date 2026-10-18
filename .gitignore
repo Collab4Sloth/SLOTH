@@ -1,3 +1,4 @@
-*build*
+# Build directories (any directory whose name contains "build": build/, build-debug/, mybuild/...)
+*build*/
 .cache
 .DS_Store

@@ -1,5 +1,5 @@
-execute_process(COMMAND python3 ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -f  ${CMAKE_CURRENT_SOURCE_DIR}/coefficients.json
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+execute_process(COMMAND ${Python3_EXECUTABLE} ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -f  ${CMAKE_CURRENT_SOURCE_DIR}/coefficients.json
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 create_test("Grains2Dtest3" "Grains2Dtest3" FALSE "2D EXE AC" 2)
 configure_file(${CMAKE_SOURCE_DIR}/tests/Studies/multigrains/test3/initial-grain.txt ${CMAKE_CURRENT_BINARY_DIR}/initial-grain.txt COPYONLY)
 
@@ -10,7 +10,7 @@ create_col_comparison("CompareGrains" "time_specialized.csv" "Saves/GrainsProble
 
 add_test(
     NAME Grains2Dtest3_plot
-    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/plot.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/plot.py
 )
 
 set_tests_properties(
