@@ -1,5 +1,5 @@
-execute_process(COMMAND python3 ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -f  ${CMAKE_CURRENT_SOURCE_DIR}/coefficient.json
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+execute_process(COMMAND ${Python3_EXECUTABLE} ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -f  ${CMAKE_CURRENT_SOURCE_DIR}/coefficient.json
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
 
 create_test("CahnHilliard2Dtest5" "CahnHilliard2Dtest5" FALSE "2D EXE CH" 1)

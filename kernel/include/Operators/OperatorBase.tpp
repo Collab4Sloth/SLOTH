@@ -339,6 +339,15 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
     return marker;
   };
 
+  // Advection: an Inflow coefficient attached to a boundary
+  // activates the inflow/outflow term
+  const auto has_rhs_integrator = [this](const std::string& name) {
+    return std::find(this->rhs_integrators_.begin(), this->rhs_integrators_.end(), name) !=
+           this->rhs_integrators_.end();
+  };
+  const bool advection = has_rhs_integrator("Advection");
+  const bool split_advection = has_rhs_integrator("SplitAdvection");
+
   // Loop over variables
   for (int i = 0; i < fes_size; ++i) {
     Robin_bdr = this->bcs_[i]->get_marker_array("Robin");
@@ -386,6 +395,30 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
         auto integrator_ptr = this->set_bdr_nlfi_ptr(dt, "Robin", u_vect, i, j);
         this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
       }
+
+      // Add advection inflow/outflow integrator
+      // (independent of the boundary condition type)
+      bool has_inflow_coeff = false;
+      for (int l = 0; l < coef_size; l++) {
+        const auto& coef = coefficients[l];
+        if (coef.get_type() == GlossaryType::Inflow) {
+          auto bdr_ids = coef.get_bdr_index_coef();
+          if (std::find(bdr_ids.begin(), bdr_ids.end(), j) != bdr_ids.end()) {
+            has_inflow_coeff = true;
+            break;
+          }
+        }
+      }
+      if (has_inflow_coeff) {
+        MFEM_VERIFY(advection || split_advection,
+                    "An Inflow coefficient is given but neither Advection nor SplitAdvection is "
+                    "used. Please check your data.");
+        this->array_bdr_[j] = make_boundary_marker(nb_bdr, j);
+        const std::string name = split_advection ? "AdvectionBoundaryCH" : "AdvectionBoundary";
+        auto integrator_ptr = this->set_bdr_nlfi_ptr(dt, name, u_vect, i, j);
+        this->RHS->AddBoundaryIntegrator(integrator_ptr, this->array_bdr_[j]);
+      }
+      //
     }
   }
 }
@@ -912,14 +945,14 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_bdr_integrat
                                                           this->coefficients_, block, bdr_id);
       break;
     }
-    // TODO: AdvectionBoundary / AdvectionBoundaryCH are registered but not yet triggered
-    // automatically in build_rhs_nonlinear_form (boundary hook to be added with Advection).
     case Integrators::AdvectionBoundary: {
+      // AdvectionBoundary added on boundaries holding an Inflow coefficient.
       return new AdvectionBoundaryNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_,
           block, bdr_id);
     }
     case Integrators::AdvectionBoundaryCH: {
+      // AdvectionBoundaryCH added on boundaries holding an Inflow coefficient.
       return new AdvectionBoundaryCHNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_,
           block, bdr_id);

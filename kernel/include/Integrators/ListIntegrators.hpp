@@ -1,6 +1,6 @@
 /**
  * @file ListIntegrators.hpp
- * @author ci230846  (clement.introini@cea.fr)
+ * @author Clément Introïni (clement.introini@cea.fr)
  * @brief List of  header files contained in the Integrators directory
  * @version 0.1
  * @date 2026-03-21

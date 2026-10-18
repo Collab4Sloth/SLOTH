@@ -1,0 +1,16 @@
+[
+    {
+        "expression": "sin(pi*x)",
+        "variables": "T",
+        "coordinates": "x,y",
+        "class_name": "VelocityX",
+        "outputfile": "Coefficient"
+    },
+    {
+        "expression": "sin(pi*y)",
+        "variables": "T",
+        "coordinates": "x,y",
+        "class_name": "VelocityY",
+        "outputfile": "Coefficient"
+    }
+]

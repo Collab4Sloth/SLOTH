@@ -1,6 +1,6 @@
 /**
  * @file CommonCoefficients.cpp
- * @author ci230846  (clement.introini@cea.fr)
+ * @author Clément Introïni (clement.introini@cea.fr)
  * @brief
  * @version 0.1
  * @date 2026-03-21
