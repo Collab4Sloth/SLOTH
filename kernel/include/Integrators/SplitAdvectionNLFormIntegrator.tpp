@@ -51,9 +51,9 @@ template <class VARS>
 void SplitAdvectionNLFormIntegrator<VARS>::build_terms() {
   MFEM_VERIFY(this->nb_blk_ == 2,
               "SplitAdvectionNLFormIntegrator: two blocks (phi, mu) are expected.");
-  MFEM_VERIFY(!this->velocity_[0].empty(),
-              "SplitAdvectionNLFormIntegrator: Velocity coefficients are required for phi "
-              "(block 0).");
+  MFEM_VERIFY(this->velocity_[0].active(),
+              "SplitAdvectionNLFormIntegrator: Velocity (or VelocityPrefactor) coefficients are "
+              "required for phi (block 0).");
   this->terms_.clear();
   this->terms_.push_back({1, 0, 0});
 }

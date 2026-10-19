@@ -26,20 +26,26 @@
  */
 #pragma once
 #include <span>
+#include <string>
 #include <vector>
 
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "Integrators/VelocityField.hpp"
 #include "Parameters/Parameters.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
  * @brief Volume part of the conservative advection term div(v u_c), integrated by parts.
  *
- * The velocity v of an advected variable c is imposed through the coefficients of its block:
- * Glossary::Velocity_X, Velocity_Y (and Velocity_Z in 3D), i.e. type Velocity with ID = index of
- * the component. They can be constants or functions of the coordinates ("coordinates"), of the
- * time ("constants": "(t:T)") and of the auxiliary variables, but NOT of the unknowns (the
- * Jacobian contains no dv/du term). In axisymmetric geometry, components are (v_r, v_z).
+ * The velocity v of an advected variable c is imposed through the coefficients of its block
+ * (see VelocityField):
+ *  - Glossary::Velocity_X, Velocity_Y (and Velocity_Z in 3D), i.e. type Velocity with ID = index
+ *    of the component,
+ *  - or v = alpha grad(a): Glossary::VelocityPrefactor (alpha) and the parameter
+ *    "velocity_gradient" giving the symbol of the auxiliary variable a.
+ * Coefficients can be constants or functions of the coordinates ("coordinates"), of the time
+ * ("constants": "(t:T)") and of the auxiliary variables, but NOT of the unknowns (the Jacobian
+ * contains no dv/du term). In axisymmetric geometry, components are (v_r, v_z).
  *
  * Each term (r, c) adds to the residual of block r (linear in u_c):
  *   R_r  = - ( u_c v, grad(psi_r) )
@@ -85,10 +91,11 @@ class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
     int vel;
   };
 
-  int sdim_{0};                                     ///< space dimension (number of components)
-  std::vector<std::vector<Coefficient>> velocity_;  ///< per block: components (empty if none)
+  int sdim_{0};                         ///< space dimension (number of components)
+  std::vector<VelocityField> velocity_;  ///< per block (inactive if the block is not advected)
+  std::string grad_symbol_;             ///< parameter "velocity_gradient" ("" if none)
   std::vector<AdvectionTerm> terms_;
-  bool needs_aux_{false};  ///< at least one velocity component may depend on auxiliary fields
+  bool needs_aux_{false};  ///< velocity coefficients may depend on auxiliary fields
 
   std::vector<mfem::ParGridFunction> vaux_gf_;
 
@@ -97,8 +104,9 @@ class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   /// Define the advection terms (called in init(), after get_coefficients())
   virtual void build_terms();
 
-  /// Velocity of block 'blk' at the current integration point (v is already sized)
-  virtual void compute_velocity(int blk, const std::span<const double>& u,
+  /// Velocity of block 'blk' at the current integration point (Tr set at ip)
+  virtual void compute_velocity(int blk, mfem::ElementTransformation& Tr,
+                                const std::span<const double>& u,
                                 const std::span<const double>& aux, mfem::Vector& v);
 
  public:

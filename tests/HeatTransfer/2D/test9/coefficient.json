@@ -1,0 +1,26 @@
+[
+    {
+        "expression": "-pi*t*cos(pi*x)",
+        "variables": "T",
+        "coordinates": "x,y",
+        "constants": "(t:T)",
+        "class_name": "NeumannCoefficient",
+        "outputfile": "Coefficient"
+    },
+    {
+        "expression": "t*(1 + cos(pi*x)*sin(pi*y))",
+        "variables": "T",
+        "coordinates": "x,y",
+        "constants": "(t:T)",
+        "class_name": "InflowCoefficient",
+        "outputfile": "Coefficient"
+    },
+    {
+        "expression": "pi*t*y*cos(pi*x)*cos(pi*y) - pi*t*(x + 1)*sin(pi*x)*sin(pi*y) + 2*t*(sin(pi*y)*cos(pi*x) + 1) + 2*pi**2*t*sin(pi*y)*cos(pi*x) + sin(pi*y)*cos(pi*x) + 1",
+        "variables": "T",
+        "coordinates": "x,y",
+        "constants": "(t:T)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

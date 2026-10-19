@@ -71,36 +71,34 @@ void AdvectionNLFormIntegrator<VARS>::init() {
 
   this->build_terms();
   MFEM_VERIFY(!this->terms_.empty(), this->integrator_name_ +
-                                         "NLFormIntegrator: no advected variable (Velocity "
-                                         "coefficients are expected). Please check your data.");
+                                         "NLFormIntegrator: no advected variable (Velocity or "
+                                         "VelocityPrefactor coefficients are expected). Please "
+                                         "check your data.");
 }
 
 /**
- * @brief Retrieve the velocity components (type Velocity, ID = component) of each block.
+ * @brief Configure the velocity of each block (see VelocityField).
  *
- * A block is advected if it holds all the components (Velocity_X, Velocity_Y[, Velocity_Z]);
- * a block holding only some of them is an error.
+ * A block is advected if it holds all the components (Velocity_X, Velocity_Y[, Velocity_Z]),
+ * or a VelocityPrefactor coefficient (v = alpha grad(a), parameter "velocity_gradient").
  */
 template <class VARS>
 void AdvectionNLFormIntegrator<VARS>::get_coefficients() {
   this->sdim_ = this->u_old_[0].ParFESpace()->GetParMesh()->SpaceDimension();
-  this->velocity_.assign(this->nb_blk_, {});
-  this->needs_aux_ = false;
+  this->grad_symbol_.clear();
+  if (this->params_.has_parameter("velocity_gradient")) {
+    this->grad_symbol_ = this->params_.template get_param_value<std::string>("velocity_gradient");
+  }
 
+  this->velocity_.assign(this->nb_blk_, VelocityField());
+  this->needs_aux_ = false;
   for (unsigned int i = 0; i < this->nb_blk_; ++i) {
-    std::vector<Coefficient> components;
-    for (int d = 0; d < this->sdim_; ++d) {
-      auto coef = this->get_coefficient(i, GlossaryType::Velocity, d);
-      if (coef.has_value()) {
-        components.push_back(*coef);
-        this->needs_aux_ = this->needs_aux_ || (!coef->is_scalar() && !coef->is_file());
-      }
-    }
-    MFEM_VERIFY(components.empty() || static_cast<int>(components.size()) == this->sdim_,
-                this->integrator_name_ + "NLFormIntegrator: block " + std::to_string(i) +
-                    " holds only some of the velocity components (" +
-                    std::to_string(this->sdim_) + " expected). Please check your data.");
-    this->velocity_[i] = std::move(components);
+    const auto get_coef = [this, i](GlossaryType type, int id) {
+      return this->get_coefficient(i, type, id);
+    };
+    this->velocity_[i].configure(this->integrator_name_, i, this->sdim_, get_coef,
+                                 this->grad_symbol_, this->aux_infos_);
+    this->needs_aux_ = this->needs_aux_ || this->velocity_[i].needs_aux_values();
   }
 }
 
@@ -111,7 +109,7 @@ template <class VARS>
 void AdvectionNLFormIntegrator<VARS>::build_terms() {
   this->terms_.clear();
   for (unsigned int b = 0; b < this->nb_blk_; ++b) {
-    if (!this->velocity_[b].empty()) {
+    if (this->velocity_[b].active()) {
       const int ib = static_cast<int>(b);
       this->terms_.push_back({ib, ib, ib});
     }
@@ -119,15 +117,17 @@ void AdvectionNLFormIntegrator<VARS>::build_terms() {
 }
 
 /**
- * @brief Velocity of block 'blk' at the current integration point.
+ * @brief Velocity of block 'blk' at the current integration point (Tr set at ip).
  */
 template <class VARS>
-void AdvectionNLFormIntegrator<VARS>::compute_velocity(int blk, const std::span<const double>& u,
+void AdvectionNLFormIntegrator<VARS>::compute_velocity(int blk, mfem::ElementTransformation& Tr,
+                                                       const std::span<const double>& u,
                                                        const std::span<const double>& aux,
                                                        mfem::Vector& v) {
-  for (int d = 0; d < this->sdim_; ++d) {
-    v(d) = this->compute_coefficient(this->velocity_[blk][d], u, aux);
-  }
+  const auto coef = [this, &u, &aux](const Coefficient& c) {
+    return this->compute_coefficient(c, u, aux);
+  };
+  this->velocity_[blk].eval(Tr, this->vaux_gf_, coef, v);
 }
 
 /**
@@ -231,7 +231,7 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementVector(
     const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
 
     for (const auto& term : this->terms_) {
-      this->compute_velocity(term.vel, u, aux, this->v_);
+      this->compute_velocity(term.vel, Tr, u, aux, this->v_);
       this->compute_advection_shape(*el[term.row], Tr);
       elvect[term.row]->Add(-weight * this->u_values_[term.var], this->adv_);
     }
@@ -269,7 +269,7 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementGrad(
     const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
 
     for (const auto& term : this->terms_) {
-      this->compute_velocity(term.vel, u, aux, this->v_);
+      this->compute_velocity(term.vel, Tr, u, aux, this->v_);
       this->compute_advection_shape(*el[term.row], Tr);
       mfem::AddMult_a_VWt(-weight, this->adv_, this->shape_[term.var],
                           *elmats(term.row, term.var));

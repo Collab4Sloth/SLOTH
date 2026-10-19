@@ -102,24 +102,27 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::init() {
 }
 
 /**
- * @brief Retrieve the velocity components of the advected block and the Inflow coefficient of
- * the boundary, or raise an error.
+ * @brief Configure the velocity of the advected block (see VelocityField) and retrieve the
+ * Inflow coefficient of the boundary, or raise an error.
  */
 template <class VARS>
 void AdvectionBoundaryNLFormIntegrator<VARS>::get_coefficients() {
   this->sdim_ = this->u_old_[0].ParFESpace()->GetParMesh()->SpaceDimension();
 
-  this->velocity_.clear();
-  this->needs_aux_ = false;
-  for (int d = 0; d < this->sdim_; ++d) {
-    auto coef = this->get_coefficient(this->vel_blk_, GlossaryType::Velocity, d);
-    MFEM_VERIFY(coef.has_value(), this->integrator_name_ +
-                                      "NLFormIntegrator: velocity component " +
-                                      std::to_string(d) + " not found for block " +
-                                      std::to_string(this->vel_blk_) + ".");
-    this->needs_aux_ = this->needs_aux_ || (!coef->is_scalar() && !coef->is_file());
-    this->velocity_.push_back(*coef);
+  std::string grad_symbol;
+  if (this->params_.has_parameter("velocity_gradient")) {
+    grad_symbol = this->params_.template get_param_value<std::string>("velocity_gradient");
   }
+  const auto get_coef = [this](GlossaryType type, int id) {
+    return this->get_coefficient(this->vel_blk_, type, id);
+  };
+  const bool has_velocity = this->velocity_.configure(
+      this->integrator_name_, this->vel_blk_, this->sdim_, get_coef, grad_symbol, this->aux_infos_);
+  MFEM_VERIFY(has_velocity, this->integrator_name_ +
+                                "NLFormIntegrator: no velocity (Velocity or VelocityPrefactor "
+                                "coefficients) for block " +
+                                std::to_string(this->vel_blk_) + ".");
+  this->needs_aux_ = this->velocity_.needs_aux_values();
 
   auto inflow = this->get_coefficient(this->inflow_blk_, GlossaryType::Inflow, 0, this->bdr_id_);
   MFEM_VERIFY(inflow.has_value(), this->integrator_name_ +
@@ -195,9 +198,10 @@ double AdvectionBoundaryNLFormIntegrator<VARS>::evaluate_at_ip(
 
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
-  for (int d = 0; d < this->sdim_; ++d) {
-    this->v_(d) = this->compute_coefficient(this->velocity_[d], u, aux);
-  }
+  const auto coef = [this, &u, &aux](const Coefficient& c) {
+    return this->compute_coefficient(c, u, aux);
+  };
+  this->velocity_.eval(Tr, this->vaux_gf_, coef, this->v_);
 
   double weight = ip.weight;
   if (this->isAxisymmetric()) {

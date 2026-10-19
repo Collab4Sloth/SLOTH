@@ -26,9 +26,11 @@
  */
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "Integrators/VelocityField.hpp"
 #include "Parameters/Parameters.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -42,9 +44,10 @@
  *  - outflow (v.n > 0): the interior value u_c leaves the domain,
  *  - inflow  (v.n < 0): the incoming flux (v.n) u_in is imposed.
  *
- * v is given by the (domain) Velocity coefficients of the advected block, u_in by the Inflow
- * coefficient attached to the boundary. Both can depend on the coordinates and on the time,
- * not on the unknowns.
+ * v is given by the (domain) velocity coefficients of the advected block (see VelocityField:
+ * Velocity_X/Y/Z or v = alpha grad(a)), u_in by the Inflow coefficient attached to the
+ * boundary. Both can depend on the coordinates, the time and the auxiliary variables, not on the
+ * unknowns.
  *
  * The integrator is added automatically (see OperatorBase::build_rhs_nonlinear_form) on each
  * boundary holding an Inflow coefficient. Default: r = c = block.
@@ -79,7 +82,7 @@ class AdvectionBoundaryNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   const unsigned int bdr_id_;      ///< boundary id
 
   int sdim_{0};
-  std::vector<Coefficient> velocity_;
+  VelocityField velocity_;
   Coefficient inflow_;
   bool needs_aux_{false};
 

@@ -124,6 +124,7 @@ enum class GlossaryType {
   Dirichlet,
   SourceTerm,
   Velocity,
+  VelocityPrefactor,
   Inflow
 };
 
@@ -388,6 +389,15 @@ static const GlossaryQuantity Velocity_Y = GlossaryQuantity(
     GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, y (or z) component", 1);
 static const GlossaryQuantity Velocity_Z = GlossaryQuantity(
     GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, z component", 2);
+
+/**
+ * @brief Quantity associated with the prefactor alpha of a gradient advection velocity
+ * v = alpha grad(a), a being an auxiliary variable (parameter "velocity_gradient").
+ *
+ */
+static const GlossaryQuantity VelocityPrefactor =
+    GlossaryQuantity(GlossaryType::VelocityPrefactor, GlossaryUnit::None,
+                     "Prefactor alpha of a gradient advection velocity v = alpha grad(a)");
 
 /**
  * @brief Quantity associated with the value of the advected variable entering the domain
