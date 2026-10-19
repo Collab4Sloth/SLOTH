@@ -126,9 +126,10 @@ template <class VARS>
 void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
-  int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
 
   //
   // Block 0 R(phi)=eta psi + w'psi + lambda grad phi grad psi
@@ -155,15 +156,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       const auto& eta = *elfun[off_blk] * Psi;
 
-      vaux_gf_at_ip.clear();
-      for (const auto& aux_gf : vaux_gf_) {
-        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -173,15 +166,11 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
 
-      gradU *=
-          weight_coef * this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
-                                                  std::span<const double>(vaux_gf_at_ip));
+      gradU *= weight_coef * this->eval_coefficient(lambda[blk], ipv.u, ipv.aux);
       gradPsi.AddMult(gradU, *elvect[blk]);
 
-      const double ww =
-          weight_coef * (eta + this->compute_gradient_energy_coefficient(
-                                   double_well_energy[blk], blk, std::span<const double>(u_values),
-                                   std::span<const double>(vaux_gf_at_ip)));
+      const double ww = weight_coef * (eta + this->eval_gradient_energy_coefficient(
+                                                 double_well_energy[blk], blk, ipv.u, ipv.aux));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -209,25 +198,14 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       this->set_int_point(Tr, ip);
 
       const auto& eta = *elfun[blk] * Psi;
-      vaux_gf_at_ip.clear();
-      for (const auto& aux_gf : vaux_gf_) {
-        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double coef_mob =
-          this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip)) *
-          weight_coef;
+      const double coef_mob = this->eval_coefficient(mobility[blk], ipv.u, ipv.aux) * weight_coef;
 
       const double ww = -coef_mob * eta;
 
@@ -258,9 +236,10 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
-  int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
 
   // Block 0  0 dR(phi)dphi = d(eta psi + w'psi + lambda grad phi grad psi)/dphi
   {
@@ -282,16 +261,7 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
-      // Get aux values at ip TODO(cci) (move in method)
-      vaux_gf_at_ip.clear();
-      for (const auto& aux_gf : vaux_gf_) {
-        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -300,15 +270,12 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
-      const double coef_lambda = this->compute_coefficient(
-          lambda[blk], std::span<const double>(u_values), std::span<const double>(vaux_gf_at_ip));
+      const double coef_lambda = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux);
 
       AddMult_a_AAt(weight_coef * coef_lambda, gradPsi, *elmats(blk, blk));
 
-      double fun_val =
-          weight_coef * this->compute_hessian_coefficient(double_well_energy[blk], blk, blk,
-                                                          std::span<const double>(u_values),
-                                                          std::span<const double>(vaux_gf_at_ip));
+      double fun_val = weight_coef * this->eval_hessian_coefficient(double_well_energy[blk], blk,
+                                                                    blk, ipv.u, ipv.aux);
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -378,25 +345,14 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      vaux_gf_at_ip.clear();
-      for (const auto& aux_gf : vaux_gf_) {
-        vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double coef_mob =
-          -this->compute_coefficient(mobility[blk], std::span<const double>(u_values),
-                                     std::span<const double>(vaux_gf_at_ip)) *
-          weight_coef;
+      const double coef_mob = -this->eval_coefficient(mobility[blk], ipv.u, ipv.aux) * weight_coef;
 
       AddMult_a_VVt(coef_mob, Psi, *elmats(blk, blk));
     }

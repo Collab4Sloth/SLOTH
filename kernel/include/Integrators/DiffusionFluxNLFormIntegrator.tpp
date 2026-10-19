@@ -136,10 +136,10 @@ template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  std::vector<double> vaux_gf_at_ip;
-  vaux_gf_at_ip.resize(vaux_gf_.size());
-  int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
 
   int blk = 0;
   int nd = el[blk]->GetDof();
@@ -166,16 +166,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     el[blk]->CalcShape(ip, Psi);
     this->set_int_point(Tr, ip);
 
-    // Get aux values at ip TODO(cci) (move in method)
-    vaux_gf_at_ip.clear();
-    for (const auto& aux_gf : vaux_gf_) {
-      vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-    }
-    // Get values
-    for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-      u_values[off_blk] = (*elfun[off_blk]) * Psi;
-      u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-    }
+    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
     // Stabilization contribution : D_stab * (Grad u - Grad un)
     el[blk]->CalcPhysDShape(Tr, this->gradPsi);
@@ -183,8 +174,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     this->sloth_u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
-    this->Flux_ *= this->compute_coefficient(stab_diffusion[blk], std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip));
+    this->Flux_ *= this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux);
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
@@ -218,10 +208,10 @@ template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
-  std::vector<double> vaux_gf_at_ip;
-  vaux_gf_at_ip.resize(vaux_gf_.size());
-  int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
@@ -241,16 +231,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
-    // Get aux values at ip TODO(cci) (move in method)
-    vaux_gf_at_ip.clear();
-    for (const auto& aux_gf : vaux_gf_) {
-      vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-    }
-    // Get values
-    for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-      u_values[off_blk] = (*elfun[off_blk]) * Psi;
-      u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-    }
+    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
     this->set_int_point(Tr, ip);
 
@@ -260,9 +241,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     }
 
     const double coeff_diffu =
-        this->compute_coefficient(stab_diffusion[blk], std::span<const double>(u_values),
-                                  std::span<const double>(vaux_gf_at_ip)) *
-        weight_coef;
+        this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux) * weight_coef;
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
   }

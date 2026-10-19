@@ -285,10 +285,9 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
   mfem::Vector grad_mu;
   grad_mu.SetSize(dim);
   for (const auto& [component, dmu_gf] : this->dmu_gf_) {
-    auto dmu = SlothGridFunction(dmu_gf);
-    dmu.GetGradient(Tr, this->gradPsi, grad_mu);
+    this->element_gradient(dmu_gf, Tr, this->gradPsi, grad_mu);
     if (this->scale_variables_by_temperature_) {
-      this->get_cross_thermal_flux(grad_mu, dmu, Tr, nElement, ip, dim);
+      this->get_cross_thermal_flux(grad_mu, dmu_gf, Tr, nElement, ip, dim);
     }
     gradient.emplace_back(grad_mu);
   }
@@ -316,11 +315,9 @@ std::vector<mfem::Vector> MassDiffusionFluxNLFormIntegrator<VARS>::get_flux_grad
   mfem::Vector grad_mu;
   grad_mu.SetSize(dim);
   for (const auto& [component, mu_gf] : this->mu_gf_) {
-    auto mu = SlothGridFunction(mu_gf);
-
-    mu.GetGradient(Tr, this->gradPsi, grad_mu);
+    this->element_gradient(mu_gf, Tr, this->gradPsi, grad_mu);
     if (this->scale_variables_by_temperature_) {
-      this->get_cross_thermal_flux(grad_mu, mu, Tr, nElement, ip, dim);
+      this->get_cross_thermal_flux(grad_mu, mu_gf, Tr, nElement, ip, dim);
     }
     gradient.emplace_back(grad_mu);
   }
@@ -345,12 +342,11 @@ void MassDiffusionFluxNLFormIntegrator<VARS>::get_cross_thermal_flux(
     const int nElement, const mfem::IntegrationPoint& ip, const int dim) {
   mfem::Vector gradT;
   gradT.SetSize(dim);
-  auto temp = SlothGridFunction(this->temp_gf_[0]);
   const auto pot_at_ip = potential.GetValue(nElement, ip);
   const auto temp_at_ip = this->temp_gf_[0].GetValue(nElement, ip);
   const auto dmu_over_square_temp_at_ip = pot_at_ip / (temp_at_ip * temp_at_ip);
 
-  temp.GetGradient(Tr, this->gradPsi, gradT);
+  this->element_gradient(this->temp_gf_[0], Tr, this->gradPsi, gradT);
   gradT *= dmu_over_square_temp_at_ip;
   grad_pot /= temp_at_ip;
   grad_pot -= gradT;

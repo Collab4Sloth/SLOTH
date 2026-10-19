@@ -59,8 +59,9 @@ class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  protected:
   Coefficients mobility;
+  /// Auxiliary fields at the current then at the previous time step:
+  /// [aux_0..aux_{n-1}, aux_old_0..aux_old_{n-1}] (order expected by get_latent_heat_at_ip)
   std::vector<mfem::ParGridFunction> vaux_gf_;
-  std::vector<mfem::ParGridFunction> vaux_old_gf_;
 
   double get_latent_heat_at_ip(unsigned int blk, const std::span<const double>& values,
                                const std::span<const double>& aux_values);

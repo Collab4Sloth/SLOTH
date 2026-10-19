@@ -115,9 +115,12 @@ void LatentHeatNLFormIntegrator<VARS>::init() {
   this->check_coefficient_types(this->expected_list_);
   this->get_coefficients();
 
+  this->vaux_gf_.reserve(2 * this->aux_infos_.size());
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
-    this->vaux_old_gf_.emplace_back(std::move(this->aux_old_gf_[i]));
+  }
+  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
+    this->vaux_gf_.emplace_back(std::move(this->aux_old_gf_[i]));
   }
 }
 
@@ -144,8 +147,10 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip(2 * this->nb_vaux_);
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -165,25 +170,14 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      for (size_t k = 0; k < this->nb_vaux_; ++k) {
-        vaux_gf_at_ip[k] = this->vaux_gf_[k].GetValue(Tr, ip);
-        vaux_gf_at_ip[k + this->nb_vaux_] = this->vaux_old_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double latent_heat =
-          this->get_latent_heat_at_ip(blk, std::span<const double>(u_values),
-                                      std::span<const double>(vaux_gf_at_ip)) *
-          weight_coef;
+      const double latent_heat = this->get_latent_heat_at_ip(blk, ipv.u, ipv.aux) * weight_coef;
       add(*elvect[blk], latent_heat, Psi, *elvect[blk]);
     }
   }
@@ -298,7 +292,7 @@ template <class VARS>
 double LatentHeatNLFormIntegrator<VARS>::get_mob_at_ip(
     [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
     [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi = this->compute_coefficient(mobility[blk], values, aux_values);
+  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values);
 
   return mobi;
 }

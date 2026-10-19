@@ -28,10 +28,12 @@
  */
 #pragma once
 #include <algorithm>
+#include <cstddef>
 #include <list>
 #include <optional>
 #include <span>
 #include <string>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -230,22 +232,26 @@ std::span<const double> SlothNLFormIntegrator<VARS>::get_physical_point() {
   return std::span<const double>(this->x_ip_.GetData(), this->x_ip_.Size());
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Coefficient evaluation (by reference: no copy of the Coefficient object)
+//////////////////////////////////////////////////////////////////////////////
+
 /**
  * @brief Return the value of the coefficient
  * @remark by default values = {u,un} and aux_variables remain accessible in the method with the
  * class variable aux_gf_
-
+ *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
- * @param coef   Coefficient.
+ * @param coef   Coefficient (may be modified: coordinates are set before evaluation).
  * @param values Vector of current and previous solution values (default: {u, u_old}).
-
+ *
  * @return The computed scalar value of the coefficient.
  */
 template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                        const std::span<const double>& values,
-                                                        const std::span<const double>& aux_values) {
+double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
+                                                     const std::span<const double>& values,
+                                                     const std::span<const double>& aux_values) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
@@ -269,23 +275,17 @@ double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
 /**
  * @brief Compute the value of a specific component of the gradient of a coefficient.
  *
- * This method evaluates the gradient of the given coefficient with respect to the
- * variable corresponding to the specified index 'blk'. By default, the 'values' vector
- * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
- *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
  * @param coef   Coefficient whose gradient is to be computed.
- * @param iblk    Index of the gradient.
+ * @param blk    Index of the gradient.
  * @param values Vector of current and previous solution values (default: {u, u_old}).
  *
  * @return The computed scalar value of the gradient component of the coefficient.
- *
- * @note This function can be overridden in derived classes.
  */
 template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
+double SlothNLFormIntegrator<VARS>::eval_gradient_coefficient(
+    Coefficient& coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
@@ -307,10 +307,6 @@ double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
 /**
  * @brief Compute the value of a specific component of the gradient of an energy coefficient.
  *
- * This method evaluates the gradient of the given coefficient with respect to the
- * variable corresponding to the specified index 'blk'. By default, the 'values' vector
- * contains {u, u_old}, and auxiliary variables remain accessible via the class member 'aux_gf_'.
- *
  * This method must be applied when the time discretization concerns the first derivative of the
  * coefficient (as the free energy and the interpolation function). In that case, when time scheme
  * is explicit, first derivative are not equal to zero.
@@ -318,16 +314,14 @@ double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
  * @param coef   Coefficient whose gradient is to be computed.
- * @param iblk    Index of the gradient.
+ * @param blk    Index of the gradient.
  * @param values Vector of current and previous solution values (default: {u, u_old}).
  *
  * @return The computed scalar value of the gradient component of the coefficient.
- *
- * @note This function can be overridden in derived classes.
  */
 template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
+double SlothNLFormIntegrator<VARS>::eval_gradient_energy_coefficient(
+    Coefficient& coef, const int blk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
@@ -349,11 +343,6 @@ double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
 /**
  * @brief Compute the value of a specific component of the Hessian of a  coefficient.
  *
- * This method evaluates the Hessian of the given coefficient with respect to the
- * variables corresponding to the specified indexes 'iblk' and 'jblk'. By default,
- * the 'values' vector contains {u, u_old}, and auxiliary variables remain accessible
- * via the class member 'aux_gf_'.
- *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
  * @param coef   Coefficient whose Hessian is to be computed.
@@ -362,13 +351,10 @@ double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
  * @param values Vector of current and previous solution values (default: {u, u_old}).
  *
  * @return The computed scalar value of the Hessian component for the given coefficient.
- *
- * @note This function can be overridden in derived classes to implement
- *       more complex or nonlinear Hessian evaluations.
  */
 template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+double SlothNLFormIntegrator<VARS>::eval_hessian_coefficient(
+    Coefficient& coef, const int iblk, const int jblk, const std::span<const double>& values,
     const std::span<const double>& aux_values) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
@@ -385,6 +371,225 @@ double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
       return coef.compute_hessian(iblk, jblk, u, aux_values);
     }
   }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Historical interface (by value): forwards to eval_* (identical results)
+//////////////////////////////////////////////////////////////////////////////
+
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
+                                                        const std::span<const double>& values,
+                                                        const std::span<const double>& aux_values) {
+  return this->eval_coefficient(coef, values, aux_values);
+}
+
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  return this->eval_gradient_coefficient(coef, blk, values, aux_values);
+}
+
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
+    Coefficient coef, const int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  return this->eval_gradient_energy_coefficient(coef, blk, values, aux_values);
+}
+
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
+    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  return this->eval_hessian_coefficient(coef, iblk, jblk, values, aux_values);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Evaluation of {u, u_old} and of the auxiliary fields at integration points
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @brief True if two finite elements are interchangeable for the evaluation of a field
+ *        (same type, geometry, order, number of dofs and map/range types).
+ *
+ * @tparam VARS Template parameter defining the variables.
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::same_finite_element(const mfem::FiniteElement& a,
+                                                      const mfem::FiniteElement& b) {
+  if (&a == &b) return true;
+  return typeid(a) == typeid(b) && a.GetGeomType() == b.GetGeomType() &&
+         a.GetOrder() == b.GetOrder() && a.GetDof() == b.GetDof() &&
+         a.GetMapType() == b.GetMapType() && a.GetRangeType() == b.GetRangeType();
+}
+
+/**
+ * @brief True if all the blocks share the same finite element.
+ *
+ * @tparam VARS Template parameter defining the variables.
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::same_finite_elements(
+    const mfem::Array<const mfem::FiniteElement*>& el) {
+  for (int b = 1; b < el.Size(); ++b) {
+    if (!same_finite_element(*el[0], *el[b])) return false;
+  }
+  return true;
+}
+
+/**
+ * @brief Prepare the evaluation of {u, u_old} and of the auxiliary fields on the current element.
+ *
+ * Must be called at the beginning of each AssembleElementVector/AssembleElementGrad that uses
+ * values_at_ip().
+ *
+ * When all the blocks share the same finite element, the values at every point of `ir` are
+ * computed here once for all the blocks: the element dofs of u_old and of the auxiliary fields
+ * are extracted once per element, and the value at a point is the dot product with the shape
+ * functions, i.e. exactly what GridFunction::GetValue(Tr, ip) computes. An auxiliary field whose
+ * finite element differs from the one of the blocks is evaluated with GetValue, as before.
+ *
+ * Otherwise nothing is cached and values_at_ip() evaluates the fields at each call (historical
+ * evaluation).
+ *
+ * @tparam VARS Template parameter defining the variables.
+ * @param el     Finite elements of the blocks.
+ * @param Tr     Element transformation (its integration point is modified).
+ * @param elfun  Current element dofs of the blocks.
+ * @param aux_gf Auxiliary fields, in the order expected by the coefficients.
+ * @param ir     Integration rule used by the caller.
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::prepare_element_values(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun, const std::vector<mfem::ParGridFunction>& aux_gf,
+    const mfem::IntegrationRule& ir) {
+  this->ipv_ir_ = nullptr;
+  this->ipv_element_ = Tr.ElementNo;
+
+  const int nb = el.Size();
+  const std::size_t unb = static_cast<std::size_t>(nb);
+  const std::size_t naux = aux_gf.size();
+  if (!same_finite_elements(el) || this->u_old_.size() < unb) return;
+
+  const mfem::FiniteElement& fe = *el[0];
+  // Shape functions in reference space (GetValue uses CalcPhysShape otherwise)
+  if (fe.GetMapType() != mfem::FiniteElement::VALUE) return;
+  const int elem = Tr.ElementNo;
+
+  // Element dofs of u_old (u_old lives on the finite element space of its block)
+  this->ipv_uold_dofs_.resize(unb);
+  for (std::size_t b = 0; b < unb; ++b) {
+    const mfem::FiniteElementSpace* fes = this->u_old_[b].FESpace();
+    if (elem >= fes->GetNE() || !same_finite_element(*fes->GetFE(elem), fe)) return;
+    this->u_old_[b].GetElementDofValues(elem, this->ipv_uold_dofs_[b]);
+  }
+
+  // Element dofs of the auxiliary fields sharing the finite element of the blocks
+  this->ipv_aux_dofs_.resize(naux);
+  this->ipv_aux_dot_.assign(naux, 0);
+  bool any_getvalue = false;
+  for (std::size_t k = 0; k < naux; ++k) {
+    const mfem::FiniteElementSpace* fes = aux_gf[k].FESpace();
+    if (elem < fes->GetNE() && same_finite_element(*fes->GetFE(elem), fe)) {
+      aux_gf[k].GetElementDofValues(elem, this->ipv_aux_dofs_[k]);
+      this->ipv_aux_dot_[k] = 1;
+    } else {
+      any_getvalue = true;
+    }
+  }
+
+  // Values at every integration point
+  const int nip = ir.GetNPoints();
+  this->ipv_shape_.SetSize(fe.GetDof());
+  this->ipv_u_table_.resize(static_cast<std::size_t>(nip) * 2 * unb);
+  this->ipv_aux_table_.resize(static_cast<std::size_t>(nip) * naux);
+  for (int i = 0; i < nip; ++i) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(i);
+    fe.CalcShape(ip, this->ipv_shape_);
+
+    double* u = this->ipv_u_table_.data() + static_cast<std::size_t>(i) * 2 * unb;
+    for (std::size_t b = 0; b < unb; ++b) {
+      u[b] = (*elfun[static_cast<int>(b)]) * this->ipv_shape_;
+      u[b + unb] = this->ipv_uold_dofs_[b] * this->ipv_shape_;
+    }
+
+    if (any_getvalue) this->set_int_point(Tr, ip);
+    double* aux = this->ipv_aux_table_.data() + static_cast<std::size_t>(i) * naux;
+    for (std::size_t k = 0; k < naux; ++k) {
+      aux[k] = this->ipv_aux_dot_[k] ? this->ipv_aux_dofs_[k] * this->ipv_shape_
+                                     : aux_gf[k].GetValue(Tr, ip);
+    }
+  }
+
+  this->ipv_ir_ = &ir;
+  this->ipv_nb_ = nb;
+  this->ipv_naux_ = naux;
+}
+
+/**
+ * @brief {u, u_old} and auxiliary values at the integration point `i` of `ir`.
+ *
+ * Returns the values computed by prepare_element_values() when available. Otherwise the values
+ * are evaluated here as historically done: current values with the shape functions `Psi` of the
+ * current block, u_old and auxiliary fields with GridFunction::GetValue (the integration point of
+ * Tr must then be set by the caller).
+ *
+ * The returned spans remain valid until the next call to values_at_ip() or
+ * prepare_element_values().
+ *
+ * @tparam VARS Template parameter defining the variables.
+ */
+template <class VARS>
+typename SlothNLFormIntegrator<VARS>::IpValues SlothNLFormIntegrator<VARS>::values_at_ip(
+    const mfem::IntegrationRule& ir, const int i, const mfem::Vector& Psi,
+    const mfem::Array<const mfem::Vector*>& elfun, const std::vector<mfem::ParGridFunction>& aux_gf,
+    mfem::ElementTransformation& Tr) {
+  const int nb = elfun.Size();
+  const std::size_t unb = static_cast<std::size_t>(nb);
+  const std::size_t naux = aux_gf.size();
+
+  if (this->ipv_ir_ == &ir && this->ipv_element_ == Tr.ElementNo && this->ipv_nb_ == nb &&
+      this->ipv_naux_ == naux) {
+    const std::size_t ui = static_cast<std::size_t>(i);
+    return {std::span<const double>(this->ipv_u_table_.data() + ui * 2 * unb, 2 * unb),
+            std::span<const double>(this->ipv_aux_table_.data() + ui * naux, naux)};
+  }
+
+  // Historical evaluation
+  const mfem::IntegrationPoint& ip = ir.IntPoint(i);
+  this->ipv_u_.resize(2 * unb);
+  this->ipv_aux_.resize(naux);
+  for (std::size_t k = 0; k < naux; ++k) {
+    this->ipv_aux_[k] = aux_gf[k].GetValue(Tr, ip);
+  }
+  for (std::size_t b = 0; b < unb; ++b) {
+    this->ipv_u_[b] = (*elfun[static_cast<int>(b)]) * Psi;
+    this->ipv_u_[b + unb] = this->u_old_[b].GetValue(Tr, ip);
+  }
+  return {std::span<const double>(this->ipv_u_), std::span<const double>(this->ipv_aux_)};
+}
+
+/**
+ * @brief Gradient of a field at the current integration point of the current element.
+ *
+ * Same computation as SlothGridFunction::GetGradient (element dofs times the physical gradients
+ * of the shape functions), without copying the field into a SlothGridFunction.
+ *
+ * @tparam VARS Template parameter defining the variables.
+ * @param gf      Field (defined on the mesh of the current element).
+ * @param Tr      Element transformation (only the element number is used).
+ * @param gradPsi Physical gradients of the shape functions at the current integration point.
+ * @param grad    Gradient of the field (output).
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::element_gradient(const mfem::ParGridFunction& gf,
+                                                   const mfem::ElementTransformation& Tr,
+                                                   const mfem::DenseMatrix& gradPsi,
+                                                   mfem::Vector& grad) {
+  gf.GetElementDofValues(Tr.ElementNo, this->grad_dofs_);
+  gradPsi.MultTranspose(this->grad_dofs_, grad);
 }
 
 /**
