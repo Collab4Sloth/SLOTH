@@ -1,0 +1,7 @@
+execute_process(COMMAND ${Python3_EXECUTABLE} ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -f  ${CMAKE_CURRENT_SOURCE_DIR}/coefficients.json
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+create_test("AMRGrains3Dtest1" "AMRGrains3Dtest1" FALSE "2D EXE AC" 2)
+configure_file(${CMAKE_SOURCE_DIR}/tests/Studies/multigrains/test2_amr/initial-grain.txt ${CMAKE_CURRENT_BINARY_DIR}/initial-grain.txt COPYONLY)
+
+
+create_col_comparison("CompareGrains3DAMR" "time_specialized.csv" "Saves/GrainsProblem/Default_NonLinear_problem29_time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "AMRGrains3Dtest1" "3D AC")

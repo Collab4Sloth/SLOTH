@@ -15,6 +15,12 @@
     "outputfile":"GrainsCoefficients"
     },
     {
+    "expression":"Sum(x[i]*x[i], (i,1,30))",
+    "variables":"x(1..30)",
+    "class_name":"SumOfSquares",
+    "outputfile":"GrainsCoefficients"
+    },
+    {
     "expression":"kappa*sdot(x(1..30))",
     "variables":"x(1..30)",
     "constants":"(kappa:10.1)",
