@@ -113,9 +113,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   // Important line if solvers parameters are overloaded.
   this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
 
-  if (this->enable_amr_) {
+  if (this->enable_amr_ && this->mesh_has_changed()) {
     // Resynchronize height/width/z/block_trueOffsets_
     this->UpdateAfterMeshChange();
+    this->record_fes_sequence();
   }
 
   //// Constructing array of offsets
@@ -206,6 +207,7 @@ void SteadyOperator<T, DIM>::SetTransientParameters(const double dt,
 template <class T, int DIM>
 void SteadyOperator<T, DIM>::free_memory() {
   delete this->rhs_solver_;
+  this->rhs_solver_ = nullptr;
   delete this->RHS;
   this->RHS = nullptr;
   delete this->steady_reduced_oper;

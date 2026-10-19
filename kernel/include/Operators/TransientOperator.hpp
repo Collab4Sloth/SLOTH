@@ -25,8 +25,12 @@
  */
 #pragma once
 
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
@@ -70,6 +74,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   std::string lhs_integrator_;
 
   void free_memory();
+  void free_mass_matrices();
 
   Coefficients explicit_time_coefficients_;
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);
@@ -80,7 +85,8 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
 
   mfem::ParBilinearForm* M;  // mass operator
   std::shared_ptr<LSolver> mass_matrix_solver_;
-  std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix )M
+  std::vector<std::shared_ptr<LSolver>> mass_solvers_;  // one mass solver per block
+  std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix M
   /// Left-Hand-Side
   mfem::ParBlockNonlinearForm* LHS;
 
@@ -88,6 +94,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
 
   void build_mass_matrix(const std::vector<mfem::Vector>& u_vect);
   void build_lhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
+  // true if both ExplicitTime coefficients are scalar: mass matrix built once (explicit schemes)
   bool constant_mass_matrix_{true};
 
   // Reduced Operator
@@ -101,6 +108,8 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                     const std::vector<std::string>& rhs_integrators, const Parameters& params,
                     TimeScheme::value ode, const std::string lhs_integrator);
+
+  ~TransientOperator() override;
 
   void Mult(const mfem::Vector& u, mfem::Vector& du_dt) const override;
   void ImplicitSolve(const double dt, const mfem::Vector& u, mfem::Vector& k) override;

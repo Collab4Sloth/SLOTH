@@ -26,7 +26,10 @@
 
 #pragma once
 #include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
@@ -94,6 +97,24 @@ TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T
       reduced_oper(NULL) {
   this->set_ODE_solver(ode);
   this->set_default_mass_solver();
+}
+
+/**
+ * @brief Destroy the TransientOperator object
+ *        Solvers are released before the matrices they refer to.
+ *
+ * @tparam T
+ * @tparam DIM
+ */
+template <class T, int DIM>
+TransientOperator<T, DIM>::~TransientOperator() {
+  this->free_mass_matrices();
+  delete this->M;
+  this->M = nullptr;
+  delete this->reduced_oper;
+  this->reduced_oper = nullptr;
+  delete this->LHS;
+  this->LHS = nullptr;
 }
 
 /**
@@ -183,7 +204,7 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                       double& next_time, const double& current_time,
                                       double current_time_step, [[maybe_unused]] const int iter) {
-  if (this->enable_amr_) {
+  if (this->enable_amr_ && this->mesh_has_changed()) {
     // Resynchronize height/width/z/block_trueOffsets_
     this->UpdateAfterMeshChange();
     // Resynchronize the OTHER height/width copy, inherited via mfem::TimeDependentOperator,
@@ -192,6 +213,9 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
     this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
     // Resize k (the ODE solver's internal work vector)
     this->ode_solver_->Init(*this);
+    // The mesh has changed: the mass matrices must be rebuilt
+    this->free_mass_matrices();
+    this->record_fes_sequence();
   }
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
@@ -200,7 +224,7 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   mfem::BlockVector block_unk(this->block_trueOffsets_);
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
-    mfem::Vector& bb = block_unk.GetBlock(i);
+    mfem::Vector& bb = block_unk.GetBlock(static_cast<int>(i));
     bb = unk_i;
   }
   //// Call ODE solver
@@ -211,7 +235,7 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   //// Updating vect_unk
   for (size_t i = 0; i < unk_size; i++) {
     auto& unk_i = *(vect_unk[i]);
-    const mfem::Vector& bb = block_unk.GetBlock(i);
+    const mfem::Vector& bb = block_unk.GetBlock(static_cast<int>(i));
     unk_i = bb;
   }
 }
@@ -220,13 +244,33 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief build the mass matrix
+ * @brief Release the mass solvers, then the mass matrices they refer to
+ *
+ * @tparam T
+ * @tparam DIM
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::free_mass_matrices() {
+  // Order matters: solvers first, matrices afterwards
+  this->M_solver_.clear();
+  this->mass_matrix_solver_.reset();
+  this->mass_solvers_.clear();
+  for (auto* mat : this->Mmat_) {
+    delete mat;
+  }
+  this->Mmat_.clear();
+}
+
+/**
+ * @brief build the mass matrix (one lumped mass matrix and one solver per block)
  *
  * @tparam T
  * @tparam DIM
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
+  this->free_mass_matrices();
+
   std::vector<mfem::ParGridFunction> vauxn;
   for (const auto& auxvar_vec : this->auxvariables_) {
     for (auto auxvars : auxvar_vec->getVariables()) {
@@ -238,31 +282,28 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     }
   }
 
-  this->M_solver_.clear();
-  for (auto* mat : this->Mmat_) {
-    delete mat;
-  }
-  this->Mmat_.clear();
-  for (unsigned int i = 0; i < u_vect.size(); i++) {
+  const size_t nblocks = u_vect.size();
+  this->Mmat_.reserve(nblocks);
+  this->mass_solvers_.reserve(nblocks);
+  this->M_solver_.reserve(nblocks);
+
+  for (size_t i = 0; i < nblocks; i++) {
+    const int ib = static_cast<int>(i);
     if (M != nullptr) {
       delete M;
     }
-    ////////////////
-    // Mass matrix (constant)
-    ////////////////
-    M = new mfem::ParBilinearForm(this->fes_[i]);
+    M = new mfem::ParBilinearForm(this->fes_[ib]);
 
     // Build Mfem Coefficient from Sloth Coefficient
     // Sloth coefficients are either scalar or explicit (variable + {auxiliary variables})
-    mfem::ParGridFunction un(this->fes_[i]);
+    mfem::ParGridFunction un(this->fes_[ib]);
     un.SetFromTrueDofs(u_vect[i]);
 
     auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], {un}, {un}, vauxn);
     auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], {un}, {un}, vauxn);
-    mfem::ProductCoefficient mass_coefficient = mfem::ProductCoefficient(coef_a_exp, coef_b_exp);
+    mfem::ProductCoefficient mass_coefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
-
     M->Assemble(0);
     M->Finalize(0);
 
@@ -270,11 +311,15 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     std::unique_ptr<mfem::HypreParMatrix> Me(
         this->Mmat_[i]->EliminateRowsCols(this->ess_tdof_list_[i]));
 
-    this->mass_matrix_solver_ =
-        std::make_shared<LSolver>(this->mass_solver_, this->mass_solver_params_,
-                                  this->mass_precond_, this->mass_precond_params_, *this->Mmat_[i]);
-    this->M_solver_.emplace_back(this->mass_matrix_solver_->get_solver());
+    this->mass_solvers_.emplace_back(std::make_shared<LSolver>(
+        this->mass_solver_, this->mass_solver_params_, this->mass_precond_,
+        this->mass_precond_params_, *this->Mmat_[i]));
+    this->M_solver_.emplace_back(this->mass_solvers_.back()->get_solver());
   }
+
+  // The form M holds integrators referring to local coefficients: release it now
+  delete M;
+  M = nullptr;
 }
 
 /**
@@ -311,8 +356,8 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
 
   std::vector<mfem::ParGridFunction> vun;
   std::vector<mfem::ParGridFunction> vauxn;
-  for (unsigned int i = 0; i < u.size(); i++) {
-    mfem::ParGridFunction un(this->fes_[i]);
+  for (size_t i = 0; i < u.size(); i++) {
+    mfem::ParGridFunction un(this->fes_[static_cast<int>(i)]);
     un.SetFromTrueDofs(u[i]);
     vun.emplace_back(un);
   }
@@ -376,9 +421,11 @@ void TransientOperator<T, DIM>::SetExplicitTransientParameters(
     const double dt, const std::vector<mfem::Vector>& un_vect) {
   Catch_Time_Section("TransientOperator::SetExplicitTransientParameters");
   ////////////////////////////////////////////
-  // Variable mass matrix
+  // Mass matrix: built once if constant, otherwise at each call
   ////////////////////////////////////////////
-  this->build_mass_matrix(un_vect);
+  if (!this->constant_mass_matrix_ || this->M_solver_.size() != un_vect.size()) {
+    this->build_mass_matrix(un_vect);
+  }
 
   ////////////////////////////////////////////
   // PhaseField non linear form
@@ -403,15 +450,21 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   mfem::Vector v(u.GetData(), sc);
   mfem::Vector dv_dt(du_dt.GetData(), sc);
 
-  // Todo(cci) change with BlockVector
+  const int fes_size = this->block_trueOffsets_.Size() - 1;
+
+  // One vector per block (non-owning views, split along the block offsets)
   std::vector<mfem::Vector> v_vect;
-  v_vect.emplace_back(v);
+  v_vect.reserve(static_cast<size_t>(fes_size));  // no reallocation -> views are not deep-copied
+  for (int i = 0; i < fes_size; ++i) {
+    const int off = this->block_trueOffsets_[i];
+    const int sz = this->block_trueOffsets_[i + 1] - off;
+    v_vect.emplace_back(u.GetData() + off, sz);
+  }
 
   // Todo(cci) : try to do different because of not satisfying
   const_cast<TransientOperator<T, DIM>*>(this)->SetExplicitTransientParameters(
       this->solve_time_step_, v_vect);
 
-  const int fes_size = this->block_trueOffsets_.Size() - 1;
   mfem::BlockVector bb(this->block_trueOffsets_);
 
   // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
@@ -436,7 +489,7 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
             arg->Mult(bb_i, soli);
           }
         },
-        this->M_solver_[i]);
+        this->M_solver_[static_cast<size_t>(i)]);
   }
   dv_dt = sol;
 }
@@ -462,12 +515,11 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   {
     Catch_Time_Section("ImplicitSolve::SetTransientParams");
     std::vector<mfem::Vector> v_vect;
-    auto sc_1 = 0;
-    auto sc_2 = sc / fes_size;
+    v_vect.reserve(static_cast<size_t>(fes_size));
     for (int i = 0; i < fes_size; ++i) {
-      mfem::Vector v_i(u.GetData() + sc_1, sc_2);
-      sc_1 += sc_2;
-      v_vect.emplace_back(v_i);
+      const int off = this->block_trueOffsets_[i];
+      const int sz = this->block_trueOffsets_[i + 1] - off;
+      v_vect.emplace_back(u.GetData() + off, sz);
     }
     this->SetTransientParameters(dt, v_vect);
   }
@@ -485,12 +537,12 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
         auxvars_unk.emplace_back(auxvar.get_unknown());
       }
     }
-    auto sc_1 = 0;
-    auto sc_2 = sc / fes_size;
     for (int i = 0; i < fes_size; ++i) {
-      mfem::Vector v_i(u.GetData() + sc_1, sc_2);
-      this->bcs_[i]->SetDirichletBoundaryConditions(v_i, this->coefficients_[i], auxvars_unk);
-      sc_1 += sc_2;
+      const int off = this->block_trueOffsets_[i];
+      const int sz = this->block_trueOffsets_[i + 1] - off;
+      mfem::Vector v_i(u.GetData() + off, sz);
+      this->bcs_[static_cast<size_t>(i)]->SetDirichletBoundaryConditions(
+          v_i, this->coefficients_[static_cast<size_t>(i)], auxvars_unk);
     }
     reduced_oper->SetParameters(dt, &v);
     MATools::MATrace::stop("ApplyBCs");
@@ -644,10 +696,7 @@ void TransientOperator<T, DIM>::free_memory() {
   delete this->LHS;
   this->LHS = nullptr;
 
-  for (auto* mat : this->Mmat_) {
-    delete mat;
-  }
-  this->Mmat_.clear();
+  this->free_mass_matrices();
 }
 /**
  * @brief Retrieve a coefficient by type and identifier.
@@ -684,13 +733,15 @@ std::optional<Coefficient> TransientOperator<T, DIM>::get_coefficient(const int 
 
 /**
  * @brief Get the explicit time Coefficients object
+ *        The mass matrix is constant (built once) only if both coefficients are scalar.
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::get_explicit_time_coefficients() {
-  for (int k = 0; k < 2; ++k) {
+  this->constant_mass_matrix_ = true;
+  for (unsigned int k = 0; k < 2; ++k) {
     auto coef = this->get_coefficient(0, GlossaryType::ExplicitTime, k);
 
     if (!coef.has_value()) {
@@ -700,6 +751,9 @@ void TransientOperator<T, DIM>::get_explicit_time_coefficients() {
         mfem::mfem_error(
             ("Coefficient objects of type ExplicitTime for Explicit solver are either "
              "scalar or explicit. Default constant coefficient equal to one is used."));
+      }
+      if (!(*coef).is_scalar()) {
+        this->constant_mass_matrix_ = false;
       }
     }
 
