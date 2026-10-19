@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 ///---------------
@@ -67,30 +68,14 @@ int main(int argc, char* argv[]) {
   // ############################
   //     variables IC + SRC    //
   // ###########################
-  const auto& pellet_radius = 0.00465;
   // Heat
 
   auto temp = VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 750.);
   temp.set_additional_information("K", "T");
 
   auto heat_vars = VARS(temp);
-  auto plmax = 12.e4;
-  auto pl = 2.6e4;
-  auto pldt = 1.e4;
-  auto TimeToIncrease = 0.;
-
-  auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, plmax, pldt, TimeToIncrease, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
-                                                       [[maybe_unused]] double time) {
-        double puissance = pl;
-        if (time > TimeToIncrease) {
-          puissance += (time - TimeToIncrease) * pldt;
-          puissance = std::min(plmax, puissance);
-        }
-        const auto func = puissance / (M_PI * 2. * pellet_radius * pellet_radius);
-
-        return func;
-      });
+  // Source term (linear power ramp, see coefficient.json):
+  // pl = 2.6e4, plmax = 12.e4, pldt = 1.e4, TimeToIncrease = 0., pellet_radius = 0.00465
 
   // ###########################################
   // ###########################################
@@ -147,13 +132,12 @@ int main(int argc, char* argv[]) {
   Coefficient density(Glossary::Concentration, rho);
   Coefficient heat_capacity(Glossary::Cp, cp);
   Coefficient conductivity(Glossary::Conductivity, cond);
-  Coefficients coef_heat(density, heat_capacity, conductivity);
+  Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+  Coefficients coef_heat(density, heat_capacity, conductivity, source);
 
-  std::vector<AnalyticalFunctions<DIM>> src_term;
-  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
   std::vector<SPA*> spatials{&spatial};
-  TransientOPE Heat_op(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                       src_term);
+  TransientOPE Heat_op(spatials, {"Fourier", "SourceTerm"},
+                       TimeScheme::EulerImplicit, "HeatTimeDerivative");
   Heat_op.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));

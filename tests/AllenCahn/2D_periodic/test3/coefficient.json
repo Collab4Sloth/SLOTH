@@ -1,0 +1,9 @@
+[
+    {
+        "expression": "2*(-2*sin(2*x)**2*cos(3*y)**2 + 1)*(-sin(2*x)**2*cos(3*y)**2 + 1)*sin(2*x)**2*cos(3*y)**2 - (18*sin(2*x)**2*sin(3*y)**2 - 26*sin(2*x)**2*cos(3*y)**2 + 8*cos(2*x)**2*cos(3*y)**2)",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

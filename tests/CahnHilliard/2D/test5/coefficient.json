@@ -1,0 +1,10 @@
+[
+    {
+        "expression": "sin(pi*x) - ( -pi**2*((t + 1)*sin(pi*x))*(3*((t + 1)*sin(pi*x))**2 - 1) + 6*((t + 1)*sin(pi*x))*((t + 1)*pi*cos(pi*x))**2 - pi**4*((t + 1)*sin(pi*x)) )",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "constants": "(t:T)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

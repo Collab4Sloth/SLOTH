@@ -64,24 +64,6 @@ SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>
  * @tparam T
  * @tparam DIM
  * @param spatial
- * @param source_term_name
- */
-template <class T, int DIM>
-SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                       const std::vector<std::string>& integrators,
-                                       std::vector<AnalyticalFunctions<DIM>> source_term_name)
-    : OperatorBase<T, DIM>(integrators, spatials, source_term_name), steady_reduced_oper(NULL) {
-  const Parameters nl_parameters =
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
-  this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
-}
-
-/**
- * @brief Construct a new SteadyOperator object
- *
- * @tparam T
- * @tparam DIM
- * @param spatial
  * @param params
  */
 template <class T, int DIM>
@@ -89,27 +71,6 @@ SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>
                                        const std::vector<std::string>& integrators,
                                        const Parameters& params)
     : OperatorBase<T, DIM>(integrators, spatials, params), steady_reduced_oper(NULL) {
-  const Parameters nl_parameters =
-      Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
-  this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
-}
-
-/**
- * @brief Construct a new SteadyOperator object
- *
- * @tparam T
- * @tparam DIM
- * @param spatial
- * @param params
- * @param source_term_name
- */
-template <class T, int DIM>
-SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                       const std::vector<std::string>& integrators,
-                                       const Parameters& params,
-                                       std::vector<AnalyticalFunctions<DIM>> source_term_name)
-    : OperatorBase<T, DIM>(integrators, spatials, params, source_term_name),
-      steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
   this->overload_nl_solver(NLSolverType::NEWTON, nl_parameters);
@@ -185,22 +146,11 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   //   this->bcs_[i]->SetDirichletBoundaryConditions(unk_i, this->coefficients_[i], auxvars_unk);
   // }
 
-  // Source term
-  // const mfem::Array<int> offsets = this->RHS->GetBlockOffsets();
-  const int fes_size = this->block_trueOffsets_.Size() - 1;
-  mfem::BlockVector source_term(this->block_trueOffsets_);
-  source_term = 0.0;
-  if (!this->src_func_.empty()) {
-    for (int i = 0; i < fes_size; ++i) {
-      if (this->src_func_[i] != nullptr) {
-        mfem::ParLinearForm* SRC = new mfem::ParLinearForm(this->fes_[i]);
-        mfem::Vector& src_i = source_term.GetBlock(i);
-        this->get_source_term(i, this->src_func_[i], src_i, SRC);
-        delete SRC;
-      }
-    }
-  }
-  this->newton_solver_->Mult(source_term, block_unk);
+  // Zero right-hand side: source terms are part of the RHS nonlinear form (SourceTerm
+  // integrator)
+  mfem::BlockVector zero_rhs(this->block_trueOffsets_);
+  zero_rhs = 0.0;
+  this->newton_solver_->Mult(zero_rhs, block_unk);
 
   this->free_memory();
 

@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 
@@ -79,7 +80,8 @@ int main(int argc, char* argv[]) {
       Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
       Coefficient capillary(Glossary::Capillary, lambda);
       Coefficient mobility(Glossary::Mobility, mob);
-      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
+      Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy, source);
 
       // ####################
       //     variables     //
@@ -90,13 +92,6 @@ int main(int argc, char* argv[]) {
             const auto func = 2. * x;
             return func;
           });
-      auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& v, [[maybe_unused]] double time) {
-            const double x = v[0];
-            const auto func = 4 * x * (1 - 4 * x) * (1 - 2 * x);
-            return func;
-          });
-
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
@@ -123,10 +118,8 @@ int main(int argc, char* argv[]) {
       // ####################
 
       // Problem 1:
-      std::vector<AnalyticalFunctions<DIM>> src_term;
-      src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
-      SteadyOPE oper(spatials, {"AllenCahn"}, src_term);
+      SteadyOPE oper(spatials, {"AllenCahn", "SourceTerm"});
       SteadyPB problem1("Steady AllenCahn", oper, vars, {coef_ac}, pst);
 
       auto vars1 = VARS(VAR(&spatial, bcs, "MPI rank", Glossary::MPI, 2, 0.));

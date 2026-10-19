@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 
@@ -79,7 +80,8 @@ int main(int argc, char* argv[]) {
       Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
       Coefficient capillary(Glossary::Capillary, lambda);
       Coefficient mobility(Glossary::Mobility, mob);
-      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
+      Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy, source);
       // ####################,
       //     variables     //
       // ####################
@@ -91,22 +93,6 @@ int main(int argc, char* argv[]) {
             const auto func = std::pow(std::sin(2 * x), 2) * std::pow(std::cos(3 * y), 2);
             return func;
           });
-      auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-          [](const mfem::Vector& v, [[maybe_unused]] double time) {
-            const double x = v[0];
-            const double y = v[1];
-            const double H = 1.;
-            const double a = 1.;
-            const auto func =
-                2 * H * (-2 * std::pow(std::sin(2 * x), 2) * std::pow(std::cos(3 * y), 2) + 1) *
-                    (-std::pow(std::sin(2 * x), 2) * std::pow(std::cos(3 * y), 2) + 1) *
-                    std::pow(std::sin(2 * x), 2) * std::pow(std::cos(3 * y), 2) -
-                a * (18 * std::pow(std::sin(2 * x), 2) * std::pow(std::sin(3 * y), 2) -
-                     26 * std::pow(std::sin(2 * x), 2) * std::pow(std::cos(3 * y), 2) +
-                     8 * std::pow(std::cos(2 * x), 2) * std::pow(std::cos(3 * y), 2));
-            return func;
-          });
-
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
@@ -134,10 +120,8 @@ int main(int argc, char* argv[]) {
       // ####################
 
       // Problem 1:
-      std::vector<AnalyticalFunctions<DIM> > src_term;
-      src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
       std::vector<SPA*> spatials{&spatial};
-      SteadyOPE oper(spatials, {"AllenCahn"}, src_term);
+      SteadyOPE oper(spatials, {"AllenCahn", "SourceTerm"});
       auto pst = PST(&spatial, p_pst);
       SteadyPB problem1("PSteady AllenCahn", oper, vars, {coef_ac}, pst);
 

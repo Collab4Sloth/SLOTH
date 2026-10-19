@@ -49,7 +49,12 @@ struct Integrators {
     MassFlux,
     LatentHeat,
     Neumann,
-    Robin
+    Robin,
+    SourceTerm,
+    Advection,
+    SplitAdvection,
+    AdvectionBoundary,
+    AdvectionBoundaryCH
   };
   static value from(const std::string&);
 };

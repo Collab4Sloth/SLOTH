@@ -99,18 +99,8 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
                     const std::string lhs_integrator);
 
   TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
-                    const std::string lhs_integrator,
-                    std::vector<AnalyticalFunctions<DIM>> source_term_name);
-
-  TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                     const std::vector<std::string>& rhs_integrators, const Parameters& params,
                     TimeScheme::value ode, const std::string lhs_integrator);
-
-  TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                    const std::vector<std::string>& rhs_integrators, const Parameters& params,
-                    TimeScheme::value ode, const std::string lhs_integrator,
-                    std::vector<AnalyticalFunctions<DIM>> source_term_name);
 
   void Mult(const mfem::Vector& u, mfem::Vector& du_dt) const override;
   void ImplicitSolve(const double dt, const mfem::Vector& u, mfem::Vector& k) override;

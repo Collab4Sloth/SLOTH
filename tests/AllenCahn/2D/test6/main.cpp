@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 ///---------------
@@ -78,7 +79,8 @@ int main(int argc, char* argv[]) {
       Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
       Coefficient capillary(Glossary::Capillary, lambda);
       Coefficient mobility(Glossary::Mobility, mob);
-      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
+      Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy, source);
       // ####################
       //     Parameters     //
       // ####################
@@ -104,73 +106,6 @@ int main(int argc, char* argv[]) {
                                                     std::sqrt(kappa));
             return func;
           });
-      auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-          [A_1, A_2, B_1, B_2, C_2, kappa](const mfem::Vector& v, double time) {
-            // Source term for MMS cf. PFHUB website
-            const double x = v[0];
-            const double y = v[1];
-            const double t = time;
-            const auto func =
-                -kappa *
-                    (0.5 *
-                         (1 - std::pow(std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                                 (-A_1 * t * std::sin(B_1 * x) -
-                                                  A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                                 std::sqrt(kappa)),
-                                       2)) *
-                         std::pow(-A_1 * B_1 * t * std::cos(B_1 * x) -
-                                      A_2 * B_2 * std::cos(B_2 * x + C_2 * t),
-                                  2) *
-                         std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                   (-A_1 * t * std::sin(B_1 * x) -
-                                    A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                   std::sqrt(kappa)) /
-                         kappa +
-                     0.5 *
-                         (1 - std::pow(std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                                 (-A_1 * t * std::sin(B_1 * x) -
-                                                  A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                                 std::sqrt(kappa)),
-                                       2)) *
-                         std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                   (-A_1 * t * std::sin(B_1 * x) -
-                                    A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                   std::sqrt(kappa)) /
-                         kappa -
-                     0.25 * M_SQRT2 *
-                         (1 - std::pow(std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                                 (-A_1 * t * std::sin(B_1 * x) -
-                                                  A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                                 std::sqrt(kappa)),
-                                       2)) *
-                         (A_1 * std::pow(B_1, 2) * t * std::sin(B_1 * x) +
-                          A_2 * std::pow(B_2, 2) * std::sin(B_2 * x + C_2 * t)) /
-                         std::sqrt(kappa)) -
-                0.5 *
-                    (2.0 - 2.0 * std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                           (-A_1 * t * std::sin(B_1 * x) -
-                                            A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                           std::sqrt(kappa))) *
-                    (-0.5 * std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                      (-A_1 * t * std::sin(B_1 * x) -
-                                       A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                      std::sqrt(kappa)) -
-                     0.5) *
-                    std::tanh((1.0 / 2.0) * M_SQRT2 *
-                              (-A_1 * t * std::sin(B_1 * x) - A_2 * std::sin(B_2 * x + C_2 * t) +
-                               y - 0.25) /
-                              std::sqrt(kappa)) -
-                0.25 * M_SQRT2 *
-                    (1 - std::pow(std::tanh((1.0 / 2.0) * M_SQRT2 *
-                                            (-A_1 * t * std::sin(B_1 * x) -
-                                             A_2 * std::sin(B_2 * x + C_2 * t) + y - 0.25) /
-                                            std::sqrt(kappa)),
-                                  2)) *
-                    (-A_1 * std::sin(B_1 * x) - A_2 * C_2 * std::cos(B_2 * x + C_2 * t)) /
-                    std::sqrt(kappa);
-            return func;
-          });
-
       auto initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
       auto analytical_solution = AnalyticalFunctions<DIM>(user_func_solution);
 
@@ -201,12 +136,10 @@ int main(int argc, char* argv[]) {
       // ####################
 
       // Problem 1:
-      std::vector<AnalyticalFunctions<DIM> > src_term;
-      src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
 
       std::vector<SPA*> spatials{&spatial};
-      TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative",
-                        src_term);
+      TransientOPE oper(spatials, {"AllenCahn", "SourceTerm"},
+                        TimeScheme::EulerImplicit, "TimeDerivative");
 
       auto pst = PST(&spatial, p_pst);
       TransientPB problem1(oper, vars, {coef_ac}, pst);

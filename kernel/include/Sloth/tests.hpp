@@ -1,6 +1,6 @@
 /**
  * @file tests.hpp
- * @author ci230846 (clement.introini@cea.fr)
+ * @author Clément Introïni (clement.introini@cea.fr)
  * @brief Usefull aliases for tests depending on the dimension of space
  * @version 0.1
  * @date 2025-01-22

@@ -136,24 +136,14 @@ int main(int argc, char* argv[]) {
         //     Problems      //
         // ####################
 
-        auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-            [](const mfem::Vector& x, [[maybe_unused]] double time) {
-              const auto xx = x[0];
-              const auto yy = x[1];
-              const auto func =
-                  (1 + 2 * M_PI * M_PI * time) * std::cos(M_PI * xx) * std::sin(M_PI * yy);
-              return func;
-            });
-
-        std::vector<AnalyticalFunctions<DIM> > src_term;
-        src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
 
         // Heat
-        Coefficients coef_pb(density, heat_capacity, conductivity, neumann, dirichlet_left,
+        Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+        Coefficients coef_pb(density, heat_capacity, conductivity, source, neumann, dirichlet_left,
                              dirichlet_right);
         std::vector<SPA*> spatials{&spatial};
-        TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                          src_term);
+        TransientOPE oper(spatials, {"Fourier", "SourceTerm"},
+                          TimeScheme::EulerImplicit, "HeatTimeDerivative");
 
         oper.overload_nl_solver(
             NLSolverType::NEWTON,

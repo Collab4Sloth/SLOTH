@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 ///---------------
@@ -118,29 +119,14 @@ int main(int argc, char* argv[]) {
     // ####################
 
     // Heat:
-    Coefficients coef_pb(density, heat_capacity, conductivity);  //, robin_b);
+    // Axisymmetric: the r weight is applied by the SourceTerm integrator
+    Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+    Coefficients coef_pb(density, heat_capacity, conductivity, source);
     std::vector<SPA*> spatials{&spatial};
 
-    auto src_func = std::function<double(const mfem::Vector&, double)>(
-        [rho, cp, cond]([[maybe_unused]] const mfem::Vector& vcoord, [[maybe_unused]] double time) {
-          const double r = vcoord[0];
-          const double z = vcoord[1];
 
-          const double crr = std::cos(M_PI * r * r);
-          const double srr = std::sin(M_PI * r * r);
-          const double cz = std::cos(M_PI * z);
-
-          return r * std::exp(-time) *
-                 (-rho * cp * crr * cz +
-                  cond * (4.0 * M_PI * srr * cz + 4.0 * M_PI * M_PI * r * r * crr * cz +
-                          M_PI * M_PI * crr * cz));
-        });
-
-    std::vector<AnalyticalFunctions<DIM> > src_term;
-    src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
-
-    TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                      src_term);
+    TransientOPE oper(spatials, {"Fourier", "SourceTerm"},
+                      TimeScheme::EulerImplicit, "HeatTimeDerivative");
 
     oper.overload_nl_solver(
         NLSolverType::NEWTON,

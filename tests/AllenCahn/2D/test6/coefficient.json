@@ -1,0 +1,10 @@
+[
+    {
+        "expression": "-kappa*( (1/2)*(1 - tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa))**2)*(-A_1*B_1*t*cos(B_1*x) - A_2*B_2*cos(B_2*x + C_2*t))**2*tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa))/kappa + (1/2)*(1 - tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa))**2)*tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa))/kappa - sqrt(2)/4*(1 - tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa))**2)*(A_1*B_1**2*t*sin(B_1*x) + A_2*B_2**2*sin(B_2*x + C_2*t))/sqrt(kappa) ) - (1/2)*(2 - 2*tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa)))*(-(1/2)*tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa)) - 1/2)*tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa)) - sqrt(2)/4*(1 - tanh(sqrt(2)/2*(-A_1*t*sin(B_1*x) - A_2*sin(B_2*x + C_2*t) + y - 1/4)/sqrt(kappa))**2)*(-A_1*sin(B_1*x) - A_2*C_2*cos(B_2*x + C_2*t))/sqrt(kappa)",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "constants": "(t:T),(A_1:0.0075),(A_2:0.03),(B_1:8.*M_PI),(B_2:22.*M_PI),(C_2:0.0625*M_PI),(kappa:0.0004)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

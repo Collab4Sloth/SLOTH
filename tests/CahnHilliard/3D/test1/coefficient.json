@@ -1,0 +1,10 @@
+[
+    {
+        "expression": "vmax*(1 - ((x - xc)/xc)**2)*(1 - ((z - xc)/xc)**2)",
+        "variables": "phi",
+        "coordinates": "x,y,z",
+        "constants": "(vmax:0.05),(xc:0.01056432577532235)",
+        "class_name": "PoiseuilleVelocity",
+        "outputfile": "Coefficient"
+    }
+]

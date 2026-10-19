@@ -22,6 +22,7 @@
 #include <tuple>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 
@@ -130,23 +131,6 @@ int main(int argc, char* argv[]) {
             });
 
         // 1st equation source term
-        auto user_func_source_term = std::function<double(const mfem::Vector&, double)>(
-            [&](const mfem::Vector& x, double time) {
-              const double xx = x[0];
-              const auto c = (time + 1) * std::sin(M_PI * xx);
-              const double delta_c = -M_PI * M_PI * c;
-              const double dc_dx = (time + 1) * M_PI * std::cos(M_PI * xx);
-              const double delta_mu = delta_c * (3. * c * c - 1.) + 6. * c * (dc_dx * dc_dx) -
-                                      M_PI * M_PI * M_PI * M_PI * c;
-              const double dc_dt = std::sin(M_PI * xx);
-              const auto func = dc_dt - delta_mu;
-              return func;
-            });
-        auto user_func_source_term2 = std::function<double(const mfem::Vector&, double)>(
-            []([[maybe_unused]] const mfem::Vector& v, [[maybe_unused]] double time) {
-              return 0.;
-            });
-
         auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
         auto phi_analytical_condition = AnalyticalFunctions<DIM>(user_func_solution);
         auto mu_initial_condition = AnalyticalFunctions<DIM>(mu_user_func_solution);
@@ -184,15 +168,15 @@ int main(int argc, char* argv[]) {
         // ####################
 
         // Problem 1:
-        Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
+        Coefficient no_source(Glossary::SourceTerm, 0.);
+        Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
+        Coefficients coef_pb0(double_well, capillary, mobility, grad_energy, no_source);
+        Coefficients coef_pb1(double_well, capillary, mobility, grad_energy, source);
         std::vector<SPA*> spatials{&spatial, &spatial};
-        std::vector<AnalyticalFunctions<DIM>> src_term;
-        src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term2));
-        src_term.emplace_back(AnalyticalFunctions<DIM>(user_func_source_term));
-        // OPE oper(spatials, params, src_term);
 
-        TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
-                          "SplitTimeDerivative", src_term);
+        TransientOPE oper(spatials, {"CahnHilliard", "SourceTerm"},
+                          params, TimeScheme::EulerImplicit,
+                          "SplitTimeDerivative");
 
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
@@ -204,7 +188,7 @@ int main(int argc, char* argv[]) {
         oper.overload_preconditioner(precond, Parameters(Parameter("type", 1)));
 
         auto pst = PST(&spatial, p_pst);
-        TransientPB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
+        TransientPB problem1(oper, vars, {coef_pb0, coef_pb1}, pst);
 
         // Coupling 1
         auto cc = Coupling("CahnHilliard Coupling", problem1);

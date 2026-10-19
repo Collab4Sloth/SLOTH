@@ -110,23 +110,6 @@ int main(int argc, char* argv[]) {
   temp.set_additional_information("T");
   auto heat_vars = VARS(temp);
   auto pl = 15.e4;
-  auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
-                          [[maybe_unused]] double time) {
-        // const double radius = std::sqrt(vcoord[0] * vcoord[0] + vcoord[1] * vcoord[1]);
-        // auto chi = 90.;  // inverse neutron diffusion length (0.9cm−1 ->90m-1).
-        // auto chia = chi * pellet_radius;
-        // auto I1_chia = std::cyl_bessel_i(1, chia);
-        // auto chir =
-        //     chi * (pellet_radius - radius);  //  radius;  //  (Radius[_nnodes - 1] - Radius[i]);1
-        // auto I0_chir = std::cyl_bessel_i(0, chir);
-        const auto bess = 1.;  // chia * I0_chir / (2. * I1_chia);
-
-        const auto func = pl * bess / (M_PI * 2. * pellet_radius * pellet_radius);
-
-        return func;
-      });
-
   // ####################
   //     coefficients  //
   // ####################
@@ -177,11 +160,10 @@ int main(int argc, char* argv[]) {
   TransientPB allencahn_pb("AllenCahn", oper, ac_vars, {ac_coef}, pst, heat_vars);
 
   // Heat:
-  Coefficients heat_coef(density, heat_capacity, conductivity);
-  std::vector<AnalyticalFunctions<DIM> > src_term;
-  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
-  TransientOPE oper_heat(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                         src_term);
+  Coefficient source(Glossary::SourceTerm, pl / (M_PI * 2. * pellet_radius * pellet_radius));
+  Coefficients heat_coef(density, heat_capacity, conductivity, source);
+  TransientOPE oper_heat(spatials, {"Fourier", "SourceTerm"},
+                         TimeScheme::EulerImplicit, "HeatTimeDerivative");
   oper_heat.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
                                        Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),

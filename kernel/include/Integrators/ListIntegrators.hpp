@@ -1,6 +1,6 @@
 /**
  * @file ListIntegrators.hpp
- * @author ci230846  (clement.introini@cea.fr)
+ * @author Clément Introïni (clement.introini@cea.fr)
  * @brief List of  header files contained in the Integrators directory
  * @version 0.1
  * @date 2026-03-21
@@ -26,6 +26,9 @@
 
 #pragma once
 
+#include "Integrators/AdvectionBoundaryCHNLFormIntegrator.hpp"
+#include "Integrators/AdvectionBoundaryNLFormIntegrator.hpp"
+#include "Integrators/AdvectionNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
 #include "Integrators/BlockAllenCahnNLFormIntegrator.hpp"
 #include "Integrators/CahnHilliardNLFormIntegrator.hpp"
@@ -40,5 +43,7 @@
 #include "Integrators/NeumannNLFormIntegrator.hpp"
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "Integrators/SourceTermNLFormIntegrator.hpp"
+#include "Integrators/SplitAdvectionNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"

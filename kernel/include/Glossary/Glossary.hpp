@@ -121,7 +121,11 @@ enum class GlossaryType {
   RobinA,
   RobinB,
   ExplicitTime,
-  Dirichlet
+  Dirichlet,
+  SourceTerm,
+  Velocity,
+  VelocityPrefactor,
+  Inflow
 };
 
 struct GlossaryQuantity {
@@ -366,6 +370,42 @@ static const GlossaryQuantity Robin_b =
  */
 static const GlossaryQuantity Dirichlet =
     GlossaryQuantity(GlossaryType::Dirichlet, GlossaryUnit::None, "Dirichlet boundary condition");
+
+/**
+ * @brief Quantity associated with a user-defined source term (SourceTerm integrator)
+ *
+ */
+static const GlossaryQuantity SourceTerm =
+    GlossaryQuantity(GlossaryType::SourceTerm, GlossaryUnit::None, "User-defined source term");
+
+/**
+ * @brief Quantities associated with the components of an imposed advection velocity
+ * (Advection integrators). The ID of the quantity is the index of the component.
+ *
+ */
+static const GlossaryQuantity Velocity_X = GlossaryQuantity(
+    GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, x (or r) component", 0);
+static const GlossaryQuantity Velocity_Y = GlossaryQuantity(
+    GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, y (or z) component", 1);
+static const GlossaryQuantity Velocity_Z = GlossaryQuantity(
+    GlossaryType::Velocity, GlossaryUnit::None, "Advection velocity, z component", 2);
+
+/**
+ * @brief Quantity associated with the prefactor alpha of a gradient advection velocity
+ * v = alpha grad(a), a being an auxiliary variable (parameter "velocity_gradient").
+ *
+ */
+static const GlossaryQuantity VelocityPrefactor =
+    GlossaryQuantity(GlossaryType::VelocityPrefactor, GlossaryUnit::None,
+                     "Prefactor alpha of a gradient advection velocity v = alpha grad(a)");
+
+/**
+ * @brief Quantity associated with the value of the advected variable entering the domain
+ * through an open boundary (AdvectionBoundary integrators). Attached to boundaries.
+ *
+ */
+static const GlossaryQuantity Inflow = GlossaryQuantity(
+    GlossaryType::Inflow, GlossaryUnit::None, "Inflow value of the advected variable");
 
 /**
  * @brief Quantity associated with the MPI rank

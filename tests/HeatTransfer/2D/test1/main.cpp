@@ -75,14 +75,6 @@ int main(int argc, char* argv[]) {
   // Heat
   auto heat_vars = VARS(VAR(&spatial, Tbcs, "T", Glossary::Temperature, 2, 750.));
   auto pl = 4.e4;
-  auto src_func = std::function<double(const mfem::Vector&, double)>(
-      [pl, pellet_radius]([[maybe_unused]] const mfem::Vector& vcoord,
-                          [[maybe_unused]] double time) {
-        const auto func = pl / (M_PI * pellet_radius * pellet_radius);
-
-        return func;
-      });
-
   // ###########################################
   // ###########################################
   //      Post-processing                     //
@@ -104,12 +96,11 @@ int main(int argc, char* argv[]) {
   // ####################
 
   // Heat:
-  Coefficients coef_pb(density, heat_capacity, conductivity);
-  std::vector<AnalyticalFunctions<DIM> > src_term;
-  src_term.emplace_back(AnalyticalFunctions<DIM>(src_func));
+  Coefficient source(Glossary::SourceTerm, pl / (M_PI * pellet_radius * pellet_radius));
+  Coefficients coef_pb(density, heat_capacity, conductivity, source);
   std::vector<SPA*> spatials{&spatial};
-  TransientOPE oper(spatials, {"Fourier"}, TimeScheme::EulerImplicit, "HeatTimeDerivative",
-                    src_term);
+  TransientOPE oper(spatials, {"Fourier", "SourceTerm"},
+                    TimeScheme::EulerImplicit, "HeatTimeDerivative");
 
   oper.overload_nl_solver(NLSolverType::NEWTON,
                           Parameters(Parameter("description", "Newton solver "),

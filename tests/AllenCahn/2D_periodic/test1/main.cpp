@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "./Coefficient.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 
@@ -85,7 +86,8 @@ int main(int argc, char* argv[]) {
       Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
       Coefficient capillary(Glossary::Capillary, lambda);
       Coefficient mobility(Glossary::Mobility, mob);
-      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy);
+      Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient(omega));
+      Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy, source);
       // ####################
       //     variables     //
       // ####################
@@ -114,10 +116,8 @@ int main(int argc, char* argv[]) {
 
       // Problem 1:
       std::vector<SPA*> spatials{&spatial};
-      std::vector<AnalyticalFunctions<DIM> > src_term;
-      src_term.emplace_back(AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Sinusoide2, omega));
-      TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::from(time_scheme), "TimeDerivative",
-                        src_term);
+      TransientOPE oper(spatials, {"AllenCahn", "SourceTerm"},
+                        TimeScheme::from(time_scheme), "TimeDerivative");
 
       auto pst = PST(&spatial, p_pst);
       TransientPB problem1("AllenCahn", oper, vars, {coef_ac}, pst);
