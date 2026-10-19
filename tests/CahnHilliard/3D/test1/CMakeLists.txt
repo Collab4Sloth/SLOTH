@@ -17,3 +17,8 @@ set_tests_properties(
     CompareCahnHilliard3Dtest1_periodic
     PROPERTIES DEPENDS CahnHilliard3Dtest1
 )
+# Too expensive for the GitHub Actions Linux runners: disabled there only
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ENV{GITHUB_ACTIONS})
+  set_tests_properties(CahnHilliard3Dtest1 CompareCahnHilliard3Dtest1_periodic
+                       CompareCahnHilliard3Dtest1_open PROPERTIES DISABLED TRUE)
+endif()
