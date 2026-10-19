@@ -242,6 +242,7 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
       params_(params),
       RHS(NULL),
+      rhs_solver_(nullptr),
       current_dt_(0.0),
       current_time_(0.0),
       height_(height),
@@ -301,6 +302,41 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
     u_vect.emplace_back(u);
   }
   this->SetTransientParameters(dt, u_vect);
+  this->record_fes_sequence();
+}
+
+/**
+ * @brief Store the sequence number of each finite element space.
+ *
+ * @details mfem increments FiniteElementSpace::GetSequence() at each Update()
+ *          (refinement/derefinement). Comparing it with the stored value tells whether
+ *          the operator must be resynchronized (see mesh_has_changed()).
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::record_fes_sequence() {
+  this->fes_sequence_.resize(static_cast<size_t>(this->fes_.Size()));
+  for (int i = 0; i < this->fes_.Size(); ++i) {
+    this->fes_sequence_[static_cast<size_t>(i)] = this->fes_[i]->GetSequence();
+  }
+}
+
+/**
+ * @brief True if at least one finite element space has been updated since the last call to
+ *        record_fes_sequence().
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+bool OperatorBase<T, DIM>::mesh_has_changed() const {
+  if (this->fes_sequence_.size() != static_cast<size_t>(this->fes_.Size())) return true;
+  for (int i = 0; i < this->fes_.Size(); ++i) {
+    if (this->fes_[i]->GetSequence() != this->fes_sequence_[static_cast<size_t>(i)]) return true;
+  }
+  return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -318,6 +354,7 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
 template <class T, int DIM>
 void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
                                                     const std::vector<mfem::Vector>& u_vect) {
+  // Catch_Time_Section("OperatorBase::build_rhs_nonlinear_form");
   if (this->RHS != nullptr) {
     delete this->RHS;
   }

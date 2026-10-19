@@ -98,13 +98,17 @@ class OperatorBase : public mfem::Operator {
   std::vector<BoundaryConditions<T, DIM>*> bcs_;
   std::vector<mfem::Array<int>> array_bdr_;
 
-
   double current_dt_;
   double current_time_;
   int height_;
   mutable mfem::Vector z;  // auxiliary vector
 
   std::vector<std::string> rhs_integrators_;
+
+  /// Mesh change detection (AMR): FE space sequence numbers at last synchronization
+  std::vector<long> fes_sequence_;
+  void record_fes_sequence();
+  bool mesh_has_changed() const;
 
   void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
