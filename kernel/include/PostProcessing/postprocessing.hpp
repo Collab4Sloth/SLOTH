@@ -66,6 +66,7 @@ class PostProcessing {
   std::vector<double> times_list_;
 
   int level_of_detail_;
+  int specialized_frequency_;
   bool enable_compute_energies_;
   bool enable_save_specialized_at_iter_;
   bool force_clean_output_dir_;
@@ -104,6 +105,8 @@ class PostProcessing {
   void save_iso_specialized(const std::multimap<IterationKey, SpecializedValue>& mmap_results,
                             std::string filename = "iso.csv");
   int get_frequency();
+  int get_specialized_frequency();
+  bool need_specialized(const int iteration);
   std::string get_post_processing_directory();
   bool get_enable_save_specialized_at_iter();
   bool get_enable_compute_energies();

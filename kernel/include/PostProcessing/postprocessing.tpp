@@ -92,6 +92,13 @@ void PostProcessing<T, DC, DIM>::get_specialized_parameters() {
   this->enable_compute_energies_ =
       this->params_.template get_param_value_or_default<bool>("enable_compute_energies", true);
 
+  // Frequency (in iterations) of the specialized values (CSV): errors, isovalues, integrals and
+  // energies are computed when iteration % specialized_frequency == 0 (1: each iteration)
+  this->specialized_frequency_ =
+      this->params_.template get_param_value_or_default<int>("specialized_frequency", 1);
+  MFEM_VERIFY(this->specialized_frequency_ >= 1,
+              "specialized_frequency must be greater than or equal to 1. Please check your data.");
+
   if (this->params_.has_parameter("iso_val_to_compute")) {
     this->iso_val_to_compute_ =
         this->params_.template get_param_value<MapStringDouble>("iso_val_to_compute");
@@ -317,6 +324,34 @@ void PostProcessing<T, DC, DIM>::save_coefficients(std::vector<Coefficient>& coe
 template <class T, class DC, int DIM>
 int PostProcessing<T, DC, DIM>::get_frequency() {
   return this->frequency_;
+}
+
+/**
+ * @brief Get the frequency of the specialized values (CSV) in terms of number of iterations
+ * (1 means each iteration)
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @return int
+ */
+template <class T, class DC, int DIM>
+int PostProcessing<T, DC, DIM>::get_specialized_frequency() {
+  return this->specialized_frequency_;
+}
+
+/**
+ * @brief True if the specialized values (CSV) must be computed at this iteration
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param iteration Current iteration
+ * @return bool
+ */
+template <class T, class DC, int DIM>
+bool PostProcessing<T, DC, DIM>::need_specialized(const int iteration) {
+  return (iteration % this->specialized_frequency_ == 0);
 }
 
 /**

@@ -512,7 +512,8 @@ void Problem<OPE, VAR, PST>::save_specialized(bool must_be_saved) {
  */
 template <class OPE, class VAR, class PST>
 void Problem<OPE, VAR, PST>::save_csv(const int iter, const double current_time) {
-  if (this->has_pst()) {
+  // Specialized values are computed every specialized_frequency iterations (1 by default)
+  if (this->has_pst() && this->get_pst().need_specialized(iter)) {
     const auto nvars = this->variables_.get_variables_number();
     std::vector<mfem::Vector> u_vect;
     const double current_time_step = this->oper_.get_current_time_step();
