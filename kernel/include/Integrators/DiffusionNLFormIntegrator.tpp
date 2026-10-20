@@ -201,7 +201,6 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
-    vec = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
@@ -222,9 +221,12 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
 
       AddMult_a_AAt(diffu * weight_coef, gradPsi, *elmat(blk, blk));
 
+      // Derivative of the diffusivity: dR_i/du_j += D'(u) (grad(u).grad(psi_i)) phi_j
+      // (vec holds grad(u).grad(psi_i) at the current integration point only)
+      gradU.SetSize(dim);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      gradPsi.AddMult(gradU, vec);
-      AddMult_a_VWt(grad_diffu * weight_coef, Psi, vec, *elmat(blk, blk));
+      gradPsi.Mult(gradU, vec);
+      AddMult_a_VWt(grad_diffu * weight_coef, vec, Psi, *elmat(blk, blk));
     }
   }
 }
