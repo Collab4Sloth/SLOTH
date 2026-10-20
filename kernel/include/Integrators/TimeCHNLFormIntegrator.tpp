@@ -179,10 +179,10 @@ template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip;
-  vaux_gf_at_ip.resize(vaux_gf_.size());
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   //////////////////////
   // Block 0 R(phi) on mu term
   {
@@ -216,23 +216,13 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
       this->set_int_point(Tr, ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
-      // Get aux values at ip TODO(cci) (move in method)
-      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
-        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip));
+      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
       const double ww = coef_a * phi * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -260,10 +250,10 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip;
-  vaux_gf_at_ip.resize(vaux_gf_.size());
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
   // loop over diagonal entries
   // block 0 0  dR(phi)dphi
@@ -318,24 +308,14 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
       this->set_int_point(Tr, ip);
       el[blk]->CalcPhysShape(Tr, Psi);
 
-      // Get aux values at ip TODO(cci) (move in method)
-      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
-        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip));
+      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
       double w = coef_a * weight_coef;
       AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
     }

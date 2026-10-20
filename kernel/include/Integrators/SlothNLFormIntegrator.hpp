@@ -29,10 +29,12 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <list>
 #include <optional>
 #include <span>
 #include <string>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -98,6 +100,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id,
                                              std::optional<int> bdr_id = std::nullopt);
 
+  // Historical interface (coefficient passed by value: one copy per call).
+  // Kept for the other integrators; forwards to the eval_* methods below.
   double compute_coefficient(Coefficient coef, const std::span<const double>& values,
                              const std::span<const double>& aux_values);
 
@@ -111,7 +115,65 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                      const std::span<const double>& values,
                                      const std::span<const double>& aux_values);
 
+  // Same computations, coefficient passed by reference (no copy at each integration point).
+  // The coefficient may be modified (coordinates set before evaluation), exactly as the copy
+  // was in the historical interface.
+  double eval_coefficient(Coefficient& coef, const std::span<const double>& values,
+                          const std::span<const double>& aux_values);
+  double eval_gradient_coefficient(Coefficient& coef, const int blk,
+                                   const std::span<const double>& values,
+                                   const std::span<const double>& aux_values);
+  double eval_gradient_energy_coefficient(Coefficient& coef, const int blk,
+                                          const std::span<const double>& values,
+                                          const std::span<const double>& aux_values);
+  double eval_hessian_coefficient(Coefficient& coef, const int iblk, const int jblk,
+                                  const std::span<const double>& values,
+                                  const std::span<const double>& aux_values);
+
   bool isAxisymmetric() const noexcept;
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Evaluation of {u, u_old} and of the auxiliary fields at integration points
+  //////////////////////////////////////////////////////////////////////////////
+  /// Values returned by values_at_ip()
+  struct IpValues {
+    std::span<const double> u;    ///< [u_0..u_{n-1}, u_old_0..u_old_{n-1}]
+    std::span<const double> aux;  ///< auxiliary fields
+  };
+
+  static bool same_finite_element(const mfem::FiniteElement& a, const mfem::FiniteElement& b);
+  static bool same_finite_elements(const mfem::Array<const mfem::FiniteElement*>& el);
+
+  void prepare_element_values(const mfem::Array<const mfem::FiniteElement*>& el,
+                              mfem::ElementTransformation& Tr,
+                              const mfem::Array<const mfem::Vector*>& elfun,
+                              const std::vector<mfem::ParGridFunction>& aux_gf,
+                              const mfem::IntegrationRule& ir);
+
+  IpValues values_at_ip(const mfem::IntegrationRule& ir, const int i, const mfem::Vector& Psi,
+                        const mfem::Array<const mfem::Vector*>& elfun,
+                        const std::vector<mfem::ParGridFunction>& aux_gf,
+                        mfem::ElementTransformation& Tr);
+
+  void element_gradient(const mfem::ParGridFunction& gf, const mfem::ElementTransformation& Tr,
+                        const mfem::DenseMatrix& gradPsi, mfem::Vector& grad);
+
+ private:
+  mfem::Vector grad_dofs_;  ///< work vector of element_gradient()
+
+  // Work data of prepare_element_values() / values_at_ip()
+  const mfem::IntegrationRule* ipv_ir_ = nullptr;  ///< rule of the cached table (nullptr: none)
+  int ipv_element_ = -1;                           ///< element of the cached table
+  int ipv_nb_ = 0;                                 ///< number of blocks of the cached table
+  std::size_t ipv_naux_ = 0;                       ///< number of auxiliary fields of the table
+  std::vector<double> ipv_u_table_;                ///< {u, u_old} at each point (nip x 2 nb)
+  std::vector<double> ipv_aux_table_;              ///< auxiliary fields at each point (nip x naux)
+  std::vector<double> ipv_u_;                      ///< {u, u_old} at one point (no table)
+  std::vector<double> ipv_aux_;                    ///< auxiliary fields at one point (no table)
+  std::vector<mfem::Vector> ipv_uold_dofs_;        ///< element dofs of u_old (one per block)
+  std::vector<mfem::Vector> ipv_aux_dofs_;         ///< element dofs of the auxiliary fields
+  std::vector<char> ipv_aux_dot_;                  ///< aux k evaluated from its element dofs
+  mfem::Vector ipv_shape_;                         ///< shape functions at one point
 
  public:
   virtual void init() = 0;

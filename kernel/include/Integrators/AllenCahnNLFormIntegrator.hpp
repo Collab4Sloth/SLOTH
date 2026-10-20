@@ -56,6 +56,19 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
+  std::vector<double> mob_at_ip_;  ///< mobility of each block at the current point
+
+  // Reference (historical) implementations: used when the blocks do not share the same
+  // finite element (different order / geometry / type)
+  void AssembleElementVectorGeneric(const mfem::Array<const mfem::FiniteElement*>& el,
+                                    mfem::ElementTransformation& Tr,
+                                    const mfem::Array<const mfem::Vector*>& elfun,
+                                    const mfem::Array<mfem::Vector*>& elvec);
+  void AssembleElementGradGeneric(const mfem::Array<const mfem::FiniteElement*>& el,
+                                  mfem::ElementTransformation& Tr,
+                                  const mfem::Array<const mfem::Vector*>& elfun,
+                                  const mfem::Array2D<mfem::DenseMatrix*>& elmats);
+
  protected:
   Coefficients lambda;
   Coefficients mobility;

@@ -640,24 +640,20 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
                                : (*this->energy_coefficient_).compute(v1, v2, -1);
   }
 
-  std::vector<mfem::ParGridFunction> vgf;
-  vgf.reserve(m);
-  std::vector<mfem::ParGridFunction> vgf_aux;
-  vgf_aux.reserve(l);
-  for (int k = 0; k < m; ++k) {
-    mfem::ParGridFunction gf(this->fes_[0]);
-    for (int i = 0; i < gf.Size(); ++i) {
-      gf[i] = vun[k][i];
-    }
-    vgf.emplace_back(std::move(gf));
-  }
-  for (int k = 0; k < l; ++k) {
-    mfem::ParGridFunction gf(this->fes_[0]);
-    for (int i = 0; i < gf.Size(); ++i) {
-      gf[i] = vaux[k][i];
-    }
-    vgf_aux.emplace_back(std::move(gf));
-  }
+  // Gradients of the variables and of the auxiliary variables, interpolated with the finite
+  // elements of fes_[0]. Same computation as GridFunction::GetGradient on copies of the fields
+  // defined on fes_[0] (reference gradients of the shape functions, then inverse Jacobian), but
+  // the element dofs of each field are extracted once per element instead of once per field and
+  // integration point, and the shape function gradients once per integration point.
+  const bool with_gradient = this->grad_energy_coefficient_.has_value();
+  std::vector<mfem::Vector> el_dofs_un(static_cast<size_t>(m));
+  std::vector<mfem::Vector> el_dofs_aux(static_cast<size_t>(l));
+  std::vector<mfem::real_t> grad_vun_ip;
+  std::vector<mfem::real_t> grad_vaux_ip;
+  mfem::Array<int> el_vdofs;
+  mfem::DenseMatrix dshape;
+  mfem::Vector grad_ref;
+  mfem::Vector grad_tmp;
 
   mfem::real_t integral = 0.0;
   mfem::real_t sigma = 0.0;
@@ -669,10 +665,8 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
     fe = this->fes_[0]->GetFE(i);
 
     unsigned int dim = fe->GetDim();
-    std::vector<mfem::real_t> grad_vun_ip(m * dim);
-    std::vector<mfem::real_t> grad_vaux_ip(l * dim);
-    mfem::Vector grad_tmp;
-    grad_tmp.SetSize(dim);
+    grad_vun_ip.assign(static_cast<size_t>(m) * dim, 0.0);
+    grad_vaux_ip.assign(static_cast<size_t>(l) * dim, 0.0);
     const mfem::IntegrationRule* ir;
 
     int intorder = 2 * fe->GetOrder() + 3;  // <----------
@@ -685,19 +679,37 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
 
     Tr = this->fes_[0]->GetElementTransformation(i);
 
+    if (with_gradient) {
+      // Element dofs (indices of fes_[0]) of each field
+      this->fes_[0]->GetElementVDofs(i, el_vdofs);
+      for (int k = 0; k < m; ++k)
+        vun[static_cast<size_t>(k)].GetSubVector(el_vdofs, el_dofs_un[static_cast<size_t>(k)]);
+      for (int k = 0; k < l; ++k)
+        vaux[static_cast<size_t>(k)].GetSubVector(el_vdofs, el_dofs_aux[static_cast<size_t>(k)]);
+      dshape.SetSize(fe->GetDof(), static_cast<int>(dim));
+      grad_ref.SetSize(static_cast<int>(dim));
+      grad_tmp.SetSize(this->fes_[0]->GetMesh()->SpaceDimension());
+    }
+
     for (int j = 0; j < ir->GetNPoints(); j++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(j);
       Tr->SetIntPoint(&ip);
 
       // CCI Grad contrib
-      if (this->grad_energy_coefficient_.has_value()) {
-        for (unsigned int k = 0; k < vgf.size(); ++k) {
-          vgf[k].GetGradient(*Tr, grad_tmp);
-          for (unsigned int ii = 0; ii < dim; ii++) grad_vun_ip[k * dim + ii] = grad_tmp[ii];
+      if (with_gradient) {
+        fe->CalcDShape(ip, dshape);
+        const mfem::DenseMatrix& inv_jac = Tr->InverseJacobian();
+        for (int k = 0; k < m; ++k) {
+          dshape.MultTranspose(el_dofs_un[static_cast<size_t>(k)], grad_ref);
+          inv_jac.MultTranspose(grad_ref, grad_tmp);
+          for (unsigned int ii = 0; ii < dim; ii++)
+            grad_vun_ip[static_cast<size_t>(k) * dim + ii] = grad_tmp[static_cast<int>(ii)];
         }
-        for (unsigned int k = 0; k < vgf_aux.size(); ++k) {
-          vgf_aux[k].GetGradient(*Tr, grad_tmp);
-          for (unsigned int ii = 0; ii < dim; ii++) grad_vaux_ip[k * dim + ii] = grad_tmp[ii];
+        for (int k = 0; k < l; ++k) {
+          dshape.MultTranspose(el_dofs_aux[static_cast<size_t>(k)], grad_ref);
+          inv_jac.MultTranspose(grad_ref, grad_tmp);
+          for (unsigned int ii = 0; ii < dim; ii++)
+            grad_vaux_ip[static_cast<size_t>(k) * dim + ii] = grad_tmp[static_cast<int>(ii)];
         }
         int_grad += (*this->grad_energy_coefficient_).compute(grad_vun_ip, grad_vaux_ip, dim) *
                     ip.weight * Tr->Weight();

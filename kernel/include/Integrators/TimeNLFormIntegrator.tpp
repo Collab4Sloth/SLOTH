@@ -195,8 +195,10 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("TimeNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -217,21 +219,9 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
       this->set_int_point(Tr, ip);
 
       const auto& u = *elfun[blk] * Psi;
-      // Get aux values at ip TODO(cci) (move in method)
-      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
-        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
-      double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip));
-      double coef_b =
-          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip));
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
+      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -266,8 +256,10 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("TimeNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip(this->vaux_gf_.size());
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
     // int nd = el.GetDof();
     // int dim = el.GetDim();
@@ -288,21 +280,9 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
-      // Get aux values at ip TODO(cci) (move in method)
-      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
-        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
-      double coef_a =
-          this->compute_coefficient(this->coefficient_A[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip));
-      double coef_b =
-          this->compute_coefficient(this->coefficient_B[blk], std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip));
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
+      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux);
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);

@@ -121,10 +121,10 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-
-  std::vector<double> vaux_gf_at_ip;
-  vaux_gf_at_ip.resize(vaux_gf_.size());
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("MeltingBaseNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -144,25 +144,13 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
-        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
-      const double coef_mobi = get_mob_at_ip(blk, std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip));
-      const double alpha = this->get_phase_change_at_ip(blk, std::span<const double>(u_values),
-                                                        std::span<const double>(vaux_gf_at_ip));
-      const double seed = this->get_seed_at_ip(blk, std::span<const double>(u_values),
-                                               std::span<const double>(vaux_gf_at_ip));
-      double ww = coef_mobi * (alpha * this->compute_gradient_energy_coefficient(
-                                           interpolation_potential[blk], blk,
-                                           std::span<const double>(u_values),
-                                           std::span<const double>(vaux_gf_at_ip))) +
+      const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
+      const double alpha = this->get_phase_change_at_ip(blk, ipv.u, ipv.aux);
+      const double seed = this->get_seed_at_ip(blk, ipv.u, ipv.aux);
+      double ww = coef_mobi * (alpha * this->eval_gradient_energy_coefficient(
+                                           interpolation_potential[blk], blk, ipv.u, ipv.aux)) +
                   seed;
 
       double weight_coef = ip.weight * Tr.Weight();
@@ -199,10 +187,10 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("MeltingBaseNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-
-  std::vector<double> vaux_gf_at_ip;
-  vaux_gf_at_ip.resize(vaux_gf_.size());
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
@@ -221,25 +209,14 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       this->set_int_point(Tr, ip);
       el[blk]->CalcShape(ip, Psi);
-      // Get aux values at ip TODO(cci) (move in method)
-      for (size_t k = 0; k < vaux_gf_.size(); ++k) {
-        vaux_gf_at_ip[k] = vaux_gf_[k].GetValue(Tr, ip);
-      }
-      // Get values
-      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-        u_values[off_blk] = (*elfun[off_blk]) * Psi;
-        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-      }
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
-      const double coef_mobi = get_mob_at_ip(blk, std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip));
-      const double alpha = this->get_phase_change_at_ip(blk, std::span<const double>(u_values),
-                                                        std::span<const double>(vaux_gf_at_ip));
+      const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
+      const double alpha = this->get_phase_change_at_ip(blk, ipv.u, ipv.aux);
       double fun_val =
           coef_mobi * alpha *
-          this->compute_hessian_coefficient(
-              interpolation_potential[blk], blk, blk, std::span<const double>(u_values),
-              std::span<const double>(vaux_gf_at_ip));  // this->energy_derivatives(2, Tr, ip)(u);
+          this->eval_hessian_coefficient(interpolation_potential[blk], blk, blk, ipv.u,
+                                         ipv.aux);  // this->energy_derivatives(2, Tr, ip)(u);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -322,7 +299,7 @@ template <class VARS>
 double MeltingBaseNLFormIntegrator<VARS>::get_mob_at_ip(
     [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
     [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi = this->compute_coefficient(mobility[blk], values, aux_values);
+  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values);
 
   return mobi;
 }

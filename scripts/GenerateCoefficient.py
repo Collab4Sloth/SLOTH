@@ -113,7 +113,9 @@ def get_constants(constants):
     return dict_constants
 
 
-#  Case : a * sdot(x(1..j)) = a * (dot(x1,x2)+...+dot(xj,xj))
+#  Case : a * sdot(x(1..j)) = a * (dot(x1,x1)+...+dot(xj,xj))
+#  The expansion is always parenthesized so that any factor (numeric or symbolic, e.g.
+#  kappa*sdot(x(1..j))) multiplies the whole sum.
 def sdot_replace_fct(match):
     fact, var, start_str, end_str = match.groups()
     start, end = int(start_str), int(end_str)
@@ -126,7 +128,7 @@ def sdot_replace_fct(match):
     if fact:
         return f"{fact}*({expanded})"
     else:
-        return f"{expanded}"
+        return f"({expanded})"
     
 def expand_sdot(expr: str) -> str:
     """
