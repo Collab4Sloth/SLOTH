@@ -1,9 +1,9 @@
-# Copyright 2013-2020 Lawrence Livermore National Security, LLC and other
-# Spack Project Developers. See the top-level COPYRIGHT file for details.
+# Copyright Spack Project Developers. See COPYRIGHT file for details.
+#
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
-# Contributions made by CEA, France
 
 from spack_repo.builtin.build_systems.cmake import CMakePackage
+
 from spack.package import *
 
 
@@ -19,10 +19,14 @@ class Sloth(CMakePackage):
     homepage = "https://github.com/Collab4Sloth/SLOTH"
     git = "https://github.com/Collab4Sloth/SLOTH.git"
 
+    maintainers("CINTROINI")
+
+    license("LGPL-3.0-or-later", checked_by="CINTROINI")
+
     version("master", branch="master")
-    version("2.1.0", tag="v2.1.0", preferred=True)
-    version("2.0.1", tag="v2.0.1")
-    version("2.0.0", tag="v2.0.0")
+    # Before the release: built from the Git tag. After tagging, replace with the
+    # line given by "spack checksum sloth 2.2.0" (and add url = ... above)
+    version("2.2.0", tag="v2.2.0")
 
     variant("shared", default=False, description="Build Sloth as a shared library")
     variant("mumps", default=False, description="Enable the MUMPS direct solver (through MFEM)")
@@ -35,6 +39,7 @@ class Sloth(CMakePackage):
         "machines or used with another compiler.",
     )
 
+    depends_on("cxx", type="build")
     depends_on("cmake@3.13:", type="build")
     # SymPy: configure time (test coefficients) and run time (scripts/GenerateCoefficient.py)
     depends_on("python@3:", type=("build", "run"))
@@ -63,9 +68,9 @@ class Sloth(CMakePackage):
         ]
 
     def setup_build_environment(self, env):
-        # Kept for versions <= 2.1.0, whose build system reads these variables
-        # (not needed by the current one, harmless otherwise)
+        # HYPRE_DIR: fallback used to read the HYPRE version (HYPRE4SLOTH.cmake).
+        # USER_INSTALL_PATH: takes priority over CMAKE_INSTALL_PREFIX in
+        # CMakeLists.txt; set to the Spack prefix so that a value exported in
+        # the user's shell cannot redirect the installation.
         env.set("HYPRE_DIR", self.spec["hypre"].prefix)
         env.set("USER_INSTALL_PATH", self.prefix)
-        if self.spec.satisfies("+mumps"):
-            env.set("MUMPS_DIR", self.spec["mumps"].prefix)
