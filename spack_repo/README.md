@@ -21,7 +21,8 @@ spack info sloth
 |---|---|---|
 | `+shared` | off | shared library (requires an MFEM built with `+shared`) |
 | `+mumps` | off | MUMPS direct solver, through MFEM |
-| `+petsc` | off | MFEM built with PETSc (64-bit integers for HYPRE and PETSc) |
+| `+voro` | off | Voro++ (Voronoi tessellations) |
+| `+bigint` | off | 64-bit global indices (HYPRE `+mixedint`), for more than ~2 billion unknowns |
 | `+native` | off | `-march=native` and link-time optimisation (not portable to other CPUs) |
 
 Examples:
@@ -33,7 +34,7 @@ spack install sloth %gcc@14           # another compiler
 ```
 
 An MFEM already installed with Spack is reused when it satisfies the requirements
-of the package (`mfem@4.9: +mpi `).
+of the package (`mfem@4.9: +mpi`).
 
 ## Use the installed SLOTH
 

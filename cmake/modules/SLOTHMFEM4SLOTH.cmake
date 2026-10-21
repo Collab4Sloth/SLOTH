@@ -1,7 +1,7 @@
 # ##############################################################################
 # MFEM for SLOTH, from MFEM's own configuration file (config.mk)
 #
-# 1. Locate config.mk (same search as the former FindMFEM.cmake):
+# 1. Locate config.mk:
 #    CMAKE_PREFIX_PATH (environment: spack load / spack env / module load),
 #    then MFEM_DIR (CMake or environment variable, set by envSloth.sh:
 #    spack location -i mfem, brew --prefix mfem, or --mfem=DIR),

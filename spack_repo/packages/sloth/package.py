@@ -30,8 +30,13 @@ class Sloth(CMakePackage):
 
     variant("shared", default=False, description="Build Sloth as a shared library")
     variant("mumps", default=False, description="Enable the MUMPS direct solver (through MFEM)")
-    variant("petsc", default=False, description="Use an MFEM built with PETSc")
     variant("voro", default=False, description="Enable Voro++ (Voronoi tessellations)")
+    variant(
+        "bigint",
+        default=False,
+        description="64-bit global indices (HYPRE +mixedint), for problems with more "
+        "than about 2 billion unknowns",
+    )
     variant(
         "native",
         default=False,
@@ -53,10 +58,10 @@ class Sloth(CMakePackage):
     depends_on("mfem+shared", when="+shared")
     depends_on("mfem+mumps", when="+mumps")
     depends_on("mumps", when="+mumps")
-    depends_on("mfem+petsc", when="+petsc")
-    depends_on("hypre+int64", when="+petsc")
-    depends_on("petsc+int64", when="+petsc")
     depends_on("voropp", when="+voro")
+    # mixedint rather than int64: 64-bit global indices, 32-bit local ones
+    # (less memory, and compatible with HYPRE's external LAPACK)
+    depends_on("hypre+mixedint", when="+bigint")
 
     def cmake_args(self):
         return [
@@ -76,7 +81,7 @@ class Sloth(CMakePackage):
         env.set("HYPRE_DIR", self.spec["hypre"].prefix)
         env.set("USER_INSTALL_PATH", self.prefix)
         # VORO: searched before /usr/local and Homebrew (kernel/CMakeLists.txt),
-        # Voro++ is used even if another one is installed on the system.
+        # so that the Spack Voro++ is used even if another one is installed.
         if self.spec.satisfies("+voro"):
             env.set("VORO", self.spec["voropp"].prefix)
 

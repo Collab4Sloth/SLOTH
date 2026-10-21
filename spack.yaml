@@ -1,6 +1,6 @@
 spack:
   specs:
-    - mfem@4.9.0 +mpi +sundials +superlu-dist +mumps %gcc@14
+    - mfem@4.9.0 +mpi +mumps %gcc@14
 
   concretizer:
     unify: true

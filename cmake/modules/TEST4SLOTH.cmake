@@ -4,7 +4,7 @@ add_custom_target(tests
 
 # MPI launcher used by the tests.
 # MPIEXEC_EXECUTABLE / MPIEXEC_NUMPROC_FLAG are normally provided by
-# find_package(MPI) (FindMFEM.cmake). They can be overridden on the command
+# find_package(MPI) (SLOTHMFEM4SLOTH.cmake). They can be overridden on the command
 # line, e.g. -DMPIEXEC_EXECUTABLE=/path/to/mpirun.
 # Fallback (MFEM without MPI): look for mpiexec/mpirun as before.
 if(NOT MPIEXEC_EXECUTABLE)

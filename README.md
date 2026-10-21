@@ -3,7 +3,7 @@ SLOTH
 
 [![Latest Release](https://img.shields.io/github/v/release/Collab4Sloth/SLOTH.svg)](https://github.com/Collab4Sloth/SLOTH/releases/latest)
 [![Build](https://github.com/Collab4Sloth/SLOTH/actions/workflows/build-and-tests.yml/badge.svg?color=green)](https://github.com/Collab4Sloth/SLOTH/actions/workflows/build-and-tests.yml)
-![C++17](https://img.shields.io/badge/C%2B%2B-17-cyan.svg)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-cyan.svg)
 [![License](https://img.shields.io/github/license/Collab4Sloth/SLOTH.svg)](https://github.com/Collab4Sloth/SLOTH/blob/main/LICENSE)
 _____________
 
@@ -12,7 +12,7 @@ Phase-field methods represent a versatile and effective approach to modelling th
 The phase-field approach has also been employed in recent studies conducted with the multiphysics computational tools of the PLEIADES platform. Broadly speaking, the `PLEIADES`/Fuel Performance Codes aim at providing a state-of-the-art multiphysics multiscale description of the fuel under irradiated conditions. The inclusion of advanced multiphysics and multiscale modelling such as phase-field, is a logical step forward.
 Consequently, the CEA is developing **`SLOTH`**, a **multiphase-field multicomponent framework**, dedicated to the study of fuel behaviour at different scales of description, from nominal operating conditions to severe accident conditions. 
 
-`PLEIADES/SLOTH` is developed at CEA under LPGL license (Version 3). It is based on the the `MFEM` Finite Element library, which already includes the main features to have a robust, flexible and **massively parallel** implementation of the solution algorithms.
+`PLEIADES/SLOTH` is developed at CEA under LGPL license (Version 3). It is based on the the `MFEM` Finite Element library, which already includes the main features to have a robust, flexible and **massively parallel** implementation of the solution algorithms.
 
 # Some useful links
 

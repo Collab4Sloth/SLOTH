@@ -238,8 +238,6 @@ done
 if [[ "$local_mfem_version" == "Yes" ]]; then
     export MFEM_DIR="$MFEM4SLOTH/mfem/INSTALLDIR/"
     export HYPRE_DIR="$MFEM4SLOTH/hypre/src/hypre/"
-    export METIS_DIR="$MFEM4SLOTH/metis-4.0/"
-    # export MUMPS_DIR="$MFEM4SLOTH/MUMPS/"
 else
     #=============================================
     #=============================================
@@ -253,7 +251,7 @@ else
             if ! spack load mfem 2>/dev/null; then
                 Print "Note: 'spack load mfem' not possible here (no spack shell support in this shell, or mfem not found); paths from 'spack location -i' are used."
             fi
-            for _sloth_pkg in MFEM_DIR:mfem HYPRE_DIR:hypre MPI_DIR:mpi METIS_DIR:metis; do
+            for _sloth_pkg in MFEM_DIR:mfem HYPRE_DIR:hypre; do
                 _sloth_var="${_sloth_pkg%%:*}"
                 _sloth_name="${_sloth_pkg#*:}"
                 if _sloth_loc=$(spack location -i "$_sloth_name" 2>/dev/null) && [[ -n "$_sloth_loc" ]]; then
@@ -264,7 +262,7 @@ else
                 fi
             done
         else
-            export MFEM_DIR= HYPRE_DIR= MPI_DIR= METIS_DIR=
+            export MFEM_DIR= HYPRE_DIR=
             Print "Warning: spack command not found. MFEM must then be found through CMAKE_PREFIX_PATH (spack environment, module load, ...) or given with --mfem=DIR."
         fi
         #=============================================
@@ -272,12 +270,10 @@ else
         #=============================================
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         if command -v brew &>/dev/null; then
-            export HYPRE_DIR=$(echo $(brew --prefix hypre))
-            export MPI_DIR=$(echo $(brew --prefix open-mpi))
-            export METIS_DIR=$(echo $(brew --prefix metis))
-            export MFEM_DIR=$(echo $(brew --prefix mfem))
+            export HYPRE_DIR=$(brew --prefix hypre)
+            export MFEM_DIR=$(brew --prefix mfem)
         else
-            export HYPRE_DIR= MPI_DIR= METIS_DIR= MFEM_DIR=
+            export HYPRE_DIR= MFEM_DIR=
             Print "Warning: brew command not found. MFEM must then be found through CMAKE_PREFIX_PATH or given with --mfem=DIR."
         fi
     else

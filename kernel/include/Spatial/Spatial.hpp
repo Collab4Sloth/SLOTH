@@ -1089,7 +1089,7 @@ void SpatialDiscretization<T, DIM>::set_finite_element_space() {
   // CCI
   this->size_ = this->fespace_->GetTrueVSize();
   int rank = mfem::Mpi::WorldRank();
-  int taille = this->fespace_->GlobalTrueVSize();
+  HYPRE_BigInt taille = this->fespace_->GlobalTrueVSize();
   SlothInfo::debug("My Id = ", rank, " TrueVSize = ", size_, " and GlobalTrueVSize = ", taille);
   // CCI
 }

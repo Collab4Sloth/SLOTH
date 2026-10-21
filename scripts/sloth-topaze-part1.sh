@@ -12,7 +12,9 @@ echo "Your login for Topaze: $MY_LOG"
 echo "Your destination directory on Topaze: $DEST_DIR"
 
 # Same MFEM spec in part 1 (mirror) and part 2 (installation)
-MFEM_SPEC="mfem@4.9.0+mpi+openmp+petsc+strumpack+sundials+superlu-dist"
+# Only what SLOTH uses (MUMPS: optional direct solver). For more than ~2 billion
+# unknowns, add "^hypre+mixedint" (64-bit global indices) in both parts.
+MFEM_SPEC="mfem@4.9.0+mpi+mumps"
 SLOTH_TAG=v2.2.0
 
 cd $WORK_DIR
