@@ -8,7 +8,7 @@
 #    looking for <dir>/share/mfem/config.mk or <dir>/config.mk.
 # 2. Read it: MFEM_USE_* (YES/NO), include directories, library, and the
 #    third-party libraries exactly as used to build MFEM (MFEM_EXT_LIBS:
-#    HYPRE, METIS, SuiteSparse, MUMPS, PETSc, SUNDIALS, BLAS/LAPACK, ...).
+#    HYPRE, METIS, MUMPS, PETSc, SUNDIALS, BLAS/LAPACK, ...).
 # 3. Build the INTERFACE target SlothMFEM, linked by Sloth.
 #
 # Outputs: target SlothMFEM, MFEM_CONFIG_FILE, MFEM_USE_*, MFEM_INCLUDE_DIRS,
@@ -114,9 +114,7 @@ foreach(_n IN LISTS _mk_names)
     _slothmfem_expand(${_n} "${_mk_${_n}}")
   endif()
 endforeach()
-if(NOT MFEM_USE_SUITESPARSE)
-  message(FATAL_ERROR "SLOTH requires MFEM built with SuiteSparse (MFEM_USE_SUITESPARSE=NO in ${MFEM_CONFIG_FILE}).")
-endif()
+
 
 # MPI (MFEM parallel build)
 if(MFEM_USE_MPI)

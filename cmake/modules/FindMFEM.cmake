@@ -137,9 +137,6 @@ if(MFEM_USE_MPI)
   include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 endif(MFEM_USE_MPI)
 
-if (NOT MFEM_USE_SUITESPARSE)
-  message(FATAL_ERROR "You shall have SUITESPARSE support activated in MFEM.CMake will exit.\n" )
-endif()
 
 
 # Set the include directories

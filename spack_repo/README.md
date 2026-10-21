@@ -33,7 +33,7 @@ spack install sloth %gcc@14           # another compiler
 ```
 
 An MFEM already installed with Spack is reused when it satisfies the requirements
-of the package (`mfem@4.9: +mpi +suite-sparse`).
+of the package (`mfem@4.9: +mpi `).
 
 ## Use the installed SLOTH
 

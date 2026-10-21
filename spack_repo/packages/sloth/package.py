@@ -31,6 +31,7 @@ class Sloth(CMakePackage):
     variant("shared", default=False, description="Build Sloth as a shared library")
     variant("mumps", default=False, description="Enable the MUMPS direct solver (through MFEM)")
     variant("petsc", default=False, description="Use an MFEM built with PETSc")
+    variant("voro", default=False, description="Enable Voro++ (Voronoi tessellations)")
     variant(
         "native",
         default=False,
@@ -46,9 +47,7 @@ class Sloth(CMakePackage):
     depends_on("py-sympy", type=("build", "run"))
 
     depends_on("mpi")
-    # SLOTH only needs a parallel MFEM with SuiteSparse; MFEM's other options
-    # (SUNDIALS, SuperLU, ...) are accepted but not required.
-    depends_on("mfem@4.9: +mpi +suite-sparse")
+    depends_on("mfem@4.9: +mpi")
     depends_on("hypre@3.1: +shared")
 
     depends_on("mfem+shared", when="+shared")
@@ -57,12 +56,14 @@ class Sloth(CMakePackage):
     depends_on("mfem+petsc", when="+petsc")
     depends_on("hypre+int64", when="+petsc")
     depends_on("petsc+int64", when="+petsc")
+    depends_on("voropp", when="+voro")
 
     def cmake_args(self):
         return [
             # MFEM and its third-party libraries are read from MFEM's config.mk
             self.define("MFEM_DIR", self.spec["mfem"].prefix),
             self.define_from_variant("SLOTH_USE_SHARED", "shared"),
+            self.define_from_variant("SLOTH_USE_VORO", "voro"),
             self.define_from_variant("SLOTH_NATIVE_ARCH", "native"),
             self.define_from_variant("SLOTH_ENABLE_LTO", "native"),
         ]
@@ -74,3 +75,8 @@ class Sloth(CMakePackage):
         # the user's shell cannot redirect the installation.
         env.set("HYPRE_DIR", self.spec["hypre"].prefix)
         env.set("USER_INSTALL_PATH", self.prefix)
+        # VORO: searched before /usr/local and Homebrew (kernel/CMakeLists.txt),
+        # Voro++ is used even if another one is installed on the system.
+        if self.spec.satisfies("+voro"):
+            env.set("VORO", self.spec["voropp"].prefix)
+
