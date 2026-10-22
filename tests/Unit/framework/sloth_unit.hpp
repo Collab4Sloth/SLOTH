@@ -26,6 +26,9 @@
 #pragma once
 
 #include <initializer_list>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_exception.hpp>
@@ -77,5 +80,28 @@ inline mfem::Vector point(std::initializer_list<double> values) {
   }
   return v;
 }
+
+/**
+ * @brief Captures what is written on std::cout while the object is alive.
+ *
+ *   sloth_unit::CoutCapture out;
+ *   SlothInfo::print("hello");
+ *   CHECK(out.str() == "hello\n");
+ *
+ * std::cout is restored when the object is destroyed, even if a check fails.
+ */
+class CoutCapture {
+ public:
+  CoutCapture() : old_(std::cout.rdbuf(buffer_.rdbuf())) {}
+  ~CoutCapture() { std::cout.rdbuf(old_); }
+  CoutCapture(const CoutCapture&) = delete;
+  CoutCapture& operator=(const CoutCapture&) = delete;
+
+  std::string str() const { return buffer_.str(); }
+
+ private:
+  std::ostringstream buffer_;
+  std::streambuf* old_;
+};
 
 }  // namespace sloth_unit

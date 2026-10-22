@@ -88,9 +88,21 @@ sloth_add_unit_test(NAME AnalyticalFunctions
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
 
+sloth_add_unit_test(NAME Glossary
+                    SOURCES Glossary/test_Glossary.cpp
+                    NPROCS 1)
+
+sloth_add_unit_test(NAME Options
+                    SOURCES Options/test_Options.cpp
+                    NPROCS 1)
+
 sloth_add_unit_test(NAME Parameters
                     SOURCES Parameters/test_Parameter.cpp
                             Parameters/test_Parameters.cpp)
+
+sloth_add_unit_test(NAME Utils
+                    SOURCES Utils/test_Utils.cpp
+                    NPROCS 1)
 
 # ##############################################################################
 # Coverage of the unit tests alone (CMAKE_BUILD_TYPE=Coverage)
