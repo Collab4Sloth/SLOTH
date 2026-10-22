@@ -59,6 +59,7 @@ struct Case {
   std::string name;
   int nb_blocks;
   std::function<mfem::BlockNonlinearFormIntegrator*(const Context&)> make;
+  int boundary = -1;  ///< boundary index (attribute - 1) for a boundary integrator, -1 otherwise
 };
 
 // Coefficients depending on the unknown (implicit): the Jacobian then also
@@ -83,6 +84,29 @@ std::function<mfem::BlockNonlinearFormIntegrator*(const Context&)> maker(
     return integ;
   };
 }
+
+/// @brief Builds a boundary integrator (extra arguments: block, boundary index)
+template <template <class> class INTEGRATOR>
+std::function<mfem::BlockNonlinearFormIntegrator*(const Context&)> bdr_maker(
+    std::vector<Coefficients> coefficients, unsigned int block, unsigned int bdr) {
+  return [coefficients, block, bdr](const Context& c) {
+    SlothNLFormIntegrator<VARS2D>* integ =
+        new INTEGRATOR<VARS2D>(Geometry::Cartesian, c.dt, c.u_old, c.aux_old, c.params, c.auxvars,
+                               coefficients, block, bdr);
+    integ->init();
+    return integ;
+  };
+}
+
+/// @brief Coefficient attached to one boundary (as given by the user in SLOTH)
+Coefficient on_boundary(Coefficient c, int bdr) {
+  c.set_bdr_index_coef({bdr});
+  return c;
+}
+
+// Boundary used for the boundary integrators: index 1 = attribute 2 = right
+// side of the unit square (x = 1), of length 1
+constexpr int kRight = 1;
 
 std::vector<Case> all_cases() {
   const Coefficients none;
@@ -109,6 +133,21 @@ std::vector<Case> all_cases() {
       {"SourceTerm", 1,
        maker<SourceTermNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, W(4.)))})},
+      {"SplitAllenCahn", 2,
+       maker<BlockAllenCahnNLFormIntegrator>(
+           {phase_field_coefficients(), phase_field_coefficients()})},
+      // Boundary integrators, on the right side
+      {"Robin (a(u), b constant)", 1,
+       bdr_maker<RobinNLFormIntegrator>(
+           {Coefficients(
+               on_boundary(Coefficient(Glossary::Robin_a, Scheme::Implicit, H(2.)), kRight),
+               on_boundary(Coefficient(Glossary::Robin_b, 3.), kRight))},
+           0, kRight),
+       kRight},
+      {"Neumann (constant flux)", 1,
+       bdr_maker<NeumannNLFormIntegrator>(
+           {Coefficients(on_boundary(Coefficient(Glossary::Neumann, 2.), kRight))}, 0, kRight),
+       kRight},
   };
 }
 
@@ -134,10 +173,12 @@ void check_gradient(mfem::ParBlockNonlinearForm& form, const mfem::Vector& x) {
   // Scale of the problem (all ranks)
   double local_max = jv.Normlinf(), scale = 0.;
   MPI_Allreduce(&local_max, &scale, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-  REQUIRE(scale > 0.);  // the Jacobian is not zero: the check is meaningful
+  // Zero Jacobian (e.g. Neumann with a constant flux): the residual must not
+  // depend on x either
+  const double tol = scale > 0. ? 1.e-5 * scale : 1.e-8;
   for (int r = 0; r < x.Size(); ++r) {
     CAPTURE(r);
-    CHECK_THAT(jv(r), WithinAbs(fd(r), 1.e-5 * scale));
+    CHECK_THAT(jv(r), WithinAbs(fd(r), tol));
   }
 }
 
@@ -160,10 +201,76 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "NLFormIntegrators: Jacobian matches th
   mfem::Array<mfem::ParFiniteElementSpace*> spaces(c.nb_blocks);
   for (int i = 0; i < c.nb_blocks; ++i) spaces[i] = fes.get();
   mfem::ParBlockNonlinearForm form(spaces);
-  form.AddDomainIntegrator(c.make(ctx));
+  mfem::Array<int> marker(pmesh->bdr_attributes.Max());  // must outlive the form
+  marker = 0;
+  if (c.boundary < 0) {
+    form.AddDomainIntegrator(c.make(ctx));
+  } else {
+    marker[c.boundary] = 1;
+    form.AddBoundaryIntegrator(c.make(ctx), marker);
+  }
 
   // Evaluation point: values in [0.2, 0.8] (inside the wells of W, away from 0 and 1)
   mfem::Vector x(c.nb_blocks * fes->GetTrueVSize());
+  x.Randomize(5);
+  x *= 0.6;
+  x += 0.2;
+  check_gradient(form, x);
+}
+
+/// @brief Sum of the entries of a true-dof vector over all the ranks
+double global_sum(const mfem::Vector& v) {
+  double local = v.Sum(), global = 0.;
+  MPI_Allreduce(&local, &global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  return global;
+}
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "NeumannNLFormIntegrator: residual = - integral of g",
+                 "[Integrators]") {
+  Profiling::getInstance().disable();
+  // The shape functions sum to 1: sum_i F_i = - int_right g = - g (length 1)
+  const double g = 2.;
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes.get();
+  mfem::ParBlockNonlinearForm form(spaces);
+  mfem::Array<int> marker(pmesh->bdr_attributes.Max());
+  marker = 0;
+  marker[kRight] = 1;
+  form.AddBoundaryIntegrator(
+      bdr_maker<NeumannNLFormIntegrator>(
+          {Coefficients(on_boundary(Coefficient(Glossary::Neumann, g), kRight))}, 0, kRight)(ctx),
+      marker);
+
+  mfem::Vector x(fes->GetTrueVSize()), y(fes->GetTrueVSize());
+  x = 0.5;
+  form.Mult(x, y);
+  CHECK_THAT(global_sum(y), Catch::Matchers::WithinRel(-g, 1.e-12));
+}
+
+// Non-regression: residual (a(u) u - b(u)), Jacobian a + a'(u) u - b'(u).
+// The term -b'(u) was missing (wrong Jacobian when b depends on the unknown).
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "RobinNLFormIntegrator: Jacobian with b(u)",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes.get();
+  mfem::ParBlockNonlinearForm form(spaces);
+  mfem::Array<int> marker(pmesh->bdr_attributes.Max());
+  marker = 0;
+  marker[kRight] = 1;
+  form.AddBoundaryIntegrator(
+      bdr_maker<RobinNLFormIntegrator>(
+          {Coefficients(on_boundary(Coefficient(Glossary::Robin_a, 1.), kRight),
+                        on_boundary(Coefficient(Glossary::Robin_b, Scheme::Implicit, W(3.)),
+                                    kRight))},
+          0, kRight)(ctx),
+      marker);
+
+  mfem::Vector x(fes->GetTrueVSize());
   x.Randomize(5);
   x *= 0.6;
   x += 0.2;
