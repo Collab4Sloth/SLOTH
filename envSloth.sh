@@ -251,7 +251,7 @@ else
             if ! spack load mfem 2>/dev/null; then
                 Print "Note: 'spack load mfem' not possible here (no spack shell support in this shell, or mfem not found); paths from 'spack location -i' are used."
             fi
-            for _sloth_pkg in MFEM_DIR:mfem HYPRE_DIR:hypre; do
+            for _sloth_pkg in MFEM_DIR:mfem HYPRE_DIR:hypre MPI_DIR:mpi; do    
                 _sloth_var="${_sloth_pkg%%:*}"
                 _sloth_name="${_sloth_pkg#*:}"
                 if _sloth_loc=$(spack location -i "$_sloth_name" 2>/dev/null) && [[ -n "$_sloth_loc" ]]; then
@@ -262,7 +262,7 @@ else
                 fi
             done
         else
-            export MFEM_DIR= HYPRE_DIR=
+            export MPI_DIR= MFEM_DIR= HYPRE_DIR=
             Print "Warning: spack command not found. MFEM must then be found through CMAKE_PREFIX_PATH (spack environment, module load, ...) or given with --mfem=DIR."
         fi
         #=============================================
