@@ -93,7 +93,10 @@ function(sloth_add_unit_test)
                      $<TARGET_FILE:${exe}> ${MPIEXEC_POSTFLAGS})
     set_tests_properties(${test_name} PROPERTIES
                          LABELS "Unit;${UT_NAME}"
-                         PROCESSORS ${np})
+                         PROCESSORS ${np}
+                         # A unit test runs in seconds: a hang (MPI deadlock...)
+                         # fails after 2 minutes instead of blocking the CI
+                         TIMEOUT 120)
   endforeach()
 
   # Built by "make unit_tests" and by "make tests"
@@ -113,8 +116,8 @@ sloth_add_unit_test(NAME Coefficients
                             Coefficients/test_Coefficients.cpp
                             Coefficients/test_GeneratedCoefficients.cpp
                             Coefficients/test_FileCoefficient.cpp
-                    COEFFICIENTS_JSON Coefficients/CoefficientExample.json
-                    NPROCS 1)
+                            Coefficients/test_MfemCoefficients.cpp
+                    COEFFICIENTS_JSON Coefficients/CoefficientExample.json)
 
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)

@@ -28,7 +28,8 @@
  *  2. if MFEM is built with MFEM_USE_EXCEPTIONS, makes mfem_error throw
  *     mfem::ErrorException instead of stopping the program, so that error
  *     paths can be tested (see SLOTH_CHECK_MFEM_ERROR in sloth_unit.hpp);
- *  3. runs Catch2 on every rank, with the usual Catch2 command-line options;
+ *  3. runs Catch2 on every rank, with the usual Catch2 command-line options,
+ *     and the same test order on every rank (same random seed);
  *  4. returns the same non-zero code on every rank if any rank failed, so that
  *     mpirun and ctest see a failure even when only rank 1 fails.
  */
@@ -52,6 +53,14 @@ int main(int argc, char* argv[]) {
   if (cli_status != 0) {
     return cli_status;  // invalid command line
   }
+  // Same test order on every rank. Catch2 runs the tests in a random order,
+  // with a random seed drawn independently on each process: with collective
+  // MPI operations in the tests (ParMesh, ComputeL2Error...), the ranks would
+  // run different tests at the same time and wait for each other forever.
+  // The seed of rank 0 (random, or given by --rng-seed) is sent to all ranks.
+  auto seed = static_cast<unsigned int>(session.configData().rngSeed);
+  MPI_Bcast(&seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+  session.configData().rngSeed = seed;
   // Number of failed test cases on this rank (0 if all passed)
   const int local_failures = session.run();
 
