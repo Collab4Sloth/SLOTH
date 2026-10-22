@@ -119,6 +119,10 @@ sloth_add_unit_test(NAME Coefficients
                             Coefficients/test_MfemCoefficients.cpp
                     COEFFICIENTS_JSON Coefficients/CoefficientExample.json)
 
+sloth_add_unit_test(NAME Convergence
+                    SOURCES Convergence/test_Convergence.cpp
+                    NPROCS 1)
+
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
 
