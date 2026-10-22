@@ -89,7 +89,8 @@ sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
 
 sloth_add_unit_test(NAME Parameters
-                    SOURCES Parameters/test_Parameters.cpp)
+                    SOURCES Parameters/test_Parameter.cpp
+                            Parameters/test_Parameters.cpp)
 
 # ##############################################################################
 # Coverage of the unit tests alone (CMAKE_BUILD_TYPE=Coverage)
