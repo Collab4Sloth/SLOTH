@@ -32,6 +32,10 @@
  */
 
 #pragma once
+#include <algorithm>
+#include <type_traits>
+#include <vector>
+
 #include "AMR/MultiVariableMaxAMR.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -51,6 +55,23 @@
 template <class VAR>
 MultiVariableMaxAMR<VAR>::MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_simplices)
     : AMRBase<VAR>(mesh, is_nc_simplices) {}
+
+/**
+ * @brief Construct a new MultiVariableMaxAMR object whose pilot variables
+ *        are designated by their names (the variables associated with the
+ *        refinement criterion in the data set). Only these variables drive
+ *        the refinement and take part in the derefinement decision.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param mesh Shared parallel mesh this AMR object will refine/derefine.
+ * @param is_nc_simplices Whether nonconforming refinement is allowed on
+ *                        simplex elements of `mesh`.
+ * @param pilot_names Names of the pilot variables (empty: all the variables).
+ */
+template <class VAR>
+MultiVariableMaxAMR<VAR>::MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_simplices,
+                                              const std::vector<std::string>& pilot_names)
+    : AMRBase<VAR>(mesh, is_nc_simplices), pilot_names_(pilot_names) {}
 
 /**
  * @brief Refine the shared mesh once, based on the per-element maximum
@@ -97,8 +118,8 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
     }
   };
 
-  for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
-    accumulate_error(vars[iv]);
+  for (auto* pilot : this->PilotVariables(vars)) {
+    accumulate_error(*pilot);
   }
 
   mfem::Array<mfem::Refinement> refinements;
@@ -120,33 +141,28 @@ bool MultiVariableMaxAMR<VAR>::Refine(VAR& vars) {
 }
 
 /**
- * @brief Derefine the shared mesh once, based on the per-element maximum
- *        error across all variables in `vars`.
+ * @brief Derefine the shared mesh once, only where every pilot variable
+ *        concerned agrees (see `AMRBase::DerefineByConsensus()`).
  *
- * @details Mirrors `Refine()`: for each variable, builds a fresh
- *          estimator via `amr_estimator_->get_value()`, and the
- *          per-element error is combined via `max()` across all
- *          variables, so that an element is a derefinement candidate
- *          only if its error stays low for EVERY variable (a
- *          conservative criterion, since derefining would otherwise risk
- *          losing resolution needed by a variable that did not
- *          contribute to the decision). The combined error vector is
- *          then passed once to `mfem::ParMesh::DerefineByError()`, which
- *          internally aggregates by SUM the errors of sibling elements
- *          sharing the same parent before comparing to
- *          `derefine_threshold` — hence the threshold is scaled down
- *          (`this->amr_scale_down_factor_ *`) relative to `amr_max_elem_error_` used for
- *          refinement, and may need further empirical recalibration
- *          (e.g. multiplied by the number of siblings) depending on the
- *          observed derefinement behavior.
+ * @details The pilot variables of this object are the variables named in
+ *          the data set (all the variables of `vars` by default). The
+ *          auxiliary variables of the owning Problem take part
+ *          in the decision only if they are associated with a refinement
+ *          criterion in their own Problem:
+ *          - monolithic polycrystal: all the grains are in `vars`;
+ *          - partitioned polycrystal: the other grains are auxiliary
+ *            variables, pilot variables of the AMR object of their Problem;
+ *          - auxiliary variables without refinement criterion (e.g. a
+ *            temperature without AMR), variables of non coupled Problems
+ *            and the MPI rank field are ignored.
+ *          The errors of each variable are normalized by the derefinement
+ *          threshold of the AMR object it drives, combined via `max()`,
+ *          then summed over the siblings by `mfem::ParMesh::DerefineByError()`.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
  *            AMR object.
- * @param auxvars Auxiliary variable collections whose error also
- *               contributes to `combined_error`, if any (empty by
- *               default). Only taken into account by the caller when
- *               `AMRBase::SetIncludeAuxVars(true)` was set.
+ * @param auxvars Auxiliary variables of the owning Problem.
  * @return true  At least one group of elements was derefined.
  * @return false No group of elements met the derefinement criterion; the
  *               mesh is unchanged.
@@ -155,32 +171,30 @@ template <class VAR>
 bool MultiVariableMaxAMR<VAR>::Derefine(VAR& vars, std::vector<VAR*> auxvars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
+  return this->DerefineByConsensus(vars, auxvars);
+}
 
-  const int ne = this->par_mesh_.GetNE();
-  mfem::Vector combined_error(ne);
-  combined_error = 0.0;
-
-  auto accumulate_error = [&](auto& var) {
-    auto estimator =
-        this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
-    const mfem::Vector& local_errors = estimator->GetLocalErrors();
-    for (int e = 0; e < ne; e++) {
-      combined_error(e) = std::max(combined_error(e), local_errors(e));
+/**
+ * @brief Pilot variables of this AMR object: the variables named in
+ *        `pilot_names_` if given, every variable of `vars` otherwise.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param vars Variables of the owning Problem.
+ */
+template <class VAR>
+std::vector<typename AMRBase<VAR>::Variable_t*> MultiVariableMaxAMR<VAR>::PilotVariables(
+    VAR& vars) {
+  std::vector<typename AMRBase<VAR>::Variable_t*> pilots;
+  if (!this->pilot_names_.empty()) {
+    pilots.reserve(this->pilot_names_.size());
+    for (const auto& name : this->pilot_names_) {
+      pilots.push_back(AMRBase<VAR>::FindVariable(vars, name));
     }
-  };
-  for (unsigned int iv = 0; iv < vars.get_variables_number(); iv++) {
-    accumulate_error(vars[iv]);
+    return pilots;
   }
-  for (auto* auxvar : auxvars) {
-    for (std::size_t i = 0; i < auxvar->get_variables_number(); i++) {
-      accumulate_error((*auxvar)[i]);
-    }
+  pilots.reserve(vars.get_variables_number());
+  for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
+    pilots.push_back(&vars[i]);
   }
-
-  const double derefine_threshold = this->amr_scale_down_factor_ * this->amr_max_elem_error_;
-
-  bool did_derefine =
-      this->par_mesh_.DerefineByError(combined_error, derefine_threshold, this->amr_nc_limit_);
-
-  return did_derefine;
+  return pilots;
 }

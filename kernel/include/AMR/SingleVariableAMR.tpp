@@ -60,6 +60,22 @@ SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simpli
     : AMRBase<VAR>(mesh, is_nc_simplices), var_id_(var_id) {}
 
 /**
+ * @brief Construct a new SingleVariableAMR object whose pilot variable is
+ *        designated by its name (the variable associated with the
+ *        refinement criterion in the data set).
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param mesh Shared parallel mesh this AMR object will refine/derefine.
+ * @param is_nc_simplices Whether nonconforming refinement is allowed on
+ *                        simplex elements of `mesh`.
+ * @param var_name Name of the pilot variable.
+ */
+template <class VAR>
+SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simplices,
+                                          const std::string& var_name)
+    : AMRBase<VAR>(mesh, is_nc_simplices), var_name_(var_name) {}
+
+/**
  * @brief Refine the mesh once, based solely on the error estimated on the
  *        pilot variable (`var_id_`).
  *
@@ -74,10 +90,9 @@ SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simpli
  *          (max refinement depth), and the decision to mutate is based
  *          on a global reduction (`mesh.ReduceInt()`) rather than the
  *          local candidate count, to stay correct under MPI when some
- *          ranks have no local candidate. If the mesh was refined,
- *          `amr_estimator_->UpdateFluxSpaces()` is called to
- *          resynchronize the estimator's internal flux spaces before it
- *          is destroyed.
+ *          ranks have no local candidate. The estimator (and its flux
+ *          spaces) is kept by `amr_estimator_` and reused at the next
+ *          pass: it updates its flux spaces itself after a mesh change.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
@@ -91,7 +106,7 @@ template <class VAR>
 bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
-  auto& var = vars[this->var_id_];
+  auto& var = *this->PilotVariables(vars).front();
   auto estimator =
       this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
 
@@ -109,57 +124,48 @@ bool SingleVariableAMR<VAR>::Refine(VAR& vars) {
   bool did_refine = (num_marked != 0);
   if (did_refine) {
     this->par_mesh_.GeneralRefinement(refinements, -1, this->amr_nc_limit_);
-    this->amr_estimator_->UpdateFluxSpaces();
   }
 
   return did_refine;
 }
 
 /**
- * @brief Derefine the mesh once, based solely on the error estimated on
- *        the pilot variable (`var_id_`).
+ * @brief Derefine the mesh once, based on the error estimated on the pilot
+ *        variable (`var_id_`) and on the pilot variables of the other AMR
+ *        objects coupled to the owning Problem (see
+ *        `AMRBase::DerefineByConsensus()`).
  *
- * @details Builds a fresh estimator via `amr_estimator_->get_value()`,
- *          then delegates both error estimation and mesh mutation to
- *          `mfem::ThresholdDerefiner::Apply()`, with a threshold scaled
- *          down (`amr_scale_down_factor_ *`) relative to `amr_max_elem_error_` used for
- *          refinement, to provide hysteresis and avoid oscillating
- *          refine/derefine cycles on the same elements. As in `Refine()`,
- *          if the mesh was derefined, `amr_estimator_->UpdateFluxSpaces()`
- *          is called to resynchronize the estimator's internal flux
- *          spaces before it is destroyed.
+ * @details With no coupled pilot variable, this is exactly the
+ *          derefinement of `mfem::ThresholdDerefiner` with the threshold
+ *          `scale_down_factor * max_elem_error` (sum of the sibling errors).
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this
- *            AMR object; only `vars[var_id_]` is consulted.
- * @param auxvars Ignored by this strategy (logs a warning if non-empty);
- *               use `MultiVariableMaxAMR` if auxiliary variables must
- *               influence the refinement decision.
+ *            AMR object.
+ * @param auxvars Auxiliary variables of the owning Problem.
  * @return true  The mesh was derefined.
  * @return false No element met the derefinement threshold; the mesh is
  *               unchanged.
  */
 template <class VAR>
 bool SingleVariableAMR<VAR>::Derefine(VAR& vars, std::vector<VAR*> auxvars) {
-  if (!auxvars.empty()) {
-    SlothInfo::verbose("SingleVariableAMR::Derefine",
-                       " auxiliary variables are ignored; use MultiVariableMaxAMR if they must "
-                       "influence refinement.");
-  }
   this->EnsureNCMeshIfNeeded();
   this->EnsureCriteriaSet();
-  auto& var = vars[this->var_id_];
-  auto estimator =
-      this->amr_estimator_->get_value(var.get_ref_gf(), *var.get_fespace(), this->par_mesh_);
-  mfem::ThresholdDerefiner derefiner(*estimator);
-  derefiner.SetThreshold(this->amr_scale_down_factor_ * this->amr_max_elem_error_);
-  derefiner.SetNCLimit(this->amr_nc_limit_);
+  return this->DerefineByConsensus(vars, auxvars);
+}
 
-  bool did_derefine = derefiner.Apply(this->par_mesh_);
-
-  if (did_derefine) {
-    this->amr_estimator_->UpdateFluxSpaces();
+/**
+ * @brief Pilot variable of this AMR object: the variable named `var_name_`
+ *        if given, `vars[var_id_]` otherwise.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param vars Variables of the owning Problem.
+ */
+template <class VAR>
+std::vector<typename AMRBase<VAR>::Variable_t*> SingleVariableAMR<VAR>::PilotVariables(
+    VAR& vars) {
+  if (!this->var_name_.empty()) {
+    return {AMRBase<VAR>::FindVariable(vars, this->var_name_)};
   }
-
-  return did_derefine;
+  return {&vars[this->var_id_]};
 }

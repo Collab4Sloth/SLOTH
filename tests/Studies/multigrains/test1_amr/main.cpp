@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
   mfem::Vector y_translation({0.0, L});
   std::vector<mfem::Vector> translations = {x_translation, y_translation};
 
-  // One spatial discretization per grain (each grain has its own AMR mesh)
+  // One spatial discretization per grain: own FE space, mesh shared by all the grains
   SPAS spatials =
       setPeriodicSpatialDiscretization(ngrains, "InlineSquareWithQuadrangles", 1, refinement_level,
                                        std::make_tuple(NN, NN, L, L), translations, true);
@@ -311,6 +311,16 @@ int main(int argc, char* argv[]) {
                                  Parameter("amr_max_level", level_amr), Parameter("nc_limit", 0),
                                  Parameter("max_preref_cycles", level_amr));
     mfem::ConstantCoefficient amr_coef(1.0);  // must outlive the estimators
+    // AMR objects: declared before the problems (destroyed after them) and inside this scope
+    // (destroyed before the meshes), in the order integrator -> estimator -> AMR
+    std::vector<std::unique_ptr<mfem::DiffusionIntegrator>> amr_integs;
+    std::vector<std::unique_ptr<SlothErrorEstimators>> amr_estimators;
+    std::vector<std::unique_ptr<MultiVariableMaxAMR<VARS>>> amrs;
+    if (p.control_amr) {
+      amr_integs.reserve(ngrains);
+      amr_estimators.reserve(ngrains);
+      amrs.reserve(ngrains);
+    }
 
     // Operators are kept alive for the whole run: a TransientPB refers to its operator
     std::vector<std::unique_ptr<TransientOPE>> opes;
@@ -334,13 +344,17 @@ int main(int argc, char* argv[]) {
       ac_pbs.back().set_auxvariables(std::move(aux_ptrs));
 
       // AMR
+      // Pilot variable: phi_i (the other grains take part in the derefinement decision as
+      // pilot variables of their own problem)
       if (p.control_amr) {
-        auto* amr_integ_i = new mfem::DiffusionIntegrator(amr_coef);
-        auto* estimator_i = new SlothErrorEstimators(ErrorEstimatorType::KELLY, amr_integ_i);
-        auto* amr_i =
-            new MultiVariableMaxAMR<VARS>(*spatials[i]->get_mesh(), spatials[i]->is_nc_simplices());
-        amr_i->SetCriteria(estimator_i, amr_params);
-        ac_pbs.back().set_amr(amr_i);
+        amr_integs.emplace_back(std::make_unique<mfem::DiffusionIntegrator>(amr_coef));
+        amr_estimators.emplace_back(std::make_unique<SlothErrorEstimators>(
+            ErrorEstimatorType::KELLY, amr_integs.back().get()));
+        amrs.emplace_back(std::make_unique<MultiVariableMaxAMR<VARS>>(
+            *spatials[i]->get_mesh(), spatials[i]->is_nc_simplices(),
+            std::vector<std::string>{"phi_" + std::to_string(i)}));
+        amrs.back()->SetCriteria(amr_estimators.back().get(), amr_params);
+        ac_pbs.back().set_amr(amrs.back().get());
       }
     }
     ac_pbs.back().set_vtk_coefficients({squares});

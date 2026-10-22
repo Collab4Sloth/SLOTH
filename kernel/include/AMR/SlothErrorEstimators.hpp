@@ -25,6 +25,7 @@
  *
  */
 #pragma once
+#include <map>
 #include <memory>
 
 #include "Options/Options.hpp"
@@ -39,20 +40,44 @@
  */
 class SlothErrorEstimators {
  private:
+  /**
+   * @brief Estimator built for one solution field, with the flux spaces it
+   *        uses. The flux spaces are owned here (not by the mfem estimator)
+   *        and reused along the whole computation: the mfem estimators
+   *        update them (`Update(false)`) themselves when the mesh has
+   *        changed (refinement, derefinement or rebalancing).
+   *
+   * Members are declared so that the default destruction order is valid:
+   * estimator, then spaces, then collections.
+   */
+  struct CachedEstimator {
+    const mfem::ParMesh* mesh{nullptr};
+    int order{-1};
+    std::unique_ptr<mfem::FiniteElementCollection> flux_fec;
+    std::unique_ptr<mfem::FiniteElementCollection> smooth_flux_fec;
+    std::unique_ptr<mfem::ParFiniteElementSpace> flux_fes;
+    std::unique_ptr<mfem::ParFiniteElementSpace> smooth_flux_fes;
+    std::shared_ptr<mfem::ErrorEstimator> estimator;
+
+    void release();
+  };
+
   ErrorEstimatorType value_;
   mfem::BilinearFormIntegrator* integ_{nullptr};
-  mfem::ParFiniteElementSpace* flux_fes_{nullptr};
-  mfem::ParFiniteElementSpace* smooth_flux_fes_{nullptr};
-  mfem::FiniteElementCollection* flux_fec_{nullptr};
-  mfem::FiniteElementCollection* smooth_flux_fec_{nullptr};
+  std::map<const mfem::ParGridFunction*, CachedEstimator> cache_;
+
+  void build(CachedEstimator& entry, mfem::ParGridFunction& x, const int order,
+             mfem::ParMesh& mesh);
 
  public:
   SlothErrorEstimators(ErrorEstimatorType value, mfem::BilinearFormIntegrator* integ);
   explicit SlothErrorEstimators(ErrorEstimatorType value);
 
+  SlothErrorEstimators(const SlothErrorEstimators&) = delete;
+  SlothErrorEstimators& operator=(const SlothErrorEstimators&) = delete;
+
   std::shared_ptr<mfem::ErrorEstimator> get_value(mfem::ParGridFunction& x,
                                                   mfem::ParFiniteElementSpace& fespace,
                                                   mfem::ParMesh& mesh);
-  void UpdateFluxSpaces();
   ~SlothErrorEstimators();
 };

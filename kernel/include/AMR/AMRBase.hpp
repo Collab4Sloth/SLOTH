@@ -32,12 +32,21 @@
  */
 
 #pragma once
+#include <map>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "AMR/SlothErrorEstimators.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 template <class VAR>
 class AMRBase {
+ public:
+  using Variable_t = std::remove_reference_t<decltype(std::declval<VAR&>()[0])>;
+
  protected:
   mfem::ParMesh& par_mesh_;
   bool is_nc_simplices_;
@@ -46,15 +55,24 @@ class AMRBase {
   int amr_nc_limit_{0};
   int amr_max_level_{0};
   int amr_max_preref_cycles_{1};
+  bool amr_rebalance_{false};
+  // Auxiliary variables of the Problem owning this AMR object. Those which are pilot
+  // variables of another AMR object on the same mesh take part in the derefinement decision
+  std::vector<VAR*> coupled_vars_;
+  bool pending_rebalance_{false};
 
   SlothErrorEstimators* amr_estimator_{nullptr};
 
   virtual bool Refine(VAR& vars) = 0;
   virtual bool Derefine(VAR& var, std::vector<VAR*> auxvars) = 0;
+  // Variables of the owning Problem associated with the refinement criterion of this object
+  virtual std::vector<Variable_t*> PilotVariables(VAR& vars) = 0;
 
  public:
   AMRBase(mfem::ParMesh& mesh, bool is_nc_simplices);
-  virtual ~AMRBase() = default;
+  virtual ~AMRBase();
+  AMRBase(const AMRBase&) = delete;
+  AMRBase& operator=(const AMRBase&) = delete;
 
   void SetCriteria(SlothErrorEstimators* estimator, const Parameters& params);
 
@@ -63,12 +81,26 @@ class AMRBase {
   void InitialRefine(VAR& vars, std::vector<VAR*> auxvars);
   void StepRefine(VAR& vars, std::vector<VAR*> auxvars);
   void StepDerefine(VAR& vars, std::vector<VAR*> auxvars);
+  void StepRebalance(VAR& vars, std::vector<VAR*> auxvars);
+  void SetCoupledVariables(const std::vector<VAR*>& coupled_vars);
 
   mfem::Array<mfem::Refinement> FilterRefinedCandidates(
       const mfem::Array<mfem::Refinement>& candidates);
 
  protected:
   void EnsureNCMeshIfNeeded();
+  bool IsOnMesh(const mfem::ParFiniteElementSpace* fes) const;
+  void UpdateVariables(VAR& vars, const std::vector<VAR*>& auxvars);
+  bool Rebalance(VAR& vars, const std::vector<VAR*>& auxvars);
+  void PrintLoadBalance(const std::string& stage) const;
+
+  // Pilot variables of every AMR object, per mesh: variable -> AMR object it drives
+  using PilotRegistry_t = std::map<const mfem::ParMesh*, std::map<const void*, AMRBase<VAR>*>>;
+  static PilotRegistry_t& PilotRegistry();
+  void RegisterPilots(VAR& vars);
+  void AccumulateNormalizedError(Variable_t& var, mfem::Vector& combined_error);
+  bool DerefineByConsensus(VAR& vars, const std::vector<VAR*>& coupled_vars);
+  static Variable_t* FindVariable(VAR& vars, const std::string& name);
 };
 
 #include "AMR/AMRBase.tpp"
