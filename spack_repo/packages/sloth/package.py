@@ -8,13 +8,8 @@ from spack.package import *
 
 
 class Sloth(CMakePackage):
-    """SLOTH: multiphase-field multicomponent framework based on MFEM (CEA).
-
-    Once installed, SLOTH is used from another CMake project with
-        find_package(Sloth REQUIRED)
-        target_link_libraries(<target> PRIVATE Sloth::Sloth)
-    (example installed in <prefix>/share/sloth/examples/minimal).
-    """
+    """SLOTH is an HPC multiphase-field, multicomponent framework built on top of
+    MFEM by the CEA (French Alternative Energies and Atomic Energy Commission)."""
 
     homepage = "https://github.com/Collab4Sloth/SLOTH"
     url = "https://github.com/Collab4Sloth/SLOTH/archive/refs/tags/v2.2.0.tar.gz"
@@ -52,6 +47,8 @@ class Sloth(CMakePackage):
 
     depends_on("mpi")
     depends_on("mfem@4.9: +mpi")
+    # 2.2.0 is tested with MFEM 4.9 only
+    depends_on("mfem@4.9", when="@2.2.0")
     depends_on("hypre@3.1: +shared")
 
     depends_on("mfem+shared", when="+shared")
