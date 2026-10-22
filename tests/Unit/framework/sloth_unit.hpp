@@ -25,6 +25,8 @@
  */
 #pragma once
 
+#include <initializer_list>
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_exception.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -63,3 +65,17 @@
   WARN("not checked (MFEM built without MFEM_USE_EXCEPTIONS): " #expr)
 
 #endif
+
+namespace sloth_unit {
+
+/// @brief Builds an mfem::Vector from a list of values: point({0.1, 0.2})
+inline mfem::Vector point(std::initializer_list<double> values) {
+  mfem::Vector v(static_cast<int>(values.size()));
+  int i = 0;
+  for (const double x : values) {
+    v[i++] = x;
+  }
+  return v;
+}
+
+}  // namespace sloth_unit
