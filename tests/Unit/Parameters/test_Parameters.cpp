@@ -27,6 +27,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Parameters/Parameters.hpp"
+#include "sloth_unit.hpp"
 
 using Catch::Matchers::WithinRel;
 
@@ -36,4 +37,15 @@ TEST_CASE("Parameters: get_param_value", "[Parameters]") {
   CHECK(params.get_size() == 2);
   CHECK(params.get_param_value<int>("nb_iter") == 10);
   CHECK_THAT(params.get_param_value<double>("epsilon"), WithinRel(1.e-3, 1.e-12));
+}
+
+TEST_CASE("Parameters: get_param_value errors", "[Parameters][errors]") {
+  const Parameters params(Parameter("nb_iter", 10));
+
+  SECTION("missing parameter") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(params.get_param_value<int>("missing"), "Not Found");
+  }
+  SECTION("wrong type: no implicit int -> double conversion") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(params.get_param_value<double>("nb_iter"), "Invalid conversion");
+  }
 }

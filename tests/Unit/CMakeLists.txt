@@ -26,6 +26,8 @@ message(STATUS "Found Catch2 ${Catch2_VERSION}: SLOTH unit tests are enabled")
 # ------------------------------------------------------------------------------
 add_library(sloth_unit_main OBJECT framework/sloth_unit_main.cpp)
 target_link_libraries(sloth_unit_main PUBLIC Sloth Catch2::Catch2)
+# Tests include "sloth_unit.hpp" (helpers)
+target_include_directories(sloth_unit_main PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/framework)
 
 # Target building all unit tests (and only them)
 add_custom_target(unit_tests COMMENT "Build SLOTH unit tests")

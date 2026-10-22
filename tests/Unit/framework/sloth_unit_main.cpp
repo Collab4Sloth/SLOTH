@@ -25,8 +25,11 @@
  * What this main does:
  *  1. initialises MPI and Hypre through MFEM, as the other SLOTH tests do
  *     (mfem::Mpi::Init also finalises MPI at exit);
- *  2. runs Catch2 on every rank, with the usual Catch2 command-line options;
- *  3. returns the same non-zero code on every rank if any rank failed, so that
+ *  2. if MFEM is built with MFEM_USE_EXCEPTIONS, makes mfem_error throw
+ *     mfem::ErrorException instead of stopping the program, so that error
+ *     paths can be tested (see SLOTH_CHECK_MFEM_ERROR in sloth_unit.hpp);
+ *  3. runs Catch2 on every rank, with the usual Catch2 command-line options;
+ *  4. returns the same non-zero code on every rank if any rank failed, so that
  *     mpirun and ctest see a failure even when only rank 1 fails.
  */
 #include <catch2/catch_session.hpp>
@@ -38,7 +41,12 @@ int main(int argc, char* argv[]) {
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
 
-  // 2. Catch2 session (same behaviour as Catch2::Catch2WithMain)
+  // 2. SLOTH/MFEM errors: exception instead of MPI_Abort (when available)
+#ifdef MFEM_USE_EXCEPTIONS
+  mfem::set_error_action(mfem::MFEM_ERROR_THROW);
+#endif
+
+  // 3. Catch2 session (same behaviour as Catch2::Catch2WithMain)
   Catch::Session session;
   const int cli_status = session.applyCommandLine(argc, argv);
   if (cli_status != 0) {
@@ -47,7 +55,7 @@ int main(int argc, char* argv[]) {
   // Number of failed test cases on this rank (0 if all passed)
   const int local_failures = session.run();
 
-  // 3. Global result: the worst result over all ranks
+  // 4. Global result: the worst result over all ranks
   int global_failures = 0;
   MPI_Allreduce(&local_failures, &global_failures, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
