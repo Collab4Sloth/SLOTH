@@ -26,6 +26,10 @@
  * In both cases the integral of phi is saved: constant for "periodic", it increases once the
  * bubble leaves the domain for "open" (phi = 1 replaces phi = 0).
  *
+ * An MPI_Problem is coupled to the Cahn-Hilliard problem to save the MPI rank field
+ * (Saves_<config>/ProblemMPI) and check the load balancing along the AMR passes
+ * (mesh rebalanced after each AMR pass: "rebalance" AMR parameter).
+ *
  */
 #include <cmath>
 #include <iostream>
@@ -211,12 +215,27 @@ int main(int argc, char* argv[]) {
     SingleVariableAMR<VARS> amr(*spatial_phi.get_mesh(), spatial_phi.is_nc_simplices(), 0);
     auto amr_params = Parameters(Parameter("max_elem_error", 1.e-6), Parameter("amr_max_level", 3),
                                  Parameter("nc_limit", 1), Parameter("max_preref_cycles", 3),
-                                 Parameter("scale_down_factor", 1.e-2));
+                                 Parameter("scale_down_factor", 1.e-2),
+                                 Parameter("rebalance", true));
     amr.SetCriteria(&estimator, amr_params);
     problem1.set_amr(&amr);
 
+    // MPI problem: stores the MPI rank owning each dof, to check the load balancing
+    // after each AMR pass. The variable lives on the AMR mesh (spatial_phi), so it is
+    // resynchronized with the mesh after each (de)refinement and rebalancing. It is not a
+    // pilot variable of the AMR: the reference results of problem1 are unchanged.
+    auto mpi_init = AnalyticalFunctions<DIM>(std::function<double(const mfem::Vector&, double)>(
+        [&](const mfem::Vector& x, [[maybe_unused]] double time) { return 0.; }));
+    auto vars_mpi = VARS(VAR(&spatial_phi, bcs_phi, "MPI rank", Glossary::MPI, 2, mpi_init));
+    auto p_pst_mpi = Parameters(Parameter("main_folder_path", main_folder_path),
+                                Parameter("calculation_path", std::string("ProblemMPI")),
+                                Parameter("frequency", frequency),
+                                Parameter("level_of_detail", level_of_detail));
+    auto pst_mpi = PST(&spatial_phi, p_pst_mpi);
+    PB_MPI problem_mpi(vars_mpi, pst_mpi);
+
     // Coupling 1
-    auto cc = Coupling("CahnHilliard Coupling", problem1);
+    auto cc = Coupling("CahnHilliard Coupling", problem1, problem_mpi);
 
     // ###########################################
     // ###########################################

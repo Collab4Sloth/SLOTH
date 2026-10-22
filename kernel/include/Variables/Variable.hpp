@@ -209,7 +209,6 @@ class Variable {
   mfem::ParFiniteElementSpace* get_fespace();
 
   void setInitialCondition();
-  void UpdateAndRebalance();
   void updateAfterMeshChange(const mfem::Vector& unk);
   void prepareMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);
   void finalizeMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);

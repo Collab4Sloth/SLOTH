@@ -1,6 +1,6 @@
 spack:
   specs:
-    - mfem@4.9.0 +mpi +suite-sparse +sundials +superlu-dist +mumps %gcc@14
+    - mfem@4.9.0 +mpi +mumps %gcc@14
 
   concretizer:
     unify: true
@@ -13,6 +13,7 @@ spack:
     fortran:
       require: [gcc@14]
     mpi:
+      require: [openmpi]
       buildable: false
     openblas:
       buildable: false

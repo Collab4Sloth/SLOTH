@@ -946,49 +946,6 @@ void Variable<T, DIM>::prepareMeshTransfer(std::map<int, mfem::ParGridFunction>&
 }
 
 /**
- * @brief Resynchronize this variable's finite element space, grid function,
- *        unknown vector and multi-timestep history with the current state
- *        of the (possibly just refined/derefined) shared mesh.
- *
- * @details Must be called after any operation that mutates the underlying
- *          mesh (refinement or derefinement), for every variable attached
- *          to it — regardless of whether that specific variable's own
- *          refinement criterion triggered the change, since all variables
- *          sharing the mesh must stay consistent with its current state.
- *
- *          The multi-timestep history (`map_of_unk_`) is remapped using the
- *          exact same transfer operator as the current solution
- *          (`prepareMeshTransfer`/`finalizeMeshTransfer`, called around the
- *          `fespace_`/`gf` update), so that older timesteps stay usable by
- *          multi-step time schemes after the mesh has changed.
- *
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- */
-template <class T, int DIM>
-void Variable<T, DIM>::UpdateAndRebalance() {
-  mfem::ParFiniteElementSpace* var_fespace_v = this->get_fespace();
-  auto& gf = this->get_ref_gf();
-
-  // Prepare a snapshot before update
-  std::map<int, mfem::ParGridFunction> tmp_history;
-  this->prepareMeshTransfer(tmp_history);
-  // Update
-  var_fespace_v->Update();
-  gf.Update();
-  // Interpolation of the snapshot with the same transfer operator
-  this->finalizeMeshTransfer(tmp_history);
-
-  mfem::Vector& unk = this->get_ref_unknown();
-  gf.GetTrueDofs(unk);
-
-  this->updateAfterMeshChange(unk);
-
-  var_fespace_v->UpdatesFinished();
-}
-
-/**
  * @brief Interpolate the snapshotted multi-timestep history onto the new
  *        mesh state, and write the result back into `map_of_unk_`.
  *

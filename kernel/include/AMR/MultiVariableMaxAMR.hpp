@@ -32,18 +32,29 @@
  */
 
 #pragma once
+#include <string>
+#include <vector>
+
 #include "AMR/AMRBase.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 template <class VAR>
 class MultiVariableMaxAMR : public AMRBase<VAR> {
+ private:
+  // Names of the pilot variables (associated with the refinement criterion in the data
+  // set). Empty: every variable of the problem is a pilot variable.
+  std::vector<std::string> pilot_names_;
+
  public:
   MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_simplices);
+  MultiVariableMaxAMR(mfem::ParMesh& mesh, bool is_nc_simplices,
+                      const std::vector<std::string>& pilot_names);
   virtual ~MultiVariableMaxAMR() = default;
 
   bool Refine(VAR& vars) final;
   bool Derefine(VAR& vars, std::vector<VAR*> auxvars) final;
+  std::vector<typename AMRBase<VAR>::Variable_t*> PilotVariables(VAR& vars) final;
 };
 
 #include "AMR/MultiVariableMaxAMR.tpp"

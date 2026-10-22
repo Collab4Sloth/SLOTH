@@ -41,12 +41,12 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich libmpich-dev wget unzip libncurses-dev libboost-all-dev libopenblas-dev perl
+        sudo apt-get install -y openmpi-bin libopenmpi-dev wget unzip libncurses-dev libopenblas-dev perl
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
           spack compiler find 
-          spack external find openmpi mpich openblas perl
+          spack external find openmpi openblas perl
           spack env activate ${{ github.workspace }}/SLOTH
           spack concretize -f
 
@@ -102,7 +102,7 @@ jobs:
         spack repo add ${{ github.workspace }}/SLOTH/spack_repo
         spack external find python
         spack develop --no-clone --path ${{ github.workspace }}/SLOTH sloth@=master
-        spack add sloth@=master
+        spack add sloth@=master +voro
         spack concretize -f
         spack install -j $CORES --fail-fast
         spack load sloth
