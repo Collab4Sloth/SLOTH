@@ -155,6 +155,9 @@ sloth_add_unit_test(NAME PreProcessing
                     SOURCES PreProcessing/test_TabulatedFunction.cpp
                     NPROCS 1)
 
+sloth_add_unit_test(NAME Problems
+                    SOURCES Problems/test_CahnHilliardDirichlet.cpp)
+
 sloth_add_unit_test(NAME Property
                     SOURCES Property/test_InterDiffusionCoefficient.cpp
                     NPROCS 1)
