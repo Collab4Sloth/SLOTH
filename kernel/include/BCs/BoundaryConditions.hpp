@@ -61,6 +61,7 @@ class BoundaryConditions {
   void SetDirichletBoundaryConditions(mfem::Vector& u, Coefficients& coefficients,
                                       std::vector<mfem::Vector> auxvars_unk);
   mfem::Array<int> GetEssentialDofs();
+  void UpdateEssentialDofs();
   ~BoundaryConditions();
   mfem::Array<int> get_marker_array(const std::string& boundary_type);
 };
