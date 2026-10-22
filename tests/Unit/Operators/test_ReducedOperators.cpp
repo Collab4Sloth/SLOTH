@@ -226,15 +226,12 @@ TEST_CASE("PhaseFieldReducedOperator", "[Operators]") {
   SECTION("GetGradient, non-Dirichlet rows") { check_gradient_free_rows(F, p, p.random(3)); }
 }
 
-// [!mayfail]: reported, but does not make the executable fail.
-// Known issue with several variables: GetGradient eliminates every block
-// (i, j) with EliminateRowsCols(ess_tdof_list[i]), which puts a 1 on the
-// diagonal of the off-diagonal blocks too. The Dirichlet row of variable i then
-// reads v_i + v_j instead of v_i (wrong, possibly singular, Jacobian).
-// The diagonal blocks should use EliminateRowsCols, the off-diagonal blocks
-// only zero the rows of variable i and the columns of variable j.
+// Non-regression: with several variables, the off-diagonal blocks must not
+// get a 1 on their diagonal when the Dirichlet conditions are eliminated
+// (EliminateRowsCols on the diagonal blocks only). Otherwise the Dirichlet row
+// of variable i reads v_i + v_j instead of v_i.
 TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
-          "[Operators][!mayfail]") {
+          "[Operators]") {
   const int nvar = GENERATE(1, 2);
   CAPTURE(nvar);
   BlockProblem p(nvar);
@@ -252,13 +249,12 @@ TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
   }
 }
 
-// [!mayfail]: reported, but does not make the executable fail.
-// Consequence of the issue above in a Newton solve. Two coupled variables,
-// Dirichlet on variable 0 only: the time derivative k0 must stay 0 on the
-// Dirichlet dofs (the boundary value of u0 is fixed). With the issue, the
-// Dirichlet row reads dk0 + dk1 = 0, so k0 != 0 on the boundary.
+// Non-regression, in a Newton solve. Two coupled variables, Dirichlet on
+// variable 0 only: the time derivative k0 must stay 0 on the Dirichlet dofs
+// (the boundary value of u0 is fixed). With a 1 in the off-diagonal blocks,
+// the Dirichlet row read dk0 + dk1 = 0, so k0 != 0 on the boundary.
 TEST_CASE("PhaseFieldReducedOperator: Newton keeps the Dirichlet values",
-          "[Operators][!mayfail]") {
+          "[Operators]") {
   BlockProblem p(2);
   p.ess[1].DeleteAll();  // no Dirichlet condition on variable 1
   PhaseFieldReducedOperator F(p.lhs.get(), p.rhs.get(), p.ess);

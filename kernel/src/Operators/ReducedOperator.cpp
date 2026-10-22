@@ -122,8 +122,19 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
 
       blocks_to_delete_[i * fes_size_ + j]->Add(dt_, *RHS_sparse_block);
 
-      std::unique_ptr<mfem::HypreParMatrix> bb(
-          blocks_to_delete_[i * fes_size_ + j]->EliminateRowsCols(ess_tdof_list[i]));
+      // Dirichlet conditions (rows of variable i, columns of variable j):
+      //  - diagonal block: zero rows and columns, 1 on the diagonal;
+      //  - off-diagonal block: zero rows of variable i and columns of
+      //    variable j, without any 1 (EliminateRowsCols would put a 1 on the
+      //    diagonal of the off-diagonal block, coupling the Dirichlet rows of
+      //    variable i with variable j).
+      auto& block = blocks_to_delete_[i * fes_size_ + j];
+      if (i == j) {
+        std::unique_ptr<mfem::HypreParMatrix> Ae(block->EliminateRowsCols(ess_tdof_list[i]));
+      } else {
+        block->EliminateRows(ess_tdof_list[i]);
+        std::unique_ptr<mfem::HypreParMatrix> Ae(block->EliminateCols(ess_tdof_list[j]));
+      }
 
       tmp_blocks_(i, j) = blocks_to_delete_[i * fes_size_ + j].get();
     }
