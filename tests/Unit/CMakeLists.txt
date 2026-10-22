@@ -37,7 +37,12 @@ add_custom_target(unit_tests COMMENT "Build SLOTH unit tests")
 # ------------------------------------------------------------------------------
 # sloth_add_unit_test(NAME    <module>
 #                     SOURCES <file.cpp> [<file.cpp> ...]
-#                     [NPROCS <n> [<n> ...]])      # default: 1 2 (CI: at most 2)
+#                     [NPROCS <n> [<n> ...]]       # default: 1 2 (CI: at most 2)
+#                     [COEFFICIENTS_JSON <file.json>])
+#
+# COEFFICIENTS_JSON: coefficients generated at configure time by
+# scripts/GenerateCoefficient.py (as for the other SLOTH tests); the generated
+# headers are written in the build directory and can be included by the tests.
 #
 # Creates:
 #   - the executable Unit_<module> (common main + SOURCES);
@@ -46,7 +51,7 @@ add_custom_target(unit_tests COMMENT "Build SLOTH unit tests")
 # ------------------------------------------------------------------------------
 function(sloth_add_unit_test)
   # Reads the keyword arguments into UT_NAME, UT_SOURCES, UT_NPROCS
-  cmake_parse_arguments(UT "" "NAME" "SOURCES;NPROCS" ${ARGN})
+  cmake_parse_arguments(UT "" "NAME;COEFFICIENTS_JSON" "SOURCES;NPROCS" ${ARGN})
   if(NOT UT_NAME OR NOT UT_SOURCES)
     message(FATAL_ERROR "sloth_add_unit_test: NAME and SOURCES are required")
   endif()
@@ -62,6 +67,23 @@ function(sloth_add_unit_test)
   # tests. In Coverage, this instruments the kernel/include code compiled in
   # the test (templates, inline functions).
   set_compile_options(${exe})
+
+  # Coefficients generated from JSON (optional)
+  if(UT_COEFFICIENTS_JSON)
+    set(gen_dir ${CMAKE_CURRENT_BINARY_DIR}/generated_${UT_NAME})
+    file(MAKE_DIRECTORY ${gen_dir})
+    execute_process(COMMAND ${Python3_EXECUTABLE} ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py
+                            -r -f ${CMAKE_CURRENT_SOURCE_DIR}/${UT_COEFFICIENTS_JSON}
+                    WORKING_DIRECTORY ${gen_dir}
+                    RESULT_VARIABLE gen_result)
+    if(NOT gen_result EQUAL 0)
+      message(FATAL_ERROR "sloth_add_unit_test(${UT_NAME}): coefficient generation failed")
+    endif()
+    target_include_directories(${exe} PRIVATE ${gen_dir})
+    # Regenerate when the JSON file changes
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+                 ${CMAKE_CURRENT_SOURCE_DIR}/${UT_COEFFICIENTS_JSON})
+  endif()
 
   # ctest entries
   foreach(np IN LISTS UT_NPROCS)
@@ -84,6 +106,14 @@ endfunction()
 # ##############################################################################
 sloth_add_unit_test(NAME AnalyticalFunctions
                     SOURCES AnalyticalFunctions/test_AnalyticalFunctions.cpp)
+
+sloth_add_unit_test(NAME Coefficients
+                    SOURCES Coefficients/test_FunctionCoefficients.cpp
+                            Coefficients/test_SlothBaseCoefficient.cpp
+                            Coefficients/test_Coefficients.cpp
+                            Coefficients/test_GeneratedCoefficients.cpp
+                    COEFFICIENTS_JSON Coefficients/CoefficientExample.json
+                    NPROCS 1)
 
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
