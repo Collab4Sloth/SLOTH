@@ -17,6 +17,7 @@ class Sloth(CMakePackage):
     """
 
     homepage = "https://github.com/Collab4Sloth/SLOTH"
+    url = "https://github.com/Collab4Sloth/SLOTH/archive/refs/tags/v2.2.0.tar.gz"
     git = "https://github.com/Collab4Sloth/SLOTH.git"
 
     maintainers("CINTROINI")
@@ -24,9 +25,7 @@ class Sloth(CMakePackage):
     license("LGPL-3.0-or-later", checked_by="CINTROINI")
 
     version("master", branch="master")
-    # Before the release: built from the Git tag. After tagging, replace with the
-    # line given by "spack checksum sloth 2.2.0" (and add url = ... above)
-    version("2.2.0", tag="v2.2.0")
+    version("2.2.0", sha256="db91213f055c7549460d6e7ab66978d9dc07a03a2aaa12df12beacb19158b120")
 
     variant("shared", default=False, description="Build Sloth as a shared library")
     variant("mumps", default=False, description="Enable the MUMPS direct solver (through MFEM)")
