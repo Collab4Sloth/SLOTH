@@ -30,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <memory>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -138,6 +139,41 @@ class TemporaryFile {
 
  private:
   std::filesystem::path path_;
+};
+
+/**
+ * @brief Unit square [0, 1]^2, n x n quadrangles, distributed over all the MPI
+ * ranks, with an H1 finite element space of the given order. Built in memory.
+ *
+ *   sloth_unit::UnitSquare sq;            // 4 x 4, Q1
+ *   mfem::ParGridFunction u(sq.fes.get());
+ *
+ * Can be used as a Catch2 fixture: TEST_CASE_METHOD(sloth_unit::UnitSquare, ...).
+ */
+struct UnitSquare {
+  std::unique_ptr<mfem::H1_FECollection> fec;
+  std::unique_ptr<mfem::ParMesh> pmesh;
+  std::unique_ptr<mfem::ParFiniteElementSpace> fes;
+  mfem::Array<int> ess_bdr;   ///< all the boundary attributes
+  mfem::Array<int> ess_tdof;  ///< true dofs on the whole boundary
+
+  explicit UnitSquare(int n = 4, int order = 1)
+      : fec(std::make_unique<mfem::H1_FECollection>(order, 2)) {
+    auto mesh = mfem::Mesh::MakeCartesian2D(n, n, mfem::Element::QUADRILATERAL, true, 1., 1.);
+    pmesh = std::make_unique<mfem::ParMesh>(MPI_COMM_WORLD, mesh);
+    fes = std::make_unique<mfem::ParFiniteElementSpace>(pmesh.get(), fec.get());
+    ess_bdr.SetSize(pmesh->bdr_attributes.Max());
+    ess_bdr = 1;
+    fes->GetEssentialTrueDofs(ess_bdr, ess_tdof);
+  }
+
+  /// @brief Grid function interpolating f
+  mfem::ParGridFunction project(double (*f)(const mfem::Vector&)) const {
+    mfem::ParGridFunction gf(fes.get());
+    mfem::FunctionCoefficient c(f);
+    gf.ProjectCoefficient(c);
+    return gf;
+  }
 };
 
 }  // namespace sloth_unit

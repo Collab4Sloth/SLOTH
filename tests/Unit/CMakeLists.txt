@@ -107,8 +107,15 @@ endfunction()
 # ##############################################################################
 # Modules
 # ##############################################################################
+sloth_add_unit_test(NAME AMR
+                    SOURCES AMR/test_SlothErrorEstimators.cpp)
+
 sloth_add_unit_test(NAME AnalyticalFunctions
                     SOURCES AnalyticalFunctions/test_AnalyticalFunctions.cpp)
+
+sloth_add_unit_test(NAME BCs
+                    SOURCES BCs/test_Boundary.cpp
+                    NPROCS 1)
 
 sloth_add_unit_test(NAME Coefficients
                     SOURCES Coefficients/test_FunctionCoefficients.cpp
@@ -129,6 +136,12 @@ sloth_add_unit_test(NAME Framework
 sloth_add_unit_test(NAME Glossary
                     SOURCES Glossary/test_Glossary.cpp
                     NPROCS 1)
+
+sloth_add_unit_test(NAME Integrators
+                    SOURCES Integrators/test_SlothGridFunction.cpp)
+
+sloth_add_unit_test(NAME Operators
+                    SOURCES Operators/test_ReducedOperators.cpp)
 
 sloth_add_unit_test(NAME Options
                     SOURCES Options/test_Options.cpp
