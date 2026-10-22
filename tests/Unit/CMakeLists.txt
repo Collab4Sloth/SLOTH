@@ -138,7 +138,8 @@ sloth_add_unit_test(NAME Glossary
                     NPROCS 1)
 
 sloth_add_unit_test(NAME Integrators
-                    SOURCES Integrators/test_SlothGridFunction.cpp)
+                    SOURCES Integrators/test_SlothGridFunction.cpp
+                            Integrators/test_NLFormIntegrators.cpp)
 
 sloth_add_unit_test(NAME Operators
                     SOURCES Operators/test_ReducedOperators.cpp)
