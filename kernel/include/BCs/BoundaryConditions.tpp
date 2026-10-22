@@ -147,6 +147,22 @@ mfem::Array<int> BoundaryConditions<T, DIM>::GetEssentialDofs() {
 }
 
 /**
+ * @brief Recompute the list of essential true dofs on the current state of
+ *        the finite element space.
+ *
+ * @details The list is first computed by the constructor. It must be
+ *          recomputed after any mesh modification (refinement,
+ *          derefinement, rebalancing), which changes the true dof
+ *          numbering: the Dirichlet markers are boundary attributes and
+ *          remain valid, only the dof list changes.
+ */
+template <class T, int DIM>
+void BoundaryConditions<T, DIM>::UpdateEssentialDofs() {
+  this->ess_tdof_list_.DeleteAll();
+  this->fespace_->GetEssentialTrueDofs(this->Dirichlet_bdr_, this->ess_tdof_list_);
+}
+
+/**
  * @brief return the marker array for the boundary condition
  *
  * @return mfem::Array<int> marker array for the boundary condition

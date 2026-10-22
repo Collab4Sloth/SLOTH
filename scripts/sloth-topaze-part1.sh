@@ -37,7 +37,7 @@ spack repo set --destination $WORK_DIR/spack-packages builtin
 
 echo "Getting PLEIADES/SLOTH ($SLOTH_TAG) ..."
 if [ ! -d "sloth" ] ; then
-    git clone --branch $SLOTH_TAG https://www-git-cad.intra.cea.fr/DEC/collaboratif/ci230846/DEV_PROJECT/sloth.git
+    git clone --branch $SLOTH_TAG https://github.com/Collab4Sloth/SLOTH.git sloth
 fi
 echo "PLEIADES/SLOTH is cloned here: $PWD/sloth"
 

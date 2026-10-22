@@ -59,68 +59,103 @@ SlothErrorEstimators::SlothErrorEstimators(ErrorEstimatorType value)
     : value_(value), integ_(nullptr) {}
 
 /**
- * @brief Build a fresh error estimator instance for the current state
- *        of `x`/`fespace`/`mesh`.
+ * @brief Release the estimator, then the flux spaces, then their
+ *        collections (the estimator references the spaces, which
+ *        reference the collections).
+ */
+void SlothErrorEstimators::CachedEstimator::release() {
+  this->estimator.reset();
+  this->smooth_flux_fes.reset();
+  this->flux_fes.reset();
+  this->smooth_flux_fec.reset();
+  this->flux_fec.reset();
+  this->mesh = nullptr;
+  this->order = -1;
+}
+
+/**
+ * @brief Build the flux spaces and the mfem estimator of one solution
+ *        field. The spaces are passed by reference to the mfem estimator,
+ *        which therefore does not own them.
+ *
+ * @param entry Cache entry to fill (released first).
+ * @param x Grid function (solution field) the error is estimated on.
+ * @param order Polynomial order of the finite element space of `x`.
+ * @param mesh Mesh the finite element space of `x` is built on.
+ */
+void SlothErrorEstimators::build(CachedEstimator& entry, mfem::ParGridFunction& x,
+                                 const int order, mfem::ParMesh& mesh) {
+  entry.release();
+  entry.mesh = &mesh;
+  entry.order = order;
+  const int dim = mesh.Dimension();
+  const int sdim = mesh.SpaceDimension();
+
+  switch (this->value_) {
+    case ErrorEstimatorType::L2_ZIENKIEWICZ_ZHU: {
+      MFEM_VERIFY(this->integ_ != nullptr,
+                  "SlothErrorEstimators: L2_ZIENKIEWICZ_ZHU requires an integrator.");
+      entry.flux_fec = std::make_unique<mfem::L2_FECollection>(order, dim);
+      entry.smooth_flux_fec = std::make_unique<mfem::RT_FECollection>(order - 1, dim);
+      entry.flux_fes =
+          std::make_unique<mfem::ParFiniteElementSpace>(&mesh, entry.flux_fec.get(), sdim);
+      entry.smooth_flux_fes =
+          std::make_unique<mfem::ParFiniteElementSpace>(&mesh, entry.smooth_flux_fec.get());
+      entry.estimator = std::make_shared<mfem::L2ZienkiewiczZhuEstimator>(
+          *this->integ_, x, *entry.flux_fes, *entry.smooth_flux_fes);
+      break;
+    }
+    case ErrorEstimatorType::KELLY: {
+      MFEM_VERIFY(this->integ_ != nullptr, "SlothErrorEstimators: KELLY requires an integrator.");
+      entry.flux_fec = std::make_unique<mfem::L2_FECollection>(order, dim);
+      entry.flux_fes =
+          std::make_unique<mfem::ParFiniteElementSpace>(&mesh, entry.flux_fec.get(), sdim);
+      entry.estimator =
+          std::make_shared<mfem::KellyErrorEstimator>(*this->integ_, x, *entry.flux_fes);
+      break;
+    }
+    default:
+      mfem::mfem_error("SlothErrorEstimators::get_value: unknown estimator type.");
+  }
+}
+
+/**
+ * @brief Return the error estimator of `x`, ready to compute the local
+ *        errors of the current solution on the current mesh.
+ *
+ * @details The estimator and its flux spaces are built once per solution
+ *          field, and reused at each AMR pass:
+ *          - no allocation of collections/spaces at each pass;
+ *          - after a mesh modification, the flux spaces are updated by the
+ *            mfem estimator itself (`ComputeEstimates()` calls
+ *            `Update(false)`, which is valid whatever the number of mesh
+ *            modifications since the previous estimate);
+ *          - `Reset()` is called so that the estimates are recomputed even
+ *            when the mesh is unchanged (the solution has changed).
+ *          The estimator is rebuilt only if the mesh or the polynomial
+ *          order associated with `x` has changed.
+ *
+ *          The returned estimator is owned by this object: it must not be
+ *          used after the next call to get_value() for the same `x`, nor
+ *          after the destruction of this object.
  *
  * @param x Grid function (solution field) the error is estimated on.
  * @param fespace Finite element space `x` lives on.
  * @param mesh Mesh `fespace` is built on.
- * @return std::shared_ptr<mfem::ErrorEstimator> Newly built estimator,
- *        owned by the caller.
+ * @return std::shared_ptr<mfem::ErrorEstimator> Estimator of `x`.
  */
 std::shared_ptr<mfem::ErrorEstimator> SlothErrorEstimators::get_value(
     mfem::ParGridFunction& x, mfem::ParFiniteElementSpace& fespace, mfem::ParMesh& mesh) {
-  switch (this->value_) {
-    case ErrorEstimatorType::L2_ZIENKIEWICZ_ZHU: {
-      const int order = fespace.GetOrder(0);
+  // Order from the collection: valid even on a rank without any element
+  const int order = fespace.FEColl()->GetOrder();
 
-      delete this->flux_fec_;
-      delete this->smooth_flux_fec_;
-
-      this->flux_fec_ = new mfem::L2_FECollection(order, mesh.Dimension());
-      this->smooth_flux_fec_ = new mfem::RT_FECollection(order - 1, mesh.Dimension());
-
-      this->flux_fes_ =
-          new mfem::ParFiniteElementSpace(&mesh, this->flux_fec_, mesh.SpaceDimension());
-      this->smooth_flux_fes_ = new mfem::ParFiniteElementSpace(&mesh, this->smooth_flux_fec_);
-
-      return std::make_shared<mfem::L2ZienkiewiczZhuEstimator>(*this->integ_, x, this->flux_fes_,
-                                                               this->smooth_flux_fes_);
-    }
-    case ErrorEstimatorType::KELLY: {
-      MFEM_VERIFY(this->integ_ != nullptr, "...");
-      const int order = fespace.GetOrder(0);
-
-      delete this->flux_fec_;
-
-      this->flux_fec_ = new mfem::L2_FECollection(order, mesh.Dimension());
-
-      this->flux_fes_ =
-          new mfem::ParFiniteElementSpace(&mesh, this->flux_fec_, mesh.SpaceDimension());
-
-      return std::make_shared<mfem::KellyErrorEstimator>(*this->integ_, x, this->flux_fes_);
-    }
-    default:
-      mfem::mfem_error("SlothEstimator::get_value: unknown estimator type.");
+  auto& entry = this->cache_[&x];
+  if (entry.estimator == nullptr || entry.mesh != &mesh || entry.order != order) {
+    this->build(entry, x, order, mesh);
+  } else {
+    entry.estimator->Reset();
   }
-  return nullptr;
-}
-
-/**
- * @brief Resynchronize the internal flux finite element spaces of the
- *        last estimator built by get_value(), after a mesh mutation
- *        that happened while that estimator is still alive.
- *
- * @details No-op if the current estimator type does not use
- *          separate flux spaces (e.g. not yet relevant for Kelly).
- */
-void SlothErrorEstimators::UpdateFluxSpaces() {
-  if (this->flux_fes_ != nullptr) {
-    this->flux_fes_->Update();
-  }
-  if (this->smooth_flux_fes_ != nullptr) {
-    this->smooth_flux_fes_->Update();
-  }
+  return entry.estimator;
 }
 
 /**
@@ -128,6 +163,7 @@ void SlothErrorEstimators::UpdateFluxSpaces() {
  *
  */
 SlothErrorEstimators::~SlothErrorEstimators() {
-  delete this->flux_fec_;
-  delete this->smooth_flux_fec_;
+  for (auto& [gf, entry] : this->cache_) {
+    entry.release();
+  }
 }

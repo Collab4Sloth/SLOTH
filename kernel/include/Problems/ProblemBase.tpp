@@ -533,13 +533,15 @@ void ProblemBase<VAR, PST>::setGeometry(Geometry geometry) {
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::initialize_amr(const std::vector<VAR*>& all_vars) {
   if (this->amr_ != nullptr) {
+    this->amr_->SetCoupledVariables(this->auxvariables_);
     this->amr_->InitialRefine(this->variables_, all_vars);
   }
 }
 
 /**
- * @brief Apply one derefine-then-refine AMR pass for this Problem, if an
- *        AMR strategy is attached.
+ * @brief Apply one derefine-then-refine AMR pass for this Problem, followed
+ *        by a rebalancing of the mesh if requested, if an AMR strategy is
+ *        attached.
  *
  * @details No-op if `set_amr()` was never called (`amr_ == nullptr`).
  *
@@ -552,8 +554,10 @@ void ProblemBase<VAR, PST>::initialize_amr(const std::vector<VAR*>& all_vars) {
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save_amr(const std::vector<VAR*>& all_vars) {
   if (this->amr_ != nullptr) {
+    this->amr_->SetCoupledVariables(this->auxvariables_);
     this->amr_->StepDerefine(this->variables_, all_vars);
     this->amr_->StepRefine(this->variables_, all_vars);
+    this->amr_->StepRebalance(this->variables_, all_vars);
   }
 }
 

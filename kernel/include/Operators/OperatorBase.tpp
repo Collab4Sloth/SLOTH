@@ -1141,6 +1141,11 @@ void OperatorBase<T, DIM>::setGeometry(Geometry geometry) {
  *          otherwise stale sizes silently propagate into downstream solves
  *          (mismatched block/vector sizes, out-of-bounds reads).
  *
+ *          The lists of essential true dofs (Dirichlet boundaries) are
+ *          recomputed as well: the true dof numbering changes with the mesh,
+ *          and these lists are used to eliminate the constrained dofs in the
+ *          reduced operators (held by reference) and in the mass matrices.
+ *
  * @note This only updates the `height`/`width` copy inherited through
  *       `OperatorBase`. Classes that also inherit `mfem::TimeDependentOperator`
  *       (a second, independent `mfem::Operator` base due to non-virtual
@@ -1175,4 +1180,13 @@ void OperatorBase<T, DIM>::UpdateAfterMeshChange() {
     this->block_trueOffsets_[i + 1] = this->fes_[i]->GetTrueVSize();
   }
   this->block_trueOffsets_.PartialSum();
+
+  // Essential true dofs on the new numbering (updated in place: the reduced operators
+  // keep a reference to ess_tdof_list_)
+  MFEM_VERIFY(this->bcs_.size() == this->ess_tdof_list_.size(),
+              "OperatorBase::UpdateAfterMeshChange: bcs_ and ess_tdof_list_ sizes differ.");
+  for (std::size_t i = 0; i < this->bcs_.size(); i++) {
+    this->bcs_[i]->UpdateEssentialDofs();
+    this->ess_tdof_list_[i] = this->bcs_[i]->GetEssentialDofs();
+  }
 }

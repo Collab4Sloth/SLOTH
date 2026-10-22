@@ -29,6 +29,9 @@
  */
 
 #pragma once
+#include <string>
+#include <vector>
+
 #include "AMR/AMRBase.hpp"
 #include "Variables/Variable.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -36,14 +39,17 @@
 template <class VAR>
 class SingleVariableAMR : public AMRBase<VAR> {
  private:
-  unsigned int var_id_;
+  unsigned int var_id_{0};
+  std::string var_name_;  // if not empty, the pilot variable is found by name
 
  public:
   SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simplices, unsigned int var_id);
+  SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simplices, const std::string& var_name);
   virtual ~SingleVariableAMR() = default;
 
   bool Refine(VAR& vars) final;
   bool Derefine(VAR& vars, std::vector<VAR*> auxvars) final;
+  std::vector<typename AMRBase<VAR>::Variable_t*> PilotVariables(VAR& vars) final;
 };
 
 #include "AMR/SingleVariableAMR.tpp"
