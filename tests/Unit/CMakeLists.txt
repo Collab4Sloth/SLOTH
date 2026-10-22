@@ -76,6 +76,9 @@ endfunction()
 # ##############################################################################
 # Modules
 # ##############################################################################
+sloth_add_unit_test(NAME AnalyticalFunctions
+                    SOURCES AnalyticalFunctions/test_AnalyticalFunctions.cpp)
+
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
 
