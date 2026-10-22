@@ -251,3 +251,36 @@ TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
     check_gradient_dirichlet_rows(F, p, k);
   }
 }
+
+// [!mayfail]: reported, but does not make the executable fail.
+// Consequence of the issue above in a Newton solve. Two coupled variables,
+// Dirichlet on variable 0 only: the time derivative k0 must stay 0 on the
+// Dirichlet dofs (the boundary value of u0 is fixed). With the issue, the
+// Dirichlet row reads dk0 + dk1 = 0, so k0 != 0 on the boundary.
+TEST_CASE("PhaseFieldReducedOperator: Newton keeps the Dirichlet values",
+          "[Operators][!mayfail]") {
+  BlockProblem p(2);
+  p.ess[1].DeleteAll();  // no Dirichlet condition on variable 1
+  PhaseFieldReducedOperator F(p.lhs.get(), p.rhs.get(), p.ess);
+  const mfem::Vector u = p.random(1);
+  F.SetParameters(0.1, &u);
+
+  mfem::GMRESSolver gmres(MPI_COMM_WORLD);  // the Jacobian is not symmetric
+  gmres.SetRelTol(1.e-12);
+  gmres.SetMaxIter(500);
+  mfem::NewtonSolver newton(MPI_COMM_WORLD);
+  newton.SetSolver(gmres);
+  newton.SetOperator(F);
+  newton.SetRelTol(1.e-10);
+  newton.SetMaxIter(20);
+
+  mfem::Vector k(F.Height());
+  k = 0.;
+  newton.Mult(mfem::Vector(), k);
+  REQUIRE(newton.GetConverged());
+
+  for (const int d : p.ess[0]) {
+    CAPTURE(d);
+    CHECK_THAT(k(d), WithinAbs(0., 1.e-10));  // k0 on the Dirichlet dofs of variable 0
+  }
+}
