@@ -7,14 +7,14 @@ target_link_libraries(${CURRENT_EXE} Sloth)
 target_include_directories(${CURRENT_EXE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 set_compile_options(${CURRENT_EXE})
 add_dependencies(tests ${CURRENT_EXE})
-add_test(
-    NAME Ostwald2Dtest1_base
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${CURRENT_EXE} -t 0.05
-)
 
 add_test(
+    NAME Ostwald2Dtest1_base
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${CURRENT_EXE}> -t 0.05
+)
+add_test(
     NAME Ostwald2Dtest1_restart
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${CURRENT_EXE} -r -s 5 -i 0.05
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${CURRENT_EXE}> -r -s 5 -i 0.05
 )
 
 set_tests_properties(
