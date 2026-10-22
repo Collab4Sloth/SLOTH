@@ -41,12 +41,12 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y mpich libmpich-dev wget unzip libncurses-dev libopenblas-dev perl
+        sudo apt-get install -y openmpi-bin libopenmpi-dev wget unzip libncurses-dev libopenblas-dev perl
     - name: Install MFEM
       shell: spack-bash {0}
       run: |
           spack compiler find 
-          spack external find mpich openblas perl
+          spack external find openmpi openblas perl
           spack env activate ${{ github.workspace }}/SLOTH
           spack concretize -f
 
@@ -69,7 +69,6 @@ jobs:
         mkdir -p ${{ github.workspace }}/SLOTH/build
         cd ${{ github.workspace }}/SLOTH/build
         bash ../envSloth.sh --coverage --np=$CORES
-        cmake -DMPIEXEC_EXECUTABLE=/usr/bin/mpiexec.mpich .
         make -j $CORES tests
         
 
@@ -92,8 +91,7 @@ jobs:
         cmake --install . --prefix ${{ github.workspace }}/sloth-installed
         cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \
               -B ${{ github.workspace }}/example-build \
-              -DCMAKE_PREFIX_PATH=${{ github.workspace }}/sloth-installed \
-              -DMPIEXEC_EXECUTABLE=/usr/bin/mpiexec.mpich
+              -DCMAKE_PREFIX_PATH=${{ github.workspace }}/sloth-installed
         cmake --build ${{ github.workspace }}/example-build
         cd ${{ github.workspace }}/example-build && ctest --output-on-failure
 

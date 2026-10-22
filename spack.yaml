@@ -13,7 +13,7 @@ spack:
     fortran:
       require: [gcc@14]
     mpi:
-      require: [mpich]
+      require: [openmpi]
       buildable: false
     openblas:
       buildable: false
