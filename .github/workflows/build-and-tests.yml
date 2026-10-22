@@ -46,7 +46,7 @@ jobs:
       shell: spack-bash {0}
       run: |
           spack compiler find 
-          spack external find openmpi mpich openblas perl
+          spack external find mpich openblas perl
           spack env activate ${{ github.workspace }}/SLOTH
           spack concretize -f
 
@@ -69,6 +69,7 @@ jobs:
         mkdir -p ${{ github.workspace }}/SLOTH/build
         cd ${{ github.workspace }}/SLOTH/build
         bash ../envSloth.sh --coverage --np=$CORES
+        cmake -DMPIEXEC_EXECUTABLE=/usr/bin/mpiexec.mpich .
         make -j $CORES tests
         
 
@@ -91,7 +92,8 @@ jobs:
         cmake --install . --prefix ${{ github.workspace }}/sloth-installed
         cmake -S ${{ github.workspace }}/sloth-installed/share/sloth/examples/minimal \
               -B ${{ github.workspace }}/example-build \
-              -DCMAKE_PREFIX_PATH=${{ github.workspace }}/sloth-installed
+              -DCMAKE_PREFIX_PATH=${{ github.workspace }}/sloth-installed \
+              -DMPIEXEC_EXECUTABLE=/usr/bin/mpiexec.mpich
         cmake --build ${{ github.workspace }}/example-build
         cd ${{ github.workspace }}/example-build && ctest --output-on-failure
 

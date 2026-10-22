@@ -5,7 +5,7 @@ configure_file(${CMAKE_SOURCE_DIR}/tests/Studies/multigrains/test1/initial-grain
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/plot.py ${CMAKE_CURRENT_BINARY_DIR}/plot.py COPYONLY)
 
-create_col_comparison("CompareGrains" "time_specialized.csv" "Saves/GrainsProblem/time_specialized.csv" -1 relativeEpsilon 5e-4 FALSE "Grains2Dtest1" "2D AC")
+create_col_comparison("CompareGrains" "time_specialized.csv" "Saves/GrainsProblem/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "Grains2Dtest1" "2D AC")
 
 
 add_test(

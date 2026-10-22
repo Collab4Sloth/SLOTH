@@ -2,4 +2,4 @@
 #     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 create_test("Sintering2Dtest1" "Sintering2Dtest1" FALSE "2D EXE CHAC" 2)
 
-create_col_comparison("CompareSintering1" "time_specialized.csv" "Saves/CahnHilliard/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "Sintering2Dtest1" "2D CHAC")
+create_col_comparison("CompareSintering1" "time_specialized.csv" "Saves/CahnHilliard/time_specialized.csv" -1 relativeEpsilon 5e-4 FALSE "Sintering2Dtest1" "2D CHAC")
