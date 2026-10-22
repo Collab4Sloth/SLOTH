@@ -112,6 +112,7 @@ sloth_add_unit_test(NAME Coefficients
                             Coefficients/test_SlothBaseCoefficient.cpp
                             Coefficients/test_Coefficients.cpp
                             Coefficients/test_GeneratedCoefficients.cpp
+                            Coefficients/test_FileCoefficient.cpp
                     COEFFICIENTS_JSON Coefficients/CoefficientExample.json
                     NPROCS 1)
 
@@ -129,6 +130,10 @@ sloth_add_unit_test(NAME Options
 sloth_add_unit_test(NAME Parameters
                     SOURCES Parameters/test_Parameter.cpp
                             Parameters/test_Parameters.cpp)
+
+sloth_add_unit_test(NAME PreProcessing
+                    SOURCES PreProcessing/test_TabulatedFunction.cpp
+                    NPROCS 1)
 
 sloth_add_unit_test(NAME Utils
                     SOURCES Utils/test_Utils.cpp

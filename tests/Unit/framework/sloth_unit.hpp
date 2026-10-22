@@ -25,6 +25,10 @@
  */
 #pragma once
 
+#include <unistd.h>
+
+#include <filesystem>
+#include <fstream>
 #include <initializer_list>
 #include <iostream>
 #include <sstream>
@@ -102,6 +106,38 @@ class CoutCapture {
  private:
   std::ostringstream buffer_;
   std::streambuf* old_;
+};
+
+/**
+ * @brief File written in the system temporary directory for one test, and
+ * removed when the object is destroyed (even if a check fails).
+ *
+ *   sloth_unit::TemporaryFile csv("field.csv", "t,x,F\n0,0,1\n...");
+ *   FileCoefficient c(csv.path());
+ *
+ * The name is made unique by the process id and the MPI rank, so that tests
+ * run in parallel (ctest -j, several ranks) do not write the same file.
+ */
+class TemporaryFile {
+ public:
+  TemporaryFile(const std::string& name, const std::string& content)
+      : path_(std::filesystem::temp_directory_path() /
+              ("sloth_unit_" + std::to_string(::getpid()) + "_" +
+               std::to_string(mfem::Mpi::WorldRank()) + "_" + name)) {
+    std::ofstream out(path_);
+    out << content;
+  }
+  ~TemporaryFile() {
+    std::error_code ec;
+    std::filesystem::remove(path_, ec);  // never throws in a destructor
+  }
+  TemporaryFile(const TemporaryFile&) = delete;
+  TemporaryFile& operator=(const TemporaryFile&) = delete;
+
+  std::string path() const { return path_.string(); }
+
+ private:
+  std::filesystem::path path_;
 };
 
 }  // namespace sloth_unit
