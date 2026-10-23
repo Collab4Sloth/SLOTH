@@ -28,6 +28,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -104,9 +105,22 @@ Coefficient on_boundary(Coefficient c, int bdr) {
   return c;
 }
 
-// Boundary used for the boundary integrators: index 1 = attribute 2 = right
-// side of the unit square (x = 1), of length 1
+// Boundaries used for the boundary integrators (index = attribute - 1) of the
+// unit square: right side x = 1, left side x = 0, both of length 1
 constexpr int kRight = 1;
+constexpr int kLeft = 3;
+
+/// @brief Constant advection velocity v = (vx, vy)
+Coefficients velocity(double vx, double vy) {
+  return Coefficients(Coefficient(Glossary::Velocity_X, vx), Coefficient(Glossary::Velocity_Y, vy));
+}
+
+/// @brief Constant velocity and an inflow value on one boundary
+Coefficients velocity_with_inflow(double vx, double vy, double inflow, int bdr) {
+  Coefficients c = velocity(vx, vy);
+  c.add(on_boundary(Coefficient(Glossary::Inflow, inflow), bdr));
+  return c;
+}
 
 std::vector<Case> all_cases() {
   const Coefficients none;
@@ -147,6 +161,21 @@ std::vector<Case> all_cases() {
       {"Neumann (constant flux)", 1,
        bdr_maker<NeumannNLFormIntegrator>(
            {Coefficients(on_boundary(Coefficient(Glossary::Neumann, 2.), kRight))}, 0, kRight),
+       kRight},
+      // Advection with a constant velocity v = (1, 0.5)
+      {"Advection", 1, maker<AdvectionNLFormIntegrator>({velocity(1., 0.5)})},
+      {"SplitAdvection", 2, maker<SplitAdvectionNLFormIntegrator>({velocity(1., 0.5), none})},
+      {"AdvectionBoundary, outflow (v.n > 0)", 1,
+       bdr_maker<AdvectionBoundaryNLFormIntegrator>(
+           {velocity_with_inflow(1., 0.5, 3., kRight)}, 0, kRight),
+       kRight},
+      {"AdvectionBoundary, inflow (v.n < 0)", 1,
+       bdr_maker<AdvectionBoundaryNLFormIntegrator>({velocity_with_inflow(1., 0.5, 3., kLeft)},
+                                                    0, kLeft),
+       kLeft},
+      {"AdvectionBoundaryCH, outflow", 2,
+       bdr_maker<AdvectionBoundaryCHNLFormIntegrator>(
+           {velocity_with_inflow(1., 0.5, 3., kRight), none}, 0, kRight),
        kRight},
   };
 }
@@ -499,4 +528,163 @@ TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: Jacobian wit
   Context ctx;
   auto f = form(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(3.)), ctx);
   check_gradient(*f, random_point());
+}
+
+// =============================================================================
+// Advection in divergence form: div(v u), v not necessarily solenoidal
+//   domain:   - (u v, grad psi)
+//   boundary: + (u v.n, psi) where v.n > 0, (g v.n, psi) where v.n < 0 (inflow g)
+// =============================================================================
+namespace {
+/// @brief Sum_i X_i F_i over all the ranks, X = interpolant of x: (F, x)
+double moment_x(const SlothSquare& sq, const mfem::Vector& F) {
+  mfem::Vector X;
+  sq.project([](const mfem::Vector& p) { return p[0]; }).GetTrueDofs(X);
+  return mfem::InnerProduct(MPI_COMM_WORLD, X, F);
+}
+}  // namespace
+
+/// @brief Coefficient equal to the auxiliary field number k (no dependence on u)
+class AuxValue final : public FunctionCoefficient {
+ public:
+  explicit AuxValue(std::size_t k) : k_(k) {}
+
+ protected:
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
+                       const std::span<const double>&, const unsigned int)>
+  F() override {
+    return [this](const std::span<const double>&, const std::span<const double>&,
+                  const std::span<const double>& aux, const unsigned int) { return aux[k_]; };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  GradientF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) {
+      return std::vector<double>(u.size(), 0.);
+    };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  HessianF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) {
+      return std::vector<double>(u.size() * u.size(), 0.);
+    };
+  }
+
+ private:
+  std::size_t k_;
+};
+
+TEST_CASE_METHOD(SlothSquare,
+                 "AdvectionNLFormIntegrator: divergence form with a non-solenoidal velocity",
+                 "[Integrators]") {
+  Profiling::getInstance().disable();
+  // v = (b, 0) with the auxiliary field b = x (exact in Q1): v = (x, 0), div v = 1.
+  // With u = 1: div(v u) = 1, so (div(v u), x) = int x = 1/2 over the unit square.
+  auto b = aux_variable("b", "b", Glossary::Default,
+                        [](const mfem::Vector& p, double) { return p[0]; });
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.auxvars = {&b};
+  ctx.aux_old = {b.getVariables()[0].get_gf()};
+  auto v = [](int bdr) {
+    Coefficients c(Coefficient(Glossary::Velocity_X, Scheme::Implicit, AuxValue(0)),
+                   Coefficient(Glossary::Velocity_Y, 0.));
+    if (bdr >= 0) c.add(on_boundary(Coefficient(Glossary::Inflow, 0.), bdr));
+    return c;
+  };
+
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+  mfem::ParBlockNonlinearForm form(spaces);
+  form.AddDomainIntegrator(maker<AdvectionNLFormIntegrator>({v(-1)})(ctx));
+
+  mfem::Vector u(fes()->GetTrueVSize()), F(fes()->GetTrueVSize());
+  u = 1.;
+
+  SECTION("domain term alone: - (v, grad x) = - int x = -1/2") {
+    form.Mult(u, F);
+    CHECK_THAT(moment_x(*this, F), Catch::Matchers::WithinAbs(-0.5, 1.e-10));
+  }
+  SECTION("with the outflow boundary x = 1: (div(v u), x) = 1/2") {
+    // Outflow on x = 1 (v.n = 1); v = 0 on x = 0, v.n = 0 on y = 0 and y = 1
+    mfem::Array<int> marker(spatial->get_mesh()->bdr_attributes.Max());
+    marker = 0;
+    marker[kRight] = 1;
+    form.AddBoundaryIntegrator(bdr_maker<AdvectionBoundaryNLFormIntegrator>({v(kRight)}, 0,
+                                                                             kRight)(ctx),
+                               marker);
+    form.Mult(u, F);
+    CHECK_THAT(moment_x(*this, F), Catch::Matchers::WithinAbs(0.5, 1.e-10));
+  }
+}
+
+TEST_CASE_METHOD(SlothSquare, "AdvectionNLFormIntegrator: gradient velocity v = alpha grad(a)",
+                 "[Integrators]") {
+  Profiling::getInstance().disable();
+  // a = x^2 / 2: in Q1, grad(a_h) is constant per element (mean slope), and
+  // - (grad(a_h), grad x) = - int d(a_h)/dx = -(a(1) - a(0)) = -1/2 exactly (u = 1)
+  auto a = aux_variable("a", "a", Glossary::Default,
+                        [](const mfem::Vector& p, double) { return 0.5 * p[0] * p[0]; });
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.auxvars = {&a};
+  ctx.aux_old = {a.getVariables()[0].get_gf()};
+  ctx.params = Parameters(Parameter("velocity_gradient", std::string("a")));
+  auto form = one_block_form(fes(), maker<AdvectionNLFormIntegrator>(
+                                        {Coefficients(Coefficient(Glossary::VelocityPrefactor,
+                                                                  1.))})(ctx));
+  mfem::Vector u(fes()->GetTrueVSize()), F(fes()->GetTrueVSize());
+  u = 1.;
+  form->Mult(u, F);
+  CHECK_THAT(moment_x(*this, F), Catch::Matchers::WithinAbs(-0.5, 1.e-10));
+}
+
+TEST_CASE_METHOD(SlothSquare, "AdvectionBoundaryNLFormIntegrator: inflow value",
+                 "[Integrators]") {
+  Profiling::getInstance().disable();
+  // v = (1, 0), inflow g = 3 on x = 0 (v.n = -1): residual (g v.n, psi), sum = -3
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+  mfem::ParBlockNonlinearForm form(spaces);
+  mfem::Array<int> marker(spatial->get_mesh()->bdr_attributes.Max());
+  marker = 0;
+  marker[kLeft] = 1;
+  form.AddBoundaryIntegrator(bdr_maker<AdvectionBoundaryNLFormIntegrator>(
+                                 {velocity_with_inflow(1., 0., 3., kLeft)}, 0, kLeft)(ctx),
+                             marker);
+  mfem::Vector u = random_point(), F(u.Size());
+  form.Mult(u, F);  // independent of u on an inflow boundary
+  CHECK_THAT(global_sum(F), Catch::Matchers::WithinRel(-3., 1.e-12));
+}
+
+TEST_CASE_METHOD(SlothSquare, "Advection integrators: invalid data", "[Integrators][errors]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  SECTION("no velocity") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(maker<AdvectionNLFormIntegrator>({Coefficients()})(ctx),
+                                "no advected variable");
+  }
+  SECTION("only one velocity component in 2D") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        maker<AdvectionNLFormIntegrator>({Coefficients(Coefficient(Glossary::Velocity_X, 1.))})(
+            ctx),
+        "only some of the velocity components");
+  }
+  SECTION("velocity prefactor without velocity_gradient") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        maker<AdvectionNLFormIntegrator>(
+            {Coefficients(Coefficient(Glossary::VelocityPrefactor, 1.))})(ctx),
+        "velocity_gradient");
+  }
+  SECTION("boundary without inflow coefficient") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        bdr_maker<AdvectionBoundaryNLFormIntegrator>({velocity(1., 0.)}, 0, kLeft)(ctx),
+        "Inflow coefficient not found");
+  }
 }
