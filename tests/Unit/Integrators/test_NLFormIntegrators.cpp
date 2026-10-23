@@ -317,6 +317,15 @@ struct SlothSquare {
   }
   static constexpr int DIM2 = 2;
 
+  /// @brief Auxiliary variable with several additional informations (e.g. {"U", "mu"})
+  VARS2D aux_variable(const std::string& name, const std::vector<std::string>& infos,
+                      GlossaryQuantity qty,
+                      std::function<double(const mfem::Vector&, double)> f) const {
+    auto v = VAR2D(spatial.get(), *bcs, name, qty, 2, AnalyticalFunctions<DIM2>(f));
+    for (const auto& info : infos) v.set_additional_information(info);
+    return VARS2D(v);
+  }
+
   /// @brief Random point in [0.2, 0.8] (one block)
   mfem::Vector random_point() const {
     mfem::Vector x(fes()->GetTrueVSize());
@@ -413,4 +422,81 @@ TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian with M(
       fes(), maker<MeltingConstantNLFormIntegrator>({melting_coefficients(
                  Coefficient(Glossary::Mobility, Scheme::Implicit, W(10.)))})(ctx));
   check_gradient(*form, random_point());
+}
+
+// =============================================================================
+// Mass diffusion flux
+//   residual: (sum_i M_i grad mu_i + D (grad u - grad u_old), grad psi)
+// Physical flux M_i grad mu_i (mu_i, M_i: auxiliary variables [element, "mu"],
+// [element, "inter_mob"]) and a stabilisation term D grad(u - u_old), which
+// vanishes when u no longer changes over the time step.
+// =============================================================================
+namespace {
+struct MassFluxSetup : SlothSquare {
+  VARS2D mu = aux_variable("mu_U", std::vector<std::string>{"U", "mu"},
+                           Glossary::ChemicalPotential,
+                           [](const mfem::Vector& p, double) { return p[0]; });  // mu = x
+  VARS2D mob = aux_variable("M_U", std::vector<std::string>{"U", "inter_mob"},
+                            Glossary::InterDiffusionMobility,
+                            [](const mfem::Vector&, double) { return 2.; });  // M = 2
+
+  std::unique_ptr<mfem::ParBlockNonlinearForm> form(Coefficient diffusivity, Context& ctx) {
+    ctx.u_old.push_back(project(phi_old));
+    ctx.auxvars = {&mu, &mob};
+    ctx.aux_old = {mu.getVariables()[0].get_gf(), mob.getVariables()[0].get_gf()};
+    return one_block_form(fes(), maker<MassDiffusionFluxNLFormIntegrator>(
+                                     {Coefficients(diffusivity)})(ctx));
+  }
+};
+}  // namespace
+
+TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: residual and Jacobian",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  auto f = form(Coefficient(Glossary::Diffusivity, 1.), ctx);
+
+  SECTION("Jacobian") { check_gradient(*f, random_point()); }
+
+  SECTION("residual at u = u_old: no stabilisation, physical flux M grad(mu) = (2, 0)") {
+    // sum_i X_i F_i = (flux, grad x) = 2 over the unit square, X = interpolant of x
+    mfem::Vector u_old, y(fes()->GetTrueVSize()), X;
+    ctx.u_old[0].GetTrueDofs(u_old);
+    f->Mult(u_old, y);
+    project([](const mfem::Vector& p) { return p[0]; }).GetTrueDofs(X);
+    CHECK_THAT(mfem::InnerProduct(MPI_COMM_WORLD, X, y), Catch::Matchers::WithinRel(2., 1.e-10));
+  }
+}
+
+TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: invalid data",
+                 "[Integrators][errors]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  SECTION("no chemical potential") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        maker<MassDiffusionFluxNLFormIntegrator>(
+            {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx),
+        "Neither chemical potentials");
+  }
+  SECTION("chemical potential without element") {
+    auto mu = aux_variable("mu", std::vector<std::string>{"mu"}, Glossary::ChemicalPotential,
+                           [](const mfem::Vector&, double) { return 0.; });
+    ctx.auxvars = {&mu};
+    ctx.aux_old = {mu.getVariables()[0].get_gf()};
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        maker<MassDiffusionFluxNLFormIntegrator>(
+            {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx),
+        "Expected [element, 'mu']");
+  }
+}
+
+// Stabilisation coefficient depending on u (not the usual case, D is generally
+// constant): Jacobian D grad psi_j . grad psi_i + D'(u) psi_j grad(u - u_old) . grad psi_i
+TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: Jacobian with D(u)",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  auto f = form(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(3.)), ctx);
+  check_gradient(*f, random_point());
 }
