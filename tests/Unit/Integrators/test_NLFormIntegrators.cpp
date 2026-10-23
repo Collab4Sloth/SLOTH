@@ -65,11 +65,10 @@ struct Case {
 
 // Coefficients depending on the unknown (implicit): the Jacobian then also
 // contains the derivatives of the coefficients, which are checked as well.
-Coefficients phase_field_coefficients() {
+Coefficients phase_field_coefficients(Coefficient mobility = Coefficient(Glossary::Mobility, 1.)) {
   const double lambda = 0.15, omega = 120.;
   return Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(omega)),
-                      Coefficient(Glossary::Capillary, lambda),
-                      Coefficient(Glossary::Mobility, 1.),
+                      Coefficient(Glossary::Capillary, lambda), mobility,
                       Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
 }
 
@@ -131,6 +130,11 @@ std::vector<Case> all_cases() {
       {"CahnHilliard", 2,
        maker<CahnHilliardNLFormIntegrator>(
            {phase_field_coefficients(), phase_field_coefficients()})},
+      // Mobility depending on phi (block 1 = equation of mu), e.g. a degenerate mobility
+      {"CahnHilliard, mobility M(phi)", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {phase_field_coefficients(), phase_field_coefficients(Coefficient(
+                                            Glossary::Mobility, Scheme::Implicit, W(10.)))})},
       {"Fick", 1,
        maker<FickNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.)))})},
