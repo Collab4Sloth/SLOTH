@@ -213,10 +213,13 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
 
       const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
       const double alpha = this->get_phase_change_at_ip(blk, ipv.u, ipv.aux);
-      double fun_val =
-          coef_mobi * alpha *
-          this->eval_hessian_coefficient(interpolation_potential[blk], blk, blk, ipv.u,
-                                         ipv.aux);  // this->energy_derivatives(2, Tr, ip)(u);
+      // d/du (M(u) alpha h'(u)) = M alpha h''(u) + M'(u) alpha h'(u)
+      double fun_val = coef_mobi * alpha *
+                           this->eval_hessian_coefficient(interpolation_potential[blk], blk, blk,
+                                                          ipv.u, ipv.aux) +
+                       this->get_mob_derivative_at_ip(blk, ipv.u, ipv.aux) * alpha *
+                           this->eval_gradient_energy_coefficient(interpolation_potential[blk], blk,
+                                                                  ipv.u, ipv.aux);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -302,4 +305,19 @@ double MeltingBaseNLFormIntegrator<VARS>::get_mob_at_ip(
   const double mobi = this->eval_coefficient(mobility[blk], values, aux_values);
 
   return mobi;
+}
+/**
+ * @brief Derivative of the mobility with respect to the unknown of block blk
+ *
+ * @tparam VARS
+ * @param blk index of the block
+ * @param values values of the unknowns at the integration point
+ * @param aux_values values of the auxiliary variables at the integration point
+ * @return double
+ */
+template <class VARS>
+double MeltingBaseNLFormIntegrator<VARS>::get_mob_derivative_at_ip(
+    unsigned int blk, const std::span<const double>& values,
+    const std::span<const double>& aux_values) {
+  return this->eval_gradient_coefficient(mobility[blk], blk, values, aux_values);
 }

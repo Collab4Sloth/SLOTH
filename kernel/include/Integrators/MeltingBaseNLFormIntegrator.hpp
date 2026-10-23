@@ -68,6 +68,9 @@ class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
                                const std::span<const double>& aux_values);
 
+  virtual double get_mob_derivative_at_ip(unsigned int blk, const std::span<const double>& values,
+                                          const std::span<const double>& aux_values);
+
   void get_coefficients() override;
 
   virtual void check_variables_consistency();
