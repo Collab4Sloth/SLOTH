@@ -276,3 +276,141 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "RobinNLFormIntegrator: Jacobian with b
   x += 0.2;
   check_gradient(form, x);
 }
+
+// =============================================================================
+// Integrators with auxiliary variables (melting, latent heat)
+// =============================================================================
+// The auxiliary variables are SLOTH Variables, recognised by their additional
+// information ("T", "phi"). Their grid functions must live on the same mesh as
+// the tested form: everything is built on the mesh of a SpatialDiscretization.
+namespace {
+using SPA2D = Sloth2D::SPA;
+using BCS2D = Sloth2D::BCS;
+using VAR2D = Sloth2D::VAR;
+
+struct SlothSquare {
+  std::unique_ptr<SPA2D> spatial;
+  std::unique_ptr<BCS2D> bcs;  // Neumann everywhere
+
+  SlothSquare() {
+    spatial = std::make_unique<SPA2D>("InlineSquareWithQuadrangles", 1, 0,
+                                      std::make_tuple(4, 4, 1., 1.));
+    auto neumann = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                    Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
+    bcs = std::make_unique<BCS2D>(spatial.get(), neumann);
+  }
+  mfem::ParFiniteElementSpace* fes() const { return spatial->get_finite_element_space(); }
+
+  mfem::ParGridFunction project(const std::function<double(const mfem::Vector&)>& f) const {
+    mfem::ParGridFunction gf(fes());
+    mfem::FunctionCoefficient c(f);
+    gf.ProjectCoefficient(c);
+    return gf;
+  }
+
+  /// @brief Auxiliary variable with its additional information (e.g. "T")
+  VARS2D aux_variable(const std::string& name, const std::string& info, GlossaryQuantity qty,
+                      std::function<double(const mfem::Vector&, double)> f) const {
+    auto v = VAR2D(spatial.get(), *bcs, name, qty, 2, AnalyticalFunctions<DIM2>(f));
+    v.set_additional_information(info);
+    return VARS2D(v);
+  }
+  static constexpr int DIM2 = 2;
+
+  /// @brief Random point in [0.2, 0.8] (one block)
+  mfem::Vector random_point() const {
+    mfem::Vector x(fes()->GetTrueVSize());
+    x.Randomize(5);
+    x *= 0.6;
+    x += 0.2;
+    return x;
+  }
+};
+
+/// @brief One-block form with one domain integrator, on the given space
+std::unique_ptr<mfem::ParBlockNonlinearForm> one_block_form(
+    mfem::ParFiniteElementSpace* fes, mfem::BlockNonlinearFormIntegrator* i) {
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes;
+  auto form = std::make_unique<mfem::ParBlockNonlinearForm>(spaces);
+  form->AddDomainIntegrator(i);
+  return form;
+}
+
+Coefficients melting_coefficients(Coefficient mobility) {
+  return Coefficients(mobility,
+                      Coefficient(Glossary::InterpolationFunction, Scheme::Implicit, H()));
+}
+}  // namespace
+
+TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.params = Parameters(Parameter("melting_factor", 2.));
+  auto form = one_block_form(
+      fes(), maker<MeltingConstantNLFormIntegrator>(
+                 {melting_coefficients(Coefficient(Glossary::Mobility, 3.))})(ctx));
+  check_gradient(*form, random_point());
+}
+
+TEST_CASE_METHOD(SlothSquare, "MeltingTemperatureNLFormIntegrator: Jacobian",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  // T = 1000 + 200 x: melting (T > 1100) on half of the domain
+  auto temperature =
+      aux_variable("T", "T", Glossary::Temperature,
+                   [](const mfem::Vector& p, double) { return 1000. + 200. * p[0]; });
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.auxvars = {&temperature};
+  ctx.aux_old = {temperature.getVariables()[0].get_gf()};
+  ctx.params = Parameters(Parameter("melting_temperature", 1100.),
+                          Parameter("melting_enthalpy", 5.));
+  auto form = one_block_form(
+      fes(), maker<MeltingTemperatureNLFormIntegrator>(
+                 {melting_coefficients(Coefficient(Glossary::Mobility, 3.))})(ctx));
+  check_gradient(*form, random_point());
+}
+
+TEST_CASE_METHOD(SlothSquare, "LatentHeatNLFormIntegrator: residual and Jacobian",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  // phi - phi_old = c everywhere: residual = - ((c / dt)^2 / M) psi
+  const double c = 0.3, dt = 0.1, M = 2.;
+  auto phi = aux_variable("phi", "phi", Glossary::PhaseField,
+                          [](const mfem::Vector& p, double) { return 0.4 + 0.1 * p[0]; });
+  Context ctx;
+  ctx.dt = dt;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.auxvars = {&phi};
+  ctx.aux_old = {project([c](const mfem::Vector& p) { return 0.4 + 0.1 * p[0] - c; })};
+  auto form = one_block_form(
+      fes(), maker<LatentHeatNLFormIntegrator>(
+                 {Coefficients(Coefficient(Glossary::Mobility, M))})(ctx));
+
+  const mfem::Vector x = random_point();
+  SECTION("residual: sum = - (c / dt)^2 / M over the unit square") {
+    mfem::Vector y(x.Size());
+    form->Mult(x, y);
+    CHECK_THAT(global_sum(y), Catch::Matchers::WithinRel(-(c / dt) * (c / dt) / M, 1.e-10));
+  }
+  SECTION("Jacobian: zero (the residual does not depend on the unknown)") {
+    check_gradient(*form, x);
+  }
+}
+
+// Residual M(u) alpha h'(phi), Jacobian M alpha h''(phi) + M'(u) alpha h'(phi).
+// The second term (mobility depending on u) completes the Jacobian, which was
+// first written for a constant mobility.
+TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian with M(u)",
+                 "[Integrators][derivatives]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  auto form = one_block_form(
+      fes(), maker<MeltingConstantNLFormIntegrator>({melting_coefficients(
+                 Coefficient(Glossary::Mobility, Scheme::Implicit, W(10.)))})(ctx));
+  check_gradient(*form, random_point());
+}
