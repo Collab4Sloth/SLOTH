@@ -250,6 +250,12 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         fun_val_off *= weight_coef;
         AddMult_a_VVt(fun_val_off, Psi, *elmats(blk, jblk));
       }
+
+      // Mobility depending on the unknowns:
+      //   d/du_j (M (lambda grad u . grad psi_i + W' psi_i))
+      //     += dM/du_j psi_j (lambda grad u . grad psi_i + W' psi_i)
+      this->add_mobility_derivative(blk, lamb, gradPsi, Psi, *elfun[blk], ipv.u, ipv.aux,
+                                    weight_coef, elmats);
     }
   }
 }
@@ -410,6 +416,30 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
         AddMult_a_VVt(fun_val, Psi, *elmats(blk, jblk));
       }
     }
+
+    // Mobility depending on the unknowns (all the blocks of row blk)
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);
+      this->set_int_point(Tr, ip);
+      for (size_t k = 0; k < this->vaux_gf_.size(); ++k) {
+        vaux_gf_at_ip[k] = this->vaux_gf_[k].GetValue(Tr, ip);
+      }
+      for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
+        u_values[off_blk] = (*elfun[off_blk]) * Psi;
+        u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
+      }
+      el[blk]->CalcPhysDShape(Tr, gradPsi);
+      const double lamb = this->compute_coefficient(lambda[blk], std::span<const double>(u_values),
+                                                    std::span<const double>(vaux_gf_at_ip));
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+      this->add_mobility_derivative(blk, lamb, gradPsi, Psi, *elfun[blk],
+                                    std::span<const double>(u_values),
+                                    std::span<const double>(vaux_gf_at_ip), weight_coef, elmats);
+    }
   }
 }
 
@@ -442,6 +472,40 @@ void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {
     if (this->get_coefficient(i, GlossaryType::FreeEnergy, 0).has_value()) {
       double_well_energy.add(*(this->get_coefficient(i, GlossaryType::FreeEnergy, 0)));
     }
+  }
+}
+
+/**
+ * @brief Add the derivative of the mobility to the rows of block blk:
+ *   elmats(blk, j) += dM/du_j psi_j (lambda grad u . grad psi_i + W' psi_i)
+ * Nothing is added for a mobility independent of the unknowns (dM/du_j = 0).
+ */
+template <class VARS>
+void AllenCahnNLFormIntegrator<VARS>::add_mobility_derivative(
+    const int blk, const double lamb, const mfem::DenseMatrix& gradPsi, const mfem::Vector& Psi,
+    const mfem::Vector& elfun_blk, const std::span<const double>& u,
+    const std::span<const double>& aux, const double weight_coef,
+    const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
+  const int num_blocks = static_cast<int>(this->nb_blk_);
+  bool has_derivative = false;
+  this->dmob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
+  for (int j = 0; j < num_blocks; ++j) {
+    const double d = this->eval_gradient_coefficient(mobility[blk], j, u, aux);
+    this->dmob_at_ip_[static_cast<std::size_t>(j)] = d;
+    has_derivative = has_derivative || (d != 0.0);
+  }
+  if (!has_derivative) return;
+
+  // g_i = lambda grad u . grad psi_i + W' psi_i
+  mfem::Vector grad_u(gradPsi.Width()), g(gradPsi.Height());
+  gradPsi.MultTranspose(elfun_blk, grad_u);
+  gradPsi.Mult(grad_u, g);
+  g *= lamb;
+  g.Add(this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux), Psi);
+
+  for (int j = 0; j < num_blocks; ++j) {
+    const double d = this->dmob_at_ip_[static_cast<std::size_t>(j)];
+    if (d != 0.0) AddMult_a_VWt(d * weight_coef, g, Psi, *elmats(blk, j));
   }
 }
 
