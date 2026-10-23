@@ -692,3 +692,113 @@ TEST_CASE_METHOD(SlothSquare, "Advection integrators: invalid data", "[Integrato
         "Inflow coefficient not found");
   }
 }
+
+// =============================================================================
+// Residual of the phase-field integrators against their weak form
+// (each term is isolated on fields for which it is computed exactly)
+//   Allen-Cahn:    R(u)   = M [ (W'(u), psi) + lambda (grad u, grad psi) ]
+//   Cahn-Hilliard: R_phi  = (mu - W'(phi), psi) - lambda (grad phi, grad psi)
+//                  R_mu   = (M grad mu, grad psi)
+// with W(u) = omega u^2 (1 - u)^2, W'(u) = 2 omega u (1 - u) (1 - 2 u).
+// =============================================================================
+namespace {
+constexpr double kM = 2., kLambda = 0.15, kOmega = 120.;
+
+double dW(double u) { return 2. * kOmega * u * (1. - u) * (1. - 2. * u); }
+
+/// @brief Coefficients of a phase-field integrator; omega = 0 removes the double well
+Coefficients pf_coefficients(double omega) {
+  return Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(omega)),
+                      Coefficient(Glossary::Capillary, kLambda),
+                      Coefficient(Glossary::Mobility, kM),
+                      Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(kLambda)));
+}
+
+/// @brief Residual of a block form on the unit square, for given fields (one per block)
+struct BlockResidual {
+  mfem::Vector F;  // true dofs, blocks one after the other
+  int tsize;
+
+  BlockResidual(const sloth_unit::UnitSquare& sq, mfem::BlockNonlinearFormIntegrator* integ,
+                const std::vector<double (*)(const mfem::Vector&)>& fields) {
+    const int nb = static_cast<int>(fields.size());
+    mfem::Array<mfem::ParFiniteElementSpace*> spaces(nb);
+    for (int i = 0; i < nb; ++i) spaces[i] = sq.fes.get();
+    mfem::ParBlockNonlinearForm form(spaces);
+    form.AddDomainIntegrator(integ);
+    tsize = sq.fes->GetTrueVSize();
+    mfem::Vector x(nb * tsize), xi;
+    for (int i = 0; i < nb; ++i) {
+      sq.project(fields[static_cast<size_t>(i)]).GetTrueDofs(xi);
+      for (int k = 0; k < tsize; ++k) x(i * tsize + k) = xi(k);
+    }
+    F.SetSize(x.Size());
+    form.Mult(x, F);
+  }
+
+  mfem::Vector block(int i) const { return mfem::Vector(F.GetData() + i * tsize, tsize); }
+
+  /// @brief (R_i, 1): sum over all the dofs and all the ranks
+  double sum(int i) const { return global_sum(block(i)); }
+
+  /// @brief (R_i, x): moment against the interpolant of x
+  double moment_x(const sloth_unit::UnitSquare& sq, int i) const {
+    mfem::Vector X;
+    sq.project([](const mfem::Vector& p) { return p[0]; }).GetTrueDofs(X);
+    mfem::Vector bi = block(i);
+    return mfem::InnerProduct(MPI_COMM_WORLD, X, bi);
+  }
+};
+
+double c03(const mfem::Vector&) { return 0.3; }
+double c07(const mfem::Vector&) { return 0.7; }
+double x_of(const mfem::Vector& p) { return p[0]; }
+}  // namespace
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnNLFormIntegrator: residual",
+                 "[Integrators][residual]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+
+  SECTION("u = 0.3: (R, 1) = M W'(0.3)") {
+    const BlockResidual r(*this, maker<AllenCahnNLFormIntegrator>({pf_coefficients(kOmega)})(ctx),
+                          {c03});
+    CHECK_THAT(r.sum(0), Catch::Matchers::WithinRel(kM * dW(0.3), 1.e-12));
+  }
+  SECTION("u = x, no double well: (R, x) = M lambda (grad x, grad x) = M lambda") {
+    const BlockResidual r(*this, maker<AllenCahnNLFormIntegrator>({pf_coefficients(0.)})(ctx),
+                          {x_of});
+    CHECK_THAT(r.moment_x(*this, 0), Catch::Matchers::WithinRel(kM * kLambda, 1.e-12));
+  }
+}
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual",
+                 "[Integrators][residual]") {
+  Profiling::getInstance().disable();
+  Context ctx;
+  ctx.u_old = {project(phi_old), project(phi_old)};
+
+  SECTION("phi = 0.3, mu = 0.7: (R_phi, 1) = mu - W'(phi), R_mu = 0") {
+    const BlockResidual r(*this,
+                          maker<CahnHilliardNLFormIntegrator>(
+                              {pf_coefficients(kOmega), pf_coefficients(kOmega)})(ctx),
+                          {c03, c07});
+    CHECK_THAT(r.sum(0), Catch::Matchers::WithinRel(0.7 - dW(0.3), 1.e-12));
+    CHECK(r.block(1).Normlinf() < 1.e-12);
+  }
+  SECTION("phi = x, mu = 0, no double well: (R_phi, x) = - lambda") {
+    const BlockResidual r(*this,
+                          maker<CahnHilliardNLFormIntegrator>(
+                              {pf_coefficients(0.), pf_coefficients(0.)})(ctx),
+                          {x_of, [](const mfem::Vector&) { return 0.; }});
+    CHECK_THAT(r.moment_x(*this, 0), Catch::Matchers::WithinRel(-kLambda, 1.e-12));
+  }
+  SECTION("phi = 0.3, mu = x: (R_mu, x) = M (grad x, grad x) = M") {
+    const BlockResidual r(*this,
+                          maker<CahnHilliardNLFormIntegrator>(
+                              {pf_coefficients(kOmega), pf_coefficients(kOmega)})(ctx),
+                          {c03, x_of});
+    CHECK_THAT(r.moment_x(*this, 1), Catch::Matchers::WithinRel(kM, 1.e-12));
+  }
+}
