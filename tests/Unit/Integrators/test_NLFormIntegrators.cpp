@@ -41,6 +41,14 @@
 #include "Sloth/tests.hpp"
 #include "sloth_unit.hpp"
 
+// Mobility laws generated at configure time from Integrators/MobilityCoefficients.json:
+//   MobilityPhi   = m0 (1 + phi^2)          (one variable)
+//   MobilityCross = m0 phi0 (1 - phi1)      (two phases, monolithic coupling)
+//   MobilityDegenerate = m0 phi0 (1 - phi0) (two phases, depends on phi0 only)
+#include "MobilityCross.hpp"
+#include "MobilityDegenerate.hpp"
+#include "MobilityPhi.hpp"
+
 using Catch::Matchers::WithinAbs;
 
 namespace {
@@ -69,6 +77,16 @@ Coefficients phase_field_coefficients(Coefficient mobility = Coefficient(Glossar
   const double lambda = 0.15, omega = 120.;
   return Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(omega)),
                       Coefficient(Glossary::Capillary, lambda), mobility,
+                      Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
+}
+
+/// @brief Allen-Cahn coefficients with a mobility defined on the two phases
+template <class MOBILITY>
+Coefficients two_phase_mobility_coefficients() {
+  const double lambda = 0.15;
+  return Coefficients(Coefficient(Glossary::FreeEnergy, 0.),
+                      Coefficient(Glossary::Capillary, lambda),
+                      Coefficient(Glossary::Mobility, Scheme::Implicit, MOBILITY()),
                       Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
 }
 
@@ -127,14 +145,28 @@ std::vector<Case> all_cases() {
       {"TimeDerivative", 1, maker<TimeNLFormIntegrator>({none})},
       {"SplitTimeDerivative", 2, maker<TimeCHNLFormIntegrator>({none, none})},
       {"AllenCahn", 1, maker<AllenCahnNLFormIntegrator>({phase_field_coefficients()})},
+      {"AllenCahn, mobility M(phi)", 1,
+       maker<AllenCahnNLFormIntegrator>({phase_field_coefficients(
+           Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})},
+      // Two phases solved together, mobility depending on both: the Jacobian
+      // gets dM/dphi_j in every block (b, j). Constant free energy, so that
+      // only the mobility couples the blocks.
+      {"AllenCahn, 2 phases, mobility M(phi0, phi1)", 2,
+       maker<AllenCahnNLFormIntegrator>({two_phase_mobility_coefficients<MobilityCross>(),
+                                         two_phase_mobility_coefficients<MobilityCross>()})},
+      // Defined on the two phases but depending on phi0 only: dM/dphi1 = 0
+      {"AllenCahn, 2 phases, mobility M(phi0) = phi0 (1 - phi0)", 2,
+       maker<AllenCahnNLFormIntegrator>({two_phase_mobility_coefficients<MobilityDegenerate>(),
+                                         two_phase_mobility_coefficients<MobilityDegenerate>()})},
       {"CahnHilliard", 2,
        maker<CahnHilliardNLFormIntegrator>(
            {phase_field_coefficients(), phase_field_coefficients()})},
       // Mobility depending on phi (block 1 = equation of mu), e.g. a degenerate mobility
       {"CahnHilliard, mobility M(phi)", 2,
        maker<CahnHilliardNLFormIntegrator>(
-           {phase_field_coefficients(), phase_field_coefficients(Coefficient(
-                                            Glossary::Mobility, Scheme::Implicit, W(10.)))})},
+           {phase_field_coefficients(),
+            phase_field_coefficients(
+                Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})},
       {"Fick", 1,
        maker<FickNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.)))})},
@@ -453,7 +485,7 @@ TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian with M(
   ctx.u_old.push_back(project(phi_old));
   auto form = one_block_form(
       fes(), maker<MeltingConstantNLFormIntegrator>({melting_coefficients(
-                 Coefficient(Glossary::Mobility, Scheme::Implicit, W(10.)))})(ctx));
+                 Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})(ctx));
   check_gradient(*form, random_point());
 }
 

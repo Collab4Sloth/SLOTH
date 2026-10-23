@@ -139,7 +139,8 @@ sloth_add_unit_test(NAME Glossary
 
 sloth_add_unit_test(NAME Integrators
                     SOURCES Integrators/test_SlothGridFunction.cpp
-                            Integrators/test_NLFormIntegrators.cpp)
+                            Integrators/test_NLFormIntegrators.cpp
+                    COEFFICIENTS_JSON Integrators/MobilityCoefficients.json)
 
 sloth_add_unit_test(NAME Operators
                     SOURCES Operators/test_ReducedOperators.cpp)
