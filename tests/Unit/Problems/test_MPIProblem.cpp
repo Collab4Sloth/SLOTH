@@ -48,6 +48,8 @@ TEST_CASE("MPI_Problem: each rank writes its rank", "[Problems]") {
                                Parameter("frequency", 1),
                                Parameter("enable_compute_energies", false)));
   PB_MPI problem(vars, pst);
+  // No time-dependent coefficient in this problem: nothing to update
+  CHECK_NOTHROW(problem.set_time_coefficients(0.5));
   auto coupling = Coupling("MPI", problem);
   auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
                                             Parameter("final_time", 1.),

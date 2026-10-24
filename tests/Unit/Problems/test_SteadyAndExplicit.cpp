@@ -118,3 +118,17 @@ TEST_CASE("Problems: explicit Euler diffusion conserves the integral", "[Problem
   CHECK_THAT(integral(vars[0]), WithinRel(initial_integral, 1.e-10));
   CHECK(max_value(vars[0]) < initial_max);
 }
+
+// -----------------------------------------------------------------------------
+// SteadyOperator::Mult is not used: the steady solve goes through
+// SteadyPhaseFieldReducedOperator (Mult is required by mfem::Operator).
+// Calling it is an error.
+// -----------------------------------------------------------------------------
+TEST_CASE("SteadyOperator: Mult is not used", "[Problems][Operators][errors]") {
+  SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(2, 2, 1., 1.));
+  std::vector<SPA*> spatials{&spatial};
+  SteadyOPE oper(spatials, {"Fourier"});
+  const mfem::Vector k(4);
+  mfem::Vector y(4);
+  SLOTH_CHECK_MFEM_ERROR_WITH(oper.Mult(k, y), "SteadyOperator::Mult is not used");
+}
