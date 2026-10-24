@@ -152,6 +152,24 @@ TEST_CASE("CommonCoefficients: GradientEnergy = |g|^2 / 2", "[Coefficients]") {
   CHECK_THAT(ge.eval_hessian(0, 0, std::vector{3., 4.}, 2), WithinAbs(0., tol));
 }
 
+TEST_CASE("FunctionCoefficient: functions of one variable", "[Coefficients]") {
+  W w;
+  H h;
+  Fw fw;
+  Log l;
+  CHECK(w.is_single_variable());
+  CHECK(h.is_single_variable());
+  CHECK(fw.is_single_variable());
+  CHECK(l.is_single_variable());
+  CHECK_FALSE(GradientEnergy().is_single_variable());  // input: the gradient components
+  CHECK_FALSE(ConstantCoefficient(1.).is_single_variable());
+  // Sum and product: of one variable if every term is
+  CHECK(ProductCoefficient{&w, &h}.is_single_variable());
+  CHECK(SumCoefficient{&w, &h}.is_single_variable());
+  ConstantCoefficient c(2.);
+  CHECK_FALSE(ProductCoefficient{&w, &c}.is_single_variable());
+}
+
 TEST_CASE("ConstantCoefficient", "[Coefficients]") {
   ConstantCoefficient c(7.5);
   CHECK_THAT(c.eval_f(std::vector{0.3}, 1), WithinRel(7.5, tol));

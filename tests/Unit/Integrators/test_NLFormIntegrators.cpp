@@ -157,6 +157,11 @@ std::vector<Case> all_cases() {
       {"AllenCahn, 2 phases, mobility M(phi0) = phi0 (1 - phi0)", 2,
        maker<AllenCahnNLFormIntegrator>({two_phase_mobility_coefficients<MobilityDegenerate>(),
                                          two_phase_mobility_coefficients<MobilityDegenerate>()})},
+      // W and H(phi_b) of one variable on each phase: each block uses its own phase
+      {"AllenCahn, 2 phases, W(phi_b) and M = H(phi_b) per phase", 2,
+       maker<AllenCahnNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(2.))),
+            phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(2.)))})},
       {"CahnHilliard", 2,
        maker<CahnHilliardNLFormIntegrator>(
            {phase_field_coefficients(), phase_field_coefficients()})},
@@ -169,6 +174,11 @@ std::vector<Case> all_cases() {
       {"Fick", 1,
        maker<FickNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.)))})},
+      // D = H(u_b) of one variable on each block: each block uses its own unknown
+      {"Fick, 2 blocks, D = H(u_b) per block", 2,
+       maker<FickNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.))),
+            Coefficients(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.)))})},
       {"Fourier", 1,
        maker<FourierNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Conductivity, Scheme::Implicit, H(3.)))})},
@@ -182,6 +192,10 @@ std::vector<Case> all_cases() {
       {"SourceTerm", 1,
        maker<SourceTermNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, W(4.)))})},
+      {"SourceTerm, 2 blocks, H(u_b) per block", 2,
+       maker<SourceTermNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, H(4.))),
+            Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, H(4.)))})},
       {"SplitAllenCahn", 2,
        maker<BlockAllenCahnNLFormIntegrator>(
            {phase_field_coefficients(), phase_field_coefficients()})},
@@ -848,6 +862,45 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnNLFormIntegrator: residual",
                           {x_of});
     CHECK_THAT(r.moment_x(*this, 0), Catch::Matchers::WithinRel(kM * kLambda, 1.e-12));
   }
+}
+
+// Coefficients of one variable (W, H) on each phase: block b is evaluated on phi_b.
+// phi0 = 0.3, phi1 = 0.7 (uniform): (R_b, 1) = H(phi_b) W'(phi_b).
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "AllenCahnNLFormIntegrator: coefficients of one variable on each phase",
+                 "[Integrators][residual]") {
+  Context ctx;
+  ctx.u_old = {project(phi_old), project(phi_old)};
+  auto coefs = [] {
+    return Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(kOmega)),
+                        Coefficient(Glossary::Capillary, kLambda),
+                        Coefficient(Glossary::Mobility, Scheme::Implicit, H()),
+                        Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(kLambda)));
+  };
+  const BlockResidual r(*this, maker<AllenCahnNLFormIntegrator>({coefs(), coefs()})(ctx),
+                        {c03, c07});
+  H h;
+  const double h03 = h.eval_f(std::vector{0.3}, 1), h07 = h.eval_f(std::vector{0.7}, 1);
+  REQUIRE(h03 != h07);
+  CHECK_THAT(r.sum(0), Catch::Matchers::WithinRel(h03 * dW(0.3), 1.e-12));
+  CHECK_THAT(r.sum(1), Catch::Matchers::WithinRel(h07 * dW(0.7), 1.e-12));
+}
+
+// Source H(u_b) of one variable on each block, u0 = 0.3 and u1 = 0.7 (uniform):
+// |(R_b, 1)| = H(u_b) over the unit square.
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "SourceTermNLFormIntegrator: source of one variable on each block",
+                 "[Integrators][residual]") {
+  Context ctx;
+  ctx.u_old = {project(phi_old), project(phi_old)};
+  auto source = [] {
+    return Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, H()));
+  };
+  const BlockResidual r(*this, maker<SourceTermNLFormIntegrator>({source(), source()})(ctx),
+                        {c03, c07});
+  H h;
+  CHECK_THAT(std::abs(r.sum(0)), Catch::Matchers::WithinRel(h.eval_f(std::vector{0.3}, 1), 1.e-12));
+  CHECK_THAT(std::abs(r.sum(1)), Catch::Matchers::WithinRel(h.eval_f(std::vector{0.7}, 1), 1.e-12));
 }
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual",
