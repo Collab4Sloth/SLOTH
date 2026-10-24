@@ -78,10 +78,10 @@ T mmap<T>::find(const char* const n, const std::string& v) {
     std::string msg =
         "EnumNotFound::EnumNotFound : "
         "string '" +
-        std::string(n) +
+        v +
         "' "
         "is not a valid value for '" +
-        v + "' keyword. See documentation";
+        std::string(n) + "' keyword. See documentation";
     mfem::mfem_error(msg.c_str());
   }
   return p->second;

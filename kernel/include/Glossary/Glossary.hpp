@@ -61,6 +61,7 @@ enum class GlossaryUnit {
 static std::map<GlossaryUnit, std::string> GlossaryUnitMap = {
     {GlossaryUnit::Kelvin, "K"},
     {GlossaryUnit::Pascal, "Pa"},
+    {GlossaryUnit::Watt, "W"},
     {GlossaryUnit::Second, "s"},
     {GlossaryUnit::Meter, "m"},
     {GlossaryUnit::SquareMeterPerSecond, "m2.s-1"},

@@ -38,7 +38,7 @@ namespace {
  * @brief Checks Enum::from on a table {keyword, expected value}:
  *  - every keyword gives the expected value,
  *  - whatever the case (keywords are case-insensitive),
- *  - an unknown keyword is an error whose message names the option.
+ *  - an unknown keyword is an error whose message gives the keyword and the option.
  *
  * The table is written here from the documentation of the options, not copied
  * from the code: a keyword renamed or removed in SLOTH makes the test fail.
@@ -52,7 +52,8 @@ void check_from(const std::string& option_name,
     CHECK(Enum::from(toUpperCase(keyword)) == expected);
     CHECK(Enum::from(toLowerCase(keyword)) == expected);
   }
-  SLOTH_CHECK_MFEM_ERROR_WITH(Enum::from("NotAKeyword"), option_name);
+  SLOTH_CHECK_MFEM_ERROR_WITH(Enum::from("NotAKeyword"),
+                              "'NotAKeyword' is not a valid value for '" + option_name + "'");
 }
 }  // namespace
 
@@ -62,6 +63,12 @@ TEST_CASE("Options: TimeScheme::from", "[Options]") {
                                         {"SDIRK33", TimeScheme::SDIRK33},
                                         {"EulerExplicit", TimeScheme::EulerExplicit},
                                         {"RungeKutta4", TimeScheme::RungeKutta4}});
+}
+
+TEST_CASE("Options: ConvergenceType::from", "[Options]") {
+  check_from<ConvergenceType>("ConvergenceType",
+                              {{"RELATIVE_MAX", ConvergenceType::RELATIVE_MAX},
+                               {"ABSOLUTE_MAX", ConvergenceType::ABSOLUTE_MAX}});
 }
 
 TEST_CASE("Options: Problems::from", "[Options]") {

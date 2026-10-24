@@ -58,7 +58,7 @@ class UtilsForDebug {
  */
 static auto throw_if = [](const bool b, const std::string& method, const std::string& msg) {
   if (b) {
-    SlothInfo::error(method, ": ", msg);
-    mfem::mfem_error("Error message");
+    const std::string full_msg = method + ": " + msg;
+    mfem::mfem_error(full_msg.c_str());
   }
 };

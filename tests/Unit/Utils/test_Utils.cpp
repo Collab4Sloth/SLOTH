@@ -119,20 +119,15 @@ TEST_CASE("Utils: SlothInfo prints according to the verbosity", "[Utils]") {
     SlothInfo::debug("c");
     CHECK(out.str() == "a\nb\nc\n");
   }
-  SECTION("error messages are printed with Verbosity::Error only") {
-    // Verbosity::Error is the LAST level of the enum: SlothInfo::error only
-    // prints with Verbosity::Error, not with Normal or Debug.
-    {
-      const VerbosityGuard guard(Verbosity::Debug);
+  SECTION("error messages are printed on std::cerr, whatever the verbosity") {
+    for (const auto level : {Verbosity::Quiet, Verbosity::Normal, Verbosity::Error}) {
+      CAPTURE(static_cast<int>(level));
+      const VerbosityGuard guard(level);
       sloth_unit::CoutCapture out;
-      SlothInfo::error("err");
+      sloth_unit::CerrCapture err;
+      SlothInfo::error("err ", 1);
+      CHECK(err.str() == "err 1\n");
       CHECK(out.str().empty());
-    }
-    {
-      const VerbosityGuard guard(Verbosity::Error);
-      sloth_unit::CoutCapture out;
-      SlothInfo::error("err");
-      CHECK(out.str() == "err\n");
     }
   }
 }
@@ -155,5 +150,5 @@ TEST_CASE("Utils: memory checkpoints", "[Utils]") {
 
 TEST_CASE("Utils: throw_if", "[Utils]") {
   CHECK_NOTHROW(throw_if(false, "method", "never raised"));
-  SLOTH_CHECK_MFEM_ERROR(throw_if(true, "method", "raised"));
+  SLOTH_CHECK_MFEM_ERROR_WITH(throw_if(true, "method", "raised"), "method: raised");
 }

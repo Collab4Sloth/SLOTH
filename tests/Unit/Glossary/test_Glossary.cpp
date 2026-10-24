@@ -42,9 +42,7 @@ TEST_CASE("Glossary: unit symbols", "[Glossary]") {
   CHECK(toString(GlossaryUnit::None) == "-");
 }
 
-// [!mayfail]: reported, but does not make the executable fail.
-// GlossaryUnit::Watt has no symbol in GlossaryUnitMap: toString gives "Unknown".
-TEST_CASE("Glossary: every unit has a symbol", "[Glossary][!mayfail]") {
+TEST_CASE("Glossary: every unit has a symbol", "[Glossary]") {
   for (int u = static_cast<int>(GlossaryUnit::Kelvin); u <= static_cast<int>(GlossaryUnit::None);
        ++u) {
     CAPTURE(u);

@@ -164,7 +164,7 @@ struct multidimension_function<1> {
           });
     } else {
       mfem::mfem_error(
-          "multidimension_function::getParabolic: three arguments are expected (1- "
+          "multidimension_function::getParabolic: four arguments are expected (1- "
           "maximum radius, 2-  initial temperature, 3- lineic power, 4- conductivity");
     }
   }
@@ -287,7 +287,7 @@ struct multidimension_function<2> {
           });
     } else {
       mfem::mfem_error(
-          "multidimension_function::getParabolic: three arguments are expected (1- "
+          "multidimension_function::getParabolic: four arguments are expected (1- "
           "maximum radius, 2-  initial temperature, 3- lineic power, 4- conductivity");
     }
   }
@@ -365,7 +365,7 @@ struct multidimension_function<3> {
           });
     } else {
       mfem::mfem_error(
-          "multidimension_function::getHyperbolicTangent: height arguments are expected (1- "
+          "multidimension_function::getHyperbolicTangent: eight arguments are expected (1- "
           "center_x, "
           "2- center_y, 3- center_z, 4- a_x, 5- a_y, 6- a_z, 7- thickness, 8- radius");
     }

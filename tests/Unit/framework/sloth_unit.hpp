@@ -110,6 +110,24 @@ class CoutCapture {
 };
 
 /**
+ * @brief Captures what is written on std::cerr while the object is alive
+ * (same use as CoutCapture).
+ */
+class CerrCapture {
+ public:
+  CerrCapture() : old_(std::cerr.rdbuf(buffer_.rdbuf())) {}
+  ~CerrCapture() { std::cerr.rdbuf(old_); }
+  CerrCapture(const CerrCapture&) = delete;
+  CerrCapture& operator=(const CerrCapture&) = delete;
+
+  std::string str() const { return buffer_.str(); }
+
+ private:
+  std::ostringstream buffer_;
+  std::streambuf* old_;
+};
+
+/**
  * @brief File written in the system temporary directory for one test, and
  * removed when the object is destroyed (even if a check fails).
  *
