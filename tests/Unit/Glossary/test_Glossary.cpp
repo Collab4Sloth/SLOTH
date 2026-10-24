@@ -44,7 +44,6 @@ TEST_CASE("Glossary: unit symbols", "[Glossary]") {
 
 // [!mayfail]: reported, but does not make the executable fail.
 // GlossaryUnit::Watt has no symbol in GlossaryUnitMap: toString gives "Unknown".
-// Remove [!mayfail] once {GlossaryUnit::Watt, "W"} is added to the map.
 TEST_CASE("Glossary: every unit has a symbol", "[Glossary][!mayfail]") {
   for (int u = static_cast<int>(GlossaryUnit::Kelvin); u <= static_cast<int>(GlossaryUnit::None);
        ++u) {

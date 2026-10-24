@@ -194,8 +194,7 @@ TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Parabolic", "[AnalyticalFunctions]"
   CHECK_THAT(f(point_x<DIM>(0.), 0.), WithinRel(f0 + plin / (4. * M_PI * cond), 1.e-12));  // centre
 
   SECTION("four arguments are expected") {
-    // Note: the error message says "three arguments" (to be fixed in SLOTH),
-    // hence the check on the function name only.
+    // The message is checked on the function name only
     SLOTH_CHECK_MFEM_ERROR_WITH(
         AnalyticalFunctions<DIM>(AnalyticalFunctionsType::Parabolic, rmax, f0, plin),
         "getParabolic");

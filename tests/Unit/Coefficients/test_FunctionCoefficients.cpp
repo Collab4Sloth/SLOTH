@@ -255,4 +255,4 @@ TEST_CASE("ProductCoefficient: derivative where a factor vanishes",
 // Note on the dimension argument: eval_f(x) without dimension passes -1 to
 // F(), whose parameter is an unsigned int: it becomes 4294967295. Harmless for
 // coefficients that ignore it, but GradientEnergy would then read far beyond
-// the input. Not tested here (undefined behaviour), see the review notes.
+// the input. Not tested here (undefined behaviour).

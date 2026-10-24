@@ -65,8 +65,6 @@ struct AMRSetup {
                     Parameter("nc_limit", 1),           Parameter("max_preref_cycles", 3),
                     Parameter("scale_down_factor", 0.25), Parameter("rebalance", true)};
 
-  AMRSetup() { Profiling::getInstance().disable(); }
-
   mfem::ParMesh& mesh() { return *spatial.get_mesh(); }
   long long global_ne() { return mesh().GetGlobalNE(); }
 

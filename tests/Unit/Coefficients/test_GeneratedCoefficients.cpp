@@ -1,7 +1,7 @@
 /**
  * @file test_GeneratedCoefficients.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit tests for coefficients generated from JSON by GenerateCoefficient.py (migrated from tests/Coefficients/test2)
+ * @brief Unit tests for coefficients generated from JSON by GenerateCoefficient.py
  * @version 0.1
  * @date 2026-10-22
  *

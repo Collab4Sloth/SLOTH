@@ -44,19 +44,13 @@
  * left and right sides, Neumann elsewhere.
  *
  * phi starts from 0.5 + small perturbation (spinodal decomposition): it
- * evolves everywhere, including on the boundaries where mu is imposed. This is
- * what makes the test discriminating: with the former Jacobian, the Newton
- * increment of mu on its Dirichlet dofs was minus the increment of phi there,
- * so mu left 0 on the boundary as soon as phi changed on it.
+ * evolves everywhere, including on the boundaries where mu is imposed. This
+ * makes the test discriminating: a Jacobian coupling mu to phi on the
+ * Dirichlet dofs of mu would move mu away from 0 there as soon as phi changes.
  */
 TEST_CASE("Problems: coupled Cahn-Hilliard keeps mu = 0 on its Dirichlet boundary",
           "[Problems][Operators]") {
   using namespace Sloth2D;
-  // The kernel timers (Catch_Time_Section) need the MATools timers to be
-  // initialised: done by the first call to Profiling::getInstance(), as in the
-  // main of the other tests. disable(): no timetable printed, no file written.
-  Profiling::getInstance().disable();
-
   const auto dims = std::make_tuple(8, 8, 1., 1.);
   SPA spatial("InlineSquareWithQuadrangles", 1, 0, dims);
 

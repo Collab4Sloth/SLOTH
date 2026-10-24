@@ -226,10 +226,9 @@ TEST_CASE("PhaseFieldReducedOperator", "[Operators]") {
   SECTION("GetGradient, non-Dirichlet rows") { check_gradient_free_rows(F, p, p.random(3)); }
 }
 
-// Non-regression: with several variables, the off-diagonal blocks must not
-// get a 1 on their diagonal when the Dirichlet conditions are eliminated
-// (EliminateRowsCols on the diagonal blocks only). Otherwise the Dirichlet row
-// of variable i reads v_i + v_j instead of v_i.
+// With several variables, only the diagonal blocks get a 1 on their diagonal
+// when the Dirichlet conditions are eliminated: the Dirichlet row of variable
+// i reads v_i (a 1 in an off-diagonal block would make it read v_i + v_j).
 TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
           "[Operators]") {
   const int nvar = GENERATE(1, 2);
@@ -249,10 +248,10 @@ TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
   }
 }
 
-// Non-regression, in a Newton solve. Two coupled variables, Dirichlet on
-// variable 0 only: the time derivative k0 must stay 0 on the Dirichlet dofs
-// (the boundary value of u0 is fixed). With a 1 in the off-diagonal blocks,
-// the Dirichlet row read dk0 + dk1 = 0, so k0 != 0 on the boundary.
+// Same property in a Newton solve. Two coupled variables, Dirichlet on
+// variable 0 only: the time derivative k0 stays 0 on the Dirichlet dofs (the
+// boundary value of u0 is fixed). A 1 in an off-diagonal block would make the
+// Dirichlet row read dk0 + dk1 = 0, hence k0 != 0 on the boundary.
 TEST_CASE("PhaseFieldReducedOperator: Newton keeps the Dirichlet values",
           "[Operators]") {
   BlockProblem p(2);

@@ -69,8 +69,7 @@ TEST_CASE("Parameter: the stored type is the type of the value", "[Parameters]")
     CHECK(std::get<std::string>(p.get_value()) == "phi");
   }
   SECTION("a string literal is stored as std::string, not as bool") {
-    // Classical std::variant pitfall: "phi" (const char*) -> bool.
-    // Fixed in C++20 (P0608): this checks that the compiler applies it.
+    // C++20 (P0608): std::variant does not convert "phi" (const char*) to bool.
     const Parameter p("name", "phi");
     CHECK(std::holds_alternative<std::string>(p.get_value()));
   }

@@ -87,8 +87,6 @@ bool has_file_with_extension(const std::filesystem::path& dir, const std::string
 struct PstSetup {
   SPA spatial{"InlineSquareWithQuadrangles", 1, 0, std::make_tuple(8, 8, 1., 1.)};
   sloth_unit::TemporaryDirectory dir{"pst"};
-  PstSetup() { Profiling::getInstance().disable(); }
-
   Parameters base_parameters() const {
     return Parameters(Parameter("main_folder_path", dir.path()),
                       Parameter("calculation_path", std::string("Calc")));

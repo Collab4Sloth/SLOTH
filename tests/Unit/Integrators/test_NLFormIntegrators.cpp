@@ -254,9 +254,6 @@ double phi_old(const mfem::Vector& p) {
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "NLFormIntegrators: Jacobian matches the residual",
                  "[Integrators][derivatives]") {
-  // The kernel timers need the MATools timers (see Problems/test_CahnHilliardDirichlet.cpp)
-  Profiling::getInstance().disable();
-
   const Case c = GENERATE(Catch::Generators::from_range(all_cases()));
   INFO(c.name);
 
@@ -292,7 +289,6 @@ double global_sum(const mfem::Vector& v) {
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "NeumannNLFormIntegrator: residual = - integral of g",
                  "[Integrators]") {
-  Profiling::getInstance().disable();
   // The shape functions sum to 1: sum_i F_i = - int_right g = - g (length 1)
   const double g = 2.;
   Context ctx;
@@ -314,11 +310,10 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "NeumannNLFormIntegrator: residual = - 
   CHECK_THAT(global_sum(y), Catch::Matchers::WithinRel(-g, 1.e-12));
 }
 
-// Non-regression: residual (a(u) u - b(u)), Jacobian a + a'(u) u - b'(u).
-// The term -b'(u) was missing (wrong Jacobian when b depends on the unknown).
+// Residual (a(u) u - b(u)), Jacobian a + a'(u) u - b'(u), with a and b
+// depending on the unknown.
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "RobinNLFormIntegrator: Jacobian with b(u)",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
@@ -419,7 +414,6 @@ Coefficients melting_coefficients(Coefficient mobility) {
 
 TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   ctx.params = Parameters(Parameter("melting_factor", 2.));
@@ -431,7 +425,6 @@ TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian",
 
 TEST_CASE_METHOD(SlothSquare, "MeltingTemperatureNLFormIntegrator: Jacobian",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   // T = 1000 + 200 x: melting (T > 1100) on half of the domain
   auto temperature =
       aux_variable("T", "T", Glossary::Temperature,
@@ -450,7 +443,6 @@ TEST_CASE_METHOD(SlothSquare, "MeltingTemperatureNLFormIntegrator: Jacobian",
 
 TEST_CASE_METHOD(SlothSquare, "LatentHeatNLFormIntegrator: residual and Jacobian",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   // phi - phi_old = c everywhere: residual = - ((c / dt)^2 / M) psi
   const double c = 0.3, dt = 0.1, M = 2.;
   auto phi = aux_variable("phi", "phi", Glossary::PhaseField,
@@ -476,11 +468,9 @@ TEST_CASE_METHOD(SlothSquare, "LatentHeatNLFormIntegrator: residual and Jacobian
 }
 
 // Residual M(u) alpha h'(phi), Jacobian M alpha h''(phi) + M'(u) alpha h'(phi).
-// The second term (mobility depending on u) completes the Jacobian, which was
-// first written for a constant mobility.
+// The second term comes from the mobility depending on u.
 TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian with M(u)",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   auto form = one_block_form(
@@ -517,7 +507,6 @@ struct MassFluxSetup : SlothSquare {
 
 TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: residual and Jacobian",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   Context ctx;
   auto f = form(Coefficient(Glossary::Diffusivity, 1.), ctx);
 
@@ -535,7 +524,6 @@ TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: residual and
 
 TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: invalid data",
                  "[Integrators][errors]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   SECTION("no chemical potential") {
@@ -560,7 +548,6 @@ TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: invalid data",
 // constant): Jacobian D grad psi_j . grad psi_i + D'(u) psi_j grad(u - u_old) . grad psi_i
 TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: Jacobian with D(u)",
                  "[Integrators][derivatives]") {
-  Profiling::getInstance().disable();
   Context ctx;
   auto f = form(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(3.)), ctx);
   check_gradient(*f, random_point());
@@ -616,7 +603,6 @@ class AuxValue final : public FunctionCoefficient {
 TEST_CASE_METHOD(SlothSquare,
                  "AdvectionNLFormIntegrator: divergence form with a non-solenoidal velocity",
                  "[Integrators]") {
-  Profiling::getInstance().disable();
   // v = (b, 0) with the auxiliary field b = x (exact in Q1): v = (x, 0), div v = 1.
   // With u = 1: div(v u) = 1, so (div(v u), x) = int x = 1/2 over the unit square.
   auto b = aux_variable("b", "b", Glossary::Default,
@@ -659,7 +645,6 @@ TEST_CASE_METHOD(SlothSquare,
 
 TEST_CASE_METHOD(SlothSquare, "AdvectionNLFormIntegrator: gradient velocity v = alpha grad(a)",
                  "[Integrators]") {
-  Profiling::getInstance().disable();
   // a = x^2 / 2: in Q1, grad(a_h) is constant per element (mean slope), and
   // - (grad(a_h), grad x) = - int d(a_h)/dx = -(a(1) - a(0)) = -1/2 exactly (u = 1)
   auto a = aux_variable("a", "a", Glossary::Default,
@@ -680,7 +665,6 @@ TEST_CASE_METHOD(SlothSquare, "AdvectionNLFormIntegrator: gradient velocity v = 
 
 TEST_CASE_METHOD(SlothSquare, "AdvectionBoundaryNLFormIntegrator: inflow value",
                  "[Integrators]") {
-  Profiling::getInstance().disable();
   // v = (1, 0), inflow g = 3 on x = 0 (v.n = -1): residual (g v.n, psi), sum = -3
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
@@ -699,7 +683,6 @@ TEST_CASE_METHOD(SlothSquare, "AdvectionBoundaryNLFormIntegrator: inflow value",
 }
 
 TEST_CASE_METHOD(SlothSquare, "Advection integrators: invalid data", "[Integrators][errors]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   SECTION("no velocity") {
@@ -789,7 +772,6 @@ double x_of(const mfem::Vector& p) { return p[0]; }
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnNLFormIntegrator: residual",
                  "[Integrators][residual]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
 
@@ -807,7 +789,6 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnNLFormIntegrator: residual",
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual",
                  "[Integrators][residual]") {
-  Profiling::getInstance().disable();
   Context ctx;
   ctx.u_old = {project(phi_old), project(phi_old)};
 

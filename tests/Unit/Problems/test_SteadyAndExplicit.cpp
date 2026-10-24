@@ -69,7 +69,6 @@ Parameters time_parameters(double t_final, double dt) {
 // insulated on y = 0 and y = 1. Exact solution T = 1 + x, exact in Q1.
 // -----------------------------------------------------------------------------
 TEST_CASE("Problems: steady heat conduction (SteadyOPE, SteadyPB)", "[Problems][Operators]") {
-  Profiling::getInstance().disable();
   SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(8, 8, 1., 1.));
   auto bcs = BCS(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 2.),
                  Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 1.));
@@ -97,7 +96,6 @@ TEST_CASE("Problems: steady heat conduction (SteadyOPE, SteadyPB)", "[Problems][
 // matrix summing to zero) and the perturbation decays.
 // -----------------------------------------------------------------------------
 TEST_CASE("Problems: explicit Euler diffusion conserves the integral", "[Problems][Operators]") {
-  Profiling::getInstance().disable();
   SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(8, 8, 1., 1.));
   auto bcs = BCS(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
                  Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));

@@ -70,7 +70,7 @@ TEST_CASE("Coefficients: add", "[Coefficients]") {
 
 // [!mayfail]: reported, but does not make the executable fail.
 // Coefficients::add appends the coefficient but not its type:
-// get_types() no longer matches the coefficients after an add.
+// after an add, get_types() does not match the coefficients.
 TEST_CASE("Coefficients: get_types is consistent after add", "[Coefficients][!mayfail]") {
   Coefficients coefs(Coefficient(Glossary::Temperature, 300.));
   coefs.add(Coefficient(Glossary::Pressure, 1.e5));

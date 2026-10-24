@@ -119,10 +119,9 @@ TEST_CASE("Utils: SlothInfo prints according to the verbosity", "[Utils]") {
     SlothInfo::debug("c");
     CHECK(out.str() == "a\nb\nc\n");
   }
-  SECTION("error messages: current behaviour") {
+  SECTION("error messages are printed with Verbosity::Error only") {
     // Verbosity::Error is the LAST level of the enum: SlothInfo::error only
-    // prints with Verbosity::Error, not with Normal or Debug. This documents
-    // the current behaviour; to be discussed (errors usually always printed).
+    // prints with Verbosity::Error, not with Normal or Debug.
     {
       const VerbosityGuard guard(Verbosity::Debug);
       sloth_unit::CoutCapture out;

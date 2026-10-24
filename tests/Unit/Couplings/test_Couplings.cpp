@@ -106,9 +106,7 @@ struct TwoProblems {
 
   TwoProblems()
       : T_vars(make_T(&spatial, bcs_T)),
-        u_vars(VAR(&spatial, bcs_u, "u", Glossary::Concentration, 2, 0.)) {
-    Profiling::getInstance().disable();
-  }
+        u_vars(VAR(&spatial, bcs_u, "u", Glossary::Concentration, 2, 0.)) {}
 
   /// @brief L2 distance between u and t (1 + x) (all ranks)
   double u_error(double t) {

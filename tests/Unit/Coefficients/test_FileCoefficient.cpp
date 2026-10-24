@@ -1,7 +1,7 @@
 /**
  * @file test_FileCoefficient.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit tests for FileCoefficient (coefficient read from a CSV file; migrated from tests/Coefficients/test3)
+ * @brief Unit tests for FileCoefficient (coefficient read from a CSV file)
  * @version 0.1
  * @date 2026-10-22
  *
@@ -82,14 +82,14 @@ double eval(Coefficient& c, double t, const std::vector<double>& x) {
                    static_cast<int>(x.size()));
 }
 
-/// @brief Reference affine field of the migrated test: F = t + 2x + 3y + 4z
+/// @brief Reference affine field: F = t + 2x + 3y + 4z
 double affine3d(double t, const std::vector<double>& x) {
   return t + 2. * x[0] + 3. * x[1] + 4. * x[2];
 }
 }  // namespace
 
 // -----------------------------------------------------------------------------
-// Migrated from tests/Coefficients/test3: affine field on a 3D + time grid.
+// Affine field on a 3D + time grid.
 // Multilinear interpolation is exact for an affine field, at any point.
 // -----------------------------------------------------------------------------
 TEST_CASE("FileCoefficient: 3D + time, affine field", "[Coefficients][file]") {
