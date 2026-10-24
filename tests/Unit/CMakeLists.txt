@@ -154,6 +154,9 @@ sloth_add_unit_test(NAME Parameters
                     SOURCES Parameters/test_Parameter.cpp
                             Parameters/test_Parameters.cpp)
 
+sloth_add_unit_test(NAME PostProcessing
+                    SOURCES PostProcessing/test_PostProcessing.cpp)
+
 sloth_add_unit_test(NAME PreProcessing
                     SOURCES PreProcessing/test_TabulatedFunction.cpp
                     NPROCS 1)

@@ -142,6 +142,46 @@ class TemporaryFile {
 };
 
 /**
+ * @brief Directory created in the system temporary directory for one test,
+ * shared by all the MPI ranks, and removed (with its content) at the end.
+ *
+ *   sloth_unit::TemporaryDirectory dir("pst");
+ *   ... write in dir.path() ...
+ *
+ * Collective: every rank must create and destroy it.
+ */
+class TemporaryDirectory {
+ public:
+  explicit TemporaryDirectory(const std::string& name) {
+    // Unique name chosen by rank 0, sent to the other ranks
+    int pid = static_cast<int>(::getpid());
+    MPI_Bcast(&pid, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    path_ = std::filesystem::temp_directory_path() /
+            ("sloth_unit_" + std::to_string(pid) + "_" + name);
+    if (mfem::Mpi::Root()) {
+      std::error_code ec;
+      std::filesystem::remove_all(path_, ec);
+      std::filesystem::create_directories(path_);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+  ~TemporaryDirectory() {
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (mfem::Mpi::Root()) {
+      std::error_code ec;
+      std::filesystem::remove_all(path_, ec);  // never throws in a destructor
+    }
+  }
+  TemporaryDirectory(const TemporaryDirectory&) = delete;
+  TemporaryDirectory& operator=(const TemporaryDirectory&) = delete;
+
+  std::string path() const { return path_.string(); }
+
+ private:
+  std::filesystem::path path_;
+};
+
+/**
  * @brief Unit square [0, 1]^2, n x n quadrangles, distributed over all the MPI
  * ranks, with an H1 finite element space of the given order. Built in memory.
  *
