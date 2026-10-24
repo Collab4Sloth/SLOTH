@@ -131,6 +131,9 @@ sloth_add_unit_test(NAME Convergence
                     SOURCES Convergence/test_Convergence.cpp
                     NPROCS 1)
 
+sloth_add_unit_test(NAME Couplings
+                    SOURCES Couplings/test_Couplings.cpp)
+
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
 
