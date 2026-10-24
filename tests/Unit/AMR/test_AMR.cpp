@@ -23,11 +23,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -206,4 +208,79 @@ TEST_CASE_METHOD(AMRSetup, "AMR: invalid use", "[AMR][errors]") {
     SLOTH_CHECK_MFEM_ERROR_WITH(amr.SetCriteria(&estimator, Parameters(std::vector<Parameter>{})),
                                 "Not Found");
   }
+}
+
+// -----------------------------------------------------------------------------
+// AMR attached to a problem (set_amr): Allen-Cahn front at x = 0.5, Dirichlet
+// phi = 0 on x = 0 and phi = 1 on x = 1. The mesh is refined before the first
+// time step and at each step; the operator and the Dirichlet dofs follow the
+// new mesh, and the Dirichlet values are kept exactly.
+// -----------------------------------------------------------------------------
+TEST_CASE_METHOD(AMRSetup, "AMR: attached to a problem, during the time loop",
+                 "[AMR][Problems]") {
+  BCS bcs_d{&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 1.),
+            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 0.)};
+  auto vars = VARS(VAR(&spatial, bcs_d, "phi", Glossary::PhaseField, 2,
+                       AnalyticalFunctions<DIM>(interface(0.5))));
+  const double lambda = 0.15, omega = 120.;
+  Coefficients coefs(Coefficient(Glossary::FreeEnergy, Scheme::Explicit, W(omega)),
+                     Coefficient(Glossary::Capillary, lambda), Coefficient(Glossary::Mobility, 1.),
+                     Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
+  std::vector<SPA*> spatials{&spatial};
+  TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  oper.overload_nl_solver(NLSolverType::NEWTON,
+                          Parameters(Parameter("description", std::string("Newton")),
+                                     Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
+  TransientPB problem("phi", oper, vars, {coefs});
+
+  SingleVariableAMR<VARS> amr(mesh(), spatial.is_nc_simplices(), "phi");
+  amr.SetCriteria(&estimator, params);
+  problem.set_amr(&amr);
+
+  auto coupling = Coupling("AMR", problem);
+  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
+                                            Parameter("final_time", 2.e-3),
+                                            Parameter("time_step", 1.e-3)),
+                                 coupling);
+  time.solve();
+
+  CHECK(global_ne() > 64);
+  mfem::ParFiniteElementSpace* fes = vars[0].get_fespace();
+  const mfem::Vector u = vars[0].get_unknown();
+  REQUIRE(u.Size() == fes->GetTrueVSize());
+
+  // Dirichlet values on the refined mesh
+  double local_err = 0.;
+  for (const auto& [bdr, value] : {std::pair{1, 1.}, std::pair{3, 0.}}) {
+    mfem::Array<int> marker(fes->GetParMesh()->bdr_attributes.Max());
+    marker = 0;
+    marker[bdr] = 1;
+    mfem::Array<int> dofs;
+    fes->GetEssentialTrueDofs(marker, dofs);
+    for (int k = 0; k < dofs.Size(); ++k) {
+      local_err = std::max(local_err, std::abs(u(dofs[k]) - value));
+    }
+  }
+  double err = 0.;
+  MPI_Allreduce(&local_err, &err, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  CHECK(err < 1.e-10);
+}
+
+TEST_CASE_METHOD(AMRSetup, "MultiVariableMaxAMR: derefinement of flat fields", "[AMR]") {
+  auto vars = VARS(variable("phi", interface(0.5)), variable("psi", interface(0.5, true)));
+  MultiVariableMaxAMR<VARS> amr(mesh(), spatial.is_nc_simplices(),
+                                std::vector<std::string>{"phi", "psi"});
+  amr.SetCriteria(&estimator, params);
+  amr.InitialRefine(vars, {});
+  const long long refined_ne = global_ne();
+  REQUIRE(refined_ne > 64);
+
+  // Uniform fields: zero error everywhere, every refined element can be derefined
+  for (std::size_t k = 0; k < 2; ++k) {
+    mfem::Vector u = vars[k].get_unknown();
+    u = 0.3;
+    vars[k].update(u);
+  }
+  amr.StepDerefine(vars, {});
+  CHECK(global_ne() < refined_ne);
 }

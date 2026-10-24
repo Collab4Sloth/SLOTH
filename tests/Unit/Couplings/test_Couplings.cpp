@@ -210,3 +210,40 @@ TEST_CASE_METHOD(TwoProblems, "Coupling: the time loop stops when the criteria g
 
   CHECK(u_error(0.2) < 1.e-10);
 }
+
+// -----------------------------------------------------------------------------
+// Problems with the same name, writing in the same directory: the second one
+// is renamed (suffix 1) and each problem writes its own CSV file
+// <problem name>_time_specialized.csv.
+// -----------------------------------------------------------------------------
+TEST_CASE_METHOD(TwoProblems, "Coupling: problems with the same name and output directory",
+                 "[Couplings][PostProcessing]") {
+  sloth_unit::TemporaryDirectory dir("names");
+  const Parameters p(Parameter("main_folder_path", dir.path()),
+                     Parameter("calculation_path", std::string("Calc")),
+                     Parameter("frequency", 1), Parameter("enable_compute_energies", false),
+                     Parameter("integral_to_compute",
+                               MapString2Double{{"T", {0., 10.}}, {"u", {0., 10.}}}));
+  PST pst(&spatial, p);
+
+  SteadyOPE oper_T(spatials, {"Fourier"});
+  oper_T.overload_nl_solver(NLSolverType::NEWTON, newton());
+  TransientOPE oper_u(spatials, {"SourceTerm"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  oper_u.overload_nl_solver(NLSolverType::NEWTON, newton());
+  SteadyPB p1("Same", oper_T, T_vars, {coefs_T}, pst);
+  TransientPB p2("Same", oper_u, u_vars, {coefs_u}, pst, T_vars);
+
+  auto coupling = Coupling("Coupling", p1, p2);
+  coupling.set_name("Renamed coupling");
+  CHECK(coupling.get_name() == "Renamed coupling");
+
+  auto time = TimeDiscretization(time_parameters(), coupling);
+  time.solve();
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (mfem::Mpi::Root()) {
+    const std::filesystem::path out = pst.get_post_processing_directory();
+    CHECK(std::filesystem::exists(out / "Same_time_specialized.csv"));
+    CHECK(std::filesystem::exists(out / "Same1_time_specialized.csv"));
+  }
+}

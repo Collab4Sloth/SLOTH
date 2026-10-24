@@ -544,6 +544,70 @@ TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: invalid data",
   }
 }
 
+// Physical flux scaled by the temperature T (auxiliary variable ["T"]):
+//   ScaleVariablesByTemperature (diffusion chemical potentials dmu, [element, "dmu"]):
+//     M grad(dmu / T) = M (grad dmu / T - dmu grad T / T^2)
+//   ScaleCoefficientsByTemperature: (M / (R T)) grad mu
+// Moments (F, x) at u = u_old (no stabilisation), fields exact in Q1.
+TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: scaling by the temperature",
+                 "[Integrators]") {
+  using Field = std::function<double(const mfem::Vector&, double)>;
+  auto make = [this](const std::string& name, const std::vector<std::string>& infos,
+                     GlossaryQuantity qty, Field f) { return aux_variable(name, infos, qty, f); };
+  auto mob = make("M_U", {"U", "inter_mob"}, Glossary::InterDiffusionMobility,
+                  [](const mfem::Vector&, double) { return 2.; });
+  auto T_uniform = make("T", {"T"}, Glossary::Temperature,
+                        [](const mfem::Vector&, double) { return 2.; });
+  auto T_affine = make("T", {"T"}, Glossary::Temperature,
+                       [](const mfem::Vector& p, double) { return 1. + p[0]; });
+  auto dmu_x = make("dmu_U", {"U", "dmu"}, Glossary::ChemicalPotential,
+                    [](const mfem::Vector& p, double) { return p[0]; });
+  auto dmu_3T = make("dmu_U", {"U", "dmu"}, Glossary::ChemicalPotential,
+                     [](const mfem::Vector& p, double) { return 3. * (1. + p[0]); });
+  auto mu_x = make("mu_U", {"U", "mu"}, Glossary::ChemicalPotential,
+                   [](const mfem::Vector& p, double) { return p[0]; });
+
+  const Parameters scale_variables(Parameter("EnableDiffusionChemicalPotentials", true),
+                                   Parameter("ScaleVariablesByTemperature", true));
+
+  // (F, x) at u = u_old, X = interpolant of x
+  auto moment = [this](const std::vector<VARS2D*>& aux, const Parameters& params) {
+    Context ctx;
+    ctx.u_old.push_back(project(phi_old));
+    ctx.auxvars = aux;
+    for (auto* v : aux) ctx.aux_old.push_back(v->getVariables()[0].get_gf());
+    ctx.params = params;
+    auto f = one_block_form(fes(), maker<MassDiffusionFluxNLFormIntegrator>(
+                                       {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx));
+    mfem::Vector u_old, y(fes()->GetTrueVSize()), X;
+    ctx.u_old[0].GetTrueDofs(u_old);
+    f->Mult(u_old, y);
+    project([](const mfem::Vector& p) { return p[0]; }).GetTrueDofs(X);
+    return mfem::InnerProduct(MPI_COMM_WORLD, X, y);
+  };
+
+  SECTION("dmu = x, T = 2: flux M grad(x) / 2 = (1, 0)") {
+    const std::vector<VARS2D*> aux{&dmu_x, &mob, &T_uniform};
+    CHECK_THAT(moment(aux, scale_variables),
+               Catch::Matchers::WithinRel(1., 1.e-10));
+  }
+  SECTION("dmu = 3 T, T = 1 + x: dmu / T is uniform, no flux") {
+    const std::vector<VARS2D*> aux{&dmu_3T, &mob, &T_affine};
+    CHECK_THAT(moment(aux, scale_variables),
+               Catch::Matchers::WithinAbs(0., 1.e-12));
+  }
+  SECTION("mu = x, T = 2, mobility scaled: flux (M / (R T)) grad(x) = (1 / R, 0)") {
+    const Parameters scale_coefficients(Parameter("ScaleCoefficientsByTemperature", true));
+    const std::vector<VARS2D*> aux{&mu_x, &mob, &T_uniform};
+    CHECK_THAT(moment(aux, scale_coefficients),
+               Catch::Matchers::WithinRel(1. / Physical::R, 1.e-10));
+  }
+  SECTION("the temperature is required to scale") {
+    const std::vector<VARS2D*> no_temperature{&dmu_x, &mob};
+    SLOTH_CHECK_MFEM_ERROR_WITH(moment(no_temperature, scale_variables), "No temperature found");
+  }
+}
+
 // Stabilisation coefficient depending on u (not the usual case, D is generally
 // constant): Jacobian D grad psi_j . grad psi_i + D'(u) psi_j grad(u - u_old) . grad psi_i
 TEST_CASE_METHOD(MassFluxSetup, "MassDiffusionFluxNLFormIntegrator: Jacobian with D(u)",
@@ -813,5 +877,148 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual
                               {pf_coefficients(kOmega), pf_coefficients(kOmega)})(ctx),
                           {c03, x_of});
     CHECK_THAT(r.moment_x(*this, 1), Catch::Matchers::WithinRel(kM, 1.e-12));
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Coefficient of the spatial coordinates in an integrator: the integrator
+// gives it the physical point of each integration point.
+// Source f = 1 + x + y: |sum_i F_i| = |(f, 1)| = 2 over the unit square.
+// -----------------------------------------------------------------------------
+namespace {
+class OnePlusXPlusY final : public FunctionCoefficient {
+ public:
+  bool uses_coordinates() const override { return true; }
+
+ protected:
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
+                       const std::span<const double>&, const unsigned int)>
+  F() override {
+    return [this](const std::span<const double>&, const std::span<const double>&,
+                  const std::span<const double>&, const unsigned int) {
+      return 1. + this->coordinates_[0] + this->coordinates_[1];
+    };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  GradientF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) {
+      return std::vector<double>(u.size(), 0.);
+    };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  HessianF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) {
+      return std::vector<double>(u.size() * u.size(), 0.);
+    };
+  }
+};
+}  // namespace
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "SourceTermNLFormIntegrator: source of the coordinates",
+                 "[Integrators]") {
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  auto form = one_block_form(
+      fes.get(), maker<SourceTermNLFormIntegrator>({Coefficients(
+                     Coefficient(Glossary::SourceTerm, Scheme::Implicit, OnePlusXPlusY()))})(ctx));
+  mfem::Vector x(fes->GetTrueVSize()), y(fes->GetTrueVSize());
+  x = 0.5;
+  form->Mult(x, y);
+  CHECK_THAT(std::abs(global_sum(y)), Catch::Matchers::WithinRel(2., 1.e-12));
+}
+
+// -----------------------------------------------------------------------------
+// Phases on different finite element spaces (general path of the integrator).
+// Phase 0 on Q1, phase 1 on Q2, mobility M = m0 phi0 (1 - phi1) of both phases.
+// With fields exact in both spaces (phi0 = 0.3 + 0.1 y, phi1 = 0.4 + 0.2 x), the
+// residual is the one computed with both phases on Q1:
+//   block 0 (Q1 in both cases): equal dof by dof;
+//   block 1: equal moments (R_1, 1) and (R_1, x), 1 and x being in Q1 and Q2.
+// The Jacobian (rectangular off-diagonal blocks) matches the residual.
+// -----------------------------------------------------------------------------
+namespace {
+double phi0_affine(const mfem::Vector& p) { return 0.3 + 0.1 * p[1]; }
+double phi1_affine(const mfem::Vector& p) { return 0.4 + 0.2 * p[0]; }
+
+/// @brief Interpolant of f on a space, as true dofs
+mfem::Vector true_dofs(mfem::ParFiniteElementSpace* fes, double (*f)(const mfem::Vector&)) {
+  mfem::ParGridFunction gf(fes);
+  mfem::FunctionCoefficient c(f);
+  gf.ProjectCoefficient(c);
+  mfem::Vector v;
+  gf.GetTrueDofs(v);
+  return v;
+}
+
+/// @brief Two-phase Allen-Cahn form on the spaces (s0, s1); ctx must outlive the form
+std::unique_ptr<mfem::ParBlockNonlinearForm> two_phase_form(mfem::ParFiniteElementSpace* s0,
+                                                            mfem::ParFiniteElementSpace* s1,
+                                                            Context& ctx) {
+  for (auto* s : {s0, s1}) {
+    mfem::ParGridFunction old(s);
+    mfem::FunctionCoefficient c(phi_old);
+    old.ProjectCoefficient(c);
+    ctx.u_old.push_back(old);
+  }
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(2);
+  spaces[0] = s0;
+  spaces[1] = s1;
+  auto form = std::make_unique<mfem::ParBlockNonlinearForm>(spaces);
+  form->AddDomainIntegrator(
+      maker<AllenCahnNLFormIntegrator>({two_phase_mobility_coefficients<MobilityCross>(),
+                                        two_phase_mobility_coefficients<MobilityCross>()})(ctx));
+  return form;
+}
+
+/// @brief True dofs of (phi0, phi1) on the spaces (s0, s1), blocks one after the other
+mfem::Vector two_phase_fields(mfem::ParFiniteElementSpace* s0, mfem::ParFiniteElementSpace* s1) {
+  const mfem::Vector x0 = true_dofs(s0, phi0_affine), x1 = true_dofs(s1, phi1_affine);
+  mfem::Vector x(x0.Size() + x1.Size());
+  x.SetVector(x0, 0);
+  x.SetVector(x1, x0.Size());
+  return x;
+}
+}  // namespace
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "AllenCahnNLFormIntegrator: phases on different finite element spaces",
+                 "[Integrators][derivatives]") {
+  mfem::H1_FECollection fec2(2, 2);
+  mfem::ParFiniteElementSpace fes2(pmesh.get(), &fec2);
+  Context ctx_mixed;
+  auto mixed = two_phase_form(fes.get(), &fes2, ctx_mixed);
+  const int n0 = fes->GetTrueVSize();
+
+  SECTION("residual: same as with both phases on Q1") {
+    Context ctx_ref;
+    auto ref = two_phase_form(fes.get(), fes.get(), ctx_ref);
+    const mfem::Vector x_ref = two_phase_fields(fes.get(), fes.get());
+    const mfem::Vector x_mixed = two_phase_fields(fes.get(), &fes2);
+    mfem::Vector F_ref(x_ref.Size()), F_mixed(x_mixed.Size());
+    ref->Mult(x_ref, F_ref);
+    mixed->Mult(x_mixed, F_mixed);
+
+    for (int r = 0; r < n0; ++r) {
+      CAPTURE(r);
+      CHECK_THAT(F_mixed(r), Catch::Matchers::WithinAbs(F_ref(r), 1.e-12));
+    }
+    mfem::Vector R1_ref(F_ref.GetData() + n0, F_ref.Size() - n0);
+    mfem::Vector R1_mixed(F_mixed.GetData() + n0, F_mixed.Size() - n0);
+    CHECK_THAT(global_sum(R1_mixed), Catch::Matchers::WithinAbs(global_sum(R1_ref), 1.e-12));
+    const mfem::Vector X_ref = true_dofs(fes.get(), x_of), X_mixed = true_dofs(&fes2, x_of);
+    CHECK_THAT(mfem::InnerProduct(MPI_COMM_WORLD, X_mixed, R1_mixed),
+               Catch::Matchers::WithinAbs(mfem::InnerProduct(MPI_COMM_WORLD, X_ref, R1_ref),
+                                          1.e-12));
+  }
+  SECTION("Jacobian") {
+    mfem::Vector x(n0 + fes2.GetTrueVSize());
+    x.Randomize(5);
+    x *= 0.6;
+    x += 0.2;
+    check_gradient(*mixed, x);
   }
 }

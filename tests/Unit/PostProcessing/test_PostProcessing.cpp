@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <string>
@@ -214,5 +215,103 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: complete problem (ParaView, errors, 
     }
 
     CHECK(has_file_with_extension(dir.path(), ".pvd"));  // ParaView collection
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Energies of a phase-field problem (enable_compute_energies, true by default),
+// written in time_specialized.csv:
+//   Density = int (W(u) + lambda |grad u|^2 / 2),   Sigma = int lambda |grad u|^2
+// with W(u) = omega u^2 (1 - u)^2 interpolated from its nodal values.
+// Zero mobility: u keeps its initial value during the time step.
+// -----------------------------------------------------------------------------
+TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
+                 "[PostProcessing][Problems]") {
+  const double lambda = 0.15;
+  // Returns (Density, Sigma) read by rank 0 (0 on the other ranks)
+  auto energies = [&](double omega, std::function<double(const mfem::Vector&, double)> u0) {
+    auto bcs = BCS(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                   Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
+    auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, AnalyticalFunctions<DIM>(u0)));
+    PST pst(&spatial, base_parameters() + Parameter("frequency", 1));
+    Coefficients coefs(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(omega)),
+                       Coefficient(Glossary::Capillary, lambda), Coefficient(Glossary::Mobility, 0.),
+                       Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
+    std::vector<SPA*> spatials{&spatial};
+    TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
+    oper.overload_nl_solver(NLSolverType::NEWTON,
+                            Parameters(Parameter("description", std::string("Newton")),
+                                       Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
+    TransientPB problem("PhaseField", oper, vars, {coefs}, pst);
+    auto coupling = Coupling("PhaseField", problem);
+    auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
+                                              Parameter("final_time", 0.1),
+                                              Parameter("time_step", 0.1)),
+                                   coupling);
+    time.solve();
+    MPI_Barrier(MPI_COMM_WORLD);
+    std::pair<double, double> result{0., 0.};
+    if (mfem::Mpi::Root()) {
+      const auto csv = std::filesystem::path(pst.get_post_processing_directory()) /
+                       "time_specialized.csv";
+      REQUIRE(std::filesystem::exists(csv));
+      result = {column(csv, "Density[J.m-3]"), column(csv, "Sigma[J.m-3]")};
+    }
+    return result;
+  };
+
+  SECTION("u = 0.3: Density = W(0.3), Sigma = 0") {
+    const double omega = 120.;
+    const auto [density, sigma] = energies(omega, [](const mfem::Vector&, double) { return 0.3; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(omega * 0.09 * 0.49, 1.e-10));
+      CHECK_THAT(sigma, WithinAbs(0., 1.e-12));
+    }
+  }
+  SECTION("u = x, no double well: Density = lambda / 2, Sigma = lambda") {
+    const auto [density, sigma] =
+        energies(0., [](const mfem::Vector& p, double) { return p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(lambda / 2., 1.e-12));
+      CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Coefficients saved in the ParaView files with the variables (set_vtk_coefficients)
+// -----------------------------------------------------------------------------
+TEST_CASE_METHOD(PstSetup, "PostProcessing: coefficients saved with the fields",
+                 "[PostProcessing][Problems]") {
+  auto bcs = BCS(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 2.),
+                 Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 1.));
+  auto vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 1.5));
+  PST pst(&spatial, base_parameters() + Parameter("frequency", 1) +
+                        Parameter("enable_compute_energies", false));
+  Coefficient conductivity(Glossary::Conductivity, 3.);
+  conductivity.set_name("conductivity_field");
+  Coefficients coefs(conductivity);
+  std::vector<SPA*> spatials{&spatial};
+  SteadyOPE oper(spatials, {"Fourier"});
+  SteadyPB problem("Heat", oper, vars, {coefs}, pst);
+  problem.set_vtk_coefficients({conductivity});
+  auto coupling = Coupling("Heat", problem);
+  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
+                                            Parameter("final_time", 0.1),
+                                            Parameter("time_step", 0.1)),
+                                 coupling);
+  time.solve();
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (mfem::Mpi::Root()) {
+    bool found = false;
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir.path())) {
+      if (!entry.is_regular_file()) continue;
+      std::ifstream in(entry.path(), std::ios::binary);
+      const std::string content((std::istreambuf_iterator<char>(in)),
+                                std::istreambuf_iterator<char>());
+      found = found || content.find("conductivity_field") != std::string::npos;
+    }
+    CHECK(found);
   }
 }

@@ -116,7 +116,7 @@ sloth_add_unit_test(NAME AnalyticalFunctions
 
 sloth_add_unit_test(NAME BCs
                     SOURCES BCs/test_Boundary.cpp
-                    NPROCS 1)
+                            BCs/test_BoundaryConditions.cpp)
 
 sloth_add_unit_test(NAME Coefficients
                     SOURCES Coefficients/test_FunctionCoefficients.cpp
@@ -166,6 +166,7 @@ sloth_add_unit_test(NAME PreProcessing
 
 sloth_add_unit_test(NAME Problems
                     SOURCES Problems/test_CahnHilliardDirichlet.cpp
+                            Problems/test_MPIProblem.cpp
                             Problems/test_SteadyAndExplicit.cpp)
 
 sloth_add_unit_test(NAME Property
