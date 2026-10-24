@@ -152,7 +152,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
     for (int blk = 0; blk < num_blocks; ++blk) {
       const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
-      const double lamb = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux);
+      const double lamb = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux, blk);
 
       // Laplacian : (grad(u), grad(psi))
       gradPsi.MultTranspose(*elfun[blk], gradU);
@@ -161,7 +161,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 
       // (w'(u), psi)
       double ww = coef_mobi * this->eval_gradient_energy_coefficient(double_well_energy[blk], blk,
-                                                                     ipv.u, ipv.aux);
+                                                                     ipv.u, ipv.aux, blk);
       ww *= weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -230,12 +230,12 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     for (int blk = 0; blk < num_blocks; ++blk) {
       // Diagonal block: Laplacian + w''(u)
       const double coef_mobi = this->mob_at_ip_[static_cast<std::size_t>(blk)];
-      const double lamb = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux);
+      const double lamb = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux, blk);
       const double mob_lamb = coef_mobi * lamb * weight_coef;
       AddMult_a_AAt(mob_lamb, gradPsi, *elmats(blk, blk));
 
       double fun_val = coef_mobi * this->eval_hessian_coefficient(double_well_energy[blk], blk, blk,
-                                                                  ipv.u, ipv.aux);
+                                                                  ipv.u, ipv.aux, blk);
       fun_val *= weight_coef;
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
 
@@ -245,7 +245,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         if (jblk == blk) continue;
         double fun_val_off =
             this->mob_at_ip_[static_cast<std::size_t>(jblk)] *
-            this->eval_hessian_coefficient(double_well_energy[jblk], blk, jblk, ipv.u, ipv.aux);
+            this->eval_hessian_coefficient(double_well_energy[jblk], blk, jblk, ipv.u, ipv.aux,
+                                           jblk);
         fun_val_off *= weight_coef;
         AddMult_a_VVt(fun_val_off, Psi, *elmats(blk, jblk));
       }
@@ -337,7 +338,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVectorGeneric(
       gradU.SetSize(el[blk]->GetDim());
 
       const double coef_mobi = get_mob_at_ip(blk, u, aux);
-      const double lamb = this->eval_coefficient(lambda[blk], u, aux);
+      const double lamb = this->eval_coefficient(lambda[blk], u, aux, blk);
 
       // Laplacian : (grad(u), grad(psi))
       gradPsi.MultTranspose(*elfun[blk], gradU);
@@ -346,7 +347,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVectorGeneric(
 
       // (w'(u), psi)
       const double ww =
-          coef_mobi * this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux) *
+          coef_mobi * this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux, blk) *
           weight_coef;
       elvect[blk]->Add(ww, this->shapes_[static_cast<std::size_t>(blk)]);
     }
@@ -395,11 +396,11 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
 
       // Diagonal block: Laplacian + w''(u)
       const double coef_mobi = this->mob_at_ip_[static_cast<std::size_t>(blk)];
-      const double lamb = this->eval_coefficient(lambda[blk], u, aux);
+      const double lamb = this->eval_coefficient(lambda[blk], u, aux, blk);
       AddMult_a_AAt(coef_mobi * lamb * weight_coef, gradPsi, *elmats(blk, blk));
       const double fun_val =
           coef_mobi *
-          this->eval_hessian_coefficient(double_well_energy[blk], blk, blk, u, aux) * weight_coef;
+          this->eval_hessian_coefficient(double_well_energy[blk], blk, blk, u, aux, blk) * weight_coef;
       AddMult_a_VVt(fun_val, Psi_blk, *elmats(blk, blk));
 
       // Off-diagonal blocks (as AssembleElementGrad: mobility and free energy of block jblk,
@@ -408,7 +409,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
         if (jblk == blk) continue;
         const double fun_val_off =
             this->mob_at_ip_[static_cast<std::size_t>(jblk)] *
-            this->eval_hessian_coefficient(double_well_energy[jblk], blk, jblk, u, aux) *
+            this->eval_hessian_coefficient(double_well_energy[jblk], blk, jblk, u, aux, jblk) *
             weight_coef;
         AddMult_a_VWt(fun_val_off, Psi_blk, this->shapes_[static_cast<std::size_t>(jblk)],
                       *elmats(blk, jblk));
@@ -470,7 +471,7 @@ void AllenCahnNLFormIntegrator<VARS>::add_mobility_derivative(
   bool has_derivative = false;
   this->dmob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
   for (int j = 0; j < num_blocks; ++j) {
-    const double d = this->eval_gradient_coefficient(mobility[blk], j, u, aux);
+    const double d = this->eval_gradient_coefficient(mobility[blk], j, u, aux, blk);
     this->dmob_at_ip_[static_cast<std::size_t>(j)] = d;
     has_derivative = has_derivative || (d != 0.0);
   }
@@ -481,7 +482,7 @@ void AllenCahnNLFormIntegrator<VARS>::add_mobility_derivative(
   gradPsi.MultTranspose(elfun_blk, grad_u);
   gradPsi.Mult(grad_u, g);
   g *= lamb;
-  g.Add(this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux), Psi);
+  g.Add(this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux, blk), Psi);
 
   for (int j = 0; j < num_blocks; ++j) {
     const double d = this->dmob_at_ip_[static_cast<std::size_t>(j)];
@@ -507,5 +508,5 @@ template <class VARS>
 double AllenCahnNLFormIntegrator<VARS>::get_mob_at_ip(
     [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
     [[maybe_unused]] const std::span<const double>& aux_values) {
-  return this->eval_coefficient(mobility[blk], values, aux_values);
+  return this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
 }

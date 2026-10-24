@@ -187,10 +187,10 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
         }
         const double val =
             weight_coef * (this->eval_coefficient(robin_a, std::span<const double>(u_values),
-                                                  std::span<const double>(vaux_gf_at_ip)) *
+                                                  std::span<const double>(vaux_gf_at_ip), blk) *
                                u_values[blk] -
                            this->eval_coefficient(robin_b, std::span<const double>(u_values),
-                                                  std::span<const double>(vaux_gf_at_ip)));
+                                                  std::span<const double>(vaux_gf_at_ip), blk));
 
         add(*elvect[blk], val, Psi, *elvect[blk]);
       }
@@ -259,12 +259,12 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
         // d/du (a(u) u - b(u)) = a + a'(u) u - b'(u)
         const double coeff_robin =
             (this->eval_coefficient(robin_a, std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip)) +
+                                    std::span<const double>(vaux_gf_at_ip), blk) +
              this->eval_gradient_coefficient(robin_a, blk, std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip)) *
+                                             std::span<const double>(vaux_gf_at_ip), blk) *
                  u_values[blk] -
              this->eval_gradient_coefficient(robin_b, blk, std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip))) *
+                                             std::span<const double>(vaux_gf_at_ip), blk)) *
             weight_coef;
         AddMult_a_VVt(coeff_robin, Psi, *elmat(blk, blk));
       }

@@ -103,17 +103,32 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   // Evaluation of a coefficient and of its derivatives at the current integration point.
   // The coefficient is passed by reference (no copy at each integration point) and may be
   // modified (coordinates set before evaluation).
+  // var_blk: block of the variable of a coefficient of one variable (W, H...: see
+  // FunctionCoefficient::is_single_variable); such a coefficient is evaluated on u[var_blk]
+  // only, and its derivatives with respect to the other blocks are zero. Ignored for the
+  // other coefficients, which receive all the blocks.
   double eval_coefficient(Coefficient& coef, const std::span<const double>& values,
-                          const std::span<const double>& aux_values);
+                          const std::span<const double>& aux_values, const int var_blk = 0);
   double eval_gradient_coefficient(Coefficient& coef, const int blk,
                                    const std::span<const double>& values,
-                                   const std::span<const double>& aux_values);
+                                   const std::span<const double>& aux_values,
+                                   const int var_blk = 0);
   double eval_gradient_energy_coefficient(Coefficient& coef, const int blk,
                                           const std::span<const double>& values,
-                                          const std::span<const double>& aux_values);
+                                          const std::span<const double>& aux_values,
+                                          const int var_blk = 0);
   double eval_hessian_coefficient(Coefficient& coef, const int iblk, const int jblk,
                                   const std::span<const double>& values,
-                                  const std::span<const double>& aux_values);
+                                  const std::span<const double>& aux_values,
+                                  const int var_blk = 0);
+
+ private:
+  /// Values given to a coefficient: all the blocks {u, u_old}, or block var_blk only for a
+  /// coefficient of one variable
+  std::pair<std::span<const double>, std::span<const double>> coefficient_inputs(
+      const Coefficient& coef, const std::span<const double>& values, const int var_blk) const;
+
+ protected:
 
   bool isAxisymmetric() const noexcept;
 

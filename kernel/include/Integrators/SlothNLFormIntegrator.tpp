@@ -251,7 +251,8 @@ std::span<const double> SlothNLFormIntegrator<VARS>::get_physical_point() {
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
                                                      const std::span<const double>& values,
-                                                     const std::span<const double>& aux_values) {
+                                                     const std::span<const double>& aux_values,
+                                                     const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
@@ -261,13 +262,11 @@ double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
   if (coef.is_scalar()) {
     return coef.compute();
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+    const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
     if (coef.is_semi_implicit()) {
       return coef.compute(u, un, aux_values);
     } else {
-      const std::span<const double>& input = coef.is_implicit() ? u : un;
-      return coef.compute(input, aux_values);
+      return coef.compute(coef.is_implicit() ? u : un, aux_values);
     }
   }
 }
@@ -286,21 +285,22 @@ double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_gradient_coefficient(
     Coefficient& coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values, const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
   if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
+  }
+  // Coefficient of one variable: derivative with respect to its own block only
+  const bool single = coef.is_single_variable();
+  if (single && blk != var_blk) return 0.0;
+  const int i = single ? 0 : blk;
+  const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
+  if (coef.is_semi_implicit()) {
+    return coef.compute_gradient(i, u, un, aux_values);
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_semi_implicit()) {
-      return coef.compute_gradient(blk, u, un, aux_values);
-    } else {
-      const std::span<const double>& input = coef.is_implicit() ? u : un;
-      return coef.compute_gradient(blk, input, aux_values);
-    }
+    return coef.compute_gradient(i, coef.is_implicit() ? u : un, aux_values);
   }
 }
 
@@ -322,21 +322,22 @@ double SlothNLFormIntegrator<VARS>::eval_gradient_coefficient(
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_gradient_energy_coefficient(
     Coefficient& coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values, const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
   if (coef.is_scalar() || coef.is_file()) {
     return 0.0;
+  }
+  // Coefficient of one variable: derivative with respect to its own block only
+  const bool single = coef.is_single_variable();
+  if (single && blk != var_blk) return 0.0;
+  const int i = single ? 0 : blk;
+  const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
+  if (coef.is_semi_implicit()) {
+    return coef.compute_gradient(i, u, un, aux_values);
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_semi_implicit()) {
-      return coef.compute_gradient(blk, u, un, aux_values);
-    } else {
-      const std::span<const double>& input = coef.is_implicit() ? u : un;
-      return coef.compute_gradient(blk, input, aux_values);
-    }
+    return coef.compute_gradient(i, coef.is_implicit() ? u : un, aux_values);
   }
 }
 
@@ -355,22 +356,49 @@ double SlothNLFormIntegrator<VARS>::eval_gradient_energy_coefficient(
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_hessian_coefficient(
     Coefficient& coef, const int iblk, const int jblk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values, const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
   if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
-  } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_semi_implicit()) {
-      return coef.compute_hessian(iblk, jblk, u, un, aux_values);
-    } else {
-      // is_implicit
-      return coef.compute_hessian(iblk, jblk, u, aux_values);
-    }
   }
+  // Coefficient of one variable: only the second derivative with respect to its own block
+  const bool single = coef.is_single_variable();
+  if (single && (iblk != var_blk || jblk != var_blk)) return 0.0;
+  const int i = single ? 0 : iblk;
+  const int j = single ? 0 : jblk;
+  const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
+  if (coef.is_semi_implicit()) {
+    return coef.compute_hessian(i, j, u, un, aux_values);
+  } else {
+    return coef.compute_hessian(i, j, u, aux_values);
+  }
+}
+
+/**
+ * @brief Values given to a coefficient at the current point: all the blocks {u, u_old}, or
+ * only the values of block var_blk for a coefficient of one variable.
+ *
+ * @param values {u, u_old} at the current point (u_old may be absent)
+ */
+template <class VARS>
+std::pair<std::span<const double>, std::span<const double>>
+SlothNLFormIntegrator<VARS>::coefficient_inputs(const Coefficient& coef,
+                                                const std::span<const double>& values,
+                                                const int var_blk) const {
+  const std::size_t nb = std::min(static_cast<std::size_t>(this->nb_blk_), values.size());
+  std::span<const double> u = values.first(nb);
+  std::span<const double> un = values.subspan(nb);
+  if (coef.is_single_variable()) {
+    const auto k = static_cast<std::size_t>(var_blk);
+    MFEM_VERIFY(k < u.size(), "Error in " + this->integrator_name_ +
+                                  ": coefficient of one variable evaluated for block " +
+                                  std::to_string(var_blk) + ", which does not exist.");
+    u = u.subspan(k, 1);
+    un = k < un.size() ? un.subspan(k, 1) : std::span<const double>();
+  }
+  return {u, un};
 }
 
 //////////////////////////////////////////////////////////////////////////////

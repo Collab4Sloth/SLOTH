@@ -55,6 +55,7 @@ class W : public FunctionCoefficient {
   HessianF() final;
 
  public:
+  bool is_single_variable() const override { return true; }
   W() : prefactor_(1.0) {}
   explicit W(const double prefactor) { this->prefactor_ = prefactor; }
   virtual ~W() = default;
@@ -81,6 +82,7 @@ class Fw : public FunctionCoefficient {
   HessianF() final;
 
  public:
+  bool is_single_variable() const override { return true; }
   Fw() : prefactor_(1.0) {}
   explicit Fw(const double prefactor) : prefactor_(prefactor) {}
 
@@ -108,6 +110,7 @@ class H : public FunctionCoefficient {
   HessianF() final;
 
  public:
+  bool is_single_variable() const override { return true; }
   H() : prefactor_(1.0) {}
   explicit H(const double prefactor) : prefactor_(prefactor) {}
 
@@ -135,6 +138,7 @@ class Log : public FunctionCoefficient {
   HessianF() final;
 
  public:
+  bool is_single_variable() const override { return true; }
   Log() : prefactor_(1.0) {}
   explicit Log(const double prefactor) : prefactor_(prefactor) {}
 

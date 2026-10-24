@@ -220,3 +220,14 @@ void ProductCoefficient::set_coordinates(std::span<const double> x) {
     coef->set_coordinates(x);
   }
 }
+
+/**
+ * @brief True if every term is a function of one variable only (then so is the product)
+ */
+bool ProductCoefficient::is_single_variable() const {
+  if (vect_coefficients_.empty()) return false;
+  for (const auto* coef : vect_coefficients_) {
+    if (!coef->is_single_variable()) return false;
+  }
+  return true;
+}

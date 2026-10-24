@@ -102,5 +102,8 @@ class FunctionCoefficient {
 
   /// True if the expression depends on the spatial coordinates ("coordinates" in the JSON file)
   virtual bool uses_coordinates() const { return false; }
+  /// True if the expression is a function of one variable only (W, Fw, H, Log...). In an
+  /// integrator with several blocks, it is then evaluated on the variable of its block only.
+  virtual bool is_single_variable() const { return false; }
   virtual void set_coordinates(std::span<const double> x);
 };

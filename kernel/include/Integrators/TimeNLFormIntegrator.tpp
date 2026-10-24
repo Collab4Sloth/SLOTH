@@ -220,8 +220,8 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
 
       const auto& u = *elfun[blk] * Psi;
       const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
-      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux);
+      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux, blk);
+      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux, blk);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -281,8 +281,8 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
       const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
-      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux);
+      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux, blk);
+      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux, blk);
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
