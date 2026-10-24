@@ -40,6 +40,21 @@
 #include <utility>
 #include <vector>
 
+namespace {
+/**
+ * @brief Dimension passed to F(), GradientF() and HessianF(): the one given if it is
+ * non-negative, the number of input values otherwise (e.g. GradientEnergy then uses all the
+ * components of the gradient given as input).
+ */
+unsigned int resolve_dimension(std::optional<int> dimension,
+                               const std::span<const double>& input_vector) {
+  if (dimension.has_value() && *dimension >= 0) {
+    return static_cast<unsigned int>(*dimension);
+  }
+  return static_cast<unsigned int>(input_vector.size());
+}
+}  // namespace
+
 /**
  * @brief Construct a new FunctionCoefficient::FunctionCoefficient object
  *
@@ -52,7 +67,7 @@ FunctionCoefficient::FunctionCoefficient() : time_(0.0) {}
  * The coefficient is computed from the current variables.
  *
  * @param input_vector Values of the current variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the coefficient.
  */
@@ -60,7 +75,7 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
                                    std::optional<int> dimension) {
   static const std::span<const double> empty_aux{};
   static const std::span<const double> empty_exp{};
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   return F()(input_vector, empty_exp, empty_aux, dim);
 }
 
@@ -74,7 +89,7 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
  *
  * @param input_vector Values of the current variables.
  * @param auxiliary_vector Values of the auxiliary variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the coefficient.
  */
@@ -82,7 +97,7 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
                                    const std::span<const double>& auxiliary_vector,
                                    std::optional<int> dimension) {
   static const std::span<const double> empty_exp{};
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   return F()(input_vector, empty_exp, auxiliary_vector, dim);
 }
 
@@ -94,7 +109,7 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
  * @param input_vector Values of the current variables.
  * @param exp_input_vector Values of the previous variables.
  * @param auxiliary_vector Values of the auxiliary variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the coefficient.
  */
@@ -102,7 +117,7 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
                                    const std::span<const double>& exp_input_vector,
                                    const std::span<const double>& auxiliary_vector,
                                    std::optional<int> dimension) {
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   return F()(input_vector, exp_input_vector, auxiliary_vector, dim);
 }
 
@@ -113,7 +128,7 @@ double FunctionCoefficient::eval_f(const std::span<const double>& input_vector,
  *
  * @param i  index of the gradient .
  * @param input_vector Values of the current variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the gradient component i.
  */
@@ -121,7 +136,7 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
                                           std::optional<int> dimension) {
   static const std::span<const double> empty_aux{};
   static const std::span<const double> empty_exp{};
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   return GradientF()(input_vector, empty_exp, empty_aux, dim)[i];
 }
 
@@ -136,7 +151,7 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
  * @param i  index of the gradient .
  * @param input_vector Values of the current variables.
  * @param auxiliary_vector Values of the auxiliary variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the gradient component i.
  */
@@ -144,7 +159,7 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
                                           const std::span<const double>& auxiliary_vector,
                                           std::optional<int> dimension) {
   static const std::span<const double> empty_exp{};
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   return GradientF()(input_vector, empty_exp, auxiliary_vector, dim)[i];
 }
 
@@ -157,7 +172,7 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
  * @param input_vector Values of the current variables.
  * @param exp_input_vector Values of the previous variables.
  * @param auxiliary_vector Values of the auxiliary variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the gradient component i.
  */
@@ -165,7 +180,7 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
                                           const std::span<const double>& exp_input_vector,
                                           const std::span<const double>& auxiliary_vector,
                                           std::optional<int> dimension) {
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   return GradientF()(input_vector, exp_input_vector, auxiliary_vector, dim)[i];
 }
 
@@ -178,7 +193,7 @@ double FunctionCoefficient::eval_gradient(const int i, const std::span<const dou
  * @param i Row index of the Hessian matrix.
  * @param j Column index of the Hessian matrix.
  * @param input_vector Values of the current variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the Hessian component (i, j).
  */
@@ -187,7 +202,7 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
                                          std::optional<int> dimension) {
   static const std::span<const double> empty_aux{};
   static const std::span<const double> empty_exp{};
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
   const int size = input_vector.size();
   return HessianF()(input_vector, empty_exp, empty_aux, dim)[i * size + j];
 }
@@ -205,7 +220,7 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
  * @param j Column index of the Hessian matrix.
  * @param input_vector Values of the current variables.
  * @param auxiliary_vector Values of the auxiliary variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the Hessian component (i, j).
  */
@@ -215,7 +230,7 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
                                          std::optional<int> dimension) {
   static const std::span<const double> empty_exp{};
   const int size = input_vector.size();
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
 
   return HessianF()(input_vector, empty_exp, auxiliary_vector, dim)[i * size + j];
 }
@@ -231,7 +246,7 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
  * @param input_vector Values of the current variables.
  * @param exp_input_vector Values of the previous variables.
  * @param auxiliary_vector Values of the auxiliary variables.
- * @param dimension Optional spatial dimension (use -1 if not specified).
+ * @param dimension Optional spatial dimension (number of input values if not given or negative).
  *
  * @return Value of the Hessian component (i, j).
  */
@@ -241,7 +256,7 @@ double FunctionCoefficient::eval_hessian(const int i, const int j,
                                          const std::span<const double>& auxiliary_vector,
                                          std::optional<int> dimension) {
   const int size = input_vector.size();
-  int dim = dimension.value_or(-1);
+  const unsigned int dim = resolve_dimension(dimension, input_vector);
 
   return HessianF()(input_vector, exp_input_vector, auxiliary_vector, dim)[i * size + j];
 }

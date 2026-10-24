@@ -53,9 +53,6 @@ constexpr double tol = 1.e-12;
  * The finite-difference error is O(h^2) (truncation) + O(eps/h) (round-off):
  * with h = 1e-5, a tolerance of 1e-6 (relative to max(1, |value|)) is safe,
  * while a wrong derivative is off by O(1).
- *
- * The dimension is always given: without it, FunctionCoefficient passes -1,
- * converted to a huge unsigned int (see the note at the end of this file).
  */
 void check_derivatives(FunctionCoefficient& c, const std::vector<double>& x, int dim = 1) {
   const double h = 1.e-5;
@@ -275,7 +272,12 @@ TEST_CASE("ProductCoefficient: derivatives where a factor vanishes", "[Coefficie
   }
 }
 
-// Note on the dimension argument: eval_f(x) without dimension passes -1 to
-// F(), whose parameter is an unsigned int: it becomes 4294967295. Harmless for
-// coefficients that ignore it, but GradientEnergy would then read far beyond
-// the input. Not tested here (undefined behaviour).
+// Dimension not given, or negative: the number of input values is used
+// (GradientEnergy then uses all the components of the gradient).
+TEST_CASE("FunctionCoefficient: default dimension", "[Coefficients]") {
+  GradientEnergy ge(2.);
+  const std::vector<double> g{3., 4.};
+  CHECK_THAT(ge.eval_f(g), WithinRel(2. * 12.5, tol));
+  CHECK_THAT(ge.eval_f(g, -1), WithinRel(2. * 12.5, tol));
+  CHECK_THAT(ge.eval_f(g, 1), WithinRel(2. * 4.5, tol));  // given: first component only
+}

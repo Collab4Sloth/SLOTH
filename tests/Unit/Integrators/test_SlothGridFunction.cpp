@@ -42,9 +42,7 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "SlothGridFunction: gradient from shape
 
   // grad(1 + 2x - 3y) = (2, -3) everywhere (exact in Q1)
   SlothGridFunction u(project(affine));
-  // grad must be sized by the caller: SlothGridFunction::GetGradient does not
-  // resize it (unlike mfem::GridFunction::GetGradient) and crashes otherwise
-  mfem::Vector grad(2);
+  mfem::Vector grad;  // sized by GetGradient
   for (int e = 0; e < pmesh->GetNE(); ++e) {
     const mfem::FiniteElement* fe = fes->GetFE(e);
     mfem::ElementTransformation* T = fes->GetElementTransformation(e);
