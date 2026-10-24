@@ -45,7 +45,7 @@ using namespace MATools::MPI;
  * @see class minimal_info
  * @return int : number of bytes.
  */
-int minimal_info_size() {
+inline int minimal_info_size() {
   int ret = sizeof(minimal_info);
   return ret;
 }
@@ -54,13 +54,13 @@ int minimal_info_size() {
  * default minimal_info constructor*
  * @see class minimal_info
  */
-minimal_info::minimal_info() : minimal_info("undefined", 666) {}
+inline minimal_info::minimal_info() : minimal_info("undefined", 666) {}
 
 /**
  * minimal_info constructor*
  * @see class minimal_info
  */
-minimal_info::minimal_info(std::string a_name, std::size_t a_s) {
+inline minimal_info::minimal_info(std::string a_name, std::size_t a_s) {
 #if defined(__GNUC__) && !defined(__clang__)
   _Pragma("GCC diagnostic push");
   _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"");
@@ -78,7 +78,7 @@ minimal_info::minimal_info(std::string a_name, std::size_t a_s) {
  * @see class minimal_info
  * @return void
  */
-void minimal_info::print() {
+inline void minimal_info::print() {
   using namespace MATools::MAOutput;
   std::string name = m_name;
   printMessage(" (", name, ",", m_nb_daughter, ")");
@@ -90,7 +90,7 @@ void minimal_info::print() {
  * @see class minimal_info
  * @return a vector of minimal_info
  */
-std::vector<minimal_info> build_my_tree() {
+inline std::vector<minimal_info> build_my_tree() {
   typedef std::vector<minimal_info> VMI;
   VMI ret;
   MATimerNode* root_timer = MATools::MATimer::get_MATimer_node<ROOT>();
@@ -113,7 +113,7 @@ std::vector<minimal_info> build_my_tree() {
  * @see class minimal_info
  * @return void
  */
-void build_full_tree() {
+inline void build_full_tree() {
   auto my_info = build_my_tree();
 
   int info_size = sizeof(minimal_info) * my_info.size();

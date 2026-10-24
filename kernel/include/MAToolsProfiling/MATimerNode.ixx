@@ -35,13 +35,13 @@ namespace MATools {
 namespace MATimer {
 using duration = std::chrono::duration<double>;
 template <>
-MATimerNode*& get_MATimer_node<enumTimer::CURRENT>() {
+inline MATimerNode*& get_MATimer_node<enumTimer::CURRENT>() {
   static MATimerNode* __current;
   return __current;
 }
 
 template <>
-MATimerNode*& get_MATimer_node<enumTimer::ROOT>() {
+inline MATimerNode*& get_MATimer_node<enumTimer::ROOT>() {
   static MATimerNode* __current;
   return __current;
 }
@@ -49,7 +49,7 @@ MATimerNode*& get_MATimer_node<enumTimer::ROOT>() {
 /**
  * @brief default constructor.
  */
-MATimerNode::MATimerNode()
+inline MATimerNode::MATimerNode()
     : m_daughter()  // only used for root
 {
   m_name = "root";
@@ -62,7 +62,7 @@ MATimerNode::MATimerNode()
 /**
  * @brief MATimerNode constructor used to initialize a node with a node name and a mother node.
  */
-MATimerNode::MATimerNode(std::string name, MATimerNode* mother) : m_daughter(), m_duration(0) {
+inline MATimerNode::MATimerNode(std::string name, MATimerNode* mother) : m_daughter(), m_duration(0) {
   m_name = name;
   m_iteration = 0;
   m_level = mother->m_level + 1;
@@ -75,7 +75,7 @@ MATimerNode::MATimerNode(std::string name, MATimerNode* mother) : m_daughter(), 
  * This function updates the iteration count of the MATimerNode by adding the provided count value.
  * @param a_count The count value to add. Default value is 1.
  */
-void MATimerNode::update_count() { m_iteration++; }
+inline void MATimerNode::update_count() { m_iteration++; }
 
 /**
  * @brief This function is used to find if a daughter node is already defined with this node name.
@@ -83,7 +83,7 @@ void MATimerNode::update_count() { m_iteration++; }
  * @param[in] name name of the desired node
  * @return the MATimerNode desired
  */
-MATimerNode* MATimerNode::find(const std::string name) {
+inline MATimerNode* MATimerNode::find(const std::string name) {
   struct comp {
     comp(const std::string a_value) : m_value(a_value) {}
 
@@ -122,7 +122,7 @@ MATimerNode* MATimerNode::find(const std::string name) {
  * @param[in] end column number where the motif finishs.
  * @param[in] motif the replicated motif, this motif should have a length equal to 1.
  */
-void MATimerNode::print_replicate(int a_begin, int a_end, std::string a_motif) {
+inline void MATimerNode::print_replicate(int a_begin, int a_end, std::string a_motif) {
 #ifndef NDEBUG
   if (a_end < a_begin) {
     // MATools::MAOutput::printMessage("MATools_LOG: column width is probalby too small and it's not
@@ -138,23 +138,23 @@ void MATimerNode::print_replicate(int a_begin, int a_end, std::string a_motif) {
 /**
  * @brief Displays a blank character.
  */
-void MATimerNode::space() { std::cout << " "; }
+inline void MATimerNode::space() { std::cout << " "; }
 
 /**
  * @brief Displays a "|".
  */
-void MATimerNode::column() { std::cout << "|"; }
+inline void MATimerNode::column() { std::cout << "|"; }
 
 /**
  * @brief Displays a return line.
  */
-void MATimerNode::end_line() { std::cout << std::endl; }
+inline void MATimerNode::end_line() { std::cout << std::endl; }
 
 /**
  * @brief Displays the banner/header.
  * @param[in] shift number of blank character displayed
  */
-void MATimerNode::print_banner(int shift) {
+inline void MATimerNode::print_banner(int shift) {
   if (m_name == "root") {
     if (MATools::MPI::is_master()) {
       MATools::MAOutput::printMessage(" MPI feature activated, rank 0:");
@@ -192,7 +192,7 @@ void MATimerNode::print_banner(int shift) {
  * @brief Displays the header.
  * @param[in] shift number of blank character displayed
  */
-void MATimerNode::print_ending(int shift) {
+inline void MATimerNode::print_ending(int shift) {
   if (m_name == "root") {
     if (MATools::MPI::is_master()) {
       shift += nColumns * (cWidth + 1) + 1;  // +1 for "|";
@@ -209,14 +209,14 @@ void MATimerNode::print_ending(int shift) {
  * @brief Gets of the duration member
  * @return pointer of the duration member of a MATimerNode
  */
-duration* MATimerNode::get_ptr_duration() { return &m_duration; }
+inline duration* MATimerNode::get_ptr_duration() { return &m_duration; }
 
 /**
  * @brief Displays the local runtime.
  * @param[in] shift number of blank character displayed
  * @param[in] runtime local duration value
  */
-void MATimerNode::print_local(int shift, double total_time) {
+inline void MATimerNode::print_local(int shift, double total_time) {
   assert(total_time >= 0);
   int nC = 3;
   std::string cValue[3];
@@ -258,7 +258,7 @@ void MATimerNode::print_local(int shift, double total_time) {
  * @param[in] shift number of blank character displayed
  * @param[in] runtime duration value
  */
-void MATimerNode::print(int shift, double total_time) {
+inline void MATimerNode::print(int shift, double total_time) {
   assert(total_time >= 0);
   std::string cValue[nColumns];
   if (MATools::MPI::is_master()) {
@@ -369,7 +369,7 @@ void MATimerNode::print(int shift, double total_time) {
  * @brief Retruns the MATimerNode name
  * @return name
  */
-std::string MATimerNode::get_name() {
+inline std::string MATimerNode::get_name() {
   std::string ret = m_name;
   return ret;
 }
@@ -378,7 +378,7 @@ std::string MATimerNode::get_name() {
  * @brief Retruns the duration
  * @return duration value
  */
-double MATimerNode::get_duration() {
+inline double MATimerNode::get_duration() {
   double ret = m_duration.count();
   return ret;
 }
@@ -387,7 +387,7 @@ double MATimerNode::get_duration() {
  * @brief Retruns the MATimerNode iteration number
  * @return the iteration number
  */
-int MATimerNode::get_iteration() {
+inline int MATimerNode::get_iteration() {
   int res = m_iteration;
   return res;
 }
@@ -396,7 +396,7 @@ int MATimerNode::get_iteration() {
  * @brief Retruns the MATimerNode level
  * @return level
  */
-int MATimerNode::get_level() {
+inline int MATimerNode::get_level() {
   int res = m_level;
   return res;
 }
@@ -405,19 +405,19 @@ int MATimerNode::get_level() {
  * @brief Retruns a vector of daughter MATimerNode pointers
  * @return daughter nodes
  */
-std::vector<MATimerNode*>& MATimerNode::get_daughter() { return m_daughter; }
+inline std::vector<MATimerNode*>& MATimerNode::get_daughter() { return m_daughter; }
 
 /**
  * @brief Retruns the mother MATimerNode pointer
  * @return mother pointer
  */
-MATimerNode* MATimerNode::get_mother() {
+inline MATimerNode* MATimerNode::get_mother() {
   MATimerNode* ret = m_mother;
   return ret;
 }
 
 /** @brief This function displays information about one timer node */
-void MATimerNode::debug_info() {
+inline void MATimerNode::debug_info() {
   std::cout << " node name : " << get_name() << std::endl;
   std::cout << " mother node address : " << get_mother() << std::endl;
   std::cout << " number of daughter nodes : " << m_daughter.size() << std::endl;

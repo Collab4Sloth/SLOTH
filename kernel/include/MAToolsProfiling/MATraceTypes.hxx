@@ -111,23 +111,23 @@ class MATrace_section {
 
 typedef std::vector<MATrace_section> Trace;
 
-MATrace_point::MATrace_point() : m_time(high_resolution_clock::now()) {}
+inline MATrace_point::MATrace_point() : m_time(high_resolution_clock::now()) {}
 
-time_point& MATrace_point::data() { return m_time; }
+inline time_point& MATrace_point::data() { return m_time; }
 
-const time_point MATrace_point::data() const { return m_time; }
+inline const time_point MATrace_point::data() const { return m_time; }
 
-void MATrace_point::set_proc() {
+inline void MATrace_point::set_proc() {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   m_proc = rank;
 }
 
-void MATrace_point::set_proc(int a_rank) { m_proc = a_rank; }
+inline void MATrace_point::set_proc(int a_rank) { m_proc = a_rank; }
 
-int MATrace_point::get_proc() const { return m_proc; }
+inline int MATrace_point::get_proc() const { return m_proc; }
 
-void vite_event::add(char a_name[64]) {
+inline void vite_event::add(char a_name[64]) {
   std::string name = a_name;
   auto it = m_data.find(name);
   if (it == m_data.end()) {
@@ -135,12 +135,12 @@ void vite_event::add(char a_name[64]) {
   }
 }
 
-int vite_event::operator[](char a_name[64]) {
+inline int vite_event::operator[](char a_name[64]) {
   std::string name = a_name;
   return m_data[name];
 }
 
-void vite_event::write_items(std::ofstream& a_out) {
+inline void vite_event::write_items(std::ofstream& a_out) {
   for (auto& it : m_data) {
     a_out << "%EventDef PajeSetState " << it.second << std::endl;
     a_out << "% Time date" << std::endl;
@@ -151,7 +151,7 @@ void vite_event::write_items(std::ofstream& a_out) {
   }
 }
 
-void vite_event::write_colors(std::ofstream& a_out) {
+inline void vite_event::write_colors(std::ofstream& a_out) {
   MATraceRGB idle_color = get_idle_color();
   a_out << "6 idle ST_ThreadState 'idle'  '" << idle_color.r << " " << idle_color.g << " "
         << idle_color.b << "'" << std::endl;
@@ -171,7 +171,7 @@ void vite_event::write_colors(std::ofstream& a_out) {
  * @param a_start The start MATrace_point.
  * @param a_end The end MATrace_point.
  */
-MATrace_section::MATrace_section(char a_name[64], const MATrace_point& a_ref,
+inline MATrace_section::MATrace_section(char a_name[64], const MATrace_point& a_ref,
                                  const MATrace_point& a_start, const MATrace_point& a_end) {
   std::chrono::duration<double> duration;
 
@@ -198,7 +198,7 @@ MATrace_section::MATrace_section(char a_name[64], const MATrace_point& a_ref,
  * This function writes the MATrace_section to the specified output file stream.
  * @param a_out The output file stream to write to.
  */
-void MATrace_section::write(std::ofstream& a_out) {
+inline void MATrace_section::write(std::ofstream& a_out) {
   a_out << m_name << " " << m_proc_id << " " << m_start << " " << m_end << " " << std::endl;
 }
 
@@ -209,7 +209,7 @@ void MATrace_section::write(std::ofstream& a_out) {
  * @param a_out The output file stream to write to.
  * @param a_ve The VITE event information.
  */
-void MATrace_section::write(std::ofstream& a_out, vite_event& a_ve) {
+inline void MATrace_section::write(std::ofstream& a_out, vite_event& a_ve) {
   a_out << a_ve[m_name] << " " << m_start << " "
         << "ST_ThreadState "
         << "C_Thread" << m_proc_id << " " << m_name << std::endl;
@@ -223,6 +223,6 @@ void MATrace_section::write(std::ofstream& a_out, vite_event& a_ve) {
  * This function sets the process ID for the MATrace_section.
  * @param a_rank The process ID to set.
  */
-void MATrace_section::set_proc(const int a_rank) { m_proc_id = a_rank; }
+inline void MATrace_section::set_proc(const int a_rank) { m_proc_id = a_rank; }
 }  // namespace MATrace
 }  // namespace MATools

@@ -33,7 +33,7 @@ namespace MATimer {
  * @param [in] a_name of the chrono section measured.
  * @param [in] a_node_level is the value of the current MATimerNode level.
  */
-void print_verbosity_level_1([[maybe_unused]] std::string a_name,
+inline void print_verbosity_level_1([[maybe_unused]] std::string a_name,
                              [[maybe_unused]] int a_node_level) {
 #ifdef MATIMERS_VEROBSITY_LEVEL_1
   using namespace MATools::MAOutput;

@@ -35,17 +35,17 @@
 
 namespace MATools {
 namespace MATimer {
-bool& is_enable() {
+inline bool& is_enable() {
   static bool matimer_enable = false;
   return matimer_enable;
 }
 
-void active() {
+inline void active() {
   auto& enable = is_enable();
   enable = true;
 }
 
-void disactive() {
+inline void disactive() {
   auto& enable = is_enable();
   enable = false;
 }

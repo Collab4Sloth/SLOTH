@@ -40,21 +40,21 @@ namespace MATools {
 namespace MPI {
 constexpr int master = 0;
 
-void mpi_initialize([[maybe_unused]] int* argc, [[maybe_unused]] char*** argv) {
+inline void mpi_initialize([[maybe_unused]] int* argc, [[maybe_unused]] char*** argv) {
   const auto is_init = check_mpi_initialized();
   if (!is_init) {
     MPI_Init(argc, argv);
   }
 }
 
-void mpi_finalize() {
+inline void mpi_finalize() {
   const auto is_final = check_mpi_finalized();
   if (!is_final) {
     MPI_Finalize();
   }
 }
 
-bool check_mpi_initialized() {
+inline bool check_mpi_initialized() {
   int val = -1;
   MPI_Initialized(&val);
   assert(val != -1 && "error in check mpi init");
@@ -62,7 +62,7 @@ bool check_mpi_initialized() {
   return ret;
 }
 
-bool check_mpi_finalized() {
+inline bool check_mpi_finalized() {
   int val = -1;
   MPI_Finalized(&val);
   assert(val != -1 && "error in check mpi finalize");
@@ -70,11 +70,11 @@ bool check_mpi_finalized() {
   return ret;
 }
 
-int get_rank() { return mfem::Mpi::WorldRank(); }
+inline int get_rank() { return mfem::Mpi::WorldRank(); }
 
-int get_mpi_size() { return mfem::Mpi::WorldSize(); }
+inline int get_mpi_size() { return mfem::Mpi::WorldSize(); }
 
-bool is_master() { return mfem::Mpi::Root(); }
+inline bool is_master() { return mfem::Mpi::Root(); }
 
 template <typename T>
 T reduce([[maybe_unused]] T a_in, [[maybe_unused]] MPI_Op a_op) {
@@ -84,25 +84,25 @@ T reduce([[maybe_unused]] T a_in, [[maybe_unused]] MPI_Op a_op) {
 }
 
 template <>
-double reduce(double a_in, MPI_Op a_op) {
+inline double reduce(double a_in, MPI_Op a_op) {
   double global(0.0);
   MPI_Reduce(&a_in, &global, 1, MPI_DOUBLE, a_op, master, MPI_COMM_WORLD);  // master rank is 0
   return global;
 }
 
 template <>
-int reduce(int a_in, MPI_Op a_op) {
+inline int reduce(int a_in, MPI_Op a_op) {
   int global(0.0);
   MPI_Reduce(&a_in, &global, 1, MPI_INT, a_op, master, MPI_COMM_WORLD);  // master rank is 0
   return global;
 }
 
-double reduce_max(double a_duration) {
+inline double reduce_max(double a_duration) {
   double ret = reduce(a_duration, MPI_MAX);
   return ret;
 }
 
-double reduce_mean(double a_duration) {
+inline double reduce_mean(double a_duration) {
   double ret = reduce(a_duration, MPI_SUM);
   auto mpi_size = get_mpi_size();
   assert(mpi_size > 0);

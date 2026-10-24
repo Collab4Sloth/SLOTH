@@ -39,7 +39,7 @@
 
 namespace MATools {
 namespace MATrace {
-void start() {
+inline void start() {
   if (!Optional::is_MATrace_mode()) {
     return;
   }
@@ -47,7 +47,7 @@ void start() {
   start = MATrace_point();
 }
 
-void stop(std::string a_name) {
+inline void stop(std::string a_name) {
   if (!Optional::is_MATrace_mode()) {
     return;
   }
@@ -62,14 +62,14 @@ void stop(std::string a_name) {
   local_MATrace.push_back(section);
 }
 
-void initialize() {
+inline void initialize() {
   auto start = get_ref_MATrace_point();
   start.set_proc();
   auto& local_MATrace = get_local_MATrace();
   local_MATrace.reserve(12000000);  // Not really useful
 }
 
-void header(std::ofstream& out, vite_event& event) {
+inline void header(std::ofstream& out, vite_event& event) {
   out << "%EventDef PajeDefineContainerType 1" << std::endl;
   out << "% Alias string " << std::endl;
   out << "% ContainerType string " << std::endl;
@@ -142,7 +142,7 @@ void header(std::ofstream& out, vite_event& event) {
   }
 }
 
-void ending(std::ofstream& out, double last) {
+inline void ending(std::ofstream& out, double last) {
   int mpi_size = -1;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   for (int i = 0 ; i < mpi_size ; i++) {
@@ -151,7 +151,7 @@ void ending(std::ofstream& out, double last) {
   out <<"8 " << last << " C_Prog CT_Prog" << std::endl;
 }
 
-void write_trace() {
+inline void write_trace() {
   //  No MATrace
   if (!Optional::is_MATrace_mode()) {
     return;
