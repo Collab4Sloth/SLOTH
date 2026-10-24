@@ -100,24 +100,9 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id,
                                              std::optional<int> bdr_id = std::nullopt);
 
-  // Historical interface (coefficient passed by value: one copy per call).
-  // Kept for the other integrators; forwards to the eval_* methods below.
-  double compute_coefficient(Coefficient coef, const std::span<const double>& values,
-                             const std::span<const double>& aux_values);
-
-  double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                      const std::span<const double>& values,
-                                      const std::span<const double>& aux_values);
-  double compute_gradient_energy_coefficient(Coefficient coef, const int blk,
-                                             const std::span<const double>& values,
-                                             const std::span<const double>& aux_values);
-  double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                     const std::span<const double>& values,
-                                     const std::span<const double>& aux_values);
-
-  // Same computations, coefficient passed by reference (no copy at each integration point).
-  // The coefficient may be modified (coordinates set before evaluation), exactly as the copy
-  // was in the historical interface.
+  // Evaluation of a coefficient and of its derivatives at the current integration point.
+  // The coefficient is passed by reference (no copy at each integration point) and may be
+  // modified (coordinates set before evaluation).
   double eval_coefficient(Coefficient& coef, const std::span<const double>& values,
                           const std::span<const double>& aux_values);
   double eval_gradient_coefficient(Coefficient& coef, const int blk,

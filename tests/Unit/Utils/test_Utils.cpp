@@ -120,7 +120,7 @@ TEST_CASE("Utils: SlothInfo prints according to the verbosity", "[Utils]") {
     CHECK(out.str() == "a\nb\nc\n");
   }
   SECTION("error messages are printed on std::cerr, whatever the verbosity") {
-    for (const auto level : {Verbosity::Quiet, Verbosity::Normal, Verbosity::Error}) {
+    for (const auto level : {Verbosity::Quiet, Verbosity::Normal, Verbosity::Debug}) {
       CAPTURE(static_cast<int>(level));
       const VerbosityGuard guard(level);
       sloth_unit::CoutCapture out;

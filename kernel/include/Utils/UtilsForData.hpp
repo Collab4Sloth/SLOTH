@@ -140,7 +140,7 @@ inline std::string replacePunctuation(std::string str) {
  * @brief Levels of verbosity
  *
  */
-enum class Verbosity { Quiet, Normal, Verbose, Debug, Error };
+enum class Verbosity { Quiet, Normal, Verbose, Debug };
 
 /**
  * @brief The current level of verbosity

@@ -374,38 +374,6 @@ double SlothNLFormIntegrator<VARS>::eval_hessian_coefficient(
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// Historical interface (by value): forwards to eval_* (identical results)
-//////////////////////////////////////////////////////////////////////////////
-
-template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                        const std::span<const double>& values,
-                                                        const std::span<const double>& aux_values) {
-  return this->eval_coefficient(coef, values, aux_values);
-}
-
-template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_gradient_coefficient(coef, blk, values, aux_values);
-}
-
-template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_gradient_energy_coefficient(coef, blk, values, aux_values);
-}
-
-template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_hessian_coefficient(coef, iblk, jblk, values, aux_values);
-}
-
-//////////////////////////////////////////////////////////////////////////////
 // Evaluation of {u, u_old} and of the auxiliary fields at integration points
 //////////////////////////////////////////////////////////////////////////////
 
@@ -448,10 +416,9 @@ bool SlothNLFormIntegrator<VARS>::same_finite_elements(
  * computed here once for all the blocks: the element dofs of u_old and of the auxiliary fields
  * are extracted once per element, and the value at a point is the dot product with the shape
  * functions, i.e. exactly what GridFunction::GetValue(Tr, ip) computes. An auxiliary field whose
- * finite element differs from the one of the blocks is evaluated with GetValue, as before.
+ * finite element differs from the one of the blocks is evaluated with GetValue.
  *
- * Otherwise nothing is cached and values_at_ip() evaluates the fields at each call (historical
- * evaluation).
+ * Otherwise nothing is cached and values_at_ip() evaluates the fields at each call.
  *
  * @tparam VARS Template parameter defining the variables.
  * @param el     Finite elements of the blocks.
@@ -532,7 +499,7 @@ void SlothNLFormIntegrator<VARS>::prepare_element_values(
  * @brief {u, u_old} and auxiliary values at the integration point `i` of `ir`.
  *
  * Returns the values computed by prepare_element_values() when available. Otherwise the values
- * are evaluated here as historically done: current values with the shape functions `Psi` of the
+ * are evaluated here: current values with the shape functions `Psi` of the
  * current block, u_old and auxiliary fields with GridFunction::GetValue (the integration point of
  * Tr must then be set by the caller).
  *
@@ -557,7 +524,7 @@ typename SlothNLFormIntegrator<VARS>::IpValues SlothNLFormIntegrator<VARS>::valu
             std::span<const double>(this->ipv_aux_table_.data() + ui * naux, naux)};
   }
 
-  // Historical evaluation
+  // No values cached for this element: evaluation at the point
   const mfem::IntegrationPoint& ip = ir.IntPoint(i);
   this->ipv_u_.resize(2 * unb);
   this->ipv_aux_.resize(naux);
