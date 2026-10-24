@@ -240,16 +240,29 @@ TEST_CASE("ProductCoefficient", "[Coefficients]") {
   }
 }
 
-// [!mayfail]: reported, but does not make the executable fail.
-// ProductCoefficient computes its derivatives as F * sum(f_k' / f_k): it
-// divides by each factor, so the derivative is NaN where a factor vanishes,
-// although it is well defined (here (W H)'(0) = 0).
-TEST_CASE("ProductCoefficient: derivative where a factor vanishes",
-          "[Coefficients][!mayfail]") {
+// Derivatives by the product rule: defined where a factor vanishes.
+// W and H both vanish at x = 0, with W'(0) = H'(0) = 0:
+//   (W H)'(0) = 0,  (W H)''(0) = W''(0) H(0) + 2 W'(0) H'(0) + W(0) H''(0) = 0
+// W(1) = W'(1) = 0: (W H)'(1) = 0, (W H)''(1) = W''(1) H(1).
+TEST_CASE("ProductCoefficient: derivatives where a factor vanishes", "[Coefficients]") {
   W w;
   H h;
   ProductCoefficient prod{&w, &h};
-  CHECK_THAT(prod.eval_gradient(0, std::vector{0.}, 1), WithinAbs(0., tol));
+  const std::vector<double> zero{0.};
+  CHECK_THAT(prod.eval_gradient(0, zero, 1), WithinAbs(0., tol));
+  CHECK_THAT(prod.eval_hessian(0, 0, zero, 1), WithinAbs(0., tol));
+
+  SECTION("x = 1") {
+    const std::vector<double> one{1.};
+    CHECK_THAT(prod.eval_gradient(0, one, 1), WithinAbs(0., tol));
+    CHECK_THAT(prod.eval_hessian(0, 0, one, 1),
+               WithinAbs(w.eval_hessian(0, 0, one, 1) * h.eval_f(one, 1), tol));
+  }
+  SECTION("three factors, with and without a vanishing factor") {
+    ProductCoefficient prod3{&w, &h, &h};
+    check_derivatives(prod3, std::vector{0.5});
+    check_derivatives(prod3, std::vector{0.});
+  }
 }
 
 // Note on the dimension argument: eval_f(x) without dimension passes -1 to
