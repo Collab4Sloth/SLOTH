@@ -161,6 +161,16 @@ TEST_CASE("ConstantCoefficient", "[Coefficients]") {
   CHECK_THAT(c.eval_f(std::vector{123.}, 1), WithinRel(7.5, tol));  // input ignored
   CHECK_THAT(c.eval_gradient(0, std::vector{0.3}, 1), WithinAbs(0., tol));
   CHECK_THAT(c.eval_hessian(0, 0, std::vector{0.3}, 1), WithinAbs(0., tol));
+
+  SECTION("several variables: n x n Hessian") {
+    const std::vector<double> x{0.3, 0.4, 0.5};
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        CHECK(c.eval_hessian(i, j, x, 1) == 0.);
+      }
+    }
+    check_derivatives(c, x);
+  }
 }
 
 // -----------------------------------------------------------------------------

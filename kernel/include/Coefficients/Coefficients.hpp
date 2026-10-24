@@ -50,7 +50,6 @@ concept CoeffVar = std::same_as<std::remove_cvref_t<T>, Coefficient>;
 class Coefficients {
  private:
   std::vector<Coefficient> vect_coefficients_;
-  std::vector<GlossaryType> vect_coefficient_types_;
 
  public:
   template <CoeffVar<Coefficient>... Args>
@@ -80,4 +79,4 @@ class Coefficients {
 template <CoeffVar<Coefficient>... Args>
   requires((sizeof...(Args) > 0))
 Coefficients::Coefficients(const Args&... args)
-    : vect_coefficients_{args...}, vect_coefficient_types_{args.get_type()...} {}
+    : vect_coefficients_{args...} {}

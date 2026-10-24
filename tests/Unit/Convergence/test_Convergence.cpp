@@ -84,6 +84,17 @@ TEST_CASE("PhysicalConvergence: RELATIVE_MAX = max |x - xn| / max(1e-12, |xn|)",
   }
 }
 
+TEST_CASE("PhysicalConvergence: no local value (rank without dof)", "[Convergence]") {
+  const mfem::Vector empty;
+  for (const auto type : {ConvergenceType::ABSOLUTE_MAX, ConvergenceType::RELATIVE_MAX}) {
+    CAPTURE(static_cast<int>(type));
+    PhysicalConvergence cvg(type, 1.e-3);
+    const auto [converged, criterion] = cvg.getPhysicalConvergence(empty, empty);
+    CHECK(converged);
+    CHECK(criterion == 0.);
+  }
+}
+
 TEST_CASE("PhysicalConvergence: unknown criterion", "[Convergence][errors]") {
   SLOTH_CHECK_MFEM_ERROR_WITH(
       PhysicalConvergence(static_cast<ConvergenceType::value>(99), 1.e-3), "available");

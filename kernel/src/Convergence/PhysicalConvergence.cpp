@@ -28,6 +28,7 @@
 #include "Convergence/PhysicalConvergence.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <tuple>
 #include <vector>
@@ -88,21 +89,15 @@ std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)
 PhysicalConvergence::getRelativeMax(const double& given_criterion) {
   return std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>(
       [given_criterion](const mfem::Vector& x, const mfem::Vector& xn) {
-        std::vector<double> abs_error;
-        abs_error.resize(x.Size());
-        const auto epsilon = 1.e-12;
-        // Absolute difference element per element
-        std::transform(x.begin(), x.end(), xn.begin(), abs_error.begin(),
-                       [epsilon](double a, double b) {
-                         return std::abs(a - b) / std::max(epsilon, std::abs(b));
-                       });
-        // Maximum among the absolute differences
-
-        const auto& criterion = *(std::max_element(abs_error.begin(), abs_error.end()));
-        // Checking if criterion is satisfied
-        bool is_cvg = (criterion < given_criterion);
-        abs_error.clear();
-        return std::make_tuple(is_cvg, criterion);
+        // Maximum of the relative differences, element per element (0 for empty vectors,
+        // e.g. a rank without dof: the criterion is then reduced over the ranks)
+        constexpr double epsilon = 1.e-12;
+        double criterion = 0.;
+        for (int i = 0; i < x.Size(); ++i) {
+          criterion =
+              std::max(criterion, std::abs(x(i) - xn(i)) / std::max(epsilon, std::abs(xn(i))));
+        }
+        return std::make_tuple(criterion < given_criterion, criterion);
       });
 }
 
@@ -117,17 +112,13 @@ std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)
 PhysicalConvergence::getAbsoluteMax(const double& given_criterion) {
   return std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>(
       [given_criterion](const mfem::Vector& x, const mfem::Vector& xn) {
-        std::vector<double> abs_error;
-        abs_error.resize(x.Size());
-        // Absolute difference element per element
-        std::transform(x.begin(), x.end(), xn.begin(), abs_error.begin(),
-                       [](double a, double b) { return std::abs(a - b); });
-        // Maximum among the absolute differences
-        const auto& criterion = *(std::max_element(abs_error.begin(), abs_error.end()));
-        // Checking if criterion is satisfied
-        bool is_cvg = (criterion < given_criterion);
-        abs_error.clear();
-        return std::make_tuple(is_cvg, criterion);
+        // Maximum of the absolute differences, element per element (0 for empty vectors,
+        // e.g. a rank without dof: the criterion is then reduced over the ranks)
+        double criterion = 0.;
+        for (int i = 0; i < x.Size(); ++i) {
+          criterion = std::max(criterion, std::abs(x(i) - xn(i)));
+        }
+        return std::make_tuple(criterion < given_criterion, criterion);
       });
 }
 

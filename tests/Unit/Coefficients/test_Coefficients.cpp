@@ -68,13 +68,12 @@ TEST_CASE("Coefficients: add", "[Coefficients]") {
   CHECK(coefs[1].get_type() == GlossaryType::Pressure);
 }
 
-// [!mayfail]: reported, but does not make the executable fail.
-// Coefficients::add appends the coefficient but not its type:
-// after an add, get_types() does not match the coefficients.
-TEST_CASE("Coefficients: get_types is consistent after add", "[Coefficients][!mayfail]") {
+TEST_CASE("Coefficients: get_types gives the types of the coefficients, in order",
+          "[Coefficients]") {
   Coefficients coefs(Coefficient(Glossary::Temperature, 300.));
   coefs.add(Coefficient(Glossary::Pressure, 1.e5));
-  CHECK(coefs.get_types().size() == coefs.size());
+  CHECK(coefs.get_types() == std::vector{GlossaryType::Temperature, GlossaryType::Pressure});
+  CHECK(Coefficients().get_types().empty());
 }
 
 TEST_CASE("Coefficients: set_time reaches every coefficient", "[Coefficients]") {
