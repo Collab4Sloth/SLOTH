@@ -155,7 +155,7 @@ void InterDiffusionCoefficient::get_property(
       const std::string_view type_info_view(aux_infos.back());
 
       if (!type_info_view.empty() && type_info_view.starts_with("mob")) {
-        const std::string phase_info(aux_infos[size - 3]);
+        const std::string phase_info = toUpperCase(aux_infos[size - 3]);
         const std::string elem_info(aux_infos[size - 2]);
         if (phase_info == this->primary_phase_) {
           this->primary_mob_gf_.emplace(toUpperCase(elem_info), aux_gf);

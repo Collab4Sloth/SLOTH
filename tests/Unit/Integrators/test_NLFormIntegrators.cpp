@@ -94,8 +94,7 @@ template <template <class> class INTEGRATOR>
 std::function<mfem::BlockNonlinearFormIntegrator*(const Context&)> maker(
     std::vector<Coefficients> coefficients) {
   return [coefficients](const Context& c) {
-    // Through the base class, as OperatorBase::set_nlfi_ptr: init() is public
-    // in SlothNLFormIntegrator but redeclared protected in some derived classes
+    // Through the base class, as OperatorBase::set_nlfi_ptr
     SlothNLFormIntegrator<VARS2D>* integ = new INTEGRATOR<VARS2D>(
         Geometry::Cartesian, c.dt, c.u_old, c.aux_old, c.params, c.auxvars, coefficients);
     integ->init();

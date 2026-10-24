@@ -73,13 +73,20 @@ TEST_CASE("TabulatedFunction: invalid files", "[PreProcessing]") {
     const sloth_unit::TemporaryFile csv("cols.csv", "t,a,b,c,d,F\n0,0,0,0,0,1\n");
     SLOTH_CHECK_MFEM_ERROR_WITH(TabulatedFunction(csv.path()), "not well read");
   }
-  // The two errors below are std::runtime_error, not mfem_error
   SECTION("inconsistent number of columns") {
     const sloth_unit::TemporaryFile csv("ragged.csv", "t,x,F\n0,0,1\n0,1\n");
-    CHECK_THROWS_AS(TabulatedFunction(csv.path()), std::runtime_error);
+    SLOTH_CHECK_MFEM_ERROR_WITH(TabulatedFunction(csv.path()), "line 3 contains 2 columns");
   }
   SECTION("missing grid node (not a structured grid)") {
     const sloth_unit::TemporaryFile csv("holes.csv", "t,x,F\n0,0,0\n0,1,1\n1,0,1\n");
-    CHECK_THROWS_AS(TabulatedFunction(csv.path()), std::runtime_error);
+    SLOTH_CHECK_MFEM_ERROR_WITH(TabulatedFunction(csv.path()), "not a structured grid");
+  }
+  SECTION("duplicate grid point (and as many lines as grid nodes)") {
+    const sloth_unit::TemporaryFile csv("dup.csv", "t,x,F\n0,0,0\n0,0,1\n0,1,1\n1,0,1\n");
+    SLOTH_CHECK_MFEM_ERROR_WITH(TabulatedFunction(csv.path()), "duplicate grid point");
+  }
+  SECTION("value that is not a number") {
+    const sloth_unit::TemporaryFile csv("nan.csv", "t,x,F\n0,0,abc\n");
+    SLOTH_CHECK_MFEM_ERROR_WITH(TabulatedFunction(csv.path()), "'abc' is not a valid number");
   }
 }

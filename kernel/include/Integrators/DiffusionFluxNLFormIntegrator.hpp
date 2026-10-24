@@ -69,9 +69,9 @@ class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   virtual std::vector<double> get_flux_coefficient(const int nElement,
                                                    const mfem::IntegrationPoint& ip) = 0;
   void get_coefficients() override;
-  void init() override;
 
  public:
+  void init() override;
   DiffusionFluxNLFormIntegrator(Geometry geometry, const double time_step,
                                 const std::vector<mfem::ParGridFunction>& u_old,
                                 const std::vector<mfem::ParGridFunction>& aux_old,

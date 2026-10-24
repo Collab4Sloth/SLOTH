@@ -56,9 +56,9 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<mfem::ParGridFunction> vaux_gf_;
 
   void get_coefficients() override = 0;
-  void init() override;
 
  public:
+  void init() override;
   DiffusionNLFormIntegrator(Geometry geometry, const double time_step,
                             const std::vector<mfem::ParGridFunction> u_old,
                             const std::vector<mfem::ParGridFunction> aux_old,

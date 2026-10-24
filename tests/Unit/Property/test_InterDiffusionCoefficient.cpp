@@ -102,6 +102,14 @@ TEST_CASE("InterDiffusionCoefficient: binary system, one phase", "[Property]") {
     CHECK_THAT(L_U(1), WithinRel(binary_L(0.5, 0.5, 2. * MU, MO), 1.e-12));
   }
   SECTION("set_times") { CHECK_NOTHROW(prop.set_times(1., 0.1)); }
+  SECTION("phase and element names are case-insensitive") {
+    const Input input{{{"u", "x"}, xU},
+                      {{"o", "x"}, xO},
+                      {{"Fluorite", "u", "mob"}, constant(MU)},
+                      {{"fluorite", "O", "mob"}, constant(MO)}};
+    prop.compute(output, input);
+    CHECK_THAT(L_U(0), WithinRel(binary_L(xU(0), xO(0), MU, MO), 1.e-12));
+  }
 }
 
 TEST_CASE("InterDiffusionCoefficient: binary system, two phases", "[Property]") {

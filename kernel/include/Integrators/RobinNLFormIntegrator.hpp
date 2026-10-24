@@ -58,9 +58,9 @@ class RobinNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   Coefficient robin_b;
 
   void get_coefficients() override;
-  void init() override;
 
  public:
+  void init() override;
   RobinNLFormIntegrator(Geometry geometry, const double time_step,
                         const std::vector<mfem::ParGridFunction>& u_old,
                         const std::vector<mfem::ParGridFunction>& aux_old, const Parameters& params,
