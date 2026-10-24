@@ -161,6 +161,12 @@ sloth_add_unit_test(NAME PreProcessing
 sloth_add_unit_test(NAME Problems
                     SOURCES Problems/test_CahnHilliardDirichlet.cpp)
 
+# Separate executable: the MATools headers included by Sloth/sloth.hpp define
+# non-inline functions, so only one file including Sloth/sloth.hpp is allowed
+# per executable (otherwise: duplicate symbols at link time).
+sloth_add_unit_test(NAME ProblemsSteadyExplicit
+                    SOURCES Problems/test_SteadyAndExplicit.cpp)
+
 sloth_add_unit_test(NAME Property
                     SOURCES Property/test_InterDiffusionCoefficient.cpp
                     NPROCS 1)
