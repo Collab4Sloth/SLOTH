@@ -108,7 +108,8 @@ endfunction()
 # Modules
 # ##############################################################################
 sloth_add_unit_test(NAME AMR
-                    SOURCES AMR/test_SlothErrorEstimators.cpp)
+                    SOURCES AMR/test_SlothErrorEstimators.cpp
+                            AMR/test_AMR.cpp)
 
 sloth_add_unit_test(NAME AnalyticalFunctions
                     SOURCES AnalyticalFunctions/test_AnalyticalFunctions.cpp)
