@@ -230,11 +230,12 @@ const auto positive_diagonal = true;
 
 /**
  * @brief Default constant used by HYPRE_BOOMER_AMG  Preconditioner
- *
+ * @remark One V-cycle per application (as the MFEM default), the usual setting of a
+ * multigrid preconditioner. iter_max can be increased through the parameters.
  */
 namespace HYPRE_BOOMER_AMG_DefaultConstant {
-const auto iter_max = 100;
-const auto tol = 1.e-16;
+const auto iter_max = 1;
+const auto tol = 0.;
 const auto print_level = -1;
 }  // namespace HYPRE_BOOMER_AMG_DefaultConstant
 
