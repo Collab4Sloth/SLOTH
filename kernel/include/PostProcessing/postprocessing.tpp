@@ -309,6 +309,11 @@ void PostProcessing<T, DC, DIM>::save_coefficients(std::vector<Coefficient>& coe
       this->dc_->RegisterField(name, gf_ptr);
     }
     this->dc_->Save();
+    // The projected coefficients are rebuilt at each call: they are not left registered,
+    // so that a data collection shared by several problems never holds dangling pointers
+    for (const auto& [name, gf_ptr] : field_map) {
+      this->dc_->DeregisterField(name);
+    }
   }
 }
 
