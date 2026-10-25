@@ -78,5 +78,4 @@ class Coefficients {
  */
 template <CoeffVar<Coefficient>... Args>
   requires((sizeof...(Args) > 0))
-Coefficients::Coefficients(const Args&... args)
-    : vect_coefficients_{args...} {}
+Coefficients::Coefficients(const Args&... args) : vect_coefficients_{args...} {}

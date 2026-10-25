@@ -116,8 +116,8 @@ int main(int argc, char* argv[]) {
 
       // Problem 1:
       std::vector<SPA*> spatials{&spatial};
-      TransientOPE oper(spatials, {"AllenCahn", "SourceTerm"},
-                        TimeScheme::from(time_scheme), "TimeDerivative");
+      TransientOPE oper(spatials, {"AllenCahn", "SourceTerm"}, TimeScheme::from(time_scheme),
+                        "TimeDerivative");
 
       auto pst = PST(&spatial, p_pst);
       TransientPB problem1("AllenCahn", oper, vars, {coef_ac}, pst);

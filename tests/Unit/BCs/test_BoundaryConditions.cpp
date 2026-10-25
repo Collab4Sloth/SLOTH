@@ -1,7 +1,8 @@
 /**
  * @file test_BoundaryConditions.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit tests for the boundary conditions of a problem: Dirichlet values given by coefficients, Neumann and Robin coefficients
+ * @brief Unit tests for the boundary conditions of a problem: Dirichlet values given by
+ * coefficients, Neumann and Robin coefficients
  * @version 0.1
  * @date 2026-10-22
  *
@@ -23,13 +24,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
 #include <functional>
 #include <span>
 #include <string>
 #include <tuple>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -56,17 +56,15 @@ class OnePlusXPlusY final : public FunctionCoefficient {
                                     const std::span<const double>&, const unsigned int)>
   GradientF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 0.); };
   }
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const std::span<const double>&, const unsigned int)>
   HessianF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size() * u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
   }
 };
 
@@ -79,8 +77,8 @@ Coefficient on_boundaries(Coefficient c, const std::vector<int>& bdr) {
 /**
  * @brief Steady heat conduction - div(grad T) = 0 on the unit square
  * (4 x 4 quadrangles, Q1), solved with the boundary conditions and the
- * coefficients given (conductivity 1 included in them). Every expected solution below is affine, hence exact in Q1.
- * Boundaries: 0 lower (y = 0), 1 right (x = 1), 2 upper (y = 1), 3 left (x = 0).
+ * coefficients given (conductivity 1 included in them). Every expected solution below is affine,
+ * hence exact in Q1. Boundaries: 0 lower (y = 0), 1 right (x = 1), 2 upper (y = 1), 3 left (x = 0).
  */
 struct HeatSquare {
   SPA spatial{"InlineSquareWithQuadrangles", 1, 0, std::make_tuple(4, 4, 1., 1.)};
@@ -95,10 +93,10 @@ struct HeatSquare {
                                        Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
     SteadyPB problem("Heat", oper, vars, {coefs});
     auto coupling = Coupling("Heat", problem);
-    auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                              Parameter("final_time", 1.),
-                                              Parameter("time_step", 1.)),
-                                   coupling);
+    auto time =
+        TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 1.),
+                                      Parameter("time_step", 1.)),
+                           coupling);
     time.solve();
     mfem::FunctionCoefficient ex(exact);
     return vars[0].get_ref_gf().ComputeL2Error(ex);
@@ -117,8 +115,9 @@ TEST_CASE_METHOD(HeatSquare, "BoundaryConditions: Dirichlet values given by coef
   SECTION("coefficient of the coordinates on the whole boundary: T = 1 + x + y") {
     BCS bcs(&spatial, Boundary("lower", 0, "Dirichlet", 0.), Boundary("right", 1, "Dirichlet", 0.),
             Boundary("upper", 2, "Dirichlet", 0.), Boundary("left", 3, "Dirichlet", 0.));
-    Coefficients coefs(conductivity, on_boundaries(
-        Coefficient(Glossary::Dirichlet, Scheme::Implicit, OnePlusXPlusY()), {0, 1, 2, 3}));
+    Coefficients coefs(conductivity, on_boundaries(Coefficient(Glossary::Dirichlet,
+                                                               Scheme::Implicit, OnePlusXPlusY()),
+                                                   {0, 1, 2, 3}));
     CHECK(solve(bcs, coefs, one_plus_x_plus_y) < 1.e-10);
   }
   SECTION("constant coefficient: replaces the value given with the boundary") {

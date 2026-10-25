@@ -83,8 +83,8 @@ void SlothErrorEstimators::CachedEstimator::release() {
  * @param order Polynomial order of the finite element space of `x`.
  * @param mesh Mesh the finite element space of `x` is built on.
  */
-void SlothErrorEstimators::build(CachedEstimator& entry, mfem::ParGridFunction& x,
-                                 const int order, mfem::ParMesh& mesh) {
+void SlothErrorEstimators::build(CachedEstimator& entry, mfem::ParGridFunction& x, const int order,
+                                 mfem::ParMesh& mesh) {
   entry.release();
   entry.mesh = &mesh;
   entry.order = order;

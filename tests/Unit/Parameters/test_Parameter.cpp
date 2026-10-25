@@ -23,11 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <string>
-#include <variant>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <string>
+#include <variant>
 
 #include "Parameters/Parameter.hpp"
 #include "sloth_unit.hpp"

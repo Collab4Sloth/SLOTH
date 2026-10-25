@@ -23,10 +23,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <tuple>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <tuple>
 
 #include "Convergence/Convergence.hpp"
 #include "Convergence/PhysicalConvergence.hpp"
@@ -59,8 +58,7 @@ TEST_CASE("PhysicalConvergence: ABSOLUTE_MAX = max |x - xn|", "[Convergence]") {
   }
 }
 
-TEST_CASE("PhysicalConvergence: RELATIVE_MAX = max |x - xn| / max(1e-12, |xn|)",
-          "[Convergence]") {
+TEST_CASE("PhysicalConvergence: RELATIVE_MAX = max |x - xn| / max(1e-12, |xn|)", "[Convergence]") {
   PhysicalConvergence cvg(ConvergenceType::RELATIVE_MAX, 1.e-2);
 
   SECTION("relative to the previous value") {
@@ -77,8 +75,7 @@ TEST_CASE("PhysicalConvergence: RELATIVE_MAX = max |x - xn| / max(1e-12, |xn|)",
     CHECK_THAT(criterion, WithinRel(1.e-3, 1.e-9));
   }
   SECTION("previous value 0: divided by 1e-12, no division by zero") {
-    const auto [converged, criterion] =
-        cvg.getPhysicalConvergence(point({5.e-15}), point({0.}));
+    const auto [converged, criterion] = cvg.getPhysicalConvergence(point({5.e-15}), point({0.}));
     CHECK(converged);  // 5e-15 / 1e-12 = 5e-3 < 1e-2
     CHECK_THAT(criterion, WithinRel(5.e-3, 1.e-9));
   }
@@ -96,8 +93,8 @@ TEST_CASE("PhysicalConvergence: no local value (rank without dof)", "[Convergenc
 }
 
 TEST_CASE("PhysicalConvergence: unknown criterion", "[Convergence][errors]") {
-  SLOTH_CHECK_MFEM_ERROR_WITH(
-      PhysicalConvergence(static_cast<ConvergenceType::value>(99), 1.e-3), "available");
+  SLOTH_CHECK_MFEM_ERROR_WITH(PhysicalConvergence(static_cast<ConvergenceType::value>(99), 1.e-3),
+                              "available");
 }
 
 TEST_CASE("Convergence: one criterion per variable, in order", "[Convergence]") {

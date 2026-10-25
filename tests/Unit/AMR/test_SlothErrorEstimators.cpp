@@ -23,10 +23,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <memory>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <memory>
 
 #include "AMR/SlothErrorEstimators.hpp"
 #include "mfem.hpp"

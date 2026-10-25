@@ -23,13 +23,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <cmath>
-#include <memory>
-#include <vector>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
+#include <memory>
+#include <vector>
 
 #include "Operators/ReducedOperator.hpp"
 #include "Operators/SteadyReducedOperator.hpp"
@@ -49,8 +48,7 @@ class LinearBlockIntegrator : public mfem::BlockNonlinearFormIntegrator {
   LinearBlockIntegrator(double a, double b, double c) : a_(a), b_(b), c_(c) {}
 
   void AssembleElementGrad(const mfem::Array<const mfem::FiniteElement*>& el,
-                           mfem::ElementTransformation& Tr,
-                           const mfem::Array<const mfem::Vector*>&,
+                           mfem::ElementTransformation& Tr, const mfem::Array<const mfem::Vector*>&,
                            const mfem::Array2D<mfem::DenseMatrix*>& elmats) override {
     mfem::DenseMatrix K, M;
     diffusion_.AssembleElementMatrix(*el[0], Tr, K);
@@ -229,8 +227,7 @@ TEST_CASE("PhaseFieldReducedOperator", "[Operators]") {
 // With several variables, only the diagonal blocks get a 1 on their diagonal
 // when the Dirichlet conditions are eliminated: the Dirichlet row of variable
 // i reads v_i (a 1 in an off-diagonal block would make it read v_i + v_j).
-TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
-          "[Operators]") {
+TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows", "[Operators]") {
   const int nvar = GENERATE(1, 2);
   CAPTURE(nvar);
   BlockProblem p(nvar);
@@ -252,8 +249,7 @@ TEST_CASE("Reduced operators: Dirichlet rows of the Jacobian are identity rows",
 // variable 0 only: the time derivative k0 stays 0 on the Dirichlet dofs (the
 // boundary value of u0 is fixed). A 1 in an off-diagonal block would make the
 // Dirichlet row read dk0 + dk1 = 0, hence k0 != 0 on the boundary.
-TEST_CASE("PhaseFieldReducedOperator: Newton keeps the Dirichlet values",
-          "[Operators]") {
+TEST_CASE("PhaseFieldReducedOperator: Newton keeps the Dirichlet values", "[Operators]") {
   BlockProblem p(2);
   p.ess[1].DeleteAll();  // no Dirichlet condition on variable 1
   PhaseFieldReducedOperator F(p.lhs.get(), p.rhs.get(), p.ess);

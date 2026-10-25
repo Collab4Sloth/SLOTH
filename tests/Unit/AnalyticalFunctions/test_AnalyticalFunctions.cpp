@@ -23,12 +23,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <cmath>
-#include <functional>
-
 #include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
+#include <functional>
 
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "Options/AnalyticalFunctionOptions.hpp"
@@ -65,8 +64,8 @@ TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Heaviside, step at x = 0.5", "[Anal
   CHECK(f(point_x<DIM>(0.75), 10.) == 1.);  // time-independent
 }
 
-TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Uniform", "[AnalyticalFunctions]", ((int DIM), DIM),
-                       1, 2, 3) {
+TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Uniform", "[AnalyticalFunctions]", ((int DIM), DIM), 1,
+                       2, 3) {
   const AnalyticalFunctions<DIM> af(AnalyticalFunctionsType::Uniform, 273.15);
   const auto f = af.getFunction();
 
@@ -85,8 +84,8 @@ TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Uniform", "[AnalyticalFunctions]", 
 TEST_CASE("AnalyticalFunctions: HyperbolicTangent 1D", "[AnalyticalFunctions]") {
   // Arguments: center_x, a_x, thickness, radius
   const double center = 0.5, a = 1., thickness = 0.01, radius = 0.2;
-  const AnalyticalFunctions<1> af(AnalyticalFunctionsType::HyperbolicTangent, center, a,
-                                  thickness, radius);
+  const AnalyticalFunctions<1> af(AnalyticalFunctionsType::HyperbolicTangent, center, a, thickness,
+                                  radius);
   const auto f = af.getFunction();
 
   // 0.5 on the interface, 0 inside, 1 outside
@@ -183,14 +182,14 @@ TEST_CASE("AnalyticalFunctions: Sinusoide 2D", "[AnalyticalFunctions]") {
 // Parabolic (1D and 2D): temperature profile in a pellet
 //   T(r) = f0 + P (rmax^2 - r^2) / (4 pi lambda rmax^2),  r = x[0]
 // -----------------------------------------------------------------------------
-TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Parabolic", "[AnalyticalFunctions]",
-                       ((int DIM), DIM), 1, 2) {
+TEMPLATE_TEST_CASE_SIG("AnalyticalFunctions: Parabolic", "[AnalyticalFunctions]", ((int DIM), DIM),
+                       1, 2) {
   // Arguments: rmax, f0, linear power, conductivity
   const double rmax = 4.e-3, f0 = 600., plin = 2.e4, cond = 3.;
   const AnalyticalFunctions<DIM> af(AnalyticalFunctionsType::Parabolic, rmax, f0, plin, cond);
   const auto f = af.getFunction();
 
-  CHECK_THAT(f(point_x<DIM>(rmax), 0.), WithinRel(f0, 1.e-12));                          // surface
+  CHECK_THAT(f(point_x<DIM>(rmax), 0.), WithinRel(f0, 1.e-12));  // surface
   CHECK_THAT(f(point_x<DIM>(0.), 0.), WithinRel(f0 + plin / (4. * M_PI * cond), 1.e-12));  // centre
 
   SECTION("four arguments are expected") {

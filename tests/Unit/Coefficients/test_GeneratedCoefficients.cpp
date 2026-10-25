@@ -24,11 +24,10 @@
  *
  */
 #include <array>
-#include <cmath>
-#include <vector>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
+#include <vector>
 
 #include "Coefficients/Coefficients.hpp"
 #include "Coefficients/ProductFunctionCoefficients.hpp"
@@ -54,9 +53,9 @@ constexpr double A = 94.1;   // 2*2 + 30*3 + 0.1*1
 constexpr double B = 188.6;  // 2*4 + 30*6 + 0.1*6
 const std::vector<double> gradA{2., 30., 0.1};
 const std::vector<double> gradB{98.3, 60.2, 0.6};
-const std::vector<double> hessB{4.0, 30.1, 0.3,  //
-                                30.1, 0.0, 0.2,  //
-                                0.3, 0.2, 0.0};
+const std::vector<double> hessB{4.0,  30.1, 0.3,  //
+                                30.1, 0.0,  0.2,  //
+                                0.3,  0.2,  0.0};
 
 /// @brief Checks the value, gradient and Hessian of c at X
 void check_at_X(Coefficient& c, double value, const std::vector<double>& grad,
@@ -68,8 +67,7 @@ void check_at_X(Coefficient& c, double value, const std::vector<double>& grad,
     for (int j = 0; j < 3; ++j) {
       CAPTURE(j);
       const double expected = hess[i * 3 + j];
-      CHECK_THAT(c.compute_hessian(i, j, X),
-                 WithinAbs(expected, tol * (1. + std::abs(expected))));
+      CHECK_THAT(c.compute_hessian(i, j, X), WithinAbs(expected, tol * (1. + std::abs(expected))));
     }
   }
 }

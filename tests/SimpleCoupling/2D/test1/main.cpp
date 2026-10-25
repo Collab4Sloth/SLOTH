@@ -162,8 +162,8 @@ int main(int argc, char* argv[]) {
   // Heat:
   Coefficient source(Glossary::SourceTerm, pl / (M_PI * 2. * pellet_radius * pellet_radius));
   Coefficients heat_coef(density, heat_capacity, conductivity, source);
-  TransientOPE oper_heat(spatials, {"Fourier", "SourceTerm"},
-                         TimeScheme::EulerImplicit, "HeatTimeDerivative");
+  TransientOPE oper_heat(spatials, {"Fourier", "SourceTerm"}, TimeScheme::EulerImplicit,
+                         "HeatTimeDerivative");
   oper_heat.overload_nl_solver(
       NLSolverType::NEWTON, Parameters(Parameter("description", "Newton solver "),
                                        Parameter("print_level", 1), Parameter("rel_tol", 1.e-11),

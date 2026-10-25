@@ -1,7 +1,8 @@
 /**
  * @file test_FunctionCoefficients.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit tests for FunctionCoefficient and its derived classes (W, Fw, H, Log, GradientEnergy, Constant, Sum, Product)
+ * @brief Unit tests for FunctionCoefficient and its derived classes (W, Fw, H, Log, GradientEnergy,
+ * Constant, Sum, Product)
  * @version 0.1
  * @date 2026-10-22
  *
@@ -24,13 +25,12 @@
  *
  */
 #include <algorithm>
-#include <cmath>
-#include <vector>
-
 #include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
+#include <vector>
 
 #include "Coefficients/CommonCoefficients.hpp"
 #include "Coefficients/ConstantCoefficient.hpp"
@@ -73,9 +73,9 @@ void check_derivatives(FunctionCoefficient& c, const std::vector<double>& x, int
     CHECK_THAT(c.eval_gradient(i, x, dim), near(fd));
     for (int j = 0; j < n; ++j) {
       CAPTURE(j);
-      const double fd2 = (c.eval_gradient(i, shifted(j, h), dim) -
-                          c.eval_gradient(i, shifted(j, -h), dim)) /
-                         (2. * h);
+      const double fd2 =
+          (c.eval_gradient(i, shifted(j, h), dim) - c.eval_gradient(i, shifted(j, -h), dim)) /
+          (2. * h);
       CHECK_THAT(c.eval_hessian(i, j, x, dim), near(fd2));
     }
   }
@@ -100,7 +100,7 @@ TEMPLATE_TEST_CASE("FunctionCoefficient: gradient and Hessian match finite diffe
 // Values: formulas written from the documentation of each potential
 // -----------------------------------------------------------------------------
 TEST_CASE("CommonCoefficients: W = x^2 (1-x)^2 (double well)", "[Coefficients]") {
-  W w;  // default prefactor: 1
+  W w;                                                           // default prefactor: 1
   CHECK_THAT(w.eval_f(std::vector{0.}, 1), WithinAbs(0., tol));  // minima in 0 and 1
   CHECK_THAT(w.eval_f(std::vector{1.}, 1), WithinAbs(0., tol));
   CHECK_THAT(w.eval_f(std::vector{0.5}, 1), WithinRel(0.0625, tol));  // barrier

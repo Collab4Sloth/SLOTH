@@ -174,9 +174,8 @@ int main(int argc, char* argv[]) {
         Coefficients coef_pb1(double_well, capillary, mobility, grad_energy, source);
         std::vector<SPA*> spatials{&spatial, &spatial};
 
-        TransientOPE oper(spatials, {"CahnHilliard", "SourceTerm"},
-                          params, TimeScheme::EulerImplicit,
-                          "SplitTimeDerivative");
+        TransientOPE oper(spatials, {"CahnHilliard", "SourceTerm"}, params,
+                          TimeScheme::EulerImplicit, "SplitTimeDerivative");
 
         oper.overload_nl_solver(
             NLSolverType::NEWTON,

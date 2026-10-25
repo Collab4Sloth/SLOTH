@@ -24,6 +24,8 @@
  *
  */
 #include <algorithm>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -31,9 +33,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -63,9 +62,12 @@ struct AMRSetup {
   mfem::ConstantCoefficient one{1.};
   mfem::DiffusionIntegrator integ{one};
   SlothErrorEstimators estimator{ErrorEstimatorType::KELLY, &integ};
-  Parameters params{Parameter("max_elem_error", 1.e-4), Parameter("amr_max_level", 3),
-                    Parameter("nc_limit", 1),           Parameter("max_preref_cycles", 3),
-                    Parameter("scale_down_factor", 0.25), Parameter("rebalance", true)};
+  Parameters params{Parameter("max_elem_error", 1.e-4),
+                    Parameter("amr_max_level", 3),
+                    Parameter("nc_limit", 1),
+                    Parameter("max_preref_cycles", 3),
+                    Parameter("scale_down_factor", 0.25),
+                    Parameter("rebalance", true)};
 
   mfem::ParMesh& mesh() { return *spatial.get_mesh(); }
   long long global_ne() { return mesh().GetGlobalNE(); }
@@ -104,12 +106,11 @@ struct AMRSetup {
 double x_of(const mfem::Vector& p, double) { return p[0]; }
 }  // namespace
 
-TEST_CASE_METHOD(AMRSetup, "SingleVariableAMR: initial refinement at the interface",
-                 "[AMR]") {
+TEST_CASE_METHOD(AMRSetup, "SingleVariableAMR: initial refinement at the interface", "[AMR]") {
   auto vars = VARS(variable("phi", interface(0.5)));
-  auto aux = VARS(VAR(&spatial, bcs, "c", Glossary::Concentration, 2,
-                      AnalyticalFunctions<DIM>(std::function<double(const mfem::Vector&, double)>(
-                          x_of))));
+  auto aux =
+      VARS(VAR(&spatial, bcs, "c", Glossary::Concentration, 2,
+               AnalyticalFunctions<DIM>(std::function<double(const mfem::Vector&, double)>(x_of))));
   SingleVariableAMR<VARS> amr(mesh(), spatial.is_nc_simplices(), "phi");
   amr.SetCriteria(&estimator, params);
 
@@ -173,8 +174,7 @@ TEST_CASE_METHOD(AMRSetup, "SingleVariableAMR: step refinement", "[AMR]") {
   CHECK(vars[0].get_unknown().Size() == vars[0].get_fespace()->GetTrueVSize());
 }
 
-TEST_CASE_METHOD(AMRSetup, "MultiVariableMaxAMR: refinement driven by several variables",
-                 "[AMR]") {
+TEST_CASE_METHOD(AMRSetup, "MultiVariableMaxAMR: refinement driven by several variables", "[AMR]") {
   // phi: interface x = 0.5, psi: interface y = 0.5
   auto vars = VARS(variable("phi", interface(0.5)), variable("psi", interface(0.5, true)));
   MultiVariableMaxAMR<VARS> amr(mesh(), spatial.is_nc_simplices(),
@@ -187,8 +187,8 @@ TEST_CASE_METHOD(AMRSetup, "MultiVariableMaxAMR: refinement driven by several va
       return std::abs(c[0] - cx) < 0.07 && std::abs(c[1] - cy) < 0.07;
     };
   };
-  CHECK(max_area_where(near(0.5, 0.15)) < kCoarseArea);   // refined for phi only
-  CHECK(max_area_where(near(0.15, 0.5)) < kCoarseArea);   // refined for psi only
+  CHECK(max_area_where(near(0.5, 0.15)) < kCoarseArea);  // refined for phi only
+  CHECK(max_area_where(near(0.15, 0.5)) < kCoarseArea);  // refined for psi only
   CHECK_THAT(max_area_where(near(0.1, 0.1)), WithinAbs(kCoarseArea, 1.e-12));  // neither
 }
 
@@ -216,8 +216,7 @@ TEST_CASE_METHOD(AMRSetup, "AMR: invalid use", "[AMR][errors]") {
 // time step and at each step; the operator and the Dirichlet dofs follow the
 // new mesh, and the Dirichlet values are kept exactly.
 // -----------------------------------------------------------------------------
-TEST_CASE_METHOD(AMRSetup, "AMR: attached to a problem, during the time loop",
-                 "[AMR][Problems]") {
+TEST_CASE_METHOD(AMRSetup, "AMR: attached to a problem, during the time loop", "[AMR][Problems]") {
   BCS bcs_d{&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 1.),
             Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 0.)};
   auto vars = VARS(VAR(&spatial, bcs_d, "phi", Glossary::PhaseField, 2,
@@ -238,10 +237,10 @@ TEST_CASE_METHOD(AMRSetup, "AMR: attached to a problem, during the time loop",
   problem.set_amr(&amr);
 
   auto coupling = Coupling("AMR", problem);
-  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                            Parameter("final_time", 2.e-3),
-                                            Parameter("time_step", 1.e-3)),
-                                 coupling);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 2.e-3),
+                                    Parameter("time_step", 1.e-3)),
+                         coupling);
   time.solve();
 
   CHECK(global_ne() > 64);

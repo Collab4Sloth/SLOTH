@@ -23,12 +23,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <memory>
 #include <stdexcept>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Coefficients/Coefficients.hpp"
 #include "Coefficients/CommonCoefficients.hpp"

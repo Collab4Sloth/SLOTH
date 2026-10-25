@@ -136,8 +136,8 @@ int main(int argc, char* argv[]) {
   Coefficients coef_heat(density, heat_capacity, conductivity, source);
 
   std::vector<SPA*> spatials{&spatial};
-  TransientOPE Heat_op(spatials, {"Fourier", "SourceTerm"},
-                       TimeScheme::EulerImplicit, "HeatTimeDerivative");
+  TransientOPE Heat_op(spatials, {"Fourier", "SourceTerm"}, TimeScheme::EulerImplicit,
+                       "HeatTimeDerivative");
   Heat_op.overload_nl_solver(
       NLSolverType::NEWTON,
       Parameters(Parameter("description", "Newton solver "), Parameter("abs_tol", 1.e-10)));

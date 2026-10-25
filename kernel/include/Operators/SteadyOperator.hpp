@@ -61,8 +61,8 @@ class SteadyOperator : public OperatorBase<T, DIM> {
 
   /// Not used: the steady solve goes through SteadyPhaseFieldReducedOperator (Mult is required
   /// by mfem::Operator). An error is raised if it is called.
-  void Mult([[maybe_unused]] const mfem::Vector& k, [[maybe_unused]] mfem::Vector& y)
-      const override {
+  void Mult([[maybe_unused]] const mfem::Vector& k,
+            [[maybe_unused]] mfem::Vector& y) const override {
     MFEM_ABORT(
         "SteadyOperator::Mult is not used: the steady solve goes through "
         "SteadyPhaseFieldReducedOperator.");

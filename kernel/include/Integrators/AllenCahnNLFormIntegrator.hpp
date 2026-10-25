@@ -56,7 +56,7 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
-  std::vector<double> mob_at_ip_;  ///< mobility of each block at the current point
+  std::vector<double> mob_at_ip_;   ///< mobility of each block at the current point
   std::vector<double> dmob_at_ip_;  ///< dM/du_j at the current point
 
   // General case: blocks with different finite elements (e.g. different orders). Same
@@ -94,8 +94,8 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
   void add_mobility_derivative(const int blk, const double lamb, const mfem::DenseMatrix& gradPsi,
                                const mfem::Vector& Psi, const mfem::Vector& elfun_blk,
-                               const std::span<const double>& u,
-                               const std::span<const double>& aux, const double weight_coef,
+                               const std::span<const double>& u, const std::span<const double>& aux,
+                               const double weight_coef,
                                const mfem::Array2D<mfem::DenseMatrix*>& elmats,
                                const std::vector<mfem::Vector>* col_shapes = nullptr);
 

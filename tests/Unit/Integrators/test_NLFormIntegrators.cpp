@@ -25,17 +25,16 @@
  *
  */
 #include <algorithm>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <functional>
 #include <memory>
 #include <span>
 #include <string>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
-#include <catch2/generators/catch_generators_range.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -171,8 +170,8 @@ std::vector<Case> all_cases() {
       // Free energy coupling the two phases, different mobilities: the off-diagonal
       // block (b, j) is M_b d2W/dphi_b dphi_j (mobility of the row block)
       {"AllenCahn, 2 phases, coupled energy, mobilities 1 and 3", 2,
-       maker<AllenCahnNLFormIntegrator>({coupled_energy_coefficients(1.),
-                                         coupled_energy_coefficients(3.)})},
+       maker<AllenCahnNLFormIntegrator>(
+           {coupled_energy_coefficients(1.), coupled_energy_coefficients(3.)})},
       // W and H(phi_b) of one variable on each phase: each block uses its own phase
       {"AllenCahn, 2 phases, W(phi_b) and M = H(phi_b) per phase", 2,
        maker<AllenCahnNLFormIntegrator>(
@@ -201,13 +200,13 @@ std::vector<Case> all_cases() {
       // Time-derivative integrators: the unknown is k = du/dt, implicit coefficients
       // are evaluated at the end of the step u = u_old + dt k (Jacobian: d/dk = dt d/du)
       {"HeatTimeDerivative, explicit Cp(T)", 1,
-       maker<HeatTimeNLFormIntegrator>({Coefficients(
-           Coefficient(Glossary::Concentration, 2.),
-           Coefficient(Glossary::Cp, Scheme::Explicit, W(5.)))})},
+       maker<HeatTimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Concentration, 2.),
+                         Coefficient(Glossary::Cp, Scheme::Explicit, W(5.)))})},
       {"HeatTimeDerivative, implicit rho(T) and Cp(T)", 1,
-       maker<HeatTimeNLFormIntegrator>({Coefficients(
-           Coefficient(Glossary::Concentration, Scheme::Implicit, H(2.)),
-           Coefficient(Glossary::Cp, Scheme::Implicit, W(5.)))})},
+       maker<HeatTimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Concentration, Scheme::Implicit, H(2.)),
+                         Coefficient(Glossary::Cp, Scheme::Implicit, W(5.)))})},
       {"TimeDerivative, 2 blocks, implicit A(u_b) and B(u_b)", 2,
        maker<TimeNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(2.)),
@@ -243,12 +242,12 @@ std::vector<Case> all_cases() {
       {"Advection", 1, maker<AdvectionNLFormIntegrator>({velocity(1., 0.5)})},
       {"SplitAdvection", 2, maker<SplitAdvectionNLFormIntegrator>({velocity(1., 0.5), none})},
       {"AdvectionBoundary, outflow (v.n > 0)", 1,
-       bdr_maker<AdvectionBoundaryNLFormIntegrator>(
-           {velocity_with_inflow(1., 0.5, 3., kRight)}, 0, kRight),
+       bdr_maker<AdvectionBoundaryNLFormIntegrator>({velocity_with_inflow(1., 0.5, 3., kRight)}, 0,
+                                                    kRight),
        kRight},
       {"AdvectionBoundary, inflow (v.n < 0)", 1,
-       bdr_maker<AdvectionBoundaryNLFormIntegrator>({velocity_with_inflow(1., 0.5, 3., kLeft)},
-                                                    0, kLeft),
+       bdr_maker<AdvectionBoundaryNLFormIntegrator>({velocity_with_inflow(1., 0.5, 3., kLeft)}, 0,
+                                                    kLeft),
        kLeft},
       {"AdvectionBoundaryCH, outflow", 2,
        bdr_maker<AdvectionBoundaryCHNLFormIntegrator>(
@@ -365,9 +364,9 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "RobinNLFormIntegrator: Jacobian with b
   marker[kRight] = 1;
   form.AddBoundaryIntegrator(
       bdr_maker<RobinNLFormIntegrator>(
-          {Coefficients(on_boundary(Coefficient(Glossary::Robin_a, 1.), kRight),
-                        on_boundary(Coefficient(Glossary::Robin_b, Scheme::Implicit, W(3.)),
-                                    kRight))},
+          {Coefficients(
+              on_boundary(Coefficient(Glossary::Robin_a, 1.), kRight),
+              on_boundary(Coefficient(Glossary::Robin_b, Scheme::Implicit, W(3.)), kRight))},
           0, kRight)(ctx),
       marker);
 
@@ -394,8 +393,8 @@ struct SlothSquare {
   std::unique_ptr<BCS2D> bcs;  // Neumann everywhere
 
   SlothSquare() {
-    spatial = std::make_unique<SPA2D>("InlineSquareWithQuadrangles", 1, 0,
-                                      std::make_tuple(4, 4, 1., 1.));
+    spatial =
+        std::make_unique<SPA2D>("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(4, 4, 1., 1.));
     auto neumann = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
                     Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
     bcs = std::make_unique<BCS2D>(spatial.get(), neumann);
@@ -438,8 +437,8 @@ struct SlothSquare {
 };
 
 /// @brief One-block form with one domain integrator, on the given space
-std::unique_ptr<mfem::ParBlockNonlinearForm> one_block_form(
-    mfem::ParFiniteElementSpace* fes, mfem::BlockNonlinearFormIntegrator* i) {
+std::unique_ptr<mfem::ParBlockNonlinearForm> one_block_form(mfem::ParFiniteElementSpace* fes,
+                                                            mfem::BlockNonlinearFormIntegrator* i) {
   mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
   spaces[0] = fes;
   auto form = std::make_unique<mfem::ParBlockNonlinearForm>(spaces);
@@ -458,9 +457,9 @@ TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian",
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   ctx.params = Parameters(Parameter("melting_factor", 2.));
-  auto form = one_block_form(
-      fes(), maker<MeltingConstantNLFormIntegrator>(
-                 {melting_coefficients(Coefficient(Glossary::Mobility, 3.))})(ctx));
+  auto form =
+      one_block_form(fes(), maker<MeltingConstantNLFormIntegrator>(
+                                {melting_coefficients(Coefficient(Glossary::Mobility, 3.))})(ctx));
   check_gradient(*form, random_point());
 }
 
@@ -474,11 +473,11 @@ TEST_CASE_METHOD(SlothSquare, "MeltingTemperatureNLFormIntegrator: Jacobian",
   ctx.u_old.push_back(project(phi_old));
   ctx.auxvars = {&temperature};
   ctx.aux_old = {temperature.getVariables()[0].get_gf()};
-  ctx.params = Parameters(Parameter("melting_temperature", 1100.),
-                          Parameter("melting_enthalpy", 5.));
-  auto form = one_block_form(
-      fes(), maker<MeltingTemperatureNLFormIntegrator>(
-                 {melting_coefficients(Coefficient(Glossary::Mobility, 3.))})(ctx));
+  ctx.params =
+      Parameters(Parameter("melting_temperature", 1100.), Parameter("melting_enthalpy", 5.));
+  auto form =
+      one_block_form(fes(), maker<MeltingTemperatureNLFormIntegrator>(
+                                {melting_coefficients(Coefficient(Glossary::Mobility, 3.))})(ctx));
   check_gradient(*form, random_point());
 }
 
@@ -493,9 +492,8 @@ TEST_CASE_METHOD(SlothSquare, "LatentHeatNLFormIntegrator: residual and Jacobian
   ctx.u_old.push_back(project(phi_old));
   ctx.auxvars = {&phi};
   ctx.aux_old = {project([c](const mfem::Vector& p) { return 0.4 + 0.1 * p[0] - c; })};
-  auto form = one_block_form(
-      fes(), maker<LatentHeatNLFormIntegrator>(
-                 {Coefficients(Coefficient(Glossary::Mobility, M))})(ctx));
+  auto form = one_block_form(fes(), maker<LatentHeatNLFormIntegrator>(
+                                        {Coefficients(Coefficient(Glossary::Mobility, M))})(ctx));
 
   const mfem::Vector x = random_point();
   SECTION("residual: sum = - (c / dt)^2 / M over the unit square") {
@@ -529,8 +527,7 @@ TEST_CASE_METHOD(SlothSquare, "MeltingConstantNLFormIntegrator: Jacobian with M(
 // =============================================================================
 namespace {
 struct MassFluxSetup : SlothSquare {
-  VARS2D mu = aux_variable("mu_U", std::vector<std::string>{"U", "mu"},
-                           Glossary::ChemicalPotential,
+  VARS2D mu = aux_variable("mu_U", std::vector<std::string>{"U", "mu"}, Glossary::ChemicalPotential,
                            [](const mfem::Vector& p, double) { return p[0]; });  // mu = x
   VARS2D mob = aux_variable("M_U", std::vector<std::string>{"U", "inter_mob"},
                             Glossary::InterDiffusionMobility,
@@ -540,8 +537,8 @@ struct MassFluxSetup : SlothSquare {
     ctx.u_old.push_back(project(phi_old));
     ctx.auxvars = {&mu, &mob};
     ctx.aux_old = {mu.getVariables()[0].get_gf(), mob.getVariables()[0].get_gf()};
-    return one_block_form(fes(), maker<MassDiffusionFluxNLFormIntegrator>(
-                                     {Coefficients(diffusivity)})(ctx));
+    return one_block_form(
+        fes(), maker<MassDiffusionFluxNLFormIntegrator>({Coefficients(diffusivity)})(ctx));
   }
 };
 }  // namespace
@@ -568,20 +565,18 @@ TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: invalid data",
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   SECTION("no chemical potential") {
-    SLOTH_CHECK_MFEM_ERROR_WITH(
-        maker<MassDiffusionFluxNLFormIntegrator>(
-            {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx),
-        "Neither chemical potentials");
+    SLOTH_CHECK_MFEM_ERROR_WITH(maker<MassDiffusionFluxNLFormIntegrator>(
+                                    {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx),
+                                "Neither chemical potentials");
   }
   SECTION("chemical potential without element") {
     auto mu = aux_variable("mu", std::vector<std::string>{"mu"}, Glossary::ChemicalPotential,
                            [](const mfem::Vector&, double) { return 0.; });
     ctx.auxvars = {&mu};
     ctx.aux_old = {mu.getVariables()[0].get_gf()};
-    SLOTH_CHECK_MFEM_ERROR_WITH(
-        maker<MassDiffusionFluxNLFormIntegrator>(
-            {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx),
-        "Expected [element, 'mu']");
+    SLOTH_CHECK_MFEM_ERROR_WITH(maker<MassDiffusionFluxNLFormIntegrator>(
+                                    {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx),
+                                "Expected [element, 'mu']");
   }
 }
 
@@ -597,8 +592,8 @@ TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: scaling by the
                      GlossaryQuantity qty, Field f) { return aux_variable(name, infos, qty, f); };
   auto mob = make("M_U", {"U", "inter_mob"}, Glossary::InterDiffusionMobility,
                   [](const mfem::Vector&, double) { return 2.; });
-  auto T_uniform = make("T", {"T"}, Glossary::Temperature,
-                        [](const mfem::Vector&, double) { return 2.; });
+  auto T_uniform =
+      make("T", {"T"}, Glossary::Temperature, [](const mfem::Vector&, double) { return 2.; });
   auto T_affine = make("T", {"T"}, Glossary::Temperature,
                        [](const mfem::Vector& p, double) { return 1. + p[0]; });
   auto dmu_x = make("dmu_U", {"U", "dmu"}, Glossary::ChemicalPotential,
@@ -618,8 +613,9 @@ TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: scaling by the
     ctx.auxvars = aux;
     for (auto* v : aux) ctx.aux_old.push_back(v->getVariables()[0].get_gf());
     ctx.params = params;
-    auto f = one_block_form(fes(), maker<MassDiffusionFluxNLFormIntegrator>(
-                                       {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx));
+    auto f =
+        one_block_form(fes(), maker<MassDiffusionFluxNLFormIntegrator>(
+                                  {Coefficients(Coefficient(Glossary::Diffusivity, 1.))})(ctx));
     mfem::Vector u_old, y(fes()->GetTrueVSize()), X;
     ctx.u_old[0].GetTrueDofs(u_old);
     f->Mult(u_old, y);
@@ -629,13 +625,11 @@ TEST_CASE_METHOD(SlothSquare, "MassDiffusionFluxNLFormIntegrator: scaling by the
 
   SECTION("dmu = x, T = 2: flux M grad(x) / 2 = (1, 0)") {
     const std::vector<VARS2D*> aux{&dmu_x, &mob, &T_uniform};
-    CHECK_THAT(moment(aux, scale_variables),
-               Catch::Matchers::WithinRel(1., 1.e-10));
+    CHECK_THAT(moment(aux, scale_variables), Catch::Matchers::WithinRel(1., 1.e-10));
   }
   SECTION("dmu = 3 T, T = 1 + x: dmu / T is uniform, no flux") {
     const std::vector<VARS2D*> aux{&dmu_3T, &mob, &T_affine};
-    CHECK_THAT(moment(aux, scale_variables),
-               Catch::Matchers::WithinAbs(0., 1.e-12));
+    CHECK_THAT(moment(aux, scale_variables), Catch::Matchers::WithinAbs(0., 1.e-12));
   }
   SECTION("mu = x, T = 2, mobility scaled: flux (M / (R T)) grad(x) = (1 / R, 0)") {
     const Parameters scale_coefficients(Parameter("ScaleCoefficientsByTemperature", true));
@@ -688,17 +682,15 @@ class AuxValue final : public FunctionCoefficient {
                                     const std::span<const double>&, const unsigned int)>
   GradientF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 0.); };
   }
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const std::span<const double>&, const unsigned int)>
   HessianF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size() * u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
   }
 
  private:
@@ -710,8 +702,8 @@ TEST_CASE_METHOD(SlothSquare,
                  "[Integrators]") {
   // v = (b, 0) with the auxiliary field b = x (exact in Q1): v = (x, 0), div v = 1.
   // With u = 1: div(v u) = 1, so (div(v u), x) = int x = 1/2 over the unit square.
-  auto b = aux_variable("b", "b", Glossary::Default,
-                        [](const mfem::Vector& p, double) { return p[0]; });
+  auto b =
+      aux_variable("b", "b", Glossary::Default, [](const mfem::Vector& p, double) { return p[0]; });
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
   ctx.auxvars = {&b};
@@ -740,9 +732,8 @@ TEST_CASE_METHOD(SlothSquare,
     mfem::Array<int> marker(spatial->get_mesh()->bdr_attributes.Max());
     marker = 0;
     marker[kRight] = 1;
-    form.AddBoundaryIntegrator(bdr_maker<AdvectionBoundaryNLFormIntegrator>({v(kRight)}, 0,
-                                                                             kRight)(ctx),
-                               marker);
+    form.AddBoundaryIntegrator(
+        bdr_maker<AdvectionBoundaryNLFormIntegrator>({v(kRight)}, 0, kRight)(ctx), marker);
     form.Mult(u, F);
     CHECK_THAT(moment_x(*this, F), Catch::Matchers::WithinAbs(0.5, 1.e-10));
   }
@@ -759,17 +750,16 @@ TEST_CASE_METHOD(SlothSquare, "AdvectionNLFormIntegrator: gradient velocity v = 
   ctx.auxvars = {&a};
   ctx.aux_old = {a.getVariables()[0].get_gf()};
   ctx.params = Parameters(Parameter("velocity_gradient", std::string("a")));
-  auto form = one_block_form(fes(), maker<AdvectionNLFormIntegrator>(
-                                        {Coefficients(Coefficient(Glossary::VelocityPrefactor,
-                                                                  1.))})(ctx));
+  auto form =
+      one_block_form(fes(), maker<AdvectionNLFormIntegrator>(
+                                {Coefficients(Coefficient(Glossary::VelocityPrefactor, 1.))})(ctx));
   mfem::Vector u(fes()->GetTrueVSize()), F(fes()->GetTrueVSize());
   u = 1.;
   form->Mult(u, F);
   CHECK_THAT(moment_x(*this, F), Catch::Matchers::WithinAbs(-0.5, 1.e-10));
 }
 
-TEST_CASE_METHOD(SlothSquare, "AdvectionBoundaryNLFormIntegrator: inflow value",
-                 "[Integrators]") {
+TEST_CASE_METHOD(SlothSquare, "AdvectionBoundaryNLFormIntegrator: inflow value", "[Integrators]") {
   // v = (1, 0), inflow g = 3 on x = 0 (v.n = -1): residual (g v.n, psi), sum = -3
   Context ctx;
   ctx.u_old.push_back(project(phi_old));
@@ -795,16 +785,14 @@ TEST_CASE_METHOD(SlothSquare, "Advection integrators: invalid data", "[Integrato
                                 "no advected variable");
   }
   SECTION("only one velocity component in 2D") {
-    SLOTH_CHECK_MFEM_ERROR_WITH(
-        maker<AdvectionNLFormIntegrator>({Coefficients(Coefficient(Glossary::Velocity_X, 1.))})(
-            ctx),
-        "only some of the velocity components");
+    SLOTH_CHECK_MFEM_ERROR_WITH(maker<AdvectionNLFormIntegrator>(
+                                    {Coefficients(Coefficient(Glossary::Velocity_X, 1.))})(ctx),
+                                "only some of the velocity components");
   }
   SECTION("velocity prefactor without velocity_gradient") {
-    SLOTH_CHECK_MFEM_ERROR_WITH(
-        maker<AdvectionNLFormIntegrator>(
-            {Coefficients(Coefficient(Glossary::VelocityPrefactor, 1.))})(ctx),
-        "velocity_gradient");
+    SLOTH_CHECK_MFEM_ERROR_WITH(maker<AdvectionNLFormIntegrator>({Coefficients(
+                                    Coefficient(Glossary::VelocityPrefactor, 1.))})(ctx),
+                                "velocity_gradient");
   }
   SECTION("boundary without inflow coefficient") {
     SLOTH_CHECK_MFEM_ERROR_WITH(
@@ -900,10 +888,11 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   Context ctx;
   ctx.u_old = {project(phi_old), project(phi_old)};
   auto coefs = [] {
-    return Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(kOmega)),
-                        Coefficient(Glossary::Capillary, kLambda),
-                        Coefficient(Glossary::Mobility, Scheme::Implicit, H()),
-                        Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(kLambda)));
+    return Coefficients(
+        Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(kOmega)),
+        Coefficient(Glossary::Capillary, kLambda),
+        Coefficient(Glossary::Mobility, Scheme::Implicit, H()),
+        Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(kLambda)));
   };
   const BlockResidual r(*this, maker<AllenCahnNLFormIntegrator>({coefs(), coefs()})(ctx),
                         {c03, c07});
@@ -941,12 +930,11 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   Context ctx;
   ctx.dt = 0.1;
   ctx.u_old = {project(c03)};
-  const BlockResidual r(
-      *this,
-      maker<HeatTimeNLFormIntegrator>({Coefficients(Coefficient(Glossary::Concentration, 1.5),
-                                                    Coefficient(Glossary::Cp, Scheme::Implicit,
-                                                                H()))})(ctx),
-      {c2});
+  const BlockResidual r(*this,
+                        maker<HeatTimeNLFormIntegrator>(
+                            {Coefficients(Coefficient(Glossary::Concentration, 1.5),
+                                          Coefficient(Glossary::Cp, Scheme::Implicit, H()))})(ctx),
+                        {c2});
   H h;
   CHECK_THAT(r.sum(0),
              Catch::Matchers::WithinRel(1.5 * h.eval_f(std::vector{0.5}, 1) * 2., 1.e-12));
@@ -966,10 +954,9 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual
     CHECK(r.block(1).Normlinf() < 1.e-12);
   }
   SECTION("phi = x, mu = 0, no double well: (R_phi, x) = - lambda") {
-    const BlockResidual r(*this,
-                          maker<CahnHilliardNLFormIntegrator>(
-                              {pf_coefficients(0.), pf_coefficients(0.)})(ctx),
-                          {x_of, [](const mfem::Vector&) { return 0.; }});
+    const BlockResidual r(
+        *this, maker<CahnHilliardNLFormIntegrator>({pf_coefficients(0.), pf_coefficients(0.)})(ctx),
+        {x_of, [](const mfem::Vector&) { return 0.; }});
     CHECK_THAT(r.moment_x(*this, 0), Catch::Matchers::WithinRel(-kLambda, 1.e-12));
   }
   SECTION("phi = 0.3, mu = x: (R_mu, x) = M (grad x, grad x) = M") {
@@ -1004,17 +991,15 @@ class OnePlusXPlusY final : public FunctionCoefficient {
                                     const std::span<const double>&, const unsigned int)>
   GradientF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 0.); };
   }
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const std::span<const double>&, const unsigned int)>
   HessianF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size() * u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
   }
 };
 }  // namespace
@@ -1111,9 +1096,9 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
     mfem::Vector R1_mixed(F_mixed.GetData() + n0, F_mixed.Size() - n0);
     CHECK_THAT(global_sum(R1_mixed), Catch::Matchers::WithinAbs(global_sum(R1_ref), 1.e-12));
     const mfem::Vector X_ref = true_dofs(fes.get(), x_of), X_mixed = true_dofs(&fes2, x_of);
-    CHECK_THAT(mfem::InnerProduct(MPI_COMM_WORLD, X_mixed, R1_mixed),
-               Catch::Matchers::WithinAbs(mfem::InnerProduct(MPI_COMM_WORLD, X_ref, R1_ref),
-                                          1.e-12));
+    CHECK_THAT(
+        mfem::InnerProduct(MPI_COMM_WORLD, X_mixed, R1_mixed),
+        Catch::Matchers::WithinAbs(mfem::InnerProduct(MPI_COMM_WORLD, X_ref, R1_ref), 1.e-12));
   }
   SECTION("Jacobian") {
     mfem::Vector x(n0 + fes2.GetTrueVSize());

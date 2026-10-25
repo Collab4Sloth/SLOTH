@@ -93,8 +93,8 @@ ProductCoefficient::GradientF() {
     // Values of the factors
     std::vector<double> f(nc);
     for (std::size_t k = 0; k < nc; ++k) {
-      f[k] = this->vect_coefficients_[k]->eval_f(input_vector, exp_input_vector,
-                                                 auxiliary_vector, dimension);
+      f[k] = this->vect_coefficients_[k]->eval_f(input_vector, exp_input_vector, auxiliary_vector,
+                                                 dimension);
     }
     // Product of all the factors but k
     auto product_without = [&f, nc](std::size_t k) {
@@ -109,10 +109,10 @@ ProductCoefficient::GradientF() {
     for (std::size_t k = 0; k < nc; ++k) {
       const double others = product_without(k);
       for (std::size_t i = 0; i < n; ++i) {
-        gradient[i] += this->vect_coefficients_[k]->eval_gradient(
-                           static_cast<int>(i), input_vector, exp_input_vector, auxiliary_vector,
-                           dimension) *
-                       others;
+        gradient[i] +=
+            this->vect_coefficients_[k]->eval_gradient(
+                static_cast<int>(i), input_vector, exp_input_vector, auxiliary_vector, dimension) *
+            others;
       }
     }
     return gradient;
@@ -164,11 +164,10 @@ ProductCoefficient::HessianF() {
       const double others = product_without(k, k);
       for (std::size_t i = 0; i < n; ++i) {
         for (std::size_t j = 0; j < n; ++j) {
-          hessian[i * n + j] +=
-              this->vect_coefficients_[k]->eval_hessian(static_cast<int>(i), static_cast<int>(j),
-                                                        input_vector, exp_input_vector,
-                                                        auxiliary_vector, dimension) *
-              others;
+          hessian[i * n + j] += this->vect_coefficients_[k]->eval_hessian(
+                                    static_cast<int>(i), static_cast<int>(j), input_vector,
+                                    exp_input_vector, auxiliary_vector, dimension) *
+                                others;
         }
       }
       for (std::size_t m = 0; m < nc; ++m) {

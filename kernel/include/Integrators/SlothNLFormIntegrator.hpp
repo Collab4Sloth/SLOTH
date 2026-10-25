@@ -119,8 +119,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                           const int var_blk = 0);
   double eval_hessian_coefficient(Coefficient& coef, const int iblk, const int jblk,
                                   const std::span<const double>& values,
-                                  const std::span<const double>& aux_values,
-                                  const int var_blk = 0);
+                                  const std::span<const double>& aux_values, const int var_blk = 0);
 
   // Integrators of the time derivative: their unknown is k = du/dt, and u at the end of the
   // step is u_old + dt k (u_old: values given to the integrator, dt: time_step_; see
@@ -136,7 +135,6 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
       const Coefficient& coef, const std::span<const double>& values, const int var_blk) const;
 
  protected:
-
   bool isAxisymmetric() const noexcept;
 
   //////////////////////////////////////////////////////////////////////////////

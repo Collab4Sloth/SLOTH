@@ -1,7 +1,8 @@
 /**
  * @file test_CahnHilliardDirichlet.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit test of a complete coupled problem: Cahn-Hilliard (phi, mu) with a Dirichlet condition on mu only
+ * @brief Unit test of a complete coupled problem: Cahn-Hilliard (phi, mu) with a Dirichlet
+ * condition on mu only
  * @version 0.1
  * @date 2026-10-22
  *
@@ -23,13 +24,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <functional>
 #include <string>
 #include <tuple>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -65,16 +65,16 @@ TEST_CASE("Problems: coupled Cahn-Hilliard keeps mu = 0 on its Dirichlet boundar
   const double epsilon = 0.1, sigma = 1., mob = 1.;
   const double lambda = 1.5 * sigma * epsilon;
   const double omega = 12. * sigma / epsilon;
-  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                           Parameter("lambda", lambda), Parameter("omega", omega),
-                           Parameter("power", 2.0));
+  auto params =
+      Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
+                 Parameter("lambda", lambda), Parameter("omega", omega), Parameter("power", 2.0));
   Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
   Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
   Coefficient capillary(Glossary::Capillary, lambda);
   Coefficient mobility(Glossary::Mobility, mob);
 
-  auto phi0 = AnalyticalFunctions<DIM>(std::function<double(const mfem::Vector&, double)>(
-      [](const mfem::Vector& x, double) {
+  auto phi0 = AnalyticalFunctions<DIM>(
+      std::function<double(const mfem::Vector&, double)>([](const mfem::Vector& x, double) {
         return 0.5 + 0.05 * std::cos(3. * M_PI * x[0]) * std::cos(2. * M_PI * x[1]);
       }));
   auto v1 = VAR(&spatial, bcs_phi, std::string("phi"), Glossary::PhaseField, 2, phi0);
@@ -85,19 +85,19 @@ TEST_CASE("Problems: coupled Cahn-Hilliard keeps mu = 0 on its Dirichlet boundar
   std::vector<SPA*> spatials{&spatial, &spatial};
   TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
                     "SplitTimeDerivative");
-  oper.overload_nl_solver(NLSolverType::NEWTON,
-                          Parameters(Parameter("description", std::string("Newton")),
-                                     Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12),
-                                     Parameter("iter_max", 50)));
+  oper.overload_nl_solver(
+      NLSolverType::NEWTON,
+      Parameters(Parameter("description", std::string("Newton")), Parameter("rel_tol", 1.e-12),
+                 Parameter("abs_tol", 1.e-12), Parameter("iter_max", 50)));
   oper.overload_solver(HypreSolverType::HYPRE_GMRES);
   oper.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU);
 
   TransientPB problem(oper, vars, {coefs, coefs});
   auto coupling = Coupling("CahnHilliard", problem);
-  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                            Parameter("final_time", 3.e-3),
-                                            Parameter("time_step", 1.e-3)),
-                                 coupling);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 3.e-3),
+                                    Parameter("time_step", 1.e-3)),
+                         coupling);
 
   const mfem::Vector phi_initial = vars.getVariables()[0].get_last();
   time.solve();

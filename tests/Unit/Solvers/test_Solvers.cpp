@@ -23,14 +23,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
-#include <catch2/generators/catch_generators_range.hpp>
 
 #include "Parameters/Parameters.hpp"
 #include "Solvers/HSolverBase.hpp"
@@ -123,8 +122,7 @@ std::vector<Combo> all_combos() {
 // -----------------------------------------------------------------------------
 // SlothSolver: enum -> MFEM object
 // -----------------------------------------------------------------------------
-TEST_CASE("SlothSolver: each enum value creates the corresponding MFEM object",
-          "[Solvers]") {
+TEST_CASE("SlothSolver: each enum value creates the corresponding MFEM object", "[Solvers]") {
   const Parameters params(std::vector<Parameter>{});
   auto make = [&](VSolverType type) { return SlothSolver(type, params).get_value(); };
 
@@ -241,9 +239,9 @@ TEST_CASE_METHOD(PoissonFixture, "LSolver: incompatible pairs are rejected", "[S
                                 "can only be associated");
   }
   SECTION("Hypre solver with an MFEM preconditioner") {
-    SLOTH_CHECK_MFEM_ERROR_WITH(LSolver(HypreSolverType::HYPRE_PCG, no_params,
-                                        PreconditionerType::SMOOTHER, no_params, *A),
-                                "can only be associated");
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        LSolver(HypreSolverType::HYPRE_PCG, no_params, PreconditionerType::SMOOTHER, no_params, *A),
+        "can only be associated");
   }
 }
 

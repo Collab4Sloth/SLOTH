@@ -27,17 +27,16 @@
 
 #include <unistd.h>
 
-#include <filesystem>
-#include <fstream>
-#include <initializer_list>
-#include <memory>
-#include <iostream>
-#include <sstream>
-#include <string>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_exception.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include <filesystem>
+#include <fstream>
+#include <initializer_list>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
 
 #include "mfem.hpp"
 
@@ -60,7 +59,7 @@
 #define SLOTH_CHECK_MFEM_ERROR(...) CHECK_THROWS_AS(__VA_ARGS__, mfem::ErrorException)
 
 // expr is evaluated once: exception type and message are checked together
-#define SLOTH_CHECK_MFEM_ERROR_WITH(expr, text)   \
+#define SLOTH_CHECK_MFEM_ERROR_WITH(expr, text)    \
   CHECK_THROWS_MATCHES(expr, mfem::ErrorException, \
                        Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring(text)))
 
@@ -174,8 +173,8 @@ class TemporaryDirectory {
     // Unique name chosen by rank 0, sent to the other ranks
     int pid = static_cast<int>(::getpid());
     MPI_Bcast(&pid, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    path_ = std::filesystem::temp_directory_path() /
-            ("sloth_unit_" + std::to_string(pid) + "_" + name);
+    path_ =
+        std::filesystem::temp_directory_path() / ("sloth_unit_" + std::to_string(pid) + "_" + name);
     if (mfem::Mpi::Root()) {
       std::error_code ec;
       std::filesystem::remove_all(path_, ec);

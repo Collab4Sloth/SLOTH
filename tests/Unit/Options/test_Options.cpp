@@ -23,11 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
 
 #include "Options/Options.hpp"
 #include "Utils/UtilsForData.hpp"
@@ -66,9 +65,8 @@ TEST_CASE("Options: TimeScheme::from", "[Options]") {
 }
 
 TEST_CASE("Options: ConvergenceType::from", "[Options]") {
-  check_from<ConvergenceType>("ConvergenceType",
-                              {{"RELATIVE_MAX", ConvergenceType::RELATIVE_MAX},
-                               {"ABSOLUTE_MAX", ConvergenceType::ABSOLUTE_MAX}});
+  check_from<ConvergenceType>("ConvergenceType", {{"RELATIVE_MAX", ConvergenceType::RELATIVE_MAX},
+                                                  {"ABSOLUTE_MAX", ConvergenceType::ABSOLUTE_MAX}});
 }
 
 TEST_CASE("Options: Problems::from", "[Options]") {
@@ -121,16 +119,21 @@ TEST_CASE("Options: Integrators::from", "[Options]") {
 
 TEST_CASE("Options: Calphad options", "[Options][Calphad]") {
   SECTION("calphad_outputs::from") {
-    check_from<calphad_outputs>(
-        "calphad_outputs",
-        {{"mu", calphad_outputs::mu},   {"dmu", calphad_outputs::dmu},
-         {"x", calphad_outputs::x},     {"xp", calphad_outputs::xp},
-         {"xph", calphad_outputs::xph}, {"y", calphad_outputs::y},
-         {"g", calphad_outputs::g},     {"gm", calphad_outputs::gm},
-         {"h", calphad_outputs::h},     {"hm", calphad_outputs::hm},
-         {"dgm", calphad_outputs::dgm}, {"cp", calphad_outputs::cp},
-         {"mob", calphad_outputs::mob}, {"nucleus", calphad_outputs::nucleus},
-         {"error", calphad_outputs::error}});
+    check_from<calphad_outputs>("calphad_outputs", {{"mu", calphad_outputs::mu},
+                                                    {"dmu", calphad_outputs::dmu},
+                                                    {"x", calphad_outputs::x},
+                                                    {"xp", calphad_outputs::xp},
+                                                    {"xph", calphad_outputs::xph},
+                                                    {"y", calphad_outputs::y},
+                                                    {"g", calphad_outputs::g},
+                                                    {"gm", calphad_outputs::gm},
+                                                    {"h", calphad_outputs::h},
+                                                    {"hm", calphad_outputs::hm},
+                                                    {"dgm", calphad_outputs::dgm},
+                                                    {"cp", calphad_outputs::cp},
+                                                    {"mob", calphad_outputs::mob},
+                                                    {"nucleus", calphad_outputs::nucleus},
+                                                    {"error", calphad_outputs::error}});
   }
   SECTION("temperature_sort_method::from") {
     check_from<temperature_sort_method>("temperature_sort_method",

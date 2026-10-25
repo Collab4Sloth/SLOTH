@@ -23,11 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <string>
-#include <vector>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include <string>
+#include <vector>
 
 #include "Utils/UtilsForData.hpp"
 #include "Utils/UtilsForDebug.hpp"

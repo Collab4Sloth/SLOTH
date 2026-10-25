@@ -26,9 +26,8 @@
 #include <span>
 #include <vector>
 
-#include "Options/PhysicalPropertiesOptions.hpp"
-
 #include "Coefficients/FunctionCoefficient.hpp"
+#include "Options/PhysicalPropertiesOptions.hpp"
 
 #pragma once
 

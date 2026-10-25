@@ -24,14 +24,13 @@
  *
  */
 #include <array>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/FileCoefficient.hpp"
@@ -150,8 +149,7 @@ TEST_CASE("FileCoefficient: axisymmetric geometry", "[Coefficients][file]") {
   // coordinates (x, y[, z]) with r = |(x, y) - axis_center|.
   SECTION("(t, r, F), evaluated in 2D") {
     auto f = [](double t, const std::vector<double>& r) { return t + 2. * r[0]; };
-    const sloth_unit::TemporaryFile csv("axi_r.csv",
-                                        make_csv("r", {0., 1.}, {{0., 5., 10.}}, f));
+    const sloth_unit::TemporaryFile csv("axi_r.csv", make_csv("r", {0., 1.}, {{0., 5., 10.}}, f));
     FileCoefficient fc(csv.path(), Geometry::Axisymmetric, {1., 1.});
     CHECK(fc.geometry() == Geometry::Axisymmetric);
     CHECK(fc.axis_center() == std::array{1., 1.});
@@ -160,8 +158,8 @@ TEST_CASE("FileCoefficient: axisymmetric geometry", "[Coefficients][file]") {
   }
   SECTION("(t, r, z, F), evaluated in 3D") {
     auto f = [](double t, const std::vector<double>& rz) { return t + rz[0] + 3. * rz[1]; };
-    const sloth_unit::TemporaryFile csv(
-        "axi_rz.csv", make_csv("r,z", {0., 1.}, {{0., 2., 4.}, {0., 1.}}, f));
+    const sloth_unit::TemporaryFile csv("axi_rz.csv",
+                                        make_csv("r,z", {0., 1.}, {{0., 2., 4.}, {0., 1.}}, f));
     FileCoefficient fc(csv.path(), Geometry::Axisymmetric);  // axis through (0, 0)
     CHECK_THAT(fc.value(1., std::vector{0., 3., 0.5}), WithinRel(f(1., {3., 0.5}), tol));
   }
@@ -172,9 +170,8 @@ TEST_CASE("FileCoefficient: axisymmetric geometry", "[Coefficients][file]") {
                                 "axisymmetric CSV must be");
 
     const sloth_unit::TemporaryFile csv_rz(
-        "axi_rz2.csv",
-        make_csv("r,z", {0., 1.}, {{0., 1.}, {0., 1.}},
-                 [](double, const std::vector<double>&) { return 0.; }));
+        "axi_rz2.csv", make_csv("r,z", {0., 1.}, {{0., 1.}, {0., 1.}},
+                                [](double, const std::vector<double>&) { return 0.; }));
     FileCoefficient fc(csv_rz.path(), Geometry::Axisymmetric);
     // (r, z) field needs 3 mesh coordinates
     SLOTH_CHECK_MFEM_ERROR_WITH(fc.value(0., std::vector{1., 1.}), "mesh dimension too small");

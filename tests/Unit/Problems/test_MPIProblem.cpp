@@ -23,10 +23,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <tuple>
-
-#include <catch2/catch_test_macros.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -43,18 +42,18 @@ TEST_CASE("MPI_Problem: each rank writes its rank", "[Problems]") {
   auto vars = VARS(VAR(&spatial, bcs, "rank", Glossary::Concentration, 2, -1.));
 
   sloth_unit::TemporaryDirectory dir("mpi");
-  PST pst(&spatial, Parameters(Parameter("main_folder_path", dir.path()),
-                               Parameter("calculation_path", std::string("MPI")),
-                               Parameter("frequency", 1),
-                               Parameter("enable_compute_energies", false)));
+  PST pst(&spatial,
+          Parameters(Parameter("main_folder_path", dir.path()),
+                     Parameter("calculation_path", std::string("MPI")), Parameter("frequency", 1),
+                     Parameter("enable_compute_energies", false)));
   PB_MPI problem(vars, pst);
   // No time-dependent coefficient in this problem: nothing to update
   CHECK_NOTHROW(problem.set_time_coefficients(0.5));
   auto coupling = Coupling("MPI", problem);
-  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                            Parameter("final_time", 1.),
-                                            Parameter("time_step", 1.)),
-                                 coupling);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 1.),
+                                    Parameter("time_step", 1.)),
+                         coupling);
   time.solve();
 
   const mfem::Vector u = vars[0].get_unknown();

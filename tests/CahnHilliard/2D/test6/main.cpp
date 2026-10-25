@@ -213,10 +213,10 @@ int main(int argc, char* argv[]) {
     SlothErrorEstimators estimator(ErrorEstimatorType::KELLY, &amr_integ);
 
     SingleVariableAMR<VARS> amr(*spatial_phi.get_mesh(), spatial_phi.is_nc_simplices(), 0);
-    auto amr_params = Parameters(Parameter("max_elem_error", 1.e-6), Parameter("amr_max_level", 3),
-                                 Parameter("nc_limit", 1), Parameter("max_preref_cycles", 3),
-                                 Parameter("scale_down_factor", 1.e-2),
-                                 Parameter("rebalance", true));
+    auto amr_params =
+        Parameters(Parameter("max_elem_error", 1.e-6), Parameter("amr_max_level", 3),
+                   Parameter("nc_limit", 1), Parameter("max_preref_cycles", 3),
+                   Parameter("scale_down_factor", 1.e-2), Parameter("rebalance", true));
     amr.SetCriteria(&estimator, amr_params);
     problem1.set_amr(&amr);
 

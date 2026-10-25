@@ -23,11 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <memory>
-#include <vector>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <memory>
+#include <vector>
 
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/CommonCoefficients.hpp"
@@ -104,8 +103,7 @@ TEST_CASE("Coefficient: construction from a FunctionCoefficient", "[Coefficients
   }
 }
 
-TEST_CASE("SlothBaseCoefficient: compute overloads, with and without dimension",
-          "[Coefficients]") {
+TEST_CASE("SlothBaseCoefficient: compute overloads, with and without dimension", "[Coefficients]") {
   // W ignores the auxiliary and explicit values: all overloads give the same
   // result. Each call goes through a different branch of SlothBaseCoefficient.
   W w(2.);

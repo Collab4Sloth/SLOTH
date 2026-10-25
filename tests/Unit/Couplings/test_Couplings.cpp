@@ -23,14 +23,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
 #include <filesystem>
 #include <functional>
 #include <span>
 #include <string>
 #include <tuple>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -55,17 +54,15 @@ class AuxValue final : public FunctionCoefficient {
                                     const std::span<const double>&, const unsigned int)>
   GradientF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 0.); };
   }
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const std::span<const double>&, const unsigned int)>
   HessianF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size() * u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
   }
 
  private:
@@ -219,11 +216,10 @@ TEST_CASE_METHOD(TwoProblems, "Coupling: the time loop stops when the criteria g
 TEST_CASE_METHOD(TwoProblems, "Coupling: problems with the same name and output directory",
                  "[Couplings][PostProcessing]") {
   sloth_unit::TemporaryDirectory dir("names");
-  const Parameters p(Parameter("main_folder_path", dir.path()),
-                     Parameter("calculation_path", std::string("Calc")),
-                     Parameter("frequency", 1), Parameter("enable_compute_energies", false),
-                     Parameter("integral_to_compute",
-                               MapString2Double{{"T", {0., 10.}}, {"u", {0., 10.}}}));
+  const Parameters p(
+      Parameter("main_folder_path", dir.path()), Parameter("calculation_path", std::string("Calc")),
+      Parameter("frequency", 1), Parameter("enable_compute_energies", false),
+      Parameter("integral_to_compute", MapString2Double{{"T", {0., 10.}}, {"u", {0., 10.}}}));
   PST pst(&spatial, p);
 
   SteadyOPE oper_T(spatials, {"Fourier"});

@@ -125,8 +125,8 @@ std::vector<TabulatedFunction::Sample> TabulatedFunction::read_csv(
       }
       // Trailing spaces are allowed, any other character is an error
       ok = ok && field.find_first_not_of(" \t\r", end) == std::string::npos;
-      MFEM_VERIFY(ok, "TabulatedFunction: line " << lineNo << ", '" << field
-                                                 << "' is not a valid number");
+      MFEM_VERIFY(
+          ok, "TabulatedFunction: line " << lineNo << ", '" << field << "' is not a valid number");
       return value;
     };
 

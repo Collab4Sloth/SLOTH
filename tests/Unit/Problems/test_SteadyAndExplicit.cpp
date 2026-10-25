@@ -23,6 +23,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <functional>
 #include <span>
@@ -30,10 +33,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -158,26 +157,24 @@ class TimeValue final : public FunctionCoefficient {
                                     const std::span<const double>&, const unsigned int)>
   GradientF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 0.); };
   }
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const std::span<const double>&, const unsigned int)>
   HessianF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size() * u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
   }
 };
 }  // namespace
 
 TEST_CASE("Problems: coefficients evaluated at the time of each stage", "[Problems][Operators]") {
   const auto [time_scheme, expected] =
-      GENERATE(std::pair{TimeScheme::EulerImplicit, 0.625}, std::pair{TimeScheme::EulerExplicit, 0.375},
-               std::pair{TimeScheme::SDIRK23, 0.5}, std::pair{TimeScheme::SDIRK33, 0.5},
-               std::pair{TimeScheme::RungeKutta4, 0.5});
+      GENERATE(std::pair{TimeScheme::EulerImplicit, 0.625},
+               std::pair{TimeScheme::EulerExplicit, 0.375}, std::pair{TimeScheme::SDIRK23, 0.5},
+               std::pair{TimeScheme::SDIRK33, 0.5}, std::pair{TimeScheme::RungeKutta4, 0.5});
   CAPTURE(static_cast<int>(time_scheme), expected);
 
   SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(2, 2, 1., 1.));
@@ -192,10 +189,10 @@ TEST_CASE("Problems: coefficients evaluated at the time of each stage", "[Proble
                                      Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
   TransientPB problem("u", oper, vars, {coefs});
   auto coupling = Coupling("u", problem);
-  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                            Parameter("final_time", 1.),
-                                            Parameter("time_step", 0.25)),
-                                 coupling);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 1.),
+                                    Parameter("time_step", 0.25)),
+                         coupling);
   time.solve();
 
   const mfem::Vector u = vars[0].get_unknown();

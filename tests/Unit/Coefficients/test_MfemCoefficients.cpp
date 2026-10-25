@@ -1,7 +1,8 @@
 /**
  * @file test_MfemCoefficients.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit tests for the coefficients evaluated on a mesh (MfemCoefficient, MfemFileCoefficient, AxiCylindricalCoefficient)
+ * @brief Unit tests for the coefficients evaluated on a mesh (MfemCoefficient, MfemFileCoefficient,
+ * AxiCylindricalCoefficient)
  * @version 0.1
  * @date 2026-10-22
  *
@@ -23,15 +24,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <functional>
 #include <memory>
 #include <span>
 #include <string>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
@@ -123,17 +123,15 @@ class ProbeCoefficient final : public FunctionCoefficient {
                                     const std::span<const double>&, const unsigned int)>
   GradientF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 0.); };
   }
   std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                     const std::span<const double>&, const unsigned int)>
   HessianF() override {
     return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      return std::vector<double>(u.size() * u.size(), 0.);
-    };
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
   }
 };
 
@@ -154,32 +152,31 @@ TEST_CASE_METHOD(MeshFixture, "MfemCoefficient: values used by each time scheme"
   std::vector<mfem::ParGridFunction> aux{project(one)};
 
   SECTION("Implicit: F(u, aux) = x + 100") {
-    MfemCoefficient c(Coefficient(Glossary::Mobility, Scheme::Implicit, ProbeCoefficient()), u,
-                      un, aux);
+    MfemCoefficient c(Coefficient(Glossary::Mobility, Scheme::Implicit, ProbeCoefficient()), u, un,
+                      aux);
     auto expected = [](const mfem::Vector& p) { return p[0] + 100.; };
     check_eval(c, expected);
     CHECK(l2_error(c.ProjectToGridFunction(), expected) < 1.e-10);
   }
   SECTION("Explicit: F(un, aux) = y + 100") {
-    MfemCoefficient c(Coefficient(Glossary::Mobility, Scheme::Explicit, ProbeCoefficient()), u,
-                      un, aux);
+    MfemCoefficient c(Coefficient(Glossary::Mobility, Scheme::Explicit, ProbeCoefficient()), u, un,
+                      aux);
     check_eval(c, [](const mfem::Vector& p) { return p[1] + 100.; });
   }
   SECTION("SemiImplicit: F(u, un, aux) = x + 10 y + 100") {
-    MfemCoefficient c(Coefficient(Glossary::Mobility, Scheme::SemiImplicit, ProbeCoefficient()),
-                      u, un, aux);
+    MfemCoefficient c(Coefficient(Glossary::Mobility, Scheme::SemiImplicit, ProbeCoefficient()), u,
+                      un, aux);
     check_eval(c, [](const mfem::Vector& p) { return p[0] + 10. * p[1] + 100.; });
   }
   SECTION("Constant: the grid functions are not used") {
     MfemCoefficient c(Coefficient(Glossary::Mobility, 5.), u, un, aux);
     check_eval(c, [](const mfem::Vector&) { return 5.; });
-    CHECK(l2_error(c.ProjectToGridFunction(*fes), [](const mfem::Vector&) { return 5.; }) <
-          1.e-10);
+    CHECK(l2_error(c.ProjectToGridFunction(*fes), [](const mfem::Vector&) { return 5.; }) < 1.e-10);
   }
   SECTION("current and previous times must have the same number of grid functions") {
     std::vector<mfem::ParGridFunction> none;
-    SLOTH_CHECK_MFEM_ERROR_WITH(
-        MfemCoefficient(Coefficient(Glossary::Mobility, 5.), u, none, aux), "consistency");
+    SLOTH_CHECK_MFEM_ERROR_WITH(MfemCoefficient(Coefficient(Glossary::Mobility, 5.), u, none, aux),
+                                "consistency");
   }
 }
 

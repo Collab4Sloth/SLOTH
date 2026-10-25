@@ -405,8 +405,8 @@ static const GlossaryQuantity VelocityPrefactor =
  * through an open boundary (AdvectionBoundary integrators). Attached to boundaries.
  *
  */
-static const GlossaryQuantity Inflow = GlossaryQuantity(
-    GlossaryType::Inflow, GlossaryUnit::None, "Inflow value of the advected variable");
+static const GlossaryQuantity Inflow = GlossaryQuantity(GlossaryType::Inflow, GlossaryUnit::None,
+                                                        "Inflow value of the advected variable");
 
 /**
  * @brief Quantity associated with the MPI rank

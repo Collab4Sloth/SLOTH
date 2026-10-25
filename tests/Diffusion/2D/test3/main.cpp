@@ -93,7 +93,6 @@ int main(int argc, char* argv[]) {
   //     operators     //
   // ####################
 
-
   // Problem 1:
   std::vector<SPA*> spatials{&spatial};
   SteadyOPE oper(spatials, {"Fick", "SourceTerm"});

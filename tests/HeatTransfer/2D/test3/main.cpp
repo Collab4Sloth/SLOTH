@@ -124,9 +124,8 @@ int main(int argc, char* argv[]) {
     Coefficients coef_pb(density, heat_capacity, conductivity, source);
     std::vector<SPA*> spatials{&spatial};
 
-
-    TransientOPE oper(spatials, {"Fourier", "SourceTerm"},
-                      TimeScheme::EulerImplicit, "HeatTimeDerivative");
+    TransientOPE oper(spatials, {"Fourier", "SourceTerm"}, TimeScheme::EulerImplicit,
+                      "HeatTimeDerivative");
 
     oper.overload_nl_solver(
         NLSolverType::NEWTON,

@@ -24,6 +24,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -33,9 +35,6 @@
 #include <string>
 #include <tuple>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
@@ -151,8 +150,8 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: force_clean_output_dir", "[PostProce
   const std::filesystem::path old_file = std::filesystem::path(dir.path()) / "old.txt";
   if (mfem::Mpi::Root()) std::ofstream(old_file) << "old";
   MPI_Barrier(MPI_COMM_WORLD);
-  const Parameters p = base_parameters() + Parameter("frequency", 1) +
-                       Parameter("force_clean_output_dir", true);
+  const Parameters p =
+      base_parameters() + Parameter("frequency", 1) + Parameter("force_clean_output_dir", true);
   PST pst(&spatial, p);
   MPI_Barrier(MPI_COMM_WORLD);
   CHECK_FALSE(std::filesystem::exists(old_file));
@@ -188,10 +187,10 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: complete problem (ParaView, errors, 
                                      Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
   SteadyPB problem("Heat", oper, vars, {coefs}, pst);
   auto coupling = Coupling("Heat", problem);
-  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                            Parameter("final_time", 0.1),
-                                            Parameter("time_step", 0.1)),
-                                 coupling);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 0.1),
+                                    Parameter("time_step", 0.1)),
+                         coupling);
   time.solve();
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -232,10 +231,12 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
   auto energies = [&](double omega, std::function<double(const mfem::Vector&, double)> u0) {
     auto bcs = BCS(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
                    Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
-    auto vars = VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, AnalyticalFunctions<DIM>(u0)));
+    auto vars =
+        VARS(VAR(&spatial, bcs, "phi", Glossary::PhaseField, 2, AnalyticalFunctions<DIM>(u0)));
     PST pst(&spatial, base_parameters() + Parameter("frequency", 1));
     Coefficients coefs(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(omega)),
-                       Coefficient(Glossary::Capillary, lambda), Coefficient(Glossary::Mobility, 0.),
+                       Coefficient(Glossary::Capillary, lambda),
+                       Coefficient(Glossary::Mobility, 0.),
                        Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
     std::vector<SPA*> spatials{&spatial};
     TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
@@ -244,16 +245,16 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
                                        Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
     TransientPB problem("PhaseField", oper, vars, {coefs}, pst);
     auto coupling = Coupling("PhaseField", problem);
-    auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                              Parameter("final_time", 0.1),
-                                              Parameter("time_step", 0.1)),
-                                   coupling);
+    auto time =
+        TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 0.1),
+                                      Parameter("time_step", 0.1)),
+                           coupling);
     time.solve();
     MPI_Barrier(MPI_COMM_WORLD);
     std::pair<double, double> result{0., 0.};
     if (mfem::Mpi::Root()) {
-      const auto csv = std::filesystem::path(pst.get_post_processing_directory()) /
-                       "time_specialized.csv";
+      const auto csv =
+          std::filesystem::path(pst.get_post_processing_directory()) / "time_specialized.csv";
       REQUIRE(std::filesystem::exists(csv));
       result = {column(csv, "Density[J.m-3]"), column(csv, "Sigma[J.m-3]")};
     }
@@ -269,8 +270,7 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
     }
   }
   SECTION("u = x, no double well: Density = lambda / 2, Sigma = lambda") {
-    const auto [density, sigma] =
-        energies(0., [](const mfem::Vector& p, double) { return p[0]; });
+    const auto [density, sigma] = energies(0., [](const mfem::Vector& p, double) { return p[0]; });
     if (mfem::Mpi::Root()) {
       CHECK_THAT(density, WithinAbs(lambda / 2., 1.e-12));
       CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
@@ -296,10 +296,10 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: coefficients saved with the fields",
   SteadyPB problem("Heat", oper, vars, {coefs}, pst);
   problem.set_vtk_coefficients({conductivity});
   auto coupling = Coupling("Heat", problem);
-  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
-                                            Parameter("final_time", 0.1),
-                                            Parameter("time_step", 0.1)),
-                                 coupling);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 0.1),
+                                    Parameter("time_step", 0.1)),
+                         coupling);
   time.solve();
   MPI_Barrier(MPI_COMM_WORLD);
 
