@@ -25,11 +25,14 @@
  */
 #include <cmath>
 #include <functional>
+#include <span>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "Sloth/sloth.hpp"
@@ -131,4 +134,73 @@ TEST_CASE("SteadyOperator: Mult is not used", "[Problems][Operators][errors]") {
   const mfem::Vector k(4);
   mfem::Vector y(4);
   SLOTH_CHECK_MFEM_ERROR_WITH(oper.Mult(k, y), "SteadyOperator::Mult is not used");
+}
+
+// -----------------------------------------------------------------------------
+// Time of the coefficients at each stage of the time scheme.
+// du/dt = f(t) = t, u(0) = 0, uniform field (no spatial error), t in [0, 1], dt = 0.25.
+// The MFEM ODE solvers set the time of each stage (TransientOperator::SetTime):
+//   implicit Euler:   u_{n+1} = u_n + dt f(t_{n+1})  ->  u(1) = dt^2 N (N + 1) / 2 = 0.625
+//   explicit Euler:   u_{n+1} = u_n + dt f(t_n)      ->  u(1) = dt^2 N (N - 1) / 2 = 0.375
+//   SDIRK23, SDIRK33, RK4 (order >= 2): exact for f linear in t -> u(1) = 1/2
+// -----------------------------------------------------------------------------
+namespace {
+/// @brief Coefficient equal to the time: f(t) = t
+class TimeValue final : public FunctionCoefficient {
+ protected:
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
+                       const std::span<const double>&, const unsigned int)>
+  F() override {
+    return [this](const std::span<const double>&, const std::span<const double>&,
+                  const std::span<const double>&, const unsigned int) { return this->get_time(); };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  GradientF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) {
+      return std::vector<double>(u.size(), 0.);
+    };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  HessianF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) {
+      return std::vector<double>(u.size() * u.size(), 0.);
+    };
+  }
+};
+}  // namespace
+
+TEST_CASE("Problems: coefficients evaluated at the time of each stage", "[Problems][Operators]") {
+  const auto [time_scheme, expected] =
+      GENERATE(std::pair{TimeScheme::EulerImplicit, 0.625}, std::pair{TimeScheme::EulerExplicit, 0.375},
+               std::pair{TimeScheme::SDIRK23, 0.5}, std::pair{TimeScheme::SDIRK33, 0.5},
+               std::pair{TimeScheme::RungeKutta4, 0.5});
+  CAPTURE(static_cast<int>(time_scheme), expected);
+
+  SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(2, 2, 1., 1.));
+  BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+          Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
+  auto vars = VARS(VAR(&spatial, bcs, "u", Glossary::Concentration, 2, 0.));
+  Coefficients coefs(Coefficient(Glossary::SourceTerm, Scheme::Explicit, TimeValue()));
+  std::vector<SPA*> spatials{&spatial};
+  TransientOPE oper(spatials, {"SourceTerm"}, time_scheme, "TimeDerivative");
+  oper.overload_nl_solver(NLSolverType::NEWTON,
+                          Parameters(Parameter("description", std::string("Newton")),
+                                     Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
+  TransientPB problem("u", oper, vars, {coefs});
+  auto coupling = Coupling("u", problem);
+  auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
+                                            Parameter("final_time", 1.),
+                                            Parameter("time_step", 0.25)),
+                                 coupling);
+  time.solve();
+
+  const mfem::Vector u = vars[0].get_unknown();
+  for (int i = 0; i < u.Size(); ++i) {
+    CAPTURE(i);
+    CHECK_THAT(u(i), Catch::Matchers::WithinAbs(expected, 1.e-10));
+  }
 }

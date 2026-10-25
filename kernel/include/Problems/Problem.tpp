@@ -594,8 +594,8 @@ void Problem<OPE, VAR, PST>::do_time_step(
     [[maybe_unused]] const std::vector<std::vector<std::string>>& unks_info) {
   const size_t unk_size = vect_unk.size();
 
-  // Set time for coefficients, /!\ this is correct only for implicit time scheme
-  // TODO: use effective time step according to the time scheme
+  // Time of the coefficients: end of the step. For a transient operator, the MFEM ODE solver
+  // then sets the time of each stage (TransientOperator::SetTime).
   this->set_time_coefficients(next_time + current_time_step);
 
   this->oper_.setGeometry(this->geometry_);

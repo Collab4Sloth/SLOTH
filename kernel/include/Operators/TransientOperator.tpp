@@ -231,6 +231,9 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   this->current_time_ = current_time;
   this->current_dt_ = current_time_step;
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
+  // The last stage of a Runge-Kutta scheme is not necessarily at the end of the step (e.g.
+  // SDIRK23): coefficients at the end of the step for the post-processing
+  this->SetTime(next_time);
 
   //// Updating vect_unk
   for (size_t i = 0; i < unk_size; i++) {
@@ -511,21 +514,8 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   mfem::Vector dv_dt(du_dt.GetData(), sc);
   const int fes_size = this->block_trueOffsets_.Size() - 1;
 
-  MATools::MATrace::start();
-  {
-    Catch_Time_Section("ImplicitSolve::SetTransientParams");
-    std::vector<mfem::Vector> v_vect;
-    v_vect.reserve(static_cast<size_t>(fes_size));
-    for (int i = 0; i < fes_size; ++i) {
-      const int off = this->block_trueOffsets_[i];
-      const int sz = this->block_trueOffsets_[i + 1] - off;
-      v_vect.emplace_back(u.GetData() + off, sz);
-    }
-    this->SetTransientParameters(dt, v_vect);
-  }
-  MATools::MATrace::stop("SetTransientParams");
-
-  // Apply BCs
+  // Apply BCs first: the forms below are then built (and their coefficients evaluated) with the
+  // Dirichlet values of the current stage
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
@@ -544,9 +534,23 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
       this->bcs_[static_cast<size_t>(i)]->SetDirichletBoundaryConditions(
           v_i, this->coefficients_[static_cast<size_t>(i)], auxvars_unk);
     }
-    reduced_oper->SetParameters(dt, &v);
     MATools::MATrace::stop("ApplyBCs");
   }
+
+  MATools::MATrace::start();
+  {
+    Catch_Time_Section("ImplicitSolve::SetTransientParams");
+    std::vector<mfem::Vector> v_vect;
+    v_vect.reserve(static_cast<size_t>(fes_size));
+    for (int i = 0; i < fes_size; ++i) {
+      const int off = this->block_trueOffsets_[i];
+      const int sz = this->block_trueOffsets_[i + 1] - off;
+      v_vect.emplace_back(u.GetData() + off, sz);
+    }
+    this->SetTransientParameters(dt, v_vect);
+    reduced_oper->SetParameters(dt, &v);
+  }
+  MATools::MATrace::stop("SetTransientParams");
 
   // Zero right-hand side: source terms are part of the RHS nonlinear form (SourceTerm
   // integrator)
@@ -759,4 +763,20 @@ void TransientOperator<T, DIM>::get_explicit_time_coefficients() {
 
     this->explicit_time_coefficients_.add(*coef);
   }
+}
+
+/**
+ * @brief Set the time of the operator and of its coefficients.
+ *
+ * Called by the MFEM ODE solvers before each evaluation: for a Runge-Kutta scheme, before each
+ * stage, with the time of the stage (t + c_i dt). The coefficients depending on time (including
+ * the Dirichlet values given by coefficients) are then evaluated at the time of the stage.
+ *
+ * @param t time
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::SetTime(const mfem::real_t t) {
+  mfem::TimeDependentOperator::SetTime(t);
+  this->set_time_coefficients(t);
+  this->explicit_time_coefficients_.set_time(t);
 }
