@@ -239,14 +239,13 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       fun_val *= weight_coef;
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
 
-      // Off-diagonal blocks: mobility and free energy of block jblk, Hessian component
-      // (blk, jblk)
+      // Off-diagonal blocks: d/du_j (M_b dW_b/du_b) = M_b d2W_b/du_b du_j (mobility and free
+      // energy of the row block blk; the derivative of M_b is added below)
       for (int jblk = 0; jblk < num_blocks; ++jblk) {
         if (jblk == blk) continue;
         double fun_val_off =
-            this->mob_at_ip_[static_cast<std::size_t>(jblk)] *
-            this->eval_hessian_coefficient(double_well_energy[jblk], blk, jblk, ipv.u, ipv.aux,
-                                           jblk);
+            coef_mobi *
+            this->eval_hessian_coefficient(double_well_energy[blk], blk, jblk, ipv.u, ipv.aux, blk);
         fun_val_off *= weight_coef;
         AddMult_a_VVt(fun_val_off, Psi, *elmats(blk, jblk));
       }
@@ -403,13 +402,11 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
           this->eval_hessian_coefficient(double_well_energy[blk], blk, blk, u, aux, blk) * weight_coef;
       AddMult_a_VVt(fun_val, Psi_blk, *elmats(blk, blk));
 
-      // Off-diagonal blocks (as AssembleElementGrad: mobility and free energy of block jblk,
-      // Hessian component (blk, jblk))
+      // Off-diagonal blocks (as AssembleElementGrad): M_b d2W_b/du_b du_j
       for (int jblk = 0; jblk < num_blocks; ++jblk) {
         if (jblk == blk) continue;
         const double fun_val_off =
-            this->mob_at_ip_[static_cast<std::size_t>(jblk)] *
-            this->eval_hessian_coefficient(double_well_energy[jblk], blk, jblk, u, aux, jblk) *
+            coef_mobi * this->eval_hessian_coefficient(double_well_energy[blk], blk, jblk, u, aux, blk) *
             weight_coef;
         AddMult_a_VWt(fun_val_off, Psi_blk, this->shapes_[static_cast<std::size_t>(jblk)],
                       *elmats(blk, jblk));

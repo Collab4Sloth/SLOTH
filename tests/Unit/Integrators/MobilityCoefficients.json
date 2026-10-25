@@ -22,4 +22,12 @@
 	"class_name":"MobilityDegenerate",
 	"outputfile":"MobilityDegenerate"
 	}
+	,
+	{
+	"expression":"w0*phi0*phi0*phi1*phi1",
+	"variables":"phi0,phi1",
+	"constants":"(w0:50.0)",
+	"class_name":"CoupledEnergy",
+	"outputfile":"CoupledEnergy"
+	}
 ]

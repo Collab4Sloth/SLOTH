@@ -45,6 +45,8 @@
 //   MobilityPhi   = m0 (1 + phi^2)          (one variable)
 //   MobilityCross = m0 phi0 (1 - phi1)      (two phases, monolithic coupling)
 //   MobilityDegenerate = m0 phi0 (1 - phi0) (two phases, depends on phi0 only)
+//   CoupledEnergy = w0 phi0^2 phi1^2         (free energy coupling two phases)
+#include "CoupledEnergy.hpp"
 #include "MobilityCross.hpp"
 #include "MobilityDegenerate.hpp"
 #include "MobilityPhi.hpp"
@@ -87,6 +89,15 @@ Coefficients two_phase_mobility_coefficients() {
   return Coefficients(Coefficient(Glossary::FreeEnergy, 0.),
                       Coefficient(Glossary::Capillary, lambda),
                       Coefficient(Glossary::Mobility, Scheme::Implicit, MOBILITY()),
+                      Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
+}
+
+/// @brief Allen-Cahn coefficients with a free energy coupling the two phases
+Coefficients coupled_energy_coefficients(double mobility) {
+  const double lambda = 0.15;
+  return Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, CoupledEnergy()),
+                      Coefficient(Glossary::Capillary, lambda),
+                      Coefficient(Glossary::Mobility, mobility),
                       Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
 }
 
@@ -157,6 +168,11 @@ std::vector<Case> all_cases() {
       {"AllenCahn, 2 phases, mobility M(phi0) = phi0 (1 - phi0)", 2,
        maker<AllenCahnNLFormIntegrator>({two_phase_mobility_coefficients<MobilityDegenerate>(),
                                          two_phase_mobility_coefficients<MobilityDegenerate>()})},
+      // Free energy coupling the two phases, different mobilities: the off-diagonal
+      // block (b, j) is M_b d2W/dphi_b dphi_j (mobility of the row block)
+      {"AllenCahn, 2 phases, coupled energy, mobilities 1 and 3", 2,
+       maker<AllenCahnNLFormIntegrator>({coupled_energy_coefficients(1.),
+                                         coupled_energy_coefficients(3.)})},
       // W and H(phi_b) of one variable on each phase: each block uses its own phase
       {"AllenCahn, 2 phases, W(phi_b) and M = H(phi_b) per phase", 2,
        maker<AllenCahnNLFormIntegrator>(
