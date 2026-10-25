@@ -62,8 +62,6 @@ function(sloth_add_unit_test)
   # Executable
   set(exe Unit_${UT_NAME})
   add_executable(${exe} ${UT_SOURCES})
-  # List of the unit-test executables (see unit_coverage: stale object directories)
-  set_property(GLOBAL APPEND PROPERTY SLOTH_UNIT_EXECUTABLES ${exe})
   target_link_libraries(${exe} PRIVATE sloth_unit_main)
   # Options of the build type (Release, Debug, Coverage...), as for the other
   # tests. In Coverage, this instruments the kernel/include code compiled in
@@ -183,59 +181,6 @@ sloth_add_unit_test(NAME Utils
                     NPROCS 1)
 
 # ##############################################################################
-# Coverage of the unit tests alone (CMAKE_BUILD_TYPE=Coverage)
+# Coverage: see the target cc of the main CMakeLists.txt (make cc_reset,
+# ctest -L Unit, make cc for the coverage of the unit tests alone).
 # ##############################################################################
-#   make unit_coverage
-# 1. resets the coverage counters (*.gcda) of the whole build directory;
-# 2. runs the unit tests only (ctest -L Unit);
-# 3. removes the object directories of unit-test executables that no longer
-#    exist (renamed or merged modules): their *.gcno files describe old
-#    versions of the sources;
-# 4. gcovr: searches the build directories of the kernel and of the unit tests
-#    only (the other tests may have been compiled with older versions of the
-#    kernel headers), so that the code of kernel/include compiled in the unit
-#    tests (templates, inline functions) is taken into account, and writes
-#      Coverage/unit/coverage.html  (detailed report, file by file)
-#      Coverage/unit/coverage.json  (input of the script below);
-# 5. tools/uncovered_functions.py: number of uncovered functions per module.
-#    Details for one module:
-#      python3 tests/Unit/tools/uncovered_functions.py \
-#              build/Coverage/unit/coverage.json -m Parameters
-# ##############################################################################
-if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-  set(UNIT_COV_DIR ${CMAKE_BINARY_DIR}/Coverage/unit)
-  # With Clang (macOS), the gcov-compatible tool is llvm-cov gcov
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    if(APPLE)
-      set(UNIT_GCOV_OPTION --gcov-executable "xcrun llvm-cov gcov")
-    else()
-      set(UNIT_GCOV_OPTION --gcov-executable "llvm-cov gcov")
-    endif()
-  endif()
-
-  get_property(unit_executables GLOBAL PROPERTY SLOTH_UNIT_EXECUTABLES)
-  # Comma-separated: a ';' list would be split into several command arguments
-  string(JOIN "," unit_executables_csv ${unit_executables})
-  add_custom_target(unit_coverage
-    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcda" -delete
-    COMMAND ${CMAKE_CTEST_COMMAND} -L Unit
-    COMMAND ${CMAKE_COMMAND} -D OBJECT_ROOT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles
-            -D KEEP=${unit_executables_csv}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/remove_stale_objects.cmake
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${UNIT_COV_DIR}
-    COMMAND gcovr -r ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/kernel ${CMAKE_CURRENT_BINARY_DIR}
-            ${UNIT_GCOV_OPTION}
-            --filter ${CMAKE_SOURCE_DIR}/kernel/src
-            --filter ${CMAKE_SOURCE_DIR}/kernel/include
-            --exclude "${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling/.*"
-            --exclude-unreachable-branches
-            --json ${UNIT_COV_DIR}/coverage.json
-            --html-details ${UNIT_COV_DIR}/coverage.html
-            --print-summary
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/uncovered_functions.py
-            ${UNIT_COV_DIR}/coverage.json
-    DEPENDS unit_tests
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Coverage of the unit tests (see Coverage/unit/coverage.html)"
-    VERBATIM)
-endif()

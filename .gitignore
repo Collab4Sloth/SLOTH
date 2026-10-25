@@ -2,3 +2,6 @@
 *build*/
 .cache
 .DS_Store
+
+# Python bytecode (scripts)
+__pycache__/

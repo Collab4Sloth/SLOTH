@@ -142,13 +142,40 @@ add_custom_target(sloth_tests COMMENT "Build Sloth + all tests " DEPENDS Sloth t
 # ########################
 # # Code Coverage
 # ########################
+# In a Coverage build:
+#   make cc_reset   resets the coverage counters (*.gcda)
+#   ctest ...       runs the tests (all of them, or a selection: ctest -L Unit...)
+#   make cc         coverage of the kernel by the tests that have been run:
+#                   Coverage/coverage.html (detailed), coverage.xml, coverage.json,
+#                   and number of uncovered functions per module in the terminal
+#                   (details of a module: scripts/uncovered_functions.py ... -m Module)
+# See scripts/coverage_report.py.
 IF(CMAKE_BUILD_TYPE MATCHES Coverage)
-  # Collect CodeCoverage analysis with gcovr
+  # gcov command matching the compiler
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(APPLE)
+      set(SLOTH_GCOV_COMMAND "xcrun llvm-cov gcov")
+    else()
+      set(SLOTH_GCOV_COMMAND "llvm-cov gcov")
+    endif()
+  else()
+    string(REGEX MATCH "^[0-9]+" _gcc_major "${CMAKE_CXX_COMPILER_VERSION}")
+    get_filename_component(_compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(SLOTH_GCOV NAMES gcov-${_gcc_major} gcov HINTS "${_compiler_dir}")
+    set(SLOTH_GCOV_COMMAND "${SLOTH_GCOV}")
+  endif()
+
+  add_custom_target(cc_reset
+    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcda" -delete
+    COMMENT "Reset the coverage counters")
   add_custom_target(cc
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Coverage
-    COMMAND gcovr -r ${CMAKE_BINARY_DIR}/kernel --filter ${CMAKE_SOURCE_DIR}/kernel/src --filter ${CMAKE_SOURCE_DIR}/kernel/include  --exclude '${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling/.*'  --exclude-unreachable-branches --xml=${CMAKE_BINARY_DIR}/Coverage/coverage.xml --html --html-details -o ${CMAKE_BINARY_DIR}/Coverage/coverage.html
-    COMMENT "Generate Html report for code coverage analysis (see Coverage/coverage.html)"
-  )
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/coverage_report.py
+            --build ${CMAKE_BINARY_DIR} --source ${CMAKE_SOURCE_DIR}
+            --output ${CMAKE_BINARY_DIR}/Coverage
+            --gcov-executable ${SLOTH_GCOV_COMMAND}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Coverage of the kernel by the tests that have been run (see Coverage/coverage.html)"
+    VERBATIM)
 ENDIF()
 
 # ########################

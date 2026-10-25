@@ -7,8 +7,8 @@ Usage:
     uncovered_functions.py coverage.json -m Parameters   # details for one module
     uncovered_functions.py coverage.json --all           # details for all modules
 
-The JSON report is produced by gcovr --json (see the unit_coverage target in
-tests/Unit/CMakeLists.txt).
+The JSON report is produced by `make cc` (Coverage/coverage.json, see
+scripts/coverage_report.py).
 
 A template function has one entry per instantiation in gcov (one per DIM, per
 type...). Entries are grouped by (file, line): a function is "covered" if at
@@ -80,6 +80,27 @@ def print_summary(modules):
     print("-" * 56)
     pct = 100.0 * (all_total - all_uncovered) / all_total if all_total else 100.0
     print(f"{'TOTAL':<24}{all_total:>10}{all_uncovered:>11}{pct:>10.1f}%")
+
+
+def markdown_summary(modules):
+    """Same table as print_summary, in Markdown (GitHub job summary)"""
+    rows = []
+    for module, funcs in modules.items():
+        total = len(funcs)
+        uncovered = sum(1 for _, count in funcs.values() if count == 0)
+        rows.append((module, total, uncovered))
+    rows.sort(key=lambda r: (-r[2], r[0]))
+    all_total = sum(r[1] for r in rows)
+    all_uncovered = sum(r[2] for r in rows)
+    pct = 100.0 * (all_total - all_uncovered) / all_total if all_total else 100.0
+    lines = ["## Coverage of the kernel functions", "",
+             f"**{pct:.1f} %** of the functions called "
+             f"({all_total - all_uncovered} / {all_total})", "",
+             "| Module | functions | uncovered | covered % |", "|---|---:|---:|---:|"]
+    for module, total, uncovered in rows:
+        mpct = 100.0 * (total - uncovered) / total if total else 100.0
+        lines.append(f"| {module} | {total} | {uncovered} | {mpct:.1f} % |")
+    return "\n".join(lines) + "\n"
 
 
 def print_details(modules, selected):
