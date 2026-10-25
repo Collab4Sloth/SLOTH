@@ -25,8 +25,13 @@
  *
  */
 #pragma once
+#include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
+#include <string>
+#include <tuple>
+#include <utility>
 
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
@@ -41,33 +46,28 @@
 class SlothErrorEstimators {
  private:
   /**
-   * @brief Estimator built for one solution field, with the flux spaces it
-   *        uses. The flux spaces are owned here (not by the mfem estimator)
-   *        and reused along the whole computation: the mfem estimators
-   *        update them (`Update(false)`) themselves when the mesh has
-   *        changed (refinement, derefinement or rebalancing).
+   * @brief Finite element space used by an estimator (flux space...), with its
+   *        collection. It does not depend on the solution field: it is shared
+   *        by all the fields of the same mesh and polynomial order, and reused
+   *        along the whole computation (updated when the mesh has changed).
    *
    * Members are declared so that the default destruction order is valid:
-   * estimator, then spaces, then collections.
+   * space, then collection.
    */
-  struct CachedEstimator {
-    const mfem::ParMesh* mesh{nullptr};
-    int order{-1};
-    std::unique_ptr<mfem::FiniteElementCollection> flux_fec;
-    std::unique_ptr<mfem::FiniteElementCollection> smooth_flux_fec;
-    std::unique_ptr<mfem::ParFiniteElementSpace> flux_fes;
-    std::unique_ptr<mfem::ParFiniteElementSpace> smooth_flux_fes;
-    std::shared_ptr<mfem::ErrorEstimator> estimator;
-
-    void release();
+  struct CachedSpace {
+    std::unique_ptr<mfem::FiniteElementCollection> fec;
+    std::unique_ptr<mfem::ParFiniteElementSpace> fes;
   };
+  /// Key of a cached space: mesh, polynomial order of the solution field, name of the space
+  using SpaceKey = std::tuple<const mfem::ParMesh*, int, std::string>;
 
   ErrorEstimatorType value_;
   mfem::BilinearFormIntegrator* integ_{nullptr};
-  std::map<const mfem::ParGridFunction*, CachedEstimator> cache_;
+  std::map<SpaceKey, CachedSpace> spaces_;
 
-  void build(CachedEstimator& entry, mfem::ParGridFunction& x, const int order,
-             mfem::ParMesh& mesh);
+  mfem::ParFiniteElementSpace& space(
+      const std::string& name, mfem::ParMesh& mesh, const int order, const int vdim,
+      const std::function<std::unique_ptr<mfem::FiniteElementCollection>()>& make_fec);
 
  public:
   SlothErrorEstimators(ErrorEstimatorType value, mfem::BilinearFormIntegrator* integ);
@@ -79,5 +79,9 @@ class SlothErrorEstimators {
   std::shared_ptr<mfem::ErrorEstimator> get_value(mfem::ParGridFunction& x,
                                                   mfem::ParFiniteElementSpace& fespace,
                                                   mfem::ParMesh& mesh);
-  ~SlothErrorEstimators();
+
+  /// Number of finite element spaces kept (all meshes, orders and names)
+  std::size_t number_of_cached_spaces() const { return spaces_.size(); }
+
+  ~SlothErrorEstimators() = default;
 };

@@ -62,14 +62,25 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "SlothErrorEstimators: Kelly and Zienki
     auto u = project(quadratic);
     CHECK(max_error(*estimators.get_value(u, *fes, *pmesh)) > 1.e-4);
   }
-  SECTION("the estimator is kept for the same grid function and mesh") {
-    auto u = project(affine);
-    auto first = estimators.get_value(u, *fes, *pmesh);
-    auto second = estimators.get_value(u, *fes, *pmesh);
-    CHECK(first == second);
+  SECTION("flux spaces shared by the fields of the same mesh and order") {
+    // Kelly: L2 flux; Zienkiewicz-Zhu: L2 flux and RT smoothed flux
+    const std::size_t spaces_per_order = type == ErrorEstimatorType::KELLY ? 1 : 2;
+    // Fields created and destroyed one after the other: nothing is kept per field
+    for (int k = 0; k < 10; ++k) {
+      auto u = project(k % 2 == 0 ? affine : quadratic);
+      const double error = max_error(*estimators.get_value(u, *fes, *pmesh));
+      CHECK((k % 2 == 0 ? error < 1.e-10 : error > 1.e-4));
+    }
+    CHECK(estimators.number_of_cached_spaces() == spaces_per_order);
 
-    auto v = project(affine);  // other grid function: other estimator
-    CHECK(estimators.get_value(v, *fes, *pmesh) != first);
+    // Field of order 2 on the same mesh: other flux spaces
+    mfem::H1_FECollection fec2(2, 2);
+    mfem::ParFiniteElementSpace fes2(pmesh.get(), &fec2);
+    mfem::ParGridFunction u2(&fes2);
+    mfem::FunctionCoefficient c(affine);
+    u2.ProjectCoefficient(c);
+    CHECK(max_error(*estimators.get_value(u2, fes2, *pmesh)) < 1.e-10);
+    CHECK(estimators.number_of_cached_spaces() == 2 * spaces_per_order);
   }
 }
 
