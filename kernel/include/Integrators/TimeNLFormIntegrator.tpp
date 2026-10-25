@@ -133,7 +133,9 @@ void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
  * - 'coefficient_B' stores the second coefficient,
  *
  *
- * @remark By default, A and B are equal to one. This method can be overridden in derived classes to
+ * @remark By default, A and B are equal to one. Implicit coefficients are evaluated at the end
+ * of the time step (see SlothNLFormIntegrator::values_at_end_of_step). This method can be
+ * overridden in derived classes to
  * provide custom behavior for retrieving coefficients (see HeatTimeDerivative). Coefficient objects
  * of type GlossaryType::ExplicitTime can be also used for this class (see Glossary::ExplicitTime_A
  * and Glossary::ExplicitTime_B used wth explicit solver)
@@ -145,162 +147,119 @@ template <class VARS>
 void TimeNLFormIntegrator<VARS>::get_coefficients() {
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
     auto coef_A = this->get_coefficient(i, GlossaryType::ExplicitTime, 0);
-
-    if (!coef_A.has_value()) {
-      this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
-    } else {
-      if ((*coef_A).is_implicit()) {
-        MFEM_VERIFY(
-            false,
-            "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
-            "check your data.");
-      }
-      this->coefficient_A.add(*coef_A);
-    }
+    this->coefficient_A.add(coef_A.has_value() ? *coef_A : Coefficient(Glossary::Default, 1.0));
     auto coef_B = this->get_coefficient(i, GlossaryType::ExplicitTime, 1);
-
-    if (!coef_B.has_value()) {
-      this->coefficient_B.add(Coefficient(Glossary::Default, 1.0));
-    } else {
-      if ((*coef_B).is_implicit()) {
-        MFEM_VERIFY(
-            false,
-            "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
-            "check your data.");
-      }
-      this->coefficient_B.add(*coef_B);
-    }
+    this->coefficient_B.add(coef_B.has_value() ? *coef_B : Coefficient(Glossary::Default, 1.0));
   }
 }
 
 /**
- * @brief Assemble the element-level residual vector for the nonlinear problem.
- *
- * This method computes the residual vector  by element
- *
+ * @brief Element residual: (A(u) B(u) k, psi) for each block, with k = du/dt the unknown and
+ * u = u_old + dt k the value at the end of the step (A and B: implicit, explicit or constant
+ * coefficients).
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param el      Array of pointers to finite elements.
- * @param Tr      Element transformation.
- * @param elfun   Array of local finite element solution vectors.
- * @param elvect  Array of vectors where the computed element residual contributions
- *                will be stored.
- *
- * @note Users typically do not call this function directly; it is invoked
- *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  int num_blocks = el.Size();
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  const int num_blocks = el.Size();
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
-    // Catch_Time_Section("TimeNLFormIntegrator:AssembleElementVector");
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
-    gradPsi.SetSize(nd, dim);
+    const int nd = el[blk]->GetDof();
     Psi.SetSize(nd);
-    gradU.SetSize(dim);
-    // elvect.SetSize(nd);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-    // elvect = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-      el[blk]->CalcShape(ip, Psi);  //
+      el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
 
-      const auto& u = *elfun[blk] * Psi;
+      const double k = *elfun[blk] * Psi;
       const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux, blk);
-      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux, blk);
+      const auto u_end = this->values_at_end_of_step(ipv.u);
+      const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux, blk);
+      const double coef_b = this->eval_coefficient(this->coefficient_B[blk], u_end, ipv.aux, blk);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      const double ww = coef_a * coef_b * u * weight_coef;
-      add(*elvect[blk], ww, Psi, *elvect[blk]);
+      elvect[blk]->Add(coef_a * coef_b * k * weight_coef, Psi);
     }
   }
 }
 
 /**
- * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
- *
- * This method computes the Jacobian matrix by element.
+ * @brief Element Jacobian with respect to k:
+ *   block (b, b): A B (psi_j, psi_i) + dt d(A B)/du_b k (psi_j, psi_i)
+ *   block (b, j): dt d(A B)/du_j k (psi_j, psi_i)
+ * since du/dk = dt (u = u_old + dt k). The derivatives vanish for constant or explicit
+ * coefficients.
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param el      Array of pointers to finite elements.
- * @param Tr      Element transformation.
- * @param elfun   Array of local finite element solution vectors.
- * @param elmat   Array of dense matrices where the computed element Jacobian contributions
- *                will be stored.
- *
- * @note Users typically do not call this function directly; it is invoked
- *       internally during the assembly of the global nonlinear form.
  */
 template <class VARS>
 void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // Catch_Time_Section("TimeNLFormIntegrator::AssembleElementGrad");
-  int num_blocks = el.Size();
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  const int num_blocks = el.Size();
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
   for (int blk = 0; blk < num_blocks; ++blk) {
-    // int nd = el.GetDof();
-    // int dim = el.GetDim();
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
+    for (int jblk = 0; jblk < num_blocks; ++jblk) {
+      elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
+      *elmats(blk, jblk) = 0.0;
+    }
+  }
 
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-    // elmat.SetSize(nd);
-    elmats(blk, blk)->SetSize(nd);
-    *elmats(blk, blk) = 0.0;
-
+  mfem::Vector shape_j;
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    Psi.SetSize(el[blk]->GetDof());
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-
-    // elmat = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
+
+      const double k = *elfun[blk] * Psi;
       const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux, blk);
-      double coef_b = this->eval_coefficient(this->coefficient_B[blk], ipv.u, ipv.aux, blk);
+      const auto u_end = this->values_at_end_of_step(ipv.u);
+      const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux, blk);
+      const double coef_b = this->eval_coefficient(this->coefficient_B[blk], u_end, ipv.aux, blk);
+
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      double fun_val = coef_a * coef_b * weight_coef;
-      AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
-    }
-  }
+      AddMult_a_VVt(coef_a * coef_b * weight_coef, Psi, *elmats(blk, blk));
 
-  // Off-diagonal
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-      if (off_blk != blk) {
-        int nd = el[blk]->GetDof();
-
-        // elmat.SetSize(nd);
-        elmats(blk, off_blk)->SetSize(nd);
-        *elmats(blk, off_blk) = 0.0;
+      // Coefficients depending on u at the end of the step: d/dk_j = dt d/du_j
+      for (int jblk = 0; jblk < num_blocks; ++jblk) {
+        const double d_a =
+            this->eval_gradient_coefficient(this->coefficient_A[blk], jblk, u_end, ipv.aux, blk);
+        const double d_b =
+            this->eval_gradient_coefficient(this->coefficient_B[blk], jblk, u_end, ipv.aux, blk);
+        const double d = (d_a * coef_b + coef_a * d_b) * this->time_step_ * k * weight_coef;
+        if (d == 0.0) continue;
+        if (jblk == blk) {
+          AddMult_a_VVt(d, Psi, *elmats(blk, blk));
+        } else {
+          shape_j.SetSize(el[jblk]->GetDof());
+          el[jblk]->CalcShape(ip, shape_j);
+          AddMult_a_VWt(d, Psi, shape_j, *elmats(blk, jblk));
+        }
       }
     }
   }

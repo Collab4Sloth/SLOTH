@@ -143,18 +143,7 @@ template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::get_coefficients() {
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
     auto coef_A = this->get_coefficient(i, GlossaryType::ExplicitTime, 0);
-
-    if (!coef_A.has_value()) {
-      this->coefficient_A.add(Coefficient(Glossary::Default, 1.0));
-    } else {
-      if ((*coef_A).is_implicit()) {
-        MFEM_VERIFY(
-            false,
-            "Implicit coefficient for TimeDerivative integrator not implemented yet. Please "
-            "check your data.");
-      }
-      this->coefficient_A.add(*coef_A);
-    }
+    this->coefficient_A.add(coef_A.has_value() ? *coef_A : Coefficient(Glossary::Default, 1.0));
   }
 }
 
@@ -222,7 +211,10 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
+      // Implicit coefficient: evaluated at the end of the step (phi = phi_old + dt dphi/dt)
+      const double coef_a =
+          this->eval_coefficient(this->coefficient_A[blk], this->values_at_end_of_step(ipv.u),
+                                 ipv.aux);
       const double ww = coef_a * phi * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -250,88 +242,48 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
-  // Catch_Time_Section("TimeCHNLFormIntegrator::AssembleElementGrad");
-  // loop over diagonal entries
-  // block 0 0  dR(phi)dphi
-  {
-    int blk = 0;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
-
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-
-    elmats(blk, blk)->SetSize(nd);
-    *elmats(blk, blk) = 0.0;
-  }
-  // block 0 1  dR(phi)dmu
-  {
-    int blk = 0;
-    int off_blk = 1;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
-
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-
-    elmats(blk, off_blk)->SetSize(nd);
-    *elmats(blk, off_blk) = 0.0;
-  }
-
-  // block 1 0   dR(mu)dPhi
-  {
-    int blk = 1;
-    int off_blk = 0;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
-
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-
-    elmats(blk, off_blk)->SetSize(nd);
-    *elmats(blk, off_blk) = 0.0;
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-    ///// CCI
-    for (int i = 0; i < ir->GetNPoints(); i++) {
-      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-      this->set_int_point(Tr, ip);
-      el[blk]->CalcPhysShape(Tr, Psi);
-
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-
-      double weight_coef = ip.weight * Tr.Weight();
-      if (this->isAxisymmetric()) {
-        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
-      }
-
-      double coef_a = this->eval_coefficient(this->coefficient_A[blk], ipv.u, ipv.aux);
-      double w = coef_a * weight_coef;
-      AddMult_a_VVt(w, Psi, *elmats(blk, off_blk));
+  for (int blk = 0; blk < 2; ++blk) {
+    for (int jblk = 0; jblk < 2; ++jblk) {
+      elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
+      *elmats(blk, jblk) = 0.0;
     }
   }
-  // block 1 1 dR(mu)dmu
-  {
-    int blk = 1;
-    mfem::DenseMatrix gradPsi;
-    mfem::Vector Psi, gradU;
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
 
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
+  // Row 1 (equation of mu), term (A(u) dphi/dt, psi):
+  //   block (1, 0): A (psi_j, psi_i) + dt dA/dphi dphi/dt (psi_j, psi_i)
+  //   block (1, 1): dt dA/dmu dphi/dt (psi_j, psi_i)
+  // (u = u_old + dt k at the end of the step; the derivatives vanish for constant or explicit A)
+  const int blk = 1;
+  const int off_blk = 0;
+  Psi.SetSize(el[blk]->GetDof());
+  const mfem::IntegrationRule* ir =
+      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+  for (int i = 0; i < ir->GetNPoints(); i++) {
+    const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+    this->set_int_point(Tr, ip);
+    el[blk]->CalcShape(ip, Psi);
 
-    elmats(blk, blk)->SetSize(nd);
-    *elmats(blk, blk) = 0.0;
+    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+    const auto u_end = this->values_at_end_of_step(ipv.u);
+
+    double weight_coef = ip.weight * Tr.Weight();
+    if (this->isAxisymmetric()) {
+      weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+    }
+
+    const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux);
+    AddMult_a_VVt(coef_a * weight_coef, Psi, *elmats(blk, off_blk));
+
+    const double dphi_dt = *elfun[off_blk] * Psi;
+    for (int jblk = 0; jblk < 2; ++jblk) {
+      const double d =
+          this->eval_gradient_coefficient(this->coefficient_A[blk], jblk, u_end, ipv.aux) *
+          this->time_step_ * dphi_dt * weight_coef;
+      if (d != 0.0) AddMult_a_VVt(d, Psi, *elmats(blk, jblk));
+    }
   }
 }

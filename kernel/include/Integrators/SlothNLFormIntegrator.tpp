@@ -377,6 +377,24 @@ double SlothNLFormIntegrator<VARS>::eval_hessian_coefficient(
 }
 
 /**
+ * @brief {u_old + dt k, u_old} from {k, u_old}, for the integrators of the time derivative
+ * (see the declaration).
+ */
+template <class VARS>
+std::span<const double> SlothNLFormIntegrator<VARS>::values_at_end_of_step(
+    const std::span<const double>& values) {
+  const std::size_t nb = static_cast<std::size_t>(this->nb_blk_);
+  MFEM_VERIFY(values.size() == 2 * nb, "Error in " + this->integrator_name_ +
+                                           ": {k, u_old} expected at the integration point.");
+  this->u_end_.resize(2 * nb);
+  for (std::size_t b = 0; b < nb; ++b) {
+    this->u_end_[b] = values[nb + b] + this->time_step_ * values[b];
+    this->u_end_[nb + b] = values[nb + b];
+  }
+  return std::span<const double>(this->u_end_);
+}
+
+/**
  * @brief Values given to a coefficient at the current point: all the blocks {u, u_old}, or
  * only the values of block var_blk for a coefficient of one variable.
  *

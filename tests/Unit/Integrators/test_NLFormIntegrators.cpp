@@ -198,13 +198,25 @@ std::vector<Case> all_cases() {
       {"Fourier", 1,
        maker<FourierNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Conductivity, Scheme::Implicit, H(3.)))})},
-      // Time-derivative integrators receive k = du/dt (left-hand side of the
-      // reduced operator): an implicit coefficient would be evaluated on k,
-      // not on u. Cp(T) must be explicit (evaluated on T at the previous step).
-      {"HeatTimeDerivative", 1,
+      // Time-derivative integrators: the unknown is k = du/dt, implicit coefficients
+      // are evaluated at the end of the step u = u_old + dt k (Jacobian: d/dk = dt d/du)
+      {"HeatTimeDerivative, explicit Cp(T)", 1,
        maker<HeatTimeNLFormIntegrator>({Coefficients(
            Coefficient(Glossary::Concentration, 2.),
            Coefficient(Glossary::Cp, Scheme::Explicit, W(5.)))})},
+      {"HeatTimeDerivative, implicit rho(T) and Cp(T)", 1,
+       maker<HeatTimeNLFormIntegrator>({Coefficients(
+           Coefficient(Glossary::Concentration, Scheme::Implicit, H(2.)),
+           Coefficient(Glossary::Cp, Scheme::Implicit, W(5.)))})},
+      {"TimeDerivative, 2 blocks, implicit A(u_b) and B(u_b)", 2,
+       maker<TimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(2.)),
+                         Coefficient(Glossary::ExplicitTime_B, Scheme::Implicit, W(5.))),
+            Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(3.)),
+                         Coefficient(Glossary::ExplicitTime_B, 2.))})},
+      {"SplitTimeDerivative, implicit A(phi)", 2,
+       maker<TimeCHNLFormIntegrator>(
+           {none, Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(2.)))})},
       {"SourceTerm", 1,
        maker<SourceTermNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, W(4.)))})},
@@ -917,6 +929,27 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   H h;
   CHECK_THAT(std::abs(r.sum(0)), Catch::Matchers::WithinRel(h.eval_f(std::vector{0.3}, 1), 1.e-12));
   CHECK_THAT(std::abs(r.sum(1)), Catch::Matchers::WithinRel(h.eval_f(std::vector{0.7}, 1), 1.e-12));
+}
+
+// Implicit coefficient of the time derivative, evaluated at the end of the step:
+// u_old = 0.3, k = du/dt = 2, dt = 0.1: u = 0.5 and (R, 1) = rho Cp(0.5) k.
+double c2(const mfem::Vector&) { return 2.; }
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "HeatTimeNLFormIntegrator: implicit Cp evaluated at the end of the step",
+                 "[Integrators][residual]") {
+  Context ctx;
+  ctx.dt = 0.1;
+  ctx.u_old = {project(c03)};
+  const BlockResidual r(
+      *this,
+      maker<HeatTimeNLFormIntegrator>({Coefficients(Coefficient(Glossary::Concentration, 1.5),
+                                                    Coefficient(Glossary::Cp, Scheme::Implicit,
+                                                                H()))})(ctx),
+      {c2});
+  H h;
+  CHECK_THAT(r.sum(0),
+             Catch::Matchers::WithinRel(1.5 * h.eval_f(std::vector{0.5}, 1) * 2., 1.e-12));
 }
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual",

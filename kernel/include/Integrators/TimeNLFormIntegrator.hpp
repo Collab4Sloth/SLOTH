@@ -47,8 +47,7 @@
 template <class VARS>
 class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
-  mfem::DenseMatrix gradPsi;
-  mfem::Vector Psi, gradU;
+  mfem::Vector Psi;
 
   void check_variables_consistency();
 

@@ -122,7 +122,14 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                   const std::span<const double>& aux_values,
                                   const int var_blk = 0);
 
+  // Integrators of the time derivative: their unknown is k = du/dt, and u at the end of the
+  // step is u_old + dt k (u_old: values given to the integrator, dt: time_step_; see
+  // TransientOperator::ImplicitSolve). Returns {u_old + dt k, u_old} from {k, u_old}, so that
+  // an implicit coefficient is evaluated at the end of the step.
+  std::span<const double> values_at_end_of_step(const std::span<const double>& values);
+
  private:
+  std::vector<double> u_end_;  ///< see values_at_end_of_step
   /// Values given to a coefficient: all the blocks {u, u_old}, or block var_blk only for a
   /// coefficient of one variable
   std::pair<std::span<const double>, std::span<const double>> coefficient_inputs(
