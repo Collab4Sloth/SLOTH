@@ -25,10 +25,12 @@
  */
 
 #pragma once
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -215,6 +217,10 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
     this->ode_solver_->Init(*this);
     // The mesh has changed: the mass matrices must be rebuilt
     this->free_mass_matrices();
+    // Split systems: lumped masses and last projected state refer to the old mesh
+    this->lumped_.clear();
+    this->last_projection_signature_.Destroy();
+    this->free_constraint_solvers();
     this->record_fes_sequence();
   }
   //// Constructing array of offsets
@@ -234,6 +240,20 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   // The last stage of a Runge-Kutta scheme is not necessarily at the end of the step (e.g.
   // SDIRK23): coefficients at the end of the step for the post-processing
   this->SetTime(next_time);
+
+  // Split (DAE) systems with explicit schemes: the algebraic variables are not advanced by the
+  // ODE solver (d/dt = 0). They are made consistent with the differential variables at the end
+  // of the step (post-processing, next step)
+  if (this->split_explicit_) {
+    std::vector<mfem::Vector> views;
+    views.reserve(unk_size);
+    for (size_t i = 0; i < unk_size; i++) {
+      mfem::Vector& bi = block_unk.GetBlock(static_cast<int>(i));
+      views.emplace_back(bi.GetData(), bi.Size());
+    }
+    this->build_rhs_nonlinear_form(current_time_step, views);
+    this->project_algebraic_variables(block_unk);
+  }
 
   //// Updating vect_unk
   for (size_t i = 0; i < unk_size; i++) {
@@ -416,6 +436,10 @@ void TransientOperator<T, DIM>::SetTransientParameters(const double dt,
  * @brief Compute the mass matrix and the non linear form with the solution at the previous time
  * step
  *
+ * @details For split (DAE) systems ("Split" in the name of the LHS integrator), the mass is
+ *          taken from the LHS integrator itself (lumped Jacobian blocks), so that the explicit
+ *          and implicit paths use exactly the same time-derivative terms and coefficients.
+ *
  * @tparam T
  * @tparam DIM
  */
@@ -423,10 +447,26 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::SetExplicitTransientParameters(
     const double dt, const std::vector<mfem::Vector>& un_vect) {
   Catch_Time_Section("TransientOperator::SetExplicitTransientParameters");
+
   ////////////////////////////////////////////
-  // Mass matrix: built once if constant, otherwise at each call
+  // Structure of the system (once)
   ////////////////////////////////////////////
-  if (!this->constant_mass_matrix_ || this->M_solver_.size() != un_vect.size()) {
+  if (!this->split_checked_) {
+    this->setup_split_structure(dt, un_vect);
+  }
+
+  ////////////////////////////////////////////
+  // Mass matrix
+  ////////////////////////////////////////////
+  if (this->split_explicit_) {
+    // Mass taken from the LHS integrator (same coefficients as the implicit path).
+    // Built once if every ExplicitTime coefficient is scalar, otherwise at each call.
+    if (!this->split_mass_constant_ || this->lumped_.size() != this->evol_.size()) {
+      this->build_lhs_nonlinear_form(dt, un_vect);
+      this->compute_split_lumped_masses();
+    }
+  } else if (!this->constant_mass_matrix_ || this->M_solver_.size() != un_vect.size()) {
+    // built once if constant, otherwise at each call
     this->build_mass_matrix(un_vect);
   }
 
@@ -439,8 +479,306 @@ void TransientOperator<T, DIM>::SetExplicitTransientParameters(
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Apply a SLOTH linear solver (variant) to a vector
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param solver SLOTH solver (variant)
+ * @param in input vector
+ * @param out output vector
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::apply_solver(const VSharedMFEMSolver& solver,
+                                             const mfem::Vector& in, mfem::Vector& out) {
+  std::visit(
+      [&](auto&& arg) {
+        using TT = std::decay_t<decltype(arg)>;
+        if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
+          if (in.Size() != arg->NumCols()) {
+            std::string msg = "Size mismatch: in.Size() [" + std::to_string(in.Size()) +
+                              "] != arg->NumCols() [" + std::to_string(arg->NumCols()) + "]";
+            MFEM_ABORT(msg.c_str());
+          }
+          arg->Mult(in, out);
+        } else {
+          MFEM_ABORT("TransientOperator::apply_solver: no solver available.");
+        }
+      },
+      solver);
+}
+
+/**
+ * @brief Analyse the structure of a split (DAE) system solved with an explicit scheme.
+ *
+ * @details Active if the scheme is explicit and the name of the LHS integrator contains
+ *          "Split". The LHS integrator gives the (row, variable) pairs such that row 'row'
+ *          carries d(variable)/dt (time_derivative_map()). The other rows are algebraic
+ *          constraints, solved for the variables without time derivative (paired in order).
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param dt time step
+ * @param u_vect unknown vectors
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::setup_split_structure(const double dt,
+                                                      const std::vector<mfem::Vector>& u_vect) {
+  this->split_checked_ = true;
+  this->split_explicit_ =
+      this->is_explicit_ && this->lhs_integrator_.find("Split") != std::string::npos;
+  if (!this->split_explicit_) return;
+
+  std::unique_ptr<SlothNLFormIntegrator<Variables<T, DIM>>> lhs(this->set_lhs_nlfi_ptr(dt, u_vect));
+  const auto map = lhs->time_derivative_map();
+  MFEM_VERIFY(!map.empty(), "Split LHS integrator '" + this->lhs_integrator_ +
+                                "' must define time_derivative_map() for explicit schemes.");
+
+  const int n = this->fes_.Size();
+  std::vector<bool> row_evol(static_cast<size_t>(n), false);
+  std::vector<bool> var_evol(static_cast<size_t>(n), false);
+  this->evol_.clear();
+  this->alg_.clear();
+  for (const auto& [r, c] : map) {
+    MFEM_VERIFY(r >= 0 && r < n && c >= 0 && c < n,
+                "Split system: time_derivative_map() refers to an unknown block.");
+    this->evol_.emplace_back(r, c);
+    row_evol[static_cast<size_t>(r)] = true;
+    var_evol[static_cast<size_t>(c)] = true;
+  }
+  std::vector<int> alg_rows;
+  std::vector<int> alg_vars;
+  for (int i = 0; i < n; ++i) {
+    if (!row_evol[static_cast<size_t>(i)]) alg_rows.push_back(i);
+    if (!var_evol[static_cast<size_t>(i)]) alg_vars.push_back(i);
+  }
+  MFEM_VERIFY(alg_rows.size() == alg_vars.size(),
+              "Split system: number of constraint rows != number of algebraic variables.");
+  for (size_t k = 0; k < alg_rows.size(); ++k) {
+    this->alg_.emplace_back(alg_rows[k], alg_vars[k]);
+  }
+
+  for (const auto& [r, c] : this->evol_) {
+    MFEM_VERIFY(this->fes_[r]->GetTrueVSize() == this->fes_[c]->GetTrueVSize(),
+                "Split system: row and variable spaces must have the same size.");
+  }
+  for (const auto& [r, c] : this->alg_) {
+    MFEM_VERIFY(this->fes_[r]->GetTrueVSize() == this->fes_[c]->GetTrueVSize(),
+                "Split system: row and variable spaces must have the same size.");
+    MFEM_VERIFY(this->ess_tdof_list_[static_cast<size_t>(c)].Size() == 0,
+                "Split system: Dirichlet conditions on an algebraic variable are not supported.");
+  }
+
+  // Modified Newton of the projection: minimal residual reduction per correction before the
+  // constraint Jacobian is rebuilt (optional parameter)
+  this->constraint_min_reduction_ = this->params_.template get_param_value_or_default<double>(
+      "constraint_jacobian_min_reduction", 0.1);
+  MFEM_VERIFY(this->constraint_min_reduction_ > 0. && this->constraint_min_reduction_ < 1.,
+              "constraint_jacobian_min_reduction must be in ]0, 1[. Please check your data.");
+
+  // Lumped masses built once if every ExplicitTime coefficient (read by the LHS integrator for
+  // each block) is scalar or absent; otherwise rebuilt at each stage
+  this->split_mass_constant_ = true;
+  for (int b = 0; b < n; ++b) {
+    auto coef = this->get_coefficient(b, GlossaryType::ExplicitTime, 0);
+    if (coef.has_value() && !(*coef).is_scalar()) {
+      this->split_mass_constant_ = false;
+    }
+  }
+}
+
+/**
+ * @brief Lumped masses of a split system, taken from the LHS integrator.
+ *
+ * @details The LHS Jacobian is evaluated at k = 0 (time derivative): the coefficients are then
+ *          evaluated with the state of the stage and the terms in dt dA/du vanish. Row-sum
+ *          lumping of the block (row, variable) of each evol_ pair.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::compute_split_lumped_masses() {
+  mfem::BlockVector k0(this->block_trueOffsets_);
+  k0 = 0.;
+  auto& JL = this->LHS->GetGradient(k0);
+  this->lumped_.resize(this->evol_.size());
+  for (size_t p = 0; p < this->evol_.size(); ++p) {
+    const auto [r, c] = this->evol_[p];
+    mfem::Operator& B = JL.GetBlock(r, c);
+    mfem::Vector ones(B.Width());
+    ones = 1.;
+    this->lumped_[p].SetSize(B.Height());
+    B.Mult(ones, this->lumped_[p]);  // row-sum lumping
+  }
+}
+
+/**
+ * @brief Make the algebraic variables of a split system consistent with the differential ones.
+ *
+ * @details Modified Newton iterations on the constraint rows with respect to the algebraic
+ *          variables. The constraint Jacobian blocks (and their solvers) are kept between
+ *          projections and refreshed at the current state only if they are missing or if the
+ *          last correction did not reduce the residual by at least a factor 10. Correctness
+ *          relies on the residual test only: a stale Jacobian can only cost iterations.
+ *          For constraints affine in the algebraic variables with a constant Jacobian (e.g.
+ *          Cahn-Hilliard, split Allen-Cahn), one correction without any Jacobian assembly.
+ *          The linear systems use the solver settings of the mass matrix.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param ub unknown block vector (algebraic blocks are updated in place)
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::project_algebraic_variables(mfem::BlockVector& ub) {
+  Catch_Time_Section("TransientOperator::project_algebraic_variables");
+  if (this->alg_.empty()) return;
+
+  MPI_Comm comm = this->fes_[0]->GetComm();
+  mfem::BlockVector res(this->block_trueOffsets_);
+  double norm0 = -1.;
+  double norm_prev = -1.;
+  const int max_iter = 20;
+  const double min_reduction = 0.1;  // refresh the Jacobian if norm > 0.1 * previous norm
+  for (int it = 0; it < max_iter; ++it) {
+    this->RHS->Mult(ub, res);
+    double norm2 = 0.;
+    for (const auto& [r, c] : this->alg_) {
+      norm2 += mfem::InnerProduct(comm, res.GetBlock(r), res.GetBlock(r));
+    }
+    const double norm = std::sqrt(norm2);
+    if (norm0 < 0.) norm0 = norm;
+    if (norm <= 1.e-14 || norm <= 1.e-10 * norm0) {
+      // Remember the consistent state (skipped if passed again unchanged, see Mult)
+      this->last_projection_signature_ = this->projection_signature(ub);
+      return;
+    }
+
+    // Jacobian blocks: missing, or too slow convergence with the kept ones -> rebuild here
+    const bool missing = this->constraint_solvers_.size() != this->alg_.size();
+    const bool slow = norm_prev > 0. && norm > min_reduction * norm_prev;
+    if (missing || slow) {
+      this->build_constraint_solvers(ub);
+    }
+    norm_prev = norm;
+
+    for (size_t k = 0; k < this->alg_.size(); ++k) {
+      const auto [r, c] = this->alg_[k];
+      mfem::Vector d(ub.GetBlock(c).Size());
+      d = 0.;
+      apply_solver(this->constraint_solvers_[k]->get_solver(), res.GetBlock(r), d);
+      ub.GetBlock(c) -= d;
+    }
+  }
+  MFEM_ABORT("Split system: projection of the algebraic variables did not converge.");
+}
+
+/**
+ * @brief Assemble the constraint Jacobian blocks at the state ub, copy them and build their
+ *        solvers (solver settings of the mass matrix).
+ *
+ * @details Deep copies: the gradient belongs to the RHS form, which is rebuilt at each stage.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param ub unknown block vector
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::build_constraint_solvers(const mfem::BlockVector& ub) {
+  Catch_Time_Section("TransientOperator::build_constraint_solvers");
+  this->free_constraint_solvers();
+  auto& J = this->RHS->GetGradient(ub);
+  for (const auto& [r, c] : this->alg_) {
+    auto* Jrc = dynamic_cast<mfem::HypreParMatrix*>(&J.GetBlock(r, c));
+    MFEM_VERIFY(Jrc != nullptr, "Split system: constraint Jacobian block is not a HypreParMatrix.");
+    this->constraint_mats_.emplace_back(std::make_shared<mfem::HypreParMatrix>(*Jrc));
+    this->constraint_solvers_.emplace_back(std::make_shared<LSolver>(
+        this->mass_solver_, this->mass_solver_params_, this->mass_precond_,
+        this->mass_precond_params_, *this->constraint_mats_.back()));
+  }
+}
+
+/**
+ * @brief Release the constraint solvers, then the matrices they refer to.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::free_constraint_solvers() {
+  // Order matters: solvers first, matrices afterwards
+  this->constraint_solvers_.clear();
+  this->constraint_mats_.clear();
+}
+
+/**
+ * @brief Signature of a state for the projection of the algebraic variables.
+ *
+ * @details Everything the constraint rows may depend on: the unknowns, the auxiliary variables
+ *          (as read by the integrators), the time (time-dependent coefficients) and the time
+ *          step. Two identical signatures give the same projection.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param u unknown vector
+ * @return mfem::Vector signature
+ */
+template <class T, int DIM>
+mfem::Vector TransientOperator<T, DIM>::projection_signature(const mfem::Vector& u) const {
+  std::vector<mfem::Vector> aux;
+  int size = u.Size() + 2;
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (auto auxvar : auxvar_vec->getVariables()) {
+      aux.emplace_back(auxvar.get_second_to_last());
+      size += aux.back().Size();
+    }
+  }
+  mfem::Vector sig(size);
+  int k = 0;
+  for (int i = 0; i < u.Size(); ++i) sig[k++] = u[i];
+  for (const auto& a : aux) {
+    for (int i = 0; i < a.Size(); ++i) sig[k++] = a[i];
+  }
+  sig[k++] = this->mfem::TimeDependentOperator::GetTime();
+  sig[k++] = this->solve_time_step_;
+  return sig;
+}
+
+/**
+ * @brief True if the state u has already been projected (identical signature, bitwise), on all
+ *        MPI ranks (collective decision: the projection involves collective operations).
+ *
+ * @details Typical case: the first stage of an explicit Runge-Kutta scheme is evaluated at the
+ *          state of the end of the previous step, already projected in solve().
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @param u unknown vector
+ */
+template <class T, int DIM>
+bool TransientOperator<T, DIM>::is_already_projected(const mfem::Vector& u) const {
+  int local_same = 0;
+  if (this->last_projection_signature_.Size() > 0) {
+    const mfem::Vector sig = this->projection_signature(u);
+    local_same = (sig.Size() == this->last_projection_signature_.Size()) ? 1 : 0;
+    for (int k = 0; local_same && k < sig.Size(); ++k) {
+      if (sig[k] != this->last_projection_signature_[k]) local_same = 0;
+    }
+  }
+  int global_same = 0;
+  MPI_Allreduce(&local_same, &global_same, 1, MPI_INT, MPI_LAND, this->fes_[0]->GetComm());
+  return global_same == 1;
+}
+
 /**
  * @brief Compute the right-hand side of the ODE system.
+ *
+ * @details Standard systems: M du_i/dt = -R_i for each block i.
+ *          Split (DAE) systems with explicit schemes:
+ *            1) the algebraic variables are made consistent with the differential ones,
+ *            2) lumped(row, var) d(var)/dt = -R_row for each (row, var) pair of the LHS,
+ *            3) d/dt = 0 for the algebraic variables (recomputed at each stage).
  *
  * @param u unknown vector
  * @param du_dt unkwon time derivative vector
@@ -449,52 +787,64 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt) const {
   Catch_Time_Section("TransientOperator::Mult");
 
-  const auto sc = this->height_;
-  mfem::Vector v(u.GetData(), sc);
-  mfem::Vector dv_dt(du_dt.GetData(), sc);
-
   const int fes_size = this->block_trueOffsets_.Size() - 1;
+
+  // Working copy of the state (the algebraic variables of a split system may be projected)
+  mfem::BlockVector ub(this->block_trueOffsets_);
+  static_cast<mfem::Vector&>(ub) = u;
 
   // One vector per block (non-owning views, split along the block offsets)
   std::vector<mfem::Vector> v_vect;
   v_vect.reserve(static_cast<size_t>(fes_size));  // no reallocation -> views are not deep-copied
   for (int i = 0; i < fes_size; ++i) {
-    const int off = this->block_trueOffsets_[i];
-    const int sz = this->block_trueOffsets_[i + 1] - off;
-    v_vect.emplace_back(u.GetData() + off, sz);
+    mfem::Vector& bi = ub.GetBlock(i);
+    v_vect.emplace_back(bi.GetData(), bi.Size());
   }
 
   // Todo(cci) : try to do different because of not satisfying
-  const_cast<TransientOperator<T, DIM>*>(this)->SetExplicitTransientParameters(
-      this->solve_time_step_, v_vect);
+  auto* self = const_cast<TransientOperator<T, DIM>*>(this);
+  self->SetExplicitTransientParameters(this->solve_time_step_, v_vect);
 
   mfem::BlockVector bb(this->block_trueOffsets_);
-
-  // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
-  this->RHS->Mult(v, bb);
-  bb.Neg();
-
   mfem::BlockVector sol(this->block_trueOffsets_);
   sol = 0.;
 
-  for (int i = 0; i < fes_size; ++i) {
-    mfem::Vector& soli = sol.GetBlock(i);
-    mfem::Vector& bb_i = bb.GetBlock(i);
-    std::visit(
-        [&](auto&& arg) {
-          using TT = std::decay_t<decltype(arg)>;
-          if constexpr (!std::is_same_v<TT, std::shared_ptr<std::monostate>>) {
-            if (bb_i.Size() != arg->NumCols()) {
-              std::string msg = "Size mismatch: bb_i.Size() [" + std::to_string(bb_i.Size()) +
-                                "] != arg->NumCols() [" + std::to_string(arg->NumCols()) + "]";
-              MFEM_ABORT(msg.c_str());
-            }
-            arg->Mult(bb_i, soli);
-          }
-        },
-        this->M_solver_[static_cast<size_t>(i)]);
+  if (this->split_explicit_) {
+    // 1) algebraic variables consistent with the differential ones at this stage
+    //    (skipped if this exact state has already been projected, e.g. first stage of a step)
+    if (!this->is_already_projected(ub)) {
+      self->project_algebraic_variables(ub);
+    }
+
+    // 2) differential variables: lumped(row, var) d(var)/dt = -R_row
+    // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
+    this->RHS->Mult(ub, bb);
+    bb.Neg();
+    for (size_t p = 0; p < this->evol_.size(); ++p) {
+      const auto [r, c] = this->evol_[p];
+      const mfem::Vector& in = bb.GetBlock(r);
+      const mfem::Vector& m = this->lumped_[p];
+      mfem::Vector& out = sol.GetBlock(c);
+      for (int k = 0; k < out.Size(); ++k) {
+        out[k] = in[k] / m[k];
+      }
+      // Essential dofs of the differential variable: no evolution
+      const auto& ess = this->ess_tdof_list_[static_cast<size_t>(c)];
+      for (int k = 0; k < ess.Size(); ++k) {
+        out[ess[k]] = 0.;
+      }
+    }
+    // 3) algebraic variables: d/dt = 0 (sol already set to zero)
+  } else {
+    // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
+    this->RHS->Mult(ub, bb);
+    bb.Neg();
+
+    for (int i = 0; i < fes_size; ++i) {
+      apply_solver(this->M_solver_[static_cast<size_t>(i)], bb.GetBlock(i), sol.GetBlock(i));
+    }
   }
-  dv_dt = sol;
+  du_dt = sol;
 }
 
 /**

@@ -37,8 +37,8 @@
  * @brief Construct a new MfemCoefficient object.
  *
  * @param coef SLOTH coefficient to wrap.
- * @param vu Current-time vector of grid function for the coefficient's own variable.
- * @param vun Previous-time vector of grid function for the coefficient's own variable.
+ * @param vu Current-time vector of grid functions of the variables (all blocks, in block order).
+ * @param vun Previous-time vector of grid functions of the variables (all blocks, in block order).
  * @param vauxn Grid functions of the auxiliary variables.
  */
 MfemCoefficient::MfemCoefficient(::Coefficient coef, const std::vector<mfem::ParGridFunction>& vu,
