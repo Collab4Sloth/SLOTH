@@ -60,6 +60,7 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   void get_coefficients() override;
 
  public:
+  std::vector<std::pair<int, int>> time_derivative_map() const override { return {{1, 0}}; }
   void init() override;
   TimeCHNLFormIntegrator(Geometry geometry, const double time_step,
                          const std::vector<mfem::ParGridFunction>& u_old,

@@ -257,11 +257,10 @@ std::map<std::string, mfem::ParGridFunction*> PostProcessing<T, DC, DIM>::projec
   this->projected_coeffs_.clear();
   this->projected_coeffs_.reserve(coeffs.size());
 
-  // TODO: v_gf is passed both as current-time and previous-time values below
-  // (vu == vun), so explicit/semi-implicit coefficients cannot actually see
-  // a different state at t^n vs t^{n-1}. Needs Variables<T, DIM> to expose
-  // the previous-time grid functions (e.g. get_gf_previous()) so a distinct
-  // vgf_prev can be built and passed as the 3rd argument instead of v_gf.
+  // Coefficients are evaluated with the saved state (current values passed as both current
+  // and previous values): the output is the value of each coefficient at the output time,
+  // consistent with the saved fields, not the value used during the last time step
+  // (e.g. at u^n for explicit coefficients).
 
   std::vector<mfem::ParGridFunction> v_gf;
   for (const auto& v : vars.getVariables()) {

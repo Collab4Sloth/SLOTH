@@ -30,6 +30,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -80,6 +81,55 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);
   void get_explicit_time_coefficients();
 
+  //////////////////////////////////////////////////////////
+  // Explicit time scheme for DAE system
+  //////////////////////////////////////////////////////////
+  // Split systems (index-1 DAE, e.g. split Cahn-Hilliard / Allen-Cahn): some rows carry no
+  // time derivative (algebraic constraints). With an explicit scheme ("Split" in the name of
+  // the LHS integrator), the system is solved in state-space form:
+  //   - the LHS integrator declares which row carries d(variable)/dt (time_derivative_map());
+  //   - at each stage, the algebraic variables are projected onto the constraints (Newton,
+  //     Jacobian kept between projections), then only the differential variables are advanced
+  //     (lumped mass of the LHS), with d/dt = 0 for the algebraic variables;
+  //   - the algebraic variables are projected again at the end of each step (consistent output).
+  // Requirements: constraint Jacobian invertible w.r.t. the algebraic variables (index 1), one
+  // constraint per algebraic variable, no Dirichlet condition on algebraic variables, RHS
+  // integrators reading the algebraic variables from the current state (elfun).
+  //////////////////////////////////////////////////////////
+
+  // Apply a SLOTH linear solver (variant) to a vector
+  static void apply_solver(const VSharedMFEMSolver& solver, const mfem::Vector& in,
+                           mfem::Vector& out);
+
+  /// Split (DAE) systems with explicit schemes ("Split" in the name of the LHS integrator)
+  // true once the structure of the system has been analysed
+  bool split_checked_{false};
+  // true if explicit scheme and split LHS integrator
+  bool split_explicit_{false};
+  // (row, variable): row 'row' carries d(variable)/dt (given by the LHS integrator)
+  std::vector<std::pair<int, int>> evol_;
+  // (row, variable): constraint row 'row' is solved for the algebraic variable 'variable'
+  std::vector<std::pair<int, int>> alg_;
+  // lumped mass (row sums of the LHS Jacobian block (row, variable)) of each evol_ pair
+  std::vector<mfem::Vector> lumped_;
+  // true if every ExplicitTime coefficient is scalar (or absent): lumped masses built once
+  bool split_mass_constant_{false};
+  // Signature (state, auxiliary variables, time, time step) of the last projected state
+  mfem::Vector last_projection_signature_;
+  // Constraint Jacobian blocks (copies) and their solvers, kept between projections
+  // (modified Newton: refreshed only if the convergence is too slow, or after a mesh change).
+  // Declared matrices first: solvers are destroyed before the matrices they refer to.
+  std::vector<std::shared_ptr<mfem::HypreParMatrix>> constraint_mats_;
+  std::vector<std::shared_ptr<LSolver>> constraint_solvers_;
+  void build_constraint_solvers(const mfem::BlockVector& ub);
+  void free_constraint_solvers();
+  void setup_split_structure(const double dt, const std::vector<mfem::Vector>& u_vect);
+  void compute_split_lumped_masses();
+  void project_algebraic_variables(mfem::BlockVector& ub);
+  mfem::Vector projection_signature(const mfem::Vector& u) const;
+  bool is_already_projected(const mfem::Vector& u) const;
+
+  //////////////////////////////////////////////////////////
  protected:
   /// Mass operator
 
