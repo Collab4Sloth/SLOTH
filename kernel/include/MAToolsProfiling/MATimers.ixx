@@ -33,7 +33,7 @@ namespace MATimer {
  * @brief initialize a root timer node. This function has to be followed by finalize function. Do
  * not call this function twice.
  */
-void initialize() {
+inline void initialize() {
   if (!is_enable()) {
     MATools::MAOutput::printMessage("MATimers_LOG: MATimers initialization ");
   }
@@ -51,7 +51,7 @@ void initialize() {
 /**
  * @brief This function displays each timer node and writes a file with the same information.
  */
-void print_and_write_timers() {
+inline void print_and_write_timers() {
   if (is_enable()) {
     MATools::MATimer::end_global_timer<ROOT>();
     MATools::MAOutputManager::write_file();
@@ -63,7 +63,7 @@ void print_and_write_timers() {
  * @brief finalize the root timer node. This function has to be called after the intialize function.
  * Do not call this function twice.
  */
-void print() {
+inline void print() {
   if (is_enable()) {
     using namespace MATools::MATimer::Optional;
     using namespace MATools::MAOutput;
@@ -87,7 +87,7 @@ void print() {
  * @brief finalize the root timer node. This function has to be called after the intialize function.
  * Do not call this function twice.
  */
-void finalize() {
+inline void finalize() {
   if (is_enable()) {
     using namespace MATools::MATimer::Optional;
     using namespace MATools::MAOutput;

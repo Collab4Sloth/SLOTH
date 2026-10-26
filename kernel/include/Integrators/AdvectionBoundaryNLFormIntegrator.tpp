@@ -199,7 +199,8 @@ double AdvectionBoundaryNLFormIntegrator<VARS>::evaluate_at_ip(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const auto coef = [this, &u, &aux](const Coefficient& c) {
-    return this->compute_coefficient(c, u, aux);
+    Coefficient copy = c;  // eval_coefficient may set the coordinates of the coefficient
+    return this->eval_coefficient(copy, u, aux);
   };
   this->velocity_.eval(Tr, this->vaux_gf_, coef, this->v_);
 
@@ -237,7 +238,7 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementVector(
     }
     // Outflow: interior value; inflow: imposed value
     const double advected = (w_vn > 0.0) ? this->u_values_[this->var_blk_]
-                                         : this->compute_coefficient(this->inflow_, u, aux);
+                                         : this->eval_coefficient(this->inflow_, u, aux);
     elvect[this->row_blk_]->Add(w_vn * advected, this->shape_[this->row_blk_]);
   }
 }

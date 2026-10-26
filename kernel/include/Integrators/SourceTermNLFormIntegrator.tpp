@@ -76,7 +76,7 @@ void SourceTermNLFormIntegrator<VARS>::init() {
  *
  * Positional storage: source_term_[i] is the source term of block i. Also flags:
  *  - the source terms whose derivative can be non-zero (neither constant, explicit nor
- *    file-based), consistently with SlothNLFormIntegrator::compute_gradient_coefficient;
+ *    file-based), consistently with SlothNLFormIntegrator::eval_gradient_coefficient;
  *  - whether the unknowns and auxiliary fields must be evaluated (at least one non-constant
  *    source term).
  */
@@ -197,7 +197,7 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementVector(
     const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
 
     for (int b = 0; b < nb; ++b) {
-      const double s = this->compute_coefficient(this->source_term_[b], u, aux);
+      const double s = this->eval_coefficient(this->source_term_[b], u, aux, b);
       elvect[b]->Add(-s * weight, this->shape_[b]);
     }
   }
@@ -248,7 +248,7 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementGrad(
         continue;
       }
       for (int j = 0; j < nb; ++j) {
-        const double ds = this->compute_gradient_coefficient(this->source_term_[i], j, u, aux);
+        const double ds = this->eval_gradient_coefficient(this->source_term_[i], j, u, aux, i);
         if (ds == 0.0) {
           continue;
         }

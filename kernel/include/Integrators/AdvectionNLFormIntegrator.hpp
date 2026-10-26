@@ -91,9 +91,9 @@ class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
     int vel;
   };
 
-  int sdim_{0};                         ///< space dimension (number of components)
+  int sdim_{0};                          ///< space dimension (number of components)
   std::vector<VelocityField> velocity_;  ///< per block (inactive if the block is not advected)
-  std::string grad_symbol_;             ///< parameter "velocity_gradient" ("" if none)
+  std::string grad_symbol_;              ///< parameter "velocity_gradient" ("" if none)
   std::vector<AdvectionTerm> terms_;
   bool needs_aux_{false};  ///< velocity coefficients may depend on auxiliary fields
 

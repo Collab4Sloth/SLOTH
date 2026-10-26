@@ -366,6 +366,14 @@ bool SlothBaseCoefficient::uses_coordinates() const {
 }
 
 /**
+ * @brief True if the coefficient is a function of one variable only (see
+ * FunctionCoefficient::is_single_variable)
+ */
+bool SlothBaseCoefficient::is_single_variable() const {
+  return this->coefficient_ != nullptr && this->coefficient_->is_single_variable();
+}
+
+/**
  * @brief Set the physical coordinates of the point where the coefficient is evaluated
  *
  * @param x Physical coordinates

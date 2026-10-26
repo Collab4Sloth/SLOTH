@@ -37,7 +37,7 @@ namespace MATimer {
 namespace FullTreeMode {
 using namespace MATools::MATimer;
 
-void rec_call(MATimerNode* a_node, minimal_info* a_ptr) {
+inline void rec_call(MATimerNode* a_node, minimal_info* a_ptr) {
   int elem = a_ptr->m_nb_daughter;
   a_node->inc_mpi();
 
@@ -49,7 +49,7 @@ void rec_call(MATimerNode* a_node, minimal_info* a_ptr) {
   }
 }
 
-void transform_to_MATimerMPI(std::vector<minimal_info>& a_in, std::vector<int> a_sizes,
+inline void transform_to_MATimerMPI(std::vector<minimal_info>& a_in, std::vector<int> a_sizes,
                              int a_mpi_size) {
   MATimerNode*& root = MATools::MATimer::get_MATimer_node<enumTimer::ROOT>();
   int acc = 0;

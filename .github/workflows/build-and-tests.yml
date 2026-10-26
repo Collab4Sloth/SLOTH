@@ -72,15 +72,41 @@ jobs:
         make -j $CORES tests
         
 
-    - name: Test SLOTH 
-      shell: spack-bash {0}    
-      run: | 
+    - name: Unit tests
+      shell: spack-bash {0}
+      run: |
+        spack env activate ${{ github.workspace }}/SLOTH
+        cd ${{ github.workspace }}/SLOTH/build
+        ctest -L Unit -j $CORES --output-on-failure
+
+    - name: Test SLOTH
+      shell: spack-bash {0}
+      run: |
         spack env activate ${{ github.workspace }}/SLOTH
         export PATH="$pythonLocation/bin:$PATH"
 
         cd ${{ github.workspace }}/SLOTH/build
         find . -type d -name "Save*" -exec rm -rf {} +
-        ctest -j $CORES --output-on-failure
+        ctest -LE Unit -j $CORES --output-on-failure
+
+    # Coverage of the kernel by all the tests (unit and calculation tests); the
+    # number of uncovered functions per module is written in the job summary
+    - name: Code Coverage Analysis
+      if: ${{ always() }}
+      shell: spack-bash {0}
+      run: |
+        spack env activate ${{ github.workspace }}/SLOTH
+        export PATH="$pythonLocation/bin:$PATH"
+        cd ${{ github.workspace }}/SLOTH/build
+        make cc
+
+    - name: Save Code Coverage Analysis
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage-report
+        path: ${{ github.workspace }}/SLOTH/build/Coverage
+        retention-days: 7
 
     - name: Install SLOTH and build the minimal example (user procedure)
       shell: spack-bash {0}
@@ -133,6 +159,9 @@ jobs:
     - name: Install Voro++ (for test)
       run: brew install voro++
 
+    - name: Install Catch2 (unit tests)
+      run: brew install catch2
+
     - name: Setup Python 
       uses: actions/setup-python@v5
       with:
@@ -145,7 +174,7 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --coverage --voro=$(brew --prefix voro++)
+        bash ../envSloth.sh --voro=$(brew --prefix voro++)
         make -j $CORES tests
 
     - name: Test SLOTH 
@@ -172,20 +201,7 @@ jobs:
         path: ${{ github.workspace }}/build/tests
         retention-days: 1
 
-    - name: Code Coverage Analysis 
-      if: ${{ always() }}
-      run: | 
-        cd ${{ github.workspace }}/build
-        make cc
 
-    - name: Save Code Coverage Analysis
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: code-coverage-report
-        path: ${{ github.workspace }}/build/Coverage
-        retention-days: 1
-  
     - name: CppLint
       if: ${{ always() }}
       continue-on-error: true

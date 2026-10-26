@@ -40,7 +40,7 @@ namespace MAMemory {
  * This function creates a rusage variable
  * @return rusage data type that get memory informations
  */
-rusage make_memory_checkpoint() {
+inline rusage make_memory_checkpoint() {
   rusage obj;
   int who = 0;
   [[maybe_unused]] auto res = getrusage(who, &obj);
@@ -51,12 +51,12 @@ rusage make_memory_checkpoint() {
 /**
  * Default constructor that calls default std::vector constructor
  */
-MAFootprint::MAFootprint() {}
+inline MAFootprint::MAFootprint() {}
 
 /**
  * This function create a memory checkpoint, i.e. a rusage, and insert it in the data storage
  */
-void MAFootprint::add_memory_checkpoint() {
+inline void MAFootprint::add_memory_checkpoint() {
   auto obj = make_memory_checkpoint();
   this->push_back(obj);
 }
@@ -66,7 +66,7 @@ void MAFootprint::add_memory_checkpoint() {
  * checkpoints Data are gathered/reduced on the master mpi process 0.
  * @return a vector with the total memory footprint by memory checkpoints
  */
-std::vector<long> MAFootprint::reduce() {
+inline std::vector<long> MAFootprint::reduce() {
   // one value per memory checkpoint
   std::vector<long> ret;
   int nb_points = this->size();
@@ -81,7 +81,7 @@ std::vector<long> MAFootprint::reduce() {
   return ret;
 }
 
-std::vector<std::tuple<long, long, long, double>> MAFootprint::get_sum_min_max_mean() {
+inline std::vector<std::tuple<long, long, long, double>> MAFootprint::get_sum_min_max_mean() {
   using namespace MATools::MPI;
   std::vector<std::tuple<long, long, long, double>> res;
   int nb_points = this->size();
@@ -119,7 +119,7 @@ std::vector<std::tuple<long, long, long, double>> MAFootprint::get_sum_min_max_m
  * @param a_idx a_idx is the index of the memory point
  * @return return the ru_maxrss of the rusage structure
  */
-long MAFootprint::get_usage(const int a_idx) {
+inline long MAFootprint::get_usage(const int a_idx) {
   const long ret = this->data()[a_idx].ru_maxrss;
   return ret;
 }
@@ -129,7 +129,7 @@ long MAFootprint::get_usage(const int a_idx) {
  * @param f is a mafootprint object that contains memory checkpoints
  * @see mafootprint
  */
-void print_checkpoints(MAFootprint& a_f) {
+inline void print_checkpoints(MAFootprint& a_f) {
   using namespace MATools::MPI;
   // This function extracts the maxmimal data size (footprint) and do a reduction if the MPI feature
   // is activated For every memory checkpoints
@@ -148,7 +148,7 @@ void print_checkpoints(MAFootprint& a_f) {
  * @param f is a mafootprint object that contains memory checkpoints
  * @see mafootprint
  */
-void write_memory_checkpoints(MAFootprint& a_f, std::string file_name) {
+inline void write_memory_checkpoints(MAFootprint& a_f, std::string file_name) {
   using namespace MATools::MPI;
   // This function extracts the maxmimal data size (footprint) and do a reduction if the MPI feature
   // is activated For every memory checkpoints
@@ -168,7 +168,7 @@ void write_memory_checkpoints(MAFootprint& a_f, std::string file_name) {
  * @param a_labels is a list of labels
  * @see mafootprint
  */
-void write_memory_checkpoints(MAFootprint& a_f, std::vector<std::string>& a_labels,
+inline void write_memory_checkpoints(MAFootprint& a_f, std::vector<std::string>& a_labels,
                               std::string file_name) {
   using namespace MATools::MPI;
 
@@ -207,7 +207,7 @@ void write_memory_checkpoints(MAFootprint& a_f, std::vector<std::string>& a_labe
  * The memory footprint is printed where this function is called.
  * @see MAFootprint
  */
-void print_memory_footprint() {
+inline void print_memory_footprint() {
   // Create an MAFootprint object that will be destroyed at the end
   MAFootprint f;
   // We fill this function with only one checkpoint
@@ -248,7 +248,7 @@ void io_trace_memory_points_per_mpi(IO& a_stream, MAFootprint& a_mem_points) {
  * @param f is a mafootprint object that contains memory checkpoints
  * @see mafootprint
  */
-void print_trace_memory_points_per_mpi(MAFootprint&& a_mem_points) {
+inline void print_trace_memory_points_per_mpi(MAFootprint&& a_mem_points) {
   io_trace_memory_points_per_mpi(std::cout, a_mem_points);
 }
 
@@ -257,7 +257,7 @@ void print_trace_memory_points_per_mpi(MAFootprint&& a_mem_points) {
  * @param f is a mafootprint object that contains memory checkpoints
  * @see mafootprint
  */
-void write_trace_memory_points_per_mpi(MAFootprint&& a_mem_points, std::string a_name) {
+inline void write_trace_memory_points_per_mpi(MAFootprint&& a_mem_points, std::string a_name) {
   std::ofstream ofs;
   ofs.open(a_name, std::ofstream::out);
   io_trace_memory_points_per_mpi(ofs, a_mem_points);
@@ -267,7 +267,7 @@ void write_trace_memory_points_per_mpi(MAFootprint&& a_mem_points, std::string a
 /**
  * @brief This function gets the "common" MAFootprint or create if necessary.
  */
-MAFootprint& get_MAFootprint() {
+inline MAFootprint& get_MAFootprint() {
   static MAFootprint ret;
   return ret;
 }

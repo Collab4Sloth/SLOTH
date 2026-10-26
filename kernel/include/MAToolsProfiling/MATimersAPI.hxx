@@ -146,7 +146,7 @@ class MATimersManager {
 };
 
 namespace Profiling {
-MATimersManager& getInstance() {
+inline MATimersManager& getInstance() {
   static MATimersManager manager;
   return manager;
 }

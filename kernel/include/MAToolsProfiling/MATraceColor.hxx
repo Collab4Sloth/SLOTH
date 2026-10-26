@@ -34,12 +34,12 @@ constexpr int default_color_size() {
   return ret;
 }
 
-MATraceRGB get_idle_color() {
+inline MATraceRGB get_idle_color() {
   MATraceRGB ret = {0.5, 0.5, 0.5};
   return ret;
 }
 
-MATraceRGB get_default_color(int color_id) {
+inline MATraceRGB get_default_color(int color_id) {
   auto size = default_color_size();
   const int i = color_id % size;
   switch (i) {

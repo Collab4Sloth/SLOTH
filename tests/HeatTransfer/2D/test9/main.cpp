@@ -155,8 +155,7 @@ int main(int argc, char* argv[]) {
         // ####################
         //     Problems      //
         // ####################
-        Coefficients coef_pb(density, heat_capacity, conductivity, neumann, alpha, inflow,
-                             source);
+        Coefficients coef_pb(density, heat_capacity, conductivity, neumann, alpha, inflow, source);
         std::vector<SPA*> spatials{&spatial};
         TransientOPE oper(spatials, {"Fourier", "Advection", "SourceTerm"}, params,
                           TimeScheme::EulerImplicit, "HeatTimeDerivative");

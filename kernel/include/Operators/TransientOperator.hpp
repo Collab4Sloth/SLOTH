@@ -112,6 +112,9 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   ~TransientOperator() override;
 
   void Mult(const mfem::Vector& u, mfem::Vector& du_dt) const override;
+  // Called by the MFEM ODE solvers before each evaluation (each stage of a Runge-Kutta
+  // scheme): the coefficients are set to the time of the stage.
+  void SetTime(const mfem::real_t t) override;
   void ImplicitSolve(const double dt, const mfem::Vector& u, mfem::Vector& k) override;
 
   // User-defined Solvers

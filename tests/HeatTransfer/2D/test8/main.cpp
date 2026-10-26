@@ -54,8 +54,7 @@ int main(int argc, char* argv[]) {
   const int order_fe = 1;
   const int refinement_level = 0;
   const int NN = 32;
-  const std::tuple<int, int, double, double>& tuple_of_dimensions =
-      std::make_tuple(NN, NN, 1., 1.);
+  const std::tuple<int, int, double, double>& tuple_of_dimensions = std::make_tuple(NN, NN, 1., 1.);
   SPA spatial(elem_type, order_fe, refinement_level, tuple_of_dimensions);
 
   // ##############################
@@ -96,8 +95,8 @@ int main(int argc, char* argv[]) {
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
       {"T", {-1.e30, 1.e30}}};
   auto p_pst = Parameters(Parameter("main_folder_path", std::string("Saves")),
-                          Parameter("calculation_path", std::string("Problem1")), Parameter("frequency", 10),
-                          Parameter("level_of_detail", 1),
+                          Parameter("calculation_path", std::string("Problem1")),
+                          Parameter("frequency", 10), Parameter("level_of_detail", 1),
                           Parameter("integral_to_compute", map_threshold_integral),
                           Parameter("enable_compute_energies", false));
   auto pst = PST(&spatial, p_pst);

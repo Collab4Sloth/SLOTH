@@ -67,5 +67,6 @@ class ProductCoefficient : public FunctionCoefficient {
 
   void set_time(double time) override;
   bool uses_coordinates() const override;
+  bool is_single_variable() const override;
   void set_coordinates(std::span<const double> x) override;
 };

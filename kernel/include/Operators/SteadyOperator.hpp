@@ -59,8 +59,13 @@ class SteadyOperator : public OperatorBase<T, DIM> {
   SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                  const std::vector<std::string>& integrators, const Parameters& params);
 
-  void Mult([[maybe_unused]] const mfem::Vector& k, [[maybe_unused]] mfem::Vector& y)
-      const override {  // Nothing to be done because of manage by steadyreducedoperator
+  /// Not used: the steady solve goes through SteadyPhaseFieldReducedOperator (Mult is required
+  /// by mfem::Operator). An error is raised if it is called.
+  void Mult([[maybe_unused]] const mfem::Vector& k,
+            [[maybe_unused]] mfem::Vector& y) const override {
+    MFEM_ABORT(
+        "SteadyOperator::Mult is not used: the steady solve goes through "
+        "SteadyPhaseFieldReducedOperator.");
   }
   // Virtual methods
 

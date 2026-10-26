@@ -90,9 +90,9 @@ SingleVariableAMR<VAR>::SingleVariableAMR(mfem::ParMesh& mesh, bool is_nc_simpli
  *          (max refinement depth), and the decision to mutate is based
  *          on a global reduction (`mesh.ReduceInt()`) rather than the
  *          local candidate count, to stay correct under MPI when some
- *          ranks have no local candidate. The estimator (and its flux
- *          spaces) is kept by `amr_estimator_` and reused at the next
- *          pass: it updates its flux spaces itself after a mesh change.
+ *          ranks have no local candidate. The flux spaces of the estimator
+ *          are kept by `amr_estimator_` and reused at the next pass
+ *          (updated after a mesh change).
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Collection of variables sharing the mesh managed by this

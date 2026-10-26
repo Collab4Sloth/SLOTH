@@ -174,7 +174,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     this->sloth_u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
-    this->Flux_ *= this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux);
+    this->Flux_ *= this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux, blk);
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
@@ -224,6 +224,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
   mfem::Vector vec;
   vec.SetSize(nd);
   vec = 0.0;
+  mfem::Vector grad_u(dim), grad_uold(dim);
 
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
@@ -241,9 +242,21 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     }
 
     const double coeff_diffu =
-        this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux) * weight_coef;
+        this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux, blk) * weight_coef;
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
+
+    // d/du_j (D(u) (grad u - grad u_old) . grad psi_i)
+    //   = D grad psi_j . grad psi_i + D'(u) psi_j (grad u - grad u_old) . grad psi_i
+    const double dcoeff_diffu =
+        this->eval_gradient_coefficient(stab_diffusion[blk], blk, ipv.u, ipv.aux, blk) * weight_coef;
+    if (dcoeff_diffu != 0.0) {
+      gradPsi.MultTranspose(*elfun[blk], grad_u);
+      this->sloth_u_old_[blk].GetGradient(Tr, gradPsi, grad_uold);
+      grad_u -= grad_uold;
+      gradPsi.Mult(grad_u, vec);  // vec_i = (grad u - grad u_old) . grad psi_i
+      AddMult_a_VWt(dcoeff_diffu, vec, Psi, *elmat(blk, blk));
+    }
   }
 }
 

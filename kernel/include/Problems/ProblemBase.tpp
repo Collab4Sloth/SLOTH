@@ -482,7 +482,8 @@ void ProblemBase<VAR, PST>::check_convergence(
 template <class VAR, class PST>
 void ProblemBase<VAR, PST>::save_vtk(const int iter, const double& current_time) {
   if (this->has_pst()) {
-    auto vars = this->get_problem_variables();
+    // Reference, not a copy: the data collection keeps pointers to the grid functions
+    auto& vars = this->get_problem_variables();
     this->get_pst().save_variables(vars, iter, current_time);
 
     if (!this->vect_vtk_coefficient_.empty()) {

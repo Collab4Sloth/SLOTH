@@ -130,14 +130,13 @@ int main(int argc, char* argv[]) {
         //     Problems      //
         // ####################
 
-
         // Heat
         Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
         Coefficients coef_pb(density, heat_capacity, conductivity, source, neumann, dirichlet_left,
                              dirichlet_right);
         std::vector<SPA*> spatials{&spatial};
-        TransientOPE oper(spatials, {"Fourier", "SourceTerm"},
-                          TimeScheme::EulerImplicit, "HeatTimeDerivative");
+        TransientOPE oper(spatials, {"Fourier", "SourceTerm"}, TimeScheme::EulerImplicit,
+                          "HeatTimeDerivative");
 
         oper.overload_nl_solver(
             NLSolverType::NEWTON,

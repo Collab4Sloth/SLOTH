@@ -103,7 +103,7 @@ ConstantCoefficient::HessianF() {
                  [[maybe_unused]] const std::span<const double>&,
                  [[maybe_unused]] const unsigned int dimension) {
     const size_t size = input_vector.size();
-    std::vector<double> hessian(size, 0.0);
+    std::vector<double> hessian(size * size, 0.0);
     return hessian;
   };
   return func;

@@ -31,7 +31,7 @@ namespace MAOutputManager {
  * @brief This function builds the default file name in function of the packages loaded (MPI or
  * OpenMP
  */
-std::string build_name() {
+inline std::string build_name() {
   using namespace MATools::MPI;
   std::string base_name = "MATimers";
   int mpiSize = get_mpi_size();
@@ -42,7 +42,7 @@ std::string build_name() {
 /**
  * @brief This function writes a (timers) file with the default name.
  */
-void write_file() {
+inline void write_file() {
   auto name = build_name();
   write_file(name);
 }
@@ -50,7 +50,7 @@ void write_file() {
 /**
  * @brief This function writes a (timers) file name a_name
  */
-void write_file(std::string a_name) {
+inline void write_file(std::string a_name) {
   using namespace MATools::MAOutput;
   using namespace MATools::MPI;
 
@@ -80,7 +80,7 @@ void write_file(std::string a_name) {
  * @brief Create debugging file names for each MPI process
  * @return local name
  */
-std::string build_current_mpi_name() {
+inline std::string build_current_mpi_name() {
   using namespace MATools::MPI;
   std::string base_name = "MATimers";
   int mpi_rank = get_rank();
@@ -92,7 +92,7 @@ std::string build_current_mpi_name() {
  * @brief Write debug files (tree) for each MPI process
  * @param[in]  a_name name of the ouput file (should be different for each MPI process)
  */
-void write_debug_file(std::string a_name) {
+inline void write_debug_file(std::string a_name) {
   using namespace MATools::MAOutput;
   using namespace MATools::MPI;
 
@@ -118,7 +118,7 @@ void write_debug_file(std::string a_name) {
 /**
  * @brief Write a debug file for each MPI process
  */
-void write_debug_file() {
+inline void write_debug_file() {
   auto name = build_current_mpi_name();
   write_debug_file(name);
 }
@@ -126,7 +126,7 @@ void write_debug_file() {
 /**
  * @brief This function get a vector of MATimerInfo for a given filtered name.
  */
-std::vector<MATools::MATimer::MATimerInfo> get_filtered_timers(std::string a_name) {
+inline std::vector<MATools::MATimer::MATimerInfo> get_filtered_timers(std::string a_name) {
   using namespace MATools::MAOutput;
   using namespace MATools::MPI;
   using namespace MATools::MATimer;
@@ -160,7 +160,7 @@ std::vector<MATools::MATimer::MATimerInfo> get_filtered_timers(std::string a_nam
 /**
  * @brief This function prints timers according to a filtered name
  */
-void print_filtered_timers(std::string a_name) {
+inline void print_filtered_timers(std::string a_name) {
   auto filtered_timers = get_filtered_timers(a_name);
   bool first = true;
   for (auto it : filtered_timers) {

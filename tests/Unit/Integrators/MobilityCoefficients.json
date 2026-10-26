@@ -1,0 +1,33 @@
+[
+	{
+	"expression":"m0*(1+phi*phi)",
+	"variables":"phi",
+	"constants":"(m0:2.0)",
+	"class_name":"MobilityPhi",
+	"outputfile":"MobilityPhi"
+	}
+	,
+	{
+	"expression":"m0*phi0*(1-phi1)",
+	"variables":"phi0,phi1",
+	"constants":"(m0:2.0)",
+	"class_name":"MobilityCross",
+	"outputfile":"MobilityCross"
+	}
+	,
+	{
+	"expression":"m0*phi0*(1-phi0)",
+	"variables":"phi0,phi1",
+	"constants":"(m0:2.0)",
+	"class_name":"MobilityDegenerate",
+	"outputfile":"MobilityDegenerate"
+	}
+	,
+	{
+	"expression":"w0*phi0*phi0*phi1*phi1",
+	"variables":"phi0,phi1",
+	"constants":"(w0:50.0)",
+	"class_name":"CoupledEnergy",
+	"outputfile":"CoupledEnergy"
+	}
+]

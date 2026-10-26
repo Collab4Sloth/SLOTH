@@ -251,7 +251,8 @@ std::span<const double> SlothNLFormIntegrator<VARS>::get_physical_point() {
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
                                                      const std::span<const double>& values,
-                                                     const std::span<const double>& aux_values) {
+                                                     const std::span<const double>& aux_values,
+                                                     const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
@@ -261,13 +262,11 @@ double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
   if (coef.is_scalar()) {
     return coef.compute();
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
+    const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
     if (coef.is_semi_implicit()) {
       return coef.compute(u, un, aux_values);
     } else {
-      const std::span<const double>& input = coef.is_implicit() ? u : un;
-      return coef.compute(input, aux_values);
+      return coef.compute(coef.is_implicit() ? u : un, aux_values);
     }
   }
 }
@@ -286,21 +285,22 @@ double SlothNLFormIntegrator<VARS>::eval_coefficient(Coefficient& coef,
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_gradient_coefficient(
     Coefficient& coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values, const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
   if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
+  }
+  // Coefficient of one variable: derivative with respect to its own block only
+  const bool single = coef.is_single_variable();
+  if (single && blk != var_blk) return 0.0;
+  const int i = single ? 0 : blk;
+  const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
+  if (coef.is_semi_implicit()) {
+    return coef.compute_gradient(i, u, un, aux_values);
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_semi_implicit()) {
-      return coef.compute_gradient(blk, u, un, aux_values);
-    } else {
-      const std::span<const double>& input = coef.is_implicit() ? u : un;
-      return coef.compute_gradient(blk, input, aux_values);
-    }
+    return coef.compute_gradient(i, coef.is_implicit() ? u : un, aux_values);
   }
 }
 
@@ -322,21 +322,22 @@ double SlothNLFormIntegrator<VARS>::eval_gradient_coefficient(
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_gradient_energy_coefficient(
     Coefficient& coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values, const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
   if (coef.is_scalar() || coef.is_file()) {
     return 0.0;
+  }
+  // Coefficient of one variable: derivative with respect to its own block only
+  const bool single = coef.is_single_variable();
+  if (single && blk != var_blk) return 0.0;
+  const int i = single ? 0 : blk;
+  const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
+  if (coef.is_semi_implicit()) {
+    return coef.compute_gradient(i, u, un, aux_values);
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_semi_implicit()) {
-      return coef.compute_gradient(blk, u, un, aux_values);
-    } else {
-      const std::span<const double>& input = coef.is_implicit() ? u : un;
-      return coef.compute_gradient(blk, input, aux_values);
-    }
+    return coef.compute_gradient(i, coef.is_implicit() ? u : un, aux_values);
   }
 }
 
@@ -355,54 +356,67 @@ double SlothNLFormIntegrator<VARS>::eval_gradient_energy_coefficient(
 template <class VARS>
 double SlothNLFormIntegrator<VARS>::eval_hessian_coefficient(
     Coefficient& coef, const int iblk, const int jblk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values, const int var_blk) {
   if (coef.uses_coordinates()) {
     coef.set_coordinates(this->get_physical_point());
   }
   if (coef.is_scalar() || coef.is_explicit() || coef.is_file()) {
     return 0.0;
+  }
+  // Coefficient of one variable: only the second derivative with respect to its own block
+  const bool single = coef.is_single_variable();
+  if (single && (iblk != var_blk || jblk != var_blk)) return 0.0;
+  const int i = single ? 0 : iblk;
+  const int j = single ? 0 : jblk;
+  const auto [u, un] = this->coefficient_inputs(coef, values, var_blk);
+  if (coef.is_semi_implicit()) {
+    return coef.compute_hessian(i, j, u, un, aux_values);
   } else {
-    std::span<const double> u(values.begin(), values.begin() + this->nb_blk_);
-    std::span<const double> un(values.begin() + this->nb_blk_, values.end());
-    if (coef.is_semi_implicit()) {
-      return coef.compute_hessian(iblk, jblk, u, un, aux_values);
-    } else {
-      // is_implicit
-      return coef.compute_hessian(iblk, jblk, u, aux_values);
-    }
+    return coef.compute_hessian(i, j, u, aux_values);
   }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-// Historical interface (by value): forwards to eval_* (identical results)
-//////////////////////////////////////////////////////////////////////////////
-
+/**
+ * @brief {u_old + dt k, u_old} from {k, u_old}, for the integrators of the time derivative
+ * (see the declaration).
+ */
 template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_coefficient(Coefficient coef,
-                                                        const std::span<const double>& values,
-                                                        const std::span<const double>& aux_values) {
-  return this->eval_coefficient(coef, values, aux_values);
+std::span<const double> SlothNLFormIntegrator<VARS>::values_at_end_of_step(
+    const std::span<const double>& values) {
+  const std::size_t nb = static_cast<std::size_t>(this->nb_blk_);
+  MFEM_VERIFY(values.size() == 2 * nb, "Error in " + this->integrator_name_ +
+                                           ": {k, u_old} expected at the integration point.");
+  this->u_end_.resize(2 * nb);
+  for (std::size_t b = 0; b < nb; ++b) {
+    this->u_end_[b] = values[nb + b] + this->time_step_ * values[b];
+    this->u_end_[nb + b] = values[nb + b];
+  }
+  return std::span<const double>(this->u_end_);
 }
 
+/**
+ * @brief Values given to a coefficient at the current point: all the blocks {u, u_old}, or
+ * only the values of block var_blk for a coefficient of one variable.
+ *
+ * @param values {u, u_old} at the current point (u_old may be absent)
+ */
 template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_gradient_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_gradient_coefficient(coef, blk, values, aux_values);
-}
-
-template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_gradient_energy_coefficient(
-    Coefficient coef, const int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_gradient_energy_coefficient(coef, blk, values, aux_values);
-}
-
-template <class VARS>
-double SlothNLFormIntegrator<VARS>::compute_hessian_coefficient(
-    Coefficient coef, const int iblk, const int jblk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_hessian_coefficient(coef, iblk, jblk, values, aux_values);
+std::pair<std::span<const double>, std::span<const double>>
+SlothNLFormIntegrator<VARS>::coefficient_inputs(const Coefficient& coef,
+                                                const std::span<const double>& values,
+                                                const int var_blk) const {
+  const std::size_t nb = std::min(static_cast<std::size_t>(this->nb_blk_), values.size());
+  std::span<const double> u = values.first(nb);
+  std::span<const double> un = values.subspan(nb);
+  if (coef.is_single_variable()) {
+    const auto k = static_cast<std::size_t>(var_blk);
+    MFEM_VERIFY(k < u.size(), "Error in " + this->integrator_name_ +
+                                  ": coefficient of one variable evaluated for block " +
+                                  std::to_string(var_blk) + ", which does not exist.");
+    u = u.subspan(k, 1);
+    un = k < un.size() ? un.subspan(k, 1) : std::span<const double>();
+  }
+  return {u, un};
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -448,10 +462,9 @@ bool SlothNLFormIntegrator<VARS>::same_finite_elements(
  * computed here once for all the blocks: the element dofs of u_old and of the auxiliary fields
  * are extracted once per element, and the value at a point is the dot product with the shape
  * functions, i.e. exactly what GridFunction::GetValue(Tr, ip) computes. An auxiliary field whose
- * finite element differs from the one of the blocks is evaluated with GetValue, as before.
+ * finite element differs from the one of the blocks is evaluated with GetValue.
  *
- * Otherwise nothing is cached and values_at_ip() evaluates the fields at each call (historical
- * evaluation).
+ * Otherwise nothing is cached and values_at_ip() evaluates the fields at each call.
  *
  * @tparam VARS Template parameter defining the variables.
  * @param el     Finite elements of the blocks.
@@ -532,7 +545,7 @@ void SlothNLFormIntegrator<VARS>::prepare_element_values(
  * @brief {u, u_old} and auxiliary values at the integration point `i` of `ir`.
  *
  * Returns the values computed by prepare_element_values() when available. Otherwise the values
- * are evaluated here as historically done: current values with the shape functions `Psi` of the
+ * are evaluated here: current values with the shape functions `Psi` of the
  * current block, u_old and auxiliary fields with GridFunction::GetValue (the integration point of
  * Tr must then be set by the caller).
  *
@@ -557,7 +570,7 @@ typename SlothNLFormIntegrator<VARS>::IpValues SlothNLFormIntegrator<VARS>::valu
             std::span<const double>(this->ipv_aux_table_.data() + ui * naux, naux)};
   }
 
-  // Historical evaluation
+  // No values cached for this element: evaluation at the point
   const mfem::IntegrationPoint& ip = ir.IntPoint(i);
   this->ipv_u_.resize(2 * unb);
   this->ipv_aux_.resize(naux);

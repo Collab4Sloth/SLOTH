@@ -1,6 +1,7 @@
 spack:
   specs:
-    - mfem@4.9.0 +mpi +mumps %gcc@14
+    - mfem@4.9.0 +mpi +mumps +exceptions %gcc@14
+    - catch2@3 %gcc@14
 
   concretizer:
     unify: true

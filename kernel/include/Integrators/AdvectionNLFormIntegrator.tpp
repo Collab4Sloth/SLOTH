@@ -125,7 +125,8 @@ void AdvectionNLFormIntegrator<VARS>::compute_velocity(int blk, mfem::ElementTra
                                                        const std::span<const double>& aux,
                                                        mfem::Vector& v) {
   const auto coef = [this, &u, &aux](const Coefficient& c) {
-    return this->compute_coefficient(c, u, aux);
+    Coefficient copy = c;  // eval_coefficient may set the coordinates of the coefficient
+    return this->eval_coefficient(copy, u, aux);
   };
   this->velocity_[blk].eval(Tr, this->vaux_gf_, coef, v);
 }
@@ -271,8 +272,7 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementGrad(
     for (const auto& term : this->terms_) {
       this->compute_velocity(term.vel, Tr, u, aux, this->v_);
       this->compute_advection_shape(*el[term.row], Tr);
-      mfem::AddMult_a_VWt(-weight, this->adv_, this->shape_[term.var],
-                          *elmats(term.row, term.var));
+      mfem::AddMult_a_VWt(-weight, this->adv_, this->shape_[term.var], *elmats(term.row, term.var));
     }
   }
 }

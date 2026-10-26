@@ -140,7 +140,7 @@ inline std::string replacePunctuation(std::string str) {
  * @brief Levels of verbosity
  *
  */
-enum class Verbosity { Quiet, Normal, Verbose, Debug, Error };
+enum class Verbosity { Quiet, Normal, Verbose, Debug };
 
 /**
  * @brief The current level of verbosity
@@ -249,16 +249,14 @@ class SlothInfo {
     }
   }
   /**
-   * @brief Print information on Error mode
+   * @brief Print an error message on std::cerr, whatever the verbosity level
    *
    * @tparam Args
    * @param args
    */
   template <typename... Args>
   static void error(Args... args) {
-    if (Verbosity::Error <= verbosityLevel) {
-      (std::cout << ... << args) << "\n";
-    }
+    (std::cerr << ... << args) << "\n";
   }
 
   /**

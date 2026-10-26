@@ -89,11 +89,18 @@ const Coefficient& Coefficients::operator[](size_t i) const {
 }
 
 /**
- * @brief Returns a copy of the glossary types associated with the coefficients.
+ * @brief Returns the glossary types of the coefficients, in the same order.
  *
  * @return Vector of glossary types.
  */
-std::vector<GlossaryType> Coefficients::get_types() const { return this->vect_coefficient_types_; }
+std::vector<GlossaryType> Coefficients::get_types() const {
+  std::vector<GlossaryType> types;
+  types.reserve(this->vect_coefficients_.size());
+  for (const auto& coef : this->vect_coefficients_) {
+    types.push_back(coef.get_type());
+  }
+  return types;
+}
 
 /**
  * @brief Set the time value to each coefficients

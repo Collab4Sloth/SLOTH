@@ -147,7 +147,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      double diffu = this->eval_coefficient(diffusion[blk], ipv.u, ipv.aux);
+      double diffu = this->eval_coefficient(diffusion[blk], ipv.u, ipv.aux, blk);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -209,8 +209,8 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
 
       const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
-      double diffu = this->eval_coefficient(diffusion[blk], ipv.u, ipv.aux);
-      double grad_diffu = this->eval_gradient_coefficient(diffusion[blk], blk, ipv.u, ipv.aux);
+      double diffu = this->eval_coefficient(diffusion[blk], ipv.u, ipv.aux, blk);
+      double grad_diffu = this->eval_gradient_coefficient(diffusion[blk], blk, ipv.u, ipv.aux, blk);
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 

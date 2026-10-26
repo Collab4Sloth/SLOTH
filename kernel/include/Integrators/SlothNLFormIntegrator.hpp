@@ -100,36 +100,41 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id,
                                              std::optional<int> bdr_id = std::nullopt);
 
-  // Historical interface (coefficient passed by value: one copy per call).
-  // Kept for the other integrators; forwards to the eval_* methods below.
-  double compute_coefficient(Coefficient coef, const std::span<const double>& values,
-                             const std::span<const double>& aux_values);
-
-  double compute_gradient_coefficient(Coefficient coef, const int blk,
-                                      const std::span<const double>& values,
-                                      const std::span<const double>& aux_values);
-  double compute_gradient_energy_coefficient(Coefficient coef, const int blk,
-                                             const std::span<const double>& values,
-                                             const std::span<const double>& aux_values);
-  double compute_hessian_coefficient(Coefficient coef, const int iblk, const int jblk,
-                                     const std::span<const double>& values,
-                                     const std::span<const double>& aux_values);
-
-  // Same computations, coefficient passed by reference (no copy at each integration point).
-  // The coefficient may be modified (coordinates set before evaluation), exactly as the copy
-  // was in the historical interface.
+  // Evaluation of a coefficient and of its derivatives at the current integration point.
+  // The coefficient is passed by reference (no copy at each integration point) and may be
+  // modified (coordinates set before evaluation).
+  // var_blk: block of the variable of a coefficient of one variable (W, H...: see
+  // FunctionCoefficient::is_single_variable); such a coefficient is evaluated on u[var_blk]
+  // only, and its derivatives with respect to the other blocks are zero. Ignored for the
+  // other coefficients, which receive all the blocks.
   double eval_coefficient(Coefficient& coef, const std::span<const double>& values,
-                          const std::span<const double>& aux_values);
+                          const std::span<const double>& aux_values, const int var_blk = 0);
   double eval_gradient_coefficient(Coefficient& coef, const int blk,
                                    const std::span<const double>& values,
-                                   const std::span<const double>& aux_values);
+                                   const std::span<const double>& aux_values,
+                                   const int var_blk = 0);
   double eval_gradient_energy_coefficient(Coefficient& coef, const int blk,
                                           const std::span<const double>& values,
-                                          const std::span<const double>& aux_values);
+                                          const std::span<const double>& aux_values,
+                                          const int var_blk = 0);
   double eval_hessian_coefficient(Coefficient& coef, const int iblk, const int jblk,
                                   const std::span<const double>& values,
-                                  const std::span<const double>& aux_values);
+                                  const std::span<const double>& aux_values, const int var_blk = 0);
 
+  // Integrators of the time derivative: their unknown is k = du/dt, and u at the end of the
+  // step is u_old + dt k (u_old: values given to the integrator, dt: time_step_; see
+  // TransientOperator::ImplicitSolve). Returns {u_old + dt k, u_old} from {k, u_old}, so that
+  // an implicit coefficient is evaluated at the end of the step.
+  std::span<const double> values_at_end_of_step(const std::span<const double>& values);
+
+ private:
+  std::vector<double> u_end_;  ///< see values_at_end_of_step
+  /// Values given to a coefficient: all the blocks {u, u_old}, or block var_blk only for a
+  /// coefficient of one variable
+  std::pair<std::span<const double>, std::span<const double>> coefficient_inputs(
+      const Coefficient& coef, const std::span<const double>& values, const int var_blk) const;
+
+ protected:
   bool isAxisymmetric() const noexcept;
 
   //////////////////////////////////////////////////////////////////////////////

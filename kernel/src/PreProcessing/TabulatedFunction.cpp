@@ -44,8 +44,8 @@
  *
  * @param csv_path    Path to the CSV file containing the samples.
  *
- * @throws std::runtime_error if the CSV is malformed or does not describe a
- *         complete structured grid (see read_csv() and build_grid()).
+ * @note Errors (mfem_error) if the CSV is malformed or does not describe a
+ *       complete structured grid (see read_csv() and build_grid()).
  */
 TabulatedFunction::TabulatedFunction(const std::string& csv_path) {
   std::vector<Sample> samples = read_csv(csv_path);
@@ -74,12 +74,9 @@ TabulatedFunction::TabulatedFunction(const std::string& csv_path) {
  *
  * @post spatial_dim_ is set from the column count (side effect on the object).
  *
- * @throws std::runtime_error if a data line has a different number of columns
- *         than the first one.
- * @throws std::invalid_argument / std::out_of_range (from std::stod) if a value
- *         is not a valid number.
- * @note Aborts via MFEM_VERIFY if the file cannot be opened or if the deduced
- *       number of inputs is not in [1, kMaxDim].
+ * @note Errors (mfem_error) if the file cannot be opened, if the deduced number
+ *       of inputs is not in [1, kMaxDim], if a data line has a different number
+ *       of columns than the first one, or if a value is not a valid number.
  */
 std::vector<TabulatedFunction::Sample> TabulatedFunction::read_csv(
     const std::filesystem::path& path) {
@@ -109,16 +106,34 @@ std::vector<TabulatedFunction::Sample> TabulatedFunction::read_csv(
       MFEM_VERIFY(spatial_dim_ >= 1 && spatial_dim_ <= kMaxDim,
                   "TabulatedFunction: input coordinates not well read in CSV file. Please check "
                   "data.");
-    } else if (static_cast<int>(fields.size()) != expectedColumns) {
-      throw std::runtime_error("TabulatedFunction: line " + std::to_string(lineNo) + " contains " +
-                               std::to_string(fields.size()) + " columns, " +
-                               std::to_string(expectedColumns) + " expected");
+    } else {
+      MFEM_VERIFY(static_cast<int>(fields.size()) == expectedColumns,
+                  "TabulatedFunction: line " << lineNo << " contains " << fields.size()
+                                             << " columns, " << expectedColumns << " expected");
     }
 
+    // Value of a field of the current line (error if it is not a number)
+    auto number = [&fields, lineNo](int k) {
+      const std::string& field = fields[static_cast<std::size_t>(k)];
+      std::size_t end = 0;
+      double value = 0.;
+      bool ok = true;
+      try {
+        value = std::stod(field, &end);
+      } catch (const std::exception&) {
+        ok = false;
+      }
+      // Trailing spaces are allowed, any other character is an error
+      ok = ok && field.find_first_not_of(" \t\r", end) == std::string::npos;
+      MFEM_VERIFY(
+          ok, "TabulatedFunction: line " << lineNo << ", '" << field << "' is not a valid number");
+      return value;
+    };
+
     Sample s;
-    s.t = std::stod(fields[0]);
-    for (int d = 0; d < spatial_dim_; ++d) s.x[d] = std::stod(fields[1 + d]);
-    s.F = std::stod(fields[1 + spatial_dim_]);
+    s.t = number(0);
+    for (int d = 0; d < spatial_dim_; ++d) s.x[d] = number(1 + d);
+    s.F = number(1 + spatial_dim_);
     samples.push_back(s);
   }
   MFEM_VERIFY(!samples.empty(), "TabulatedFunction: CSV file '"
@@ -167,9 +182,9 @@ std::vector<double> TabulatedFunction::unique_sorted(std::vector<double>& values
  * @post t_axis_, x_axis_, t_uniform_, x_uniform_ and data_ are initialized
  *       and consistent with flat_index().
  *
- * @throws std::runtime_error if the number of samples does not match the
- *         number of grid nodes (missing points or non-structured data).
- * @throws std::runtime_error if a (t, x1, ..., xN) tuple appears twice.
+ * @note Errors (mfem_error) if the number of samples does not match the number
+ *       of grid nodes (missing points or non-structured data), or if a
+ *       (t, x1, ..., xN) tuple appears twice.
  */
 void TabulatedFunction::build_grid(std::vector<Sample>& samples) {
   std::vector<double> tRaw;
@@ -193,11 +208,9 @@ void TabulatedFunction::build_grid(std::vector<Sample>& samples) {
 
   std::size_t expected = t_axis_.size();
   for (int d = 0; d < spatial_dim_; ++d) expected *= x_axis_[d].size();
-  if (expected != samples.size()) {
-    throw std::runtime_error("TabulatedFunction: CSV file is not a structured grid (expected " +
-                             std::to_string(expected) + ", received " +
-                             std::to_string(samples.size()) + ")");
-  }
+  MFEM_VERIFY(expected == samples.size(),
+              "TabulatedFunction: CSV file is not a structured grid (expected "
+                  << expected << " samples, received " << samples.size() << ")");
 
   auto is_uniform = [](const std::vector<double>& axis) {
     if (axis.size() < 3) return true;
@@ -229,7 +242,7 @@ void TabulatedFunction::build_grid(std::vector<Sample>& samples) {
       oss << "TabulatedFunction: duplicate grid point in CSV file (t = " << s.t;
       for (int d = 0; d < spatial_dim_; ++d) oss << ", x" << d + 1 << " = " << s.x[d];
       oss << ")";
-      throw std::runtime_error(oss.str());
+      MFEM_ABORT(oss.str());
     }
     filled[k] = true;
     data_[k] = s.F;

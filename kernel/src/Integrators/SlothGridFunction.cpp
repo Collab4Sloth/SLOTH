@@ -53,6 +53,7 @@ void SlothGridFunction::GetGradient(mfem::ElementTransformation& Tr, mfem::Dense
   mfem::Vector elfun;
   const int& num = Tr.ElementNo;
   GetElementDofValues(num, elfun);
+  grad.SetSize(gradPsi.Width());
   gradPsi.MultTranspose(elfun, grad);
 }
 

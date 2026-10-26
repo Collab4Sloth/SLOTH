@@ -348,8 +348,36 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
     gradPsi.SetSize(nd, dim);
     Psi.SetSize(nd);
 
-    elmats(blk, off_blk)->SetSize(nd);
+    elmats(blk, off_blk)->SetSize(nd, el[off_blk]->GetDof());
     *elmats(blk, off_blk) = 0.0;
+
+    // Mobility depending on phi:
+    //   dR(mu)_i/dphi_j = (dM/dphi) psi_j grad(mu) . grad(psi_i)
+    // (zero, and skipped, for a mobility independent of phi)
+    mfem::Vector Psi_phi(el[off_blk]->GetDof());
+    mfem::Vector grad_mu(dim), adv(nd);
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);
+      this->set_int_point(Tr, ip);
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+      const double dmob_dphi =
+          this->eval_gradient_coefficient(mobility[blk], off_blk, ipv.u, ipv.aux) * weight_coef;
+      if (dmob_dphi == 0.0) continue;
+
+      el[blk]->CalcPhysDShape(Tr, gradPsi);
+      gradPsi.MultTranspose(*elfun[blk], grad_mu);
+      gradPsi.Mult(grad_mu, adv);  // adv_i = grad(mu) . grad(psi_i)
+      el[off_blk]->CalcShape(ip, Psi_phi);
+      AddMult_a_VWt(dmob_dphi, adv, Psi_phi, *elmats(blk, off_blk));
+    }
   }
 
   // Block 1 1  dR(mu)dmu=dR(mu)dphi=d(div M grad mu)/dmu

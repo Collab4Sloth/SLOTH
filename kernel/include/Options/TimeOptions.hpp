@@ -35,18 +35,25 @@
 ///////////////////////////////////////////////////
 //////// Coefficient
 ///////////////////////////////////////////////////
+/**
+ * @brief Time treatment of a coefficient depending on the unknowns.
+ *
+ * - Implicit: evaluated with the current values of the unknowns, i.e. at the end of the time
+ *   step for implicit Euler, and at the end of each stage for a Runge-Kutta scheme
+ *   (u_stage = x_i + gamma_i dt k_i, see TransientOperator::ImplicitSolve). Its derivatives are
+ *   included in the Jacobian.
+ * - Explicit: evaluated with the values given at the beginning of the evaluation, i.e. u_n for
+ *   implicit or explicit Euler, but the base vector x_i of the stage (and not u_n) for a
+ *   Runge-Kutta scheme (SDIRK...). No contribution to the Jacobian.
+ * - SemiImplicit: evaluated with both (current and beginning of the evaluation).
+ * - Constant: value independent of the unknowns.
+ * - File: value read from a file (FileCoefficient), independent of the unknowns.
+ *
+ * In all cases, a coefficient depending on time is evaluated at the time of the evaluation:
+ * end of the step for implicit Euler, beginning for explicit Euler, time of the stage
+ * (t + c_i dt) for a Runge-Kutta scheme (TransientOperator::SetTime).
+ */
 enum Scheme { Implicit, Explicit, SemiImplicit, Constant, File };
-// struct CoefficientScheme {
-//   enum value { Implicit, Explicit, SemiImplicit };
-//   static value from(const std::string&);
-// };
-// CoefficientScheme::value CoefficientScheme::from(const std::string& v) {
-//   static PhaseFieldPrivate::mmap<CoefficientScheme::value> m{
-//       {"Implicit", CoefficientScheme::Implicit},
-//       {"Explicit", CoefficientScheme::Explicit},
-//       {"SemiImplicit", CoefficientScheme::SemiImplicit}};
-//   return m.find("CoefficientScheme", v);
-// }
 
 ///////////////////////////////////////////////////
 //////// ODE SOLVER

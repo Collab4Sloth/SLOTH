@@ -292,7 +292,7 @@ template <class VARS>
 double LatentHeatNLFormIntegrator<VARS>::get_mob_at_ip(
     [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
     [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values);
+  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
 
   return mobi;
 }
