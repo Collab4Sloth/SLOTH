@@ -108,6 +108,9 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   bool split_explicit_{false};
   // (row, variable): row 'row' carries d(variable)/dt (given by the LHS integrator)
   std::vector<std::pair<int, int>> evol_;
+  // The constraint Jacobian is rebuilt if a correction reduces the residual by less than this
+  // factor (optional parameter "constraint_jacobian_min_reduction", default 0.1)
+  double constraint_min_reduction_{0.1};
   // (row, variable): constraint row 'row' is solved for the algebraic variable 'variable'
   std::vector<std::pair<int, int>> alg_;
   // lumped mass (row sums of the LHS Jacobian block (row, variable)) of each evol_ pair

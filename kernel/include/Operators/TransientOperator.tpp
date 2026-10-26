@@ -570,6 +570,13 @@ void TransientOperator<T, DIM>::setup_split_structure(const double dt,
                 "Split system: Dirichlet conditions on an algebraic variable are not supported.");
   }
 
+  // Modified Newton of the projection: minimal residual reduction per correction before the
+  // constraint Jacobian is rebuilt (optional parameter)
+  this->constraint_min_reduction_ = this->params_.template get_param_value_or_default<double>(
+      "constraint_jacobian_min_reduction", 0.1);
+  MFEM_VERIFY(this->constraint_min_reduction_ > 0. && this->constraint_min_reduction_ < 1.,
+              "constraint_jacobian_min_reduction must be in ]0, 1[. Please check your data.");
+
   // Lumped masses built once if every ExplicitTime coefficient (read by the LHS integrator for
   // each block) is scalar or absent; otherwise rebuilt at each stage
   this->split_mass_constant_ = true;
