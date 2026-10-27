@@ -107,6 +107,8 @@ class Problem : public ProblemBase<VAR, PST> {
 
   void save_csv(const int iter, const double current_time) override;
 
+  int get_nonlinear_iterations() const override { return this->oper_.get_newton_iterations(); }
+
   void finalize() override;
 };
 

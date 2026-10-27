@@ -78,6 +78,9 @@ class Coupling {
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
   void update();
+  void save_state();
+  void restore_state();
+  int get_nonlinear_iterations() const;
   void post_processing(const int& iter, const double& current_time, bool vtk_unified,
                        std::vector<VAR*> all_vars);
   void finalize();
