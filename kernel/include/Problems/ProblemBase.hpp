@@ -92,6 +92,9 @@ class ProblemBase {
   AMRBase<VAR>* amr_{nullptr};
   bool enable_time_specialized_{true};
 
+  // Variables saved at the beginning of a time-step (see save_state())
+  std::vector<typename VAR::VariableState> saved_state_;
+
  public:
   using VarType = VAR;
   void set_amr(AMRBase<VAR>* amr) { this->amr_ = amr; }
@@ -172,6 +175,13 @@ class ProblemBase {
                             const std::vector<std::vector<std::string>>& unks_info) = 0;
 
   void update();
+
+  // Rejection of a time-step: state of the Variables saved before the step and restored if the
+  // step is rejected
+  void save_state();
+  void restore_state();
+  // Largest number of nonlinear iterations over the last time-step (-1 if not available)
+  virtual int get_nonlinear_iterations() const { return -1; }
 
   void post_processing(const int& iter, const double& current_time, bool vtk_unified);
   void save_vtk(const int iter, const double& current_time);

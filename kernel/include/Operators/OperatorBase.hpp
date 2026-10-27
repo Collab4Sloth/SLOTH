@@ -100,6 +100,9 @@ class OperatorBase : public mfem::Operator {
 
   double current_dt_;
   double current_time_;
+  // Largest number of Newton iterations over the stages of the last time-step (-1: no Newton
+  // solve, e.g. explicit schemes)
+  int newton_iterations_{-1};
   int height_;
   mutable mfem::Vector z;  // auxiliary vector
 
@@ -134,6 +137,7 @@ class OperatorBase : public mfem::Operator {
                         bool enable_compute_energies);
 
   inline double get_current_time_step() const { return current_dt_; }
+  inline int get_newton_iterations() const { return newton_iterations_; }
 
   void ComputeError(const int& it, const double& t, const double& dt, const int id_var,
                     const std::string& name, const mfem::Vector& u,

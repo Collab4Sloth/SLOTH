@@ -213,6 +213,17 @@ class Variable {
   void prepareMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);
   void finalizeMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);
 
+  /**
+   * @brief State of a Variable: current unknown and multi-timestep history.
+   *        Used to restore the Variable when a time-step is rejected.
+   */
+  struct State {
+    mfem::Vector unk;
+    std::map<int, mfem::Vector> history;
+  };
+  State save_state() const;
+  void restore_state(const State& state);
+
   ~Variable();
 };
 #include "Variables/Variable.tpp"

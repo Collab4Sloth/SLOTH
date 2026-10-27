@@ -27,6 +27,8 @@
  */
 
 #pragma once
+#include <algorithm>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -34,7 +36,9 @@
 
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Problems/Problem.hpp"
+#include "Time/TimeStepFailure.hpp"
 #include "Utils/Utils.hpp"
+#include "Utils/UtilsForData.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
@@ -53,6 +57,8 @@ TimeDiscretization<Args...>::TimeDiscretization(const Parameters& params, Args..
 
   this->time_step_function_ =
       std::function<double(double)>([this](double) { return this->time_step_; });
+
+  this->get_adaptive_parameters();
 
   this->check_duplicate_coupling_name();
   this->check_duplicate_post_processing_directory();
@@ -73,6 +79,9 @@ TimeDiscretization<Args...>::TimeDiscretization(
     : params_(params), couplings_(std::make_tuple(std::forward<Args>(couplings)...)) {
   this->get_parameters();
   this->time_step_function_ = given_time_step;
+
+  MFEM_VERIFY(!this->adaptive_,
+              "Error: adaptive_time_step cannot be used with a user-defined time-step function.");
 
   this->check_duplicate_coupling_name();
   this->check_duplicate_post_processing_directory();
@@ -95,6 +104,58 @@ void TimeDiscretization<Args...>::get_parameters() {
   this->final_time_ = this->params_.template get_param_value<double>("final_time");
   this->time_step_ = this->params_.template get_param_value_or_default<double>("time_step", -1.0);
   this->current_time_step_ = this->time_step_;
+  this->adaptive_ =
+      this->params_.template get_param_value_or_default<bool>("adaptive_time_step", false);
+}
+
+/**
+ * @brief Set the parameters of the adaptive time-stepping (if "adaptive_time_step" is true)
+ *
+ * @details Optional parameters:
+ *          - time_step_min (default 1.e-6 * time_step): smallest time-step;
+ *          - time_step_max (default final_time - initial_time): largest time-step;
+ *          - time_step_cutback_factor (default 0.5): factor applied after a rejected time-step;
+ *          - time_step_growth_factor (default 1.25): factor applied (resp. divided) when the
+ *            Newton solvers converge in few (resp. many) iterations;
+ *          - newton_iterations_low (default 3), newton_iterations_high (default 8): numbers of
+ *            Newton iterations for increasing (resp. decreasing) the time-step;
+ *          - max_time_step_rejections (default 10): maximum number of successive rejections of
+ *            the same time-step.
+ *          The initial time-step is time_step.
+ *
+ * @tparam Args
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::get_adaptive_parameters() {
+  if (!this->adaptive_) return;
+
+  const auto& p = this->params_;
+  this->time_step_min_ =
+      p.template get_param_value_or_default<double>("time_step_min", 1.e-6 * this->time_step_);
+  this->time_step_max_ = p.template get_param_value_or_default<double>(
+      "time_step_max", this->final_time_ - this->initial_time_);
+  this->cutback_factor_ =
+      p.template get_param_value_or_default<double>("time_step_cutback_factor", 0.5);
+  this->growth_factor_ =
+      p.template get_param_value_or_default<double>("time_step_growth_factor", 1.25);
+  this->newton_iterations_low_ =
+      p.template get_param_value_or_default<int>("newton_iterations_low", 3);
+  this->newton_iterations_high_ =
+      p.template get_param_value_or_default<int>("newton_iterations_high", 8);
+  this->max_rejections_ =
+      p.template get_param_value_or_default<int>("max_time_step_rejections", 10);
+
+  MFEM_VERIFY(this->time_step_min_ > 0. && this->time_step_min_ <= this->time_step_max_,
+              "Error: adaptive time-stepping requires 0 < time_step_min <= time_step_max.");
+  MFEM_VERIFY(this->time_step_ >= this->time_step_min_ && this->time_step_ <= this->time_step_max_,
+              "Error: adaptive time-stepping requires time_step_min <= time_step <= "
+              "time_step_max.");
+  MFEM_VERIFY(this->cutback_factor_ > 0. && this->cutback_factor_ < 1.,
+              "Error: time_step_cutback_factor must be in ]0, 1[.");
+  MFEM_VERIFY(this->growth_factor_ >= 1., "Error: time_step_growth_factor must be >= 1.");
+  MFEM_VERIFY(this->newton_iterations_low_ < this->newton_iterations_high_,
+              "Error: newton_iterations_low must be lower than newton_iterations_high.");
+  MFEM_VERIFY(this->max_rejections_ >= 0, "Error: max_time_step_rejections must be >= 0.");
 }
 
 /**
@@ -270,13 +331,162 @@ void TimeDiscretization<Args...>::update() {
  */
 template <class... Args>
 void TimeDiscretization<Args...>::time_management() {
-  auto dt_real = this->time_step_function_(this->current_time_);
-  this->time_step_ = dt_real;
-  if ((this->current_time_ + this->time_step_) + 0.5 * this->time_step_ > this->final_time_) {
+  // Adaptive time-stepping: the requested time-step is set by the controller (adapt_time_step,
+  // reject_time_step)
+  if (!this->adaptive_) {
+    this->time_step_ = this->time_step_function_(this->current_time_);
+  }
+  auto dt_real = this->time_step_;
+  SlothInfo::verbose("    - Real (requested) time step ", dt_real);
+  this->last_step_ = false;
+  SlothInfo::verbose("    - Predicted time ", (this->current_time_ + this->time_step_), " ;",
+                     (this->final_time_ - (this->current_time_ + this->time_step_)));
+  if ((this->final_time_ - (this->current_time_ + this->time_step_)) < this->time_step_min_) {
+    // if ((this->current_time_ + this->time_step_) + 0.5 * this->time_step_ > this->final_time_) {
     this->last_step_ = true;
     dt_real = this->final_time_ - this->current_time_;
   }
+  SlothInfo::verbose("    - Real (accepted) time step ", dt_real);
   this->current_time_step_ = dt_real;
+}
+
+/**
+ * @brief Save the state of every coupling at the beginning of a time-step
+ *
+ * @tparam Args
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::save_state() {
+  Catch_Time_Section("TimeDiscretization::save_state");
+  std::apply([](auto&... coupling) { (coupling.save_state(), ...); }, couplings_);
+}
+
+/**
+ * @brief Restore the state of every coupling saved at the beginning of the time-step
+ *
+ * @tparam Args
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::restore_state() {
+  Catch_Time_Section("TimeDiscretization::restore_state");
+  std::apply([](auto&... coupling) { (coupling.restore_state(), ...); }, couplings_);
+  this->convergence_.clear();
+}
+
+/**
+ * @brief Largest number of Newton iterations over all the problems during the last time-step
+ *
+ * @tparam Args
+ * @return int -1 if no problem provides this information (e.g. explicit schemes only)
+ */
+template <class... Args>
+int TimeDiscretization<Args...>::get_nonlinear_iterations() const {
+  int iterations = -1;
+  std::apply(
+      [&iterations](const auto&... coupling) {
+        ((iterations = std::max(iterations, coupling.get_nonlinear_iterations())), ...);
+      },
+      couplings_);
+  return iterations;
+}
+
+/**
+ * @brief Try to perform the time-step (solve and update of the variables)
+ *
+ * @details A TimeStepFailure stops the computation if the time-stepping is not adaptive.
+ *
+ * @tparam Args
+ * @param iter Current iteration.
+ * @return std::optional<std::string> empty if the time-step succeeded, reason of the failure
+ *         otherwise (the time-step must then be rejected)
+ */
+template <class... Args>
+std::optional<std::string> TimeDiscretization<Args...>::try_time_step(const int& iter) {
+  this->time_info(iter);
+  try {
+    this->execute(iter);
+  } catch (const TimeStepFailure& failure) {
+    if (!this->adaptive_) {
+      mfem::mfem_error(failure.what());
+    }
+    if (mfem::Mpi::WorldRank() == 0) {
+      SlothInfo::print("Time-step rejected at time ", this->current_time_, " (time-step ",
+                       this->current_time_step_, "): ", failure.what());
+    }
+    return std::string(failure.what());
+  }
+  this->update();
+  return std::nullopt;
+}
+
+/**
+ * @brief Reduce the time-step, whatever the reason (rejected time-step, Newton criterion)
+ *
+ * @details Stops the computation if the number of successive reductions exceeds
+ *          max_time_step_rejections, or if the time-step would fall below time_step_min.
+ *
+ * @tparam Args
+ * @param dt_new Reduced time-step.
+ * @param reason Reason of the reduction.
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::cut_time_step(const double& dt_new, const std::string& reason) {
+  ++this->successive_cuts_;
+  if (this->successive_cuts_ > this->max_rejections_) {
+    const std::string msg = "Adaptive time-stepping: more than " +
+                            std::to_string(this->max_rejections_) +
+                            " successive reductions of the time-step (" + reason + ").";
+    mfem::mfem_error(msg.c_str());
+  }
+  if (dt_new < this->time_step_min_) {
+    const std::string msg =
+        "Adaptive time-stepping: the time-step would fall below time_step_min (" + reason + ").";
+    mfem::mfem_error(msg.c_str());
+  }
+  this->time_step_ = dt_new;
+}
+
+/**
+ * @brief Reject the time-step: restore the state saved at its beginning and reduce the time-step
+ *
+ * @tparam Args
+ * @param reason Reason of the rejection.
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::reject_time_step(const std::string& reason) {
+  this->restore_state();
+  this->cut_time_step(this->cutback_factor_ * this->current_time_step_, reason);
+  this->time_management();
+}
+
+/**
+ * @brief Time-step requested for the next iteration, from the largest number of Newton iterations
+ *        of the accepted time-step
+ *
+ * @details A decrease is a reduction of the time-step (see cut_time_step). No increase right
+ *          after a rejection. Without Newton solve (explicit schemes), the time-step is kept.
+ *
+ * @tparam Args
+ * @param rejections Number of rejections of the accepted time-step.
+ */
+template <class... Args>
+void TimeDiscretization<Args...>::adapt_time_step(const int& rejections) {
+  const int iterations = this->get_nonlinear_iterations();
+  SlothInfo::verbose("    - Nonlinear iterations : ", iterations);
+  if (iterations >= 0 && iterations >= this->newton_iterations_high_) {
+    const double dt_new = std::max(this->time_step_ / this->growth_factor_, this->time_step_min_);
+    SlothInfo::verbose("    - Decrease of the time-step from ", this->time_step_, " to ", dt_new);
+    this->cut_time_step(dt_new, std::to_string(iterations) + " Newton iterations");
+    return;
+  }
+  // Time-step accepted without reduction
+  this->successive_cuts_ = 0;
+  double dt = this->time_step_;
+  if (iterations >= 0 && iterations <= this->newton_iterations_low_ && rejections == 0) {
+    dt *= this->growth_factor_;
+    SlothInfo::verbose("    - Increase of the time-step from ", this->time_step_, " to ", dt);
+  }
+  this->time_step_ = std::clamp(dt, this->time_step_min_, this->time_step_max_);
 }
 
 /**
@@ -332,8 +542,8 @@ void TimeDiscretization<Args...>::check_duplicate_coupling_name() {
 }
 
 /**
- * @brief Checks for duplicate post-processing directories and add prefix to avoid duplicates in CSV
- * files.
+ * @brief Checks for duplicate post-processing directories and add prefix to avoid duplicates in
+ * CSV files.
  */
 template <class... Args>
 void TimeDiscretization<Args...>::check_duplicate_post_processing_directory() {
@@ -419,22 +629,33 @@ void TimeDiscretization<Args...>::solve() {
     // Time-step
     //------------
     this->time_management();
-    this->time_info(iter);
+    if (this->adaptive_) this->save_state();
 
     //------------
-    // Solve
+    // Solve and update. A failed time-step is rejected and retried with a smaller time-step
+    // (adaptive time-stepping only, the computation stops otherwise)
     //------------
-    this->execute(iter);
-
-    //------------
-    //  Update
-    //------------
-    this->update();
-
+    int rejections = 0;
+    for (auto failure = this->try_time_step(iter); failure.has_value();
+         failure = this->try_time_step(iter)) {
+      ++rejections;
+      SlothInfo::verbose("    - Rejection at iteration ", iter, " : ", rejections);
+      this->reject_time_step(*failure);
+    }
     //-------------------
     // Save current
     //-------------------
     this->post_processing(iter);
+
+    //------------
+    // Time-step requested for the next iteration
+    //------------
+    if (this->adaptive_) {
+      this->adapt_time_step(rejections);
+      SlothInfo::verbose("    - Adaptive time-step for the next iteration ", this->time_step_);
+    }
+
+    SlothInfo::verbose("    - Final Rejections at iteration ", iter, " : ", rejections);
 
     //------------
     // Check convergence
@@ -469,7 +690,16 @@ void TimeDiscretization<Args...>::get_tree() {
     SlothInfo::verbose(" >> Time discretization: ");
     SlothInfo::verbose("    - Initial time: ", this->initial_time_);
     SlothInfo::verbose("    - Final time: ", this->final_time_);
-    SlothInfo::verbose("    - Maximum time-step: ", this->time_step_);
+    if (this->adaptive_) {
+      SlothInfo::verbose("    - Adaptive time-step: initial ", this->time_step_, ", min ",
+                         this->time_step_min_, ", max ", this->time_step_max_);
+      SlothInfo::verbose("      cutback factor ", this->cutback_factor_, ", growth factor ",
+                         this->growth_factor_, ", Newton iterations [",
+                         this->newton_iterations_low_, ", ", this->newton_iterations_high_,
+                         "], max rejections ", this->max_rejections_);
+    } else {
+      SlothInfo::verbose("    - Maximum time-step: ", this->time_step_);
+    }
     std::apply(
         [](auto&... coupling) {
           (SlothInfo::verbose(" >> Coupling: ", coupling.get_name()), ...);

@@ -26,6 +26,7 @@
  *
  */
 #pragma once
+#include <algorithm>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -307,6 +308,47 @@ void Coupling<Args...>::execute(const int& iter, double& next_time, const double
 template <class... Args>
 void Coupling<Args...>::update() {
   // std::apply([](auto&... problem) { (problem.update(), ...); }, problems_);
+}
+
+/**
+ * @brief Save the state of the variables of the problems inside this coupling (beginning of a
+ *        time-step)
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ */
+template <class... Args>
+void Coupling<Args...>::save_state() {
+  std::apply([](auto&... problem) { (problem.save_state(), ...); }, problems_);
+}
+
+/**
+ * @brief Restore the state of the variables of the problems inside this coupling saved by
+ *        save_state() (rejected time-step)
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ */
+template <class... Args>
+void Coupling<Args...>::restore_state() {
+  std::apply([](auto&... problem) { (problem.restore_state(), ...); }, problems_);
+  this->pb_convergence_.clear();
+}
+
+/**
+ * @brief Largest number of nonlinear iterations over the problems of this coupling during the
+ *        last time-step
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ * @return int -1 if no problem provides this information (e.g. explicit schemes only)
+ */
+template <class... Args>
+int Coupling<Args...>::get_nonlinear_iterations() const {
+  int iterations = -1;
+  std::apply(
+      [&iterations](const auto&... problem) {
+        ((iterations = std::max(iterations, problem.get_nonlinear_iterations())), ...);
+      },
+      problems_);
+  return iterations;
 }
 
 /**
