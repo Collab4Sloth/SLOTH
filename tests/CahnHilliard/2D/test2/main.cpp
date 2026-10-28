@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Verbose);
+  setVerbosity(Verbosity::Quiet);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -49,20 +49,28 @@ int main(int argc, char* argv[]) {
       "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
   const int order_fe = 1;             // finite element order
   const int refinement_level = 0;     // number of levels of uniform refinement
-  const int nx = 100;
-  const int ny = 100;
+  const int nx = 16;
+  const int ny = 16;
   const double lx = 200;
   const double ly = 200;
   const std::tuple<int, int, double, double>& tuple_of_dimensions =
       std::make_tuple(nx, ny, lx, ly);  // Number of elements and maximum length in each direction
 
-  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
+  SPA spatial_phi(mesh_type, order_fe, refinement_level, tuple_of_dimensions, true);
+  SPA spatial_mu(spatial_phi.get_mesh(), order_fe);  // fespace_ indépendant, mesh_ partagé
+  SPA spatial_mpi(spatial_phi.get_mesh(), order_fe);
   // ##############################
   //     Boundary conditions     //
   // ##############################
   auto boundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
                      Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
-  auto bcs = BCS(&spatial, boundaries);
+  auto bcs_phi = BCS(&spatial_phi, boundaries);
+  auto boundaries_mu = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                        Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
+  auto bcs_mu = BCS(&spatial_mu, boundaries_mu);
+  auto boundaries_mpi = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                         Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
+  auto bcs_mpi = BCS(&spatial_mpi, boundaries_mu);
 
   // ###########################################
   // ###########################################
@@ -102,13 +110,21 @@ int main(int argc, char* argv[]) {
 
         return sol;
       });
+  auto ch_initial_condition_mu =
+      std::function<double(const mfem::Vector&, double)>([&](const mfem::Vector& x, double time) {
+        double phi = user_func_solution(x, time);
+        double sol = 2 * phi * (1 - phi) * (1 - 2 * phi);
+
+        return sol;
+      });
 
   auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
-  double mu_initial_condition = 0.0;
+  auto mu_initial_condition = AnalyticalFunctions<DIM>(ch_initial_condition_mu);
   const std::string& var_name_1 = "phi";
   const std::string& var_name_2 = "mu";
-  auto v1 = VAR(&spatial, bcs, var_name_1, Glossary::PhaseField, 2, phi_initial_condition);
-  auto v2 = VAR(&spatial, bcs, var_name_2, Glossary::ChemicalPotential, 2, mu_initial_condition);
+  auto v1 = VAR(&spatial_phi, bcs_phi, var_name_1, Glossary::PhaseField, 2, phi_initial_condition);
+  auto v2 =
+      VAR(&spatial_mu, bcs_mu, var_name_2, Glossary::ChemicalPotential, 2, mu_initial_condition);
   auto vars = VARS(v1, v2);
 
   // ###########################################
@@ -119,24 +135,26 @@ int main(int argc, char* argv[]) {
 
   const std::string& main_folder_path = "Saves";
   const int level_of_detail = 1;
-  const int frequency = 100;
+  const int frequency = 10;
   std::string calculation_path = "CahnHilliard";
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
       {var_name_1, {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;
+  int specialized_frequency = 2;
   auto p_pst =
       Parameters(Parameter("main_folder_path", main_folder_path),
                  Parameter("calculation_path", calculation_path), Parameter("frequency", frequency),
                  Parameter("level_of_detail", level_of_detail),
                  Parameter("integral_to_compute", map_threshold_integral),
-                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter),
+                 Parameter("specialized_frequency", specialized_frequency));
   // ####################
   //     operators     //
   // ####################
 
   // Problem 1:
   Coefficients coef_pb1(double_well, capillary, mobility, grad_energy);
-  std::vector<SPA*> spatials{&spatial, &spatial};
+  SPAS spatials{&spatial_phi, &spatial_mu};
   TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
                     "SplitTimeDerivative");
   oper.overload_nl_solver(NLSolverType::NEWTON,
@@ -148,8 +166,21 @@ int main(int argc, char* argv[]) {
   oper.overload_solver(solver);
   oper.overload_preconditioner(precond);
 
-  auto pst = PST(&spatial, p_pst);
+  auto pst = PST(&spatial_phi, p_pst);
   TransientPB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
+
+  // AMR
+  mfem::ConstantCoefficient amr_coef{1.0};
+  mfem::DiffusionIntegrator amr_integ{amr_coef};
+  SlothErrorEstimators estimator(ErrorEstimatorType::KELLY, &amr_integ);
+
+  SingleVariableAMR<VARS> amr(*spatial_phi.get_mesh(), spatial_phi.is_nc_simplices(), 0);
+
+  auto amr_params = Parameters(Parameter("max_elem_error", 1.e-4), Parameter("amr_max_level", 3),
+                               Parameter("nc_limit", 0), Parameter("max_preref_cycles", 3),
+                               Parameter("rebalance", false));
+  amr.SetCriteria(/*estimator*/ &estimator, amr_params);
+  problem1.set_amr(&amr);
 
   // Coupling 1
   auto cc = Coupling("CahnHilliard Coupling", problem1);
@@ -160,10 +191,18 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 10.;  // 5.e4;
-  const double dt = 1.;
-  auto time_params = Parameters(Parameter("initial_time", t_initial),
-                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  const double t_final = 5.e4;
+  const double dt = 1.e-2;
+  //   auto time_params = Parameters(Parameter("initial_time", t_initial),
+  //                                 Parameter("final_time", t_final), Parameter("time_step", dt));
+
+  auto time_params = Parameters(
+      Parameter("initial_time", t_initial), Parameter("final_time", t_final),
+      Parameter("time_step", dt), Parameter("adaptive_time_step", true),
+      Parameter("time_step_min", 1.e-2), Parameter("time_step_max", 50.),
+      Parameter("time_step_growth_factor", 1.5), Parameter("newton_iterations_low", 4),
+      Parameter("newton_iterations_high", 10), Parameter("max_time_step_rejections", 20));
+
   auto time = TimeDiscretization(time_params, cc);
 
   time.solve();
