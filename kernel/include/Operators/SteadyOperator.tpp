@@ -114,9 +114,21 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
 
   if (this->enable_amr_ && this->mesh_has_changed()) {
-    // Resynchronize height/width/z/block_trueOffsets_
+    // Resynchronize height/width/z/block_trueOffsets_ and the Dirichlet dofs
     this->UpdateAfterMeshChange();
     this->record_fes_sequence();
+    // Dirichlet values on the new mesh: the unknowns have been interpolated, or reset to their
+    // initial condition by a pre-refinement (AMRBase::InitialRefine)
+    std::vector<mfem::Vector> auxvars_unk;
+    for (const auto& auxvar_vec : this->auxvariables_) {
+      for (const auto& auxvar : auxvar_vec->getVariables()) {
+        auxvars_unk.emplace_back(auxvar.get_unknown());
+      }
+    }
+    for (size_t i = 0; i < vect_unk.size(); i++) {
+      this->bcs_[i]->SetDirichletBoundaryConditions(*(vect_unk[i]), this->coefficients_[i],
+                                                    auxvars_unk);
+    }
   }
 
   //// Constructing array of offsets

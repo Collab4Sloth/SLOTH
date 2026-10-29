@@ -283,3 +283,136 @@ TEST_CASE_METHOD(AMRSetup, "MultiVariableMaxAMR: derefinement of flat fields", "
   amr.StepDerefine(vars, {});
   CHECK(global_ne() < refined_ne);
 }
+
+// -----------------------------------------------------------------------------
+// Dirichlet conditions of a Problem sharing the mesh of a Problem with AMR.
+// Allen-Cahn front at x = 0.5 with AMR: the mesh is pre-refined (InitialRefine)
+// during the initialization of its coupling. The diffusion of c, on its own
+// space built on the same mesh, has Dirichlet conditions c = 0.2 (left) and
+// c = 0.8 (right): its exact steady solution is c = 0.2 + 0.6 x, exactly
+// represented by order-1 elements.
+// -----------------------------------------------------------------------------
+namespace {
+struct DirichletAMRSetup : AMRSetup {
+  // Allen-Cahn front, with AMR attached by the test cases
+  VARS phi_vars{variable("phi", interface(0.5))};
+  Coefficients ac_coefs{Coefficient(Glossary::FreeEnergy, Scheme::Explicit, W(120.)),
+                        Coefficient(Glossary::Capillary, 0.15), Coefficient(Glossary::Mobility, 1.),
+                        Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(0.15))};
+  std::vector<SPA*> spatials_phi{&spatial};
+  TransientOPE ac_oper{spatials_phi, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative"};
+  TransientPB ac_problem{"phi", ac_oper, phi_vars, {ac_coefs}};
+  SingleVariableAMR<VARS> amr{mesh(), spatial.is_nc_simplices(), "phi"};
+
+  // Diffusion of c, own space on the same mesh, initial condition c = 0.5
+  SPA spatial_c{spatial.get_mesh(), 1};
+  BCS bcs_c{&spatial_c, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 0.8),
+            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 0.2)};
+  VARS c_vars{VAR(&spatial_c, bcs_c, "c", Glossary::MoleFraction, 2,
+                  AnalyticalFunctions<DIM>([](const mfem::Vector&, double) { return 0.5; }))};
+  Coefficients c_coefs{Coefficient(Glossary::Diffusivity, 1.0),
+                       Coefficient(Glossary::FreeEnergy, Scheme::Implicit, Log())};
+  std::vector<SPA*> spatials_c{&spatial_c};
+  Parameters newton{Parameter("description", std::string("Newton")), Parameter("rel_tol", 1.e-12),
+                    Parameter("abs_tol", 1.e-14)};
+  Parameters time_params{Parameter("initial_time", 0.), Parameter("final_time", 1.e-3),
+                         Parameter("time_step", 1.e-3)};
+
+  DirichletAMRSetup() { amr.SetCriteria(&estimator, params); }
+
+  /// @brief Largest gap to the Dirichlet values, on the dofs of the current mesh (all ranks)
+  double dirichlet_error() {
+    mfem::ParFiniteElementSpace* fes = c_vars[0].get_fespace();
+    const mfem::Vector u = c_vars[0].get_unknown();
+    REQUIRE(u.Size() == fes->GetTrueVSize());
+    double local = 0., global = 0.;
+    for (const auto& [bdr, value] : {std::pair{1, 0.8}, std::pair{3, 0.2}}) {
+      mfem::Array<int> marker(fes->GetParMesh()->bdr_attributes.Max());
+      marker = 0;
+      marker[bdr] = 1;
+      mfem::Array<int> dofs;
+      fes->GetEssentialTrueDofs(marker, dofs);
+      for (int k = 0; k < dofs.Size(); ++k) local = std::max(local, std::abs(u(dofs[k]) - value));
+    }
+    MPI_Allreduce(&local, &global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    return global;
+  }
+
+  /// @brief L2 error of c against the exact steady solution
+  double steady_error() {
+    return l2_error(c_vars[0], [](const mfem::Vector& p, double) { return 0.2 + 0.6 * p[0]; });
+  }
+};
+}  // namespace
+
+// Reference: no AMR, the mesh is never modified
+TEST_CASE_METHOD(DirichletAMRSetup, "AMR: steady problem with Dirichlet conditions without AMR",
+                 "[AMR][Problems][Dirichlet]") {
+  SteadyOPE c_oper(spatials_c, {"Fick"});
+  c_oper.overload_nl_solver(NLSolverType::NEWTON, newton);
+  SteadyPB c_problem("c", c_oper, c_vars, {c_coefs});
+
+  auto coupling_ac = Coupling("AC", ac_problem);
+  auto coupling_c = Coupling("c", c_problem);
+  auto time = TimeDiscretization(time_params, coupling_ac, coupling_c);
+  time.solve();
+
+  REQUIRE(global_ne() == 64);
+  CHECK(dirichlet_error() < 1.e-10);
+  CHECK(steady_error() < 1.e-8);
+}
+
+// Steady problem of a later coupling: its operator is built on the coarse mesh, and
+// initialized after the pre-refinement (sizes and Dirichlet dofs of the refined mesh)
+TEST_CASE_METHOD(DirichletAMRSetup, "AMR: steady problem of a later coupling",
+                 "[AMR][Problems][Dirichlet]") {
+  ac_problem.set_amr(&amr);
+  SteadyOPE c_oper(spatials_c, {"Fick"});
+  c_oper.overload_nl_solver(NLSolverType::NEWTON, newton);
+  SteadyPB c_problem("c", c_oper, c_vars, {c_coefs});
+
+  auto coupling_ac = Coupling("AC", ac_problem);
+  auto coupling_c = Coupling("c", c_problem);
+  auto time = TimeDiscretization(time_params, coupling_ac, coupling_c);
+  time.solve();
+
+  REQUIRE(global_ne() > 64);
+  CHECK(dirichlet_error() < 1.e-10);
+  CHECK(steady_error() < 1.e-8);
+}
+
+// Steady problem of the same coupling: initialized before the pre-refinement, which resets
+// its unknown to the initial condition (Dirichlet values to be imposed again)
+TEST_CASE_METHOD(DirichletAMRSetup, "AMR: steady problem of the same coupling",
+                 "[AMR][Problems][Dirichlet]") {
+  ac_problem.set_amr(&amr);
+  SteadyOPE c_oper(spatials_c, {"Fick"});
+  c_oper.overload_nl_solver(NLSolverType::NEWTON, newton);
+  SteadyPB c_problem("c", c_oper, c_vars, {c_coefs});
+
+  auto coupling = Coupling("AC and c", ac_problem, c_problem);
+  auto time = TimeDiscretization(time_params, coupling);
+  time.solve();
+
+  REQUIRE(global_ne() > 64);
+  CHECK(dirichlet_error() < 1.e-10);
+  CHECK(steady_error() < 1.e-8);
+}
+
+// Transient problem of a later coupling: same situation as the steady one (one time step,
+// the profile is not steady yet: only the Dirichlet values are checked)
+TEST_CASE_METHOD(DirichletAMRSetup, "AMR: transient problem of a later coupling",
+                 "[AMR][Problems][Dirichlet]") {
+  ac_problem.set_amr(&amr);
+  TransientOPE c_oper(spatials_c, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
+  c_oper.overload_nl_solver(NLSolverType::NEWTON, newton);
+  TransientPB c_problem("c", c_oper, c_vars, {c_coefs});
+
+  auto coupling_ac = Coupling("AC", ac_problem);
+  auto coupling_c = Coupling("c", c_problem);
+  auto time = TimeDiscretization(time_params, coupling_ac, coupling_c);
+  time.solve();
+
+  REQUIRE(global_ne() > 64);
+  CHECK(dirichlet_error() < 1.e-10);
+}

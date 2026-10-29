@@ -225,6 +225,9 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
   }
   this->block_trueOffsets_.PartialSum();
   this->set_default_solver();
+  // Sizes above are those of the current mesh: a later mesh change (e.g. pre-refinement by the
+  // AMR of another Problem, before initialize()) is detected by mesh_has_changed()
+  this->record_fes_sequence();
 }
 
 /**
@@ -263,6 +266,9 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
   }
   this->block_trueOffsets_.PartialSum();
   this->set_default_solver();
+  // Sizes above are those of the current mesh: a later mesh change (e.g. pre-refinement by the
+  // AMR of another Problem, before initialize()) is detected by mesh_has_changed()
+  this->record_fes_sequence();
 }
 
 /**
@@ -288,6 +294,9 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
     auto u = vv.get_unknown();
 
     this->bcs_.emplace_back(vv.get_boundary_conditions());
+    // The mesh may have changed since the boundary conditions were built (e.g. pre-refinement
+    // by the AMR of a Problem initialized before this one): essential dofs on the current mesh
+    this->bcs_[iv]->UpdateEssentialDofs();
     this->ess_tdof_list_.emplace_back(this->bcs_[iv]->GetEssentialDofs());
 
     // Get the unknown vectors of the auxiliary variables
@@ -302,7 +311,6 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
     u_vect.emplace_back(u);
   }
   this->SetTransientParameters(dt, u_vect);
-  this->record_fes_sequence();
 }
 
 /**
