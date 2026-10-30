@@ -13,3 +13,11 @@ set_tests_properties(CheckAllenCahn2DPeriodictest3_bdf2TimeConvergence PROPERTIE
 create_col_comparison("CompareAllenCahn2DPeriodictest3_bdf2TimeConvergence" "convergence_output_ref.csv"
                       "time_convergence_output.csv" -1 relativeEpsilon 1e-6 FALSE
                       "CheckAllenCahn2DPeriodictest3_bdf2TimeConvergence" "2D AC")
+
+# Too expensive for the GitHub Actions Linux runners: disabled there only
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ENV{GITHUB_ACTIONS})
+  set_tests_properties(AllenCahn2DPeriodictest3_bdf2
+                       CheckAllenCahn2DPeriodictest3_bdf2TimeConvergence
+                       CompareAllenCahn2DPeriodictest3_bdf2TimeConvergence
+                       PROPERTIES DISABLED TRUE)
+endif()
