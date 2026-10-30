@@ -82,6 +82,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
 
   const Parameters& all_params = this->params_ - this->default_p_;
   auto rhs_nlfi = this->get_rhs_integrator(dt, nlfi, vun, vauxn, all_params);
+  rhs_nlfi->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
   rhs_nlfi->init();
   return rhs_nlfi;
 }
@@ -123,6 +124,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr
 
   const Parameters& all_params = this->params_ - this->default_p_;
   auto bdr_nlfi = this->get_bdr_integrator(dt, nlfi, vun, vauxn, all_params, block, bdr_id);
+  bdr_nlfi->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
   bdr_nlfi->init();
   return bdr_nlfi;
 }

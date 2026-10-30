@@ -158,11 +158,17 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
       this->is_explicit_ = false;
       break;
     }
+    case TimeScheme::BDF2: {
+      // variable-step second-order backward differentiation formula (first step: implicit Euler)
+      this->bdf2_solver_ = std::make_shared<SlothBDF2Solver<T, DIM>>();
+      this->ode_solver_ = this->bdf2_solver_;
+      this->is_explicit_ = false;
+      break;
+    }
     default:
       mfem::mfem_error(
           "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4, SDIRK23, "
-          "SDIRK33 are "
-          "available");
+          "SDIRK33, BDF2 are available");
       break;
   }
 }
@@ -183,8 +189,13 @@ void TransientOperator<T, DIM>::initialize(const double& initial_time, const dou
 
   this->SetTime(initial_time);
 
+  this->vars_ = &vars;
+
   OperatorBase<T, DIM>::initialize(initial_time, time_step, vars, auxvars);
 
+  if (this->bdf2_solver_ != nullptr) {
+    this->bdf2_solver_->set_variables(vars, auxvars);
+  }
   this->ode_solver_->Init(*this);
 
   // Get coefficients for time-derivative in case of explicit solvers
@@ -233,10 +244,15 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
     mfem::Vector& bb = block_unk.GetBlock(static_cast<int>(i));
     bb = unk_i;
   }
+  //// Other schemes: lagged auxiliary variables of a partitioned coupling reported once (BDF2
+  //// extrapolates them, see SlothBDF2Solver)
+  this->report_lagged_auxiliary_variables();
+
   //// Call ODE solver
   this->current_time_ = current_time;
   this->current_dt_ = current_time_step;
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
+
   // The last stage of a Runge-Kutta scheme is not necessarily at the end of the step (e.g.
   // SDIRK23): coefficients at the end of the step for the post-processing
   this->SetTime(next_time);
@@ -267,10 +283,45 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Release the mass solvers, then the mass matrices they refer to
+ * @brief Partitioned coupling, schemes other than BDF2: report once the lagged auxiliary variables
+ *
+ * @details An auxiliary variable belonging to a problem not yet solved in the current step is
+ *          seen at t^n (lag O(dt), first order) and its previous value is that of the previous
+ *          step. BDF2 extrapolates these variables instead (SlothBDF2Solver).
  *
  * @tparam T
  * @tparam DIM
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::report_lagged_auxiliary_variables() {
+  if (this->bdf2_solver_ != nullptr || this->lagged_aux_info_printed_ || this->vars_ == nullptr) {
+    return;
+  }
+  if (this->vars_->get_variables_number() == 0 ||
+      (*this->vars_)[0].get_number_of_updates() == 0) {
+    return;  // first step: fixed fields cannot be distinguished
+  }
+  this->lagged_aux_info_printed_ = true;
+  if (mfem::Mpi::WorldRank() != 0) return;
+  for (auto* auxvar_vec : this->auxvariables_) {
+    if (auxvar_vec == nullptr) continue;
+    for (size_t i = 0; i < auxvar_vec->get_variables_number(); i++) {
+      auto& auxvar = (*auxvar_vec)[i];
+      if (is_lagged_auxiliary_variable(auxvar, *this->vars_)) {
+        SlothInfo::verbose(" TransientOperator: auxiliary variable '", auxvar.getVariableName(),
+                           "' not yet advanced in the step (partitioned coupling): seen at the "
+                           "beginning of the step (lag O(dt)), its previous value is that of the "
+                           "previous step");
+      }
+    }
+  }
+}
+
+/**
+ * @brief Release the mass solvers, then the mass matrices they refer to
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::free_mass_matrices() {
@@ -287,8 +338,8 @@ void TransientOperator<T, DIM>::free_mass_matrices() {
 /**
  * @brief build the mass matrix (one lumped mass matrix and one solver per block)
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
@@ -348,8 +399,8 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
 /**
  * @brief Build the nonlinear form associated with LHS of the PDEs
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt
  * @param u
  */
@@ -367,8 +418,8 @@ void TransientOperator<T, DIM>::build_lhs_nonlinear_form(const double dt,
 /**
  * @brief  Set the LHS NonLinearFormIntegrator
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt
  * @param u_vect
  */
@@ -396,6 +447,7 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
   const Parameters& all_params = this->params_ - this->default_p_;
 
   auto lhs = this->get_lhs_integrator(dt, this->lhs_integrator_, vun, vauxn, all_params);
+  lhs->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
   lhs->init();
   return lhs;
 }
@@ -403,6 +455,8 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
 /**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
  *solution_coef
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt time-step
  * @param u unknown vector
  */

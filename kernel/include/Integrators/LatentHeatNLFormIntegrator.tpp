@@ -267,7 +267,13 @@ double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(
   const double phi = local_auxvalues[this->phase_field_index_];
   const double phin = local_auxvalues_n[this->phase_field_index_];
 
-  double square_time_derivative = (phi - phin) / this->time_step_;
+  // phi, phin: current and previous values of the auxiliary phase field. If the phase-field
+  // problem is solved before this one in the coupling: phi^{n+1}, phi^n (derivative over the
+  // current step). Otherwise phi^n, phi^{n-1} (derivative of the previous step), or with BDF2 the
+  // extrapolated value and phi^n (same quotient as the previous step). First order in all cases.
+  // Physical time step: differs from time_step_ for SDIRK stages and BDF2.
+  double square_time_derivative = (phi - phin) / this->get_physical_time_step();
+
   square_time_derivative *= square_time_derivative;
   const double epsilon = 1.e-10;
   const double latent_heat = -square_time_derivative / std::max(epsilon, mobility_value);
@@ -292,7 +298,8 @@ template <class VARS>
 double LatentHeatNLFormIntegrator<VARS>::get_mob_at_ip(
     [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
     [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
+  const double mobi =
+      this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
 
   return mobi;
 }
