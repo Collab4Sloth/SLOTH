@@ -5,13 +5,19 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+
+# A new push on the same branch / PR cancels the run still in progress
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-linux:
     runs-on: ${{ matrix.os }}
-      
+
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-26.04]
         # os: [ubuntu-22.04, ubuntu-24.04]
         # gcc_version: [11, 14]
         # exclude:
@@ -68,7 +74,7 @@ jobs:
 
         mkdir -p ${{ github.workspace }}/SLOTH/build
         cd ${{ github.workspace }}/SLOTH/build
-        bash ../envSloth.sh --coverage --np=$CORES
+        bash ../envSloth.sh --np=$CORES
         make -j $CORES tests
         
 
@@ -88,25 +94,6 @@ jobs:
         cd ${{ github.workspace }}/SLOTH/build
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -LE Unit -j $CORES --output-on-failure
-
-    # Coverage of the kernel by all the tests (unit and calculation tests); the
-    # number of uncovered functions per module is written in the job summary
-    - name: Code Coverage Analysis
-      if: ${{ always() }}
-      shell: spack-bash {0}
-      run: |
-        spack env activate ${{ github.workspace }}/SLOTH
-        export PATH="$pythonLocation/bin:$PATH"
-        cd ${{ github.workspace }}/SLOTH/build
-        make cc
-
-    - name: Save Code Coverage Analysis
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: code-coverage-report
-        path: ${{ github.workspace }}/SLOTH/build/Coverage
-        retention-days: 7
 
     - name: Install SLOTH and build the minimal example (user procedure)
       shell: spack-bash {0}
@@ -174,14 +161,34 @@ jobs:
       run: | 
         mkdir -p ${{ github.workspace }}/build
         cd ${{ github.workspace }}/build
-        bash ../envSloth.sh --voro=$(brew --prefix voro++)
+        bash ../envSloth.sh --coverage --voro=$(brew --prefix voro++)
         make -j $CORES tests
 
-    - name: Test SLOTH 
-      run: | 
+    - name: Test SLOTH
+      run: |
         cd ${{ github.workspace }}/build
         find . -type d -name "Save*" -exec rm -rf {} +
         ctest -j $CORES --output-on-failure
+
+    # Coverage of the kernel by all the tests (unit and calculation tests); the
+    # number of uncovered functions per module is written in the job summary.
+    # Apple Clang writes LLVM .gcda files: gcovr must read them with llvm-cov
+    # (GCOV environment variable = default value of --gcov-executable)
+    - name: Code Coverage Analysis
+      if: ${{ always() }}
+      env:
+        GCOV: xcrun llvm-cov gcov
+      run: |
+        cd ${{ github.workspace }}/build
+        make cc
+
+    - name: Save Code Coverage Analysis
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage-report
+        path: ${{ github.workspace }}/build/Coverage
+        retention-days: 7
 
     - name: Install SLOTH and build the minimal example (user procedure)
       run: |
