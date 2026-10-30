@@ -111,6 +111,11 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                         const mfem::DenseMatrix& gradPsi, mfem::Vector& grad);
   Geometry geometry_ = Geometry::Cartesian;
   double time_step_;
+  /// Physical time step of the current step. time_step_ is the time step given to
+  /// ImplicitSolve (u = u_old + time_step_ k): it differs from the physical time step for
+  /// SDIRK stages (gamma dt) and BDF2 (beta dt). Equal to time_step_ if not set.
+  double physical_time_step_{-1.};
+
   std::string integrator_name_ = "";
 
   // Current integration point (used by file-based coefficients)
@@ -178,6 +183,10 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::span<const double> values_at_end_of_step(const std::span<const double>& values);
 
  public:
+  /// Physical time step of the current step (see physical_time_step_)
+  void set_physical_time_step(const double dt);
+  double get_physical_time_step() const;
+
   virtual std::vector<std::pair<int, int>> time_derivative_map() const { return {}; }
   virtual void init() = 0;
   SlothNLFormIntegrator(Geometry geometry, const double time_step,
