@@ -24,11 +24,11 @@
  *
  */
 #pragma once
-#include <algorithm>
 #include <any>
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
@@ -57,6 +57,17 @@ class Variable {
   int depth_ = 2;
   mfem::Vector unk_;
   mfem::ParGridFunction uh_;
+
+  // Number of time steps the variable has been advanced (ProblemBase::update), used to know if it
+  // has already been advanced in the current step when it is seen as an auxiliary variable by
+  // another problem of a partitioned coupling
+  int nb_updates_{0};
+  // Saved state while an extrapolated state is set (set_extrapolated_state / restore_state)
+  bool is_extrapolated_{false};
+  std::map<int, mfem::Vector> saved_map_of_unk_;
+  mfem::Vector saved_unk_;
+  // Physical bounds applied to the extrapolated state only (set_extrapolation_bounds)
+  std::optional<std::pair<double, double>> extrapolation_bounds_;
 
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
 
@@ -197,6 +208,15 @@ class Variable {
   std::vector<std::string> get_additional_variable_info() const;
   // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
   void update(const mfem::Vector& unk);
+
+  int get_number_of_updates() const;
+  void count_time_update();
+  void set_extrapolated_state(const mfem::Vector& u_tilde);
+  void restore_state();
+  bool is_extrapolated() const;
+  void set_extrapolation_bounds(const double lower, const double upper);
+  const std::optional<std::pair<double, double>>& get_extrapolation_bounds() const;
+
   mfem::Vector get_unknown() const;
   mfem::Vector& get_ref_unknown();
   std::map<int, mfem::Vector> get_map_unknown();
