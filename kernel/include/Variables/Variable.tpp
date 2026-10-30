@@ -30,8 +30,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <mfem/fem/gridfunc.hpp>
-#include <mfem/general/error.hpp>
 #include <set>
 #include <sstream>
 #include <string>
@@ -940,12 +938,140 @@ void Variable<T, DIM>::restore_state(const State& state) {
  */
 template <class T, int DIM>
 void Variable<T, DIM>::update(const mfem::Vector& unk) {
+  MFEM_VERIFY(!this->is_extrapolated_,
+              "Variable::update: " << this->variable_name_
+                                   << " is in an extrapolated state (restore_state expected).");
   this->saveBeforeUpdate();
   this->unk_ = unk;
   this->uh_.SetFromTrueDofs(this->unk_);
 
   auto current_solution = std::prev(this->map_of_unk_.end());
   current_solution->second = this->unk_;
+}
+
+/**
+ * @brief Temporarily set an extrapolated state at the end of the current step.
+ *
+ * @details The current value becomes u~ and the history is shifted as for a time update
+ *          (second-to-last = current value), so that an integrator reading {last,
+ *          second-to-last} sees {u~, u^n}. The previous state is saved and must be
+ *          restored by restore_state() before any time update, mesh change or
+ *          post-processing.
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param u_tilde Extrapolated state (true dofs)
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::set_extrapolated_state(const mfem::Vector& u_tilde) {
+  MFEM_VERIFY(!this->is_extrapolated_,
+              "Variable::set_extrapolated_state: " << this->variable_name_
+                                                   << " is already in an extrapolated state.");
+  MFEM_VERIFY(u_tilde.Size() == this->unk_.Size(),
+              "Variable::set_extrapolated_state: wrong size for " << this->variable_name_);
+  this->saved_map_of_unk_ = this->map_of_unk_;
+  this->saved_unk_ = this->unk_;
+  this->is_extrapolated_ = true;
+
+  this->saveBeforeUpdate();
+  this->unk_ = u_tilde;
+  // Truncation in the physical bounds (projection: never increases the extrapolation error)
+  if (this->extrapolation_bounds_.has_value()) {
+    const auto [lower, upper] = *this->extrapolation_bounds_;
+    for (int i = 0; i < this->unk_.Size(); i++) {
+      this->unk_(i) = std::min(std::max(this->unk_(i), lower), upper);
+    }
+  }
+  this->uh_.SetFromTrueDofs(this->unk_);
+  std::prev(this->map_of_unk_.end())->second = this->unk_;
+}
+
+/**
+ * @brief Physical bounds applied only to the extrapolated state
+ *        (see set_extrapolated_state)
+ * @details   Physical bounds [lower, upper] of the variable, applied ONLY to its extrapolated state
+ * (BDF2, lagged auxiliary variable of a partitioned coupling): the extrapolation is truncated  node
+ * by node in [lower, upper]. Since the exact solution lies in [lower, upper], the truncation never
+ * increases the extrapolation error (order 2 kept). The variable itself (u^{n+1}, outputs) is never
+ * truncated.
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param lower lower bound
+ * @param upper upper bound
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::set_extrapolation_bounds(const double lower, const double upper) {
+  MFEM_VERIFY(lower < upper,
+              "Variable::set_extrapolation_bounds: lower bound must be lower than "
+              "the upper bound for "
+                  << this->variable_name_);
+  this->extrapolation_bounds_ = std::make_pair(lower, upper);
+}
+
+/**
+ * @brief Restore the state saved by set_extrapolated_state (no effect otherwise)
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::restore_state() {
+  if (!this->is_extrapolated_) return;
+  this->map_of_unk_ = this->saved_map_of_unk_;
+  this->unk_ = this->saved_unk_;
+  this->uh_.SetFromTrueDofs(this->unk_);
+  this->saved_map_of_unk_.clear();
+  this->saved_unk_.Destroy();
+  this->is_extrapolated_ = false;
+}
+
+/**
+ * @brief Return the number of time steps the variable has been advanced (counted by
+ * ProblemBase::update, not by the initialization nor by a mesh change)
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @return int
+ */
+template <class T, int DIM>
+int Variable<T, DIM>::get_number_of_updates() const {
+  return this->nb_updates_;
+}
+
+/**
+ * @brief Count one time update of the variable (called by ProblemBase::update)
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::count_time_update() {
+  ++this->nb_updates_;
+}
+
+/**
+ * @brief Check if variable is extrapolated
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @return true
+ * @return false
+ */
+template <class T, int DIM>
+bool Variable<T, DIM>::is_extrapolated() const {
+  return this->is_extrapolated_;
+}
+
+/**
+ * @brief Get the extrapolation bounds object
+ *
+ * @tparam T
+ * @tparam DIM
+ * @return const Variable<T, DIM>::std::optional<std::pair<double, double>>&
+ */
+template <class T, int DIM>
+const std::optional<std::pair<double, double>>& Variable<T, DIM>::get_extrapolation_bounds() const {
+  return this->extrapolation_bounds_;
 }
 
 /**

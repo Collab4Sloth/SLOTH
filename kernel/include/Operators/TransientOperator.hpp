@@ -41,6 +41,7 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
+#include "Solvers/SlothBDF2Solver.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
@@ -56,6 +57,12 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
  private:
   double solve_time_step_{std::numeric_limits<double>::quiet_NaN()};
   std::shared_ptr<mfem::ODESolver> ode_solver_;
+  // BDF2 scheme (nullptr otherwise): history and lagged auxiliary variables handled by the solver
+  std::shared_ptr<SlothBDF2Solver<T, DIM>> bdf2_solver_;
+  // Other schemes: lagged auxiliary variables of a partitioned coupling reported once
+  Variables<T, DIM>* vars_{nullptr};
+  bool lagged_aux_info_printed_{false};
+  void report_lagged_auxiliary_variables();
 
   bool is_explicit_;
   void set_ODE_solver(const TimeScheme::value& ode_solver);

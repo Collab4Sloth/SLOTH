@@ -59,6 +59,6 @@ enum Scheme { Implicit, Explicit, SemiImplicit, Constant, File };
 //////// ODE SOLVER
 ///////////////////////////////////////////////////
 struct TimeScheme {
-  enum value { EulerImplicit, SDIRK23, SDIRK33, EulerExplicit, RungeKutta4 };
+  enum value { EulerImplicit, SDIRK23, SDIRK33, EulerExplicit, RungeKutta4, BDF2 };
   static value from(const std::string&);
 };

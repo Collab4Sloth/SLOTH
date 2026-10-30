@@ -356,6 +356,7 @@ void ProblemBase<VAR, PST>::update() {
   for (std::size_t i = 0; i < this->variables_.get_variables_number(); i++) {
     auto& var = this->variables_[i];
     var.update(this->unknown_[i]);
+    var.count_time_update();
   }
   this->unknown_.clear();
 }

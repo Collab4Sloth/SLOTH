@@ -617,3 +617,24 @@ template <class VARS>
 bool SlothNLFormIntegrator<VARS>::isAxisymmetric() const noexcept {
   return this->geometry_ == Geometry::Axisymmetric;
 }
+
+/**
+ * @brief Set the physical time step of the current step
+ *
+ * @tparam VAR Type representing the problem variables.
+ * @param dt the physical time
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::set_physical_time_step(const double dt) {
+  this->physical_time_step_ = dt;
+}
+
+/**
+ * @brief Return the physical time step of the current step
+ *
+ * @tparam VAR Type representing the problem variables.
+ */
+template <class VARS>
+double SlothNLFormIntegrator<VARS>::get_physical_time_step() const {
+  return this->physical_time_step_ > 0. ? this->physical_time_step_ : this->time_step_;
+}
