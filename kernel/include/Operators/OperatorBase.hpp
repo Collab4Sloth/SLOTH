@@ -29,8 +29,10 @@
 #pragma once
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -138,6 +140,14 @@ class OperatorBase : public mfem::Operator {
 
   inline double get_current_time_step() const { return current_dt_; }
   inline int get_newton_iterations() const { return newton_iterations_; }
+  // Time scheme (adaptive time-stepping). Defaults for an operator without time scheme; hidden
+  // by TransientOperator.
+  // Largest ratio between two successive time-steps allowed by the time scheme
+  inline double get_max_time_step_ratio() const { return std::numeric_limits<double>::infinity(); }
+  // Internal state of the time scheme (beyond the variables), saved at the beginning of a
+  // time-step and restored if the time-step is rejected
+  inline void save_time_scheme_state() {}
+  inline void restore_time_scheme_state() {}
 
   void ComputeError(const int& it, const double& t, const double& dt, const int id_var,
                     const std::string& name, const mfem::Vector& u,

@@ -61,6 +61,8 @@ class Problem : public ProblemBase<VAR, PST> {
 
  protected:
   void set_time_coefficients(double time) override;
+  void save_time_scheme_state() override { this->oper_.save_time_scheme_state(); }
+  void restore_time_scheme_state() override { this->oper_.restore_time_scheme_state(); }
 
  public:
   // With PST
@@ -108,6 +110,9 @@ class Problem : public ProblemBase<VAR, PST> {
   void save_csv(const int iter, const double current_time) override;
 
   int get_nonlinear_iterations() const override { return this->oper_.get_newton_iterations(); }
+  double get_max_time_step_ratio() const override {
+    return this->oper_.get_max_time_step_ratio();
+  }
 
   void finalize() override;
 };

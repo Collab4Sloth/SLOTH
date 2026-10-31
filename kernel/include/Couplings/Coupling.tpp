@@ -27,6 +27,7 @@
  */
 #pragma once
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -349,6 +350,24 @@ int Coupling<Args...>::get_nonlinear_iterations() const {
       },
       problems_);
   return iterations;
+}
+
+/**
+ * @brief Largest ratio between two successive time-steps allowed by the time schemes of the
+ *        problems of this coupling
+ *
+ * @tparam Args Types of the problems stored in the coupling.
+ * @return double infinity if no time scheme limits the ratio
+ */
+template <class... Args>
+double Coupling<Args...>::get_max_time_step_ratio() const {
+  double ratio = std::numeric_limits<double>::infinity();
+  std::apply(
+      [&ratio](const auto&... problem) {
+        ((ratio = std::min(ratio, problem.get_max_time_step_ratio())), ...);
+      },
+      problems_);
+  return ratio;
 }
 
 /**

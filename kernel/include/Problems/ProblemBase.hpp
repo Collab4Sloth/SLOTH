@@ -28,6 +28,7 @@
 
 #pragma once
 #include <functional>
+#include <limits>
 #include <list>
 #include <memory>
 #include <optional>
@@ -72,6 +73,10 @@ class ProblemBase {
   void check_convergence(const std::vector<std::unique_ptr<mfem::Vector>>& unks);
 
  protected:
+  // Internal state of the time scheme (beyond the variables), saved and restored with them
+  virtual void save_time_scheme_state() {}
+  virtual void restore_time_scheme_state() {}
+
   Geometry geometry_ = Geometry::Cartesian;
   std::string name_{"Unnamed problem"};
   std::string name_save_specialized_{"time_specialized.csv"};
@@ -182,6 +187,11 @@ class ProblemBase {
   void restore_state();
   // Largest number of nonlinear iterations over the last time-step (-1 if not available)
   virtual int get_nonlinear_iterations() const { return -1; }
+  // Largest ratio between two successive time-steps allowed by the time scheme (adaptive
+  // time-stepping)
+  virtual double get_max_time_step_ratio() const {
+    return std::numeric_limits<double>::infinity();
+  }
 
   void post_processing(const int& iter, const double& current_time, bool vtk_unified);
   void save_vtk(const int iter, const double& current_time);

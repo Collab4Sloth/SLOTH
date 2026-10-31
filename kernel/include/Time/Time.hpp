@@ -27,6 +27,7 @@
  */
 #pragma once
 
+#include <limits>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -92,12 +93,13 @@ class TimeDiscretization {
   // Adaptive time-stepping (parameter "adaptive_time_step")
   //////////////////////////////////////////////////////////
   // A time-step is rejected if it fails (TimeStepFailure, e.g. Newton not converged): the state
-  // of every coupling is restored and the time-step is retried with a smaller time-step.
-  // After an accepted time-step, the next time-step depends on the largest number of Newton
-  // iterations over all the problems.
+  // of every coupling (variables, internal state of the time schemes) and the time are restored,
+  // and the time-step is retried with a smaller time-step. After an accepted time-step, the next
+  // time-step depends on the largest number of Newton iterations over all the problems; the
+  // ratio between two successive time-steps is limited (time_step_max_ratio, BDF2).
   bool adaptive_{false};
-  double time_step_min_;
-  double time_step_max_;
+  double time_step_min_{0.};
+  double time_step_max_{std::numeric_limits<double>::infinity()};
   // Time-step multiplied by this factor after a rejection
   double cutback_factor_{0.5};
   // Time-step multiplied (divided) by this factor if the number of Newton iterations is lower
@@ -119,6 +121,13 @@ class TimeDiscretization {
   void cut_time_step(const double& dt_new, const std::string& reason);
   void adapt_time_step(const int& rejections);
   int get_nonlinear_iterations() const;
+
+  // Largest ratio between two successive time-steps
+  double max_time_step_ratio_{std::numeric_limits<double>::infinity()};
+  // Time at the beginning of the time-step, restored if the time-step is rejected
+  double saved_time_{0.};
+
+  double get_max_time_step_ratio() const;
 
  public:
   explicit TimeDiscretization(const Parameters& params, Args... couplings);

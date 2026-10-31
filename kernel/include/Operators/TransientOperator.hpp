@@ -59,6 +59,8 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   std::shared_ptr<mfem::ODESolver> ode_solver_;
   // BDF2 scheme (nullptr otherwise): history and lagged auxiliary variables handled by the solver
   std::shared_ptr<SlothBDF2Solver<T, DIM>> bdf2_solver_;
+  // BDF2: previous time step saved at the beginning of a time-step (save_time_scheme_state)
+  mfem::real_t saved_previous_time_step_{0.};
   // Other schemes: lagged auxiliary variables of a partitioned coupling reported once
   Variables<T, DIM>* vars_{nullptr};
   bool lagged_aux_info_printed_{false};
@@ -161,6 +163,11 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   PhaseFieldReducedOperator* reduced_oper;
 
  public:
+  // Time scheme (adaptive time-stepping, see OperatorBase)
+  double get_max_time_step_ratio() const;
+  void save_time_scheme_state();
+  void restore_time_scheme_state();
+
   TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
                     const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
                     const std::string lhs_integrator);

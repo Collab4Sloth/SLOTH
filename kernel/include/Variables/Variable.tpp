@@ -900,7 +900,7 @@ mfem::Vector Variable<T, DIM>::get_last() const {
 }
 
 /**
- * @brief Return a copy of the state of the Variable (current unknown and history)
+ * @brief Return a copy of the state of the Variable (current unknown, history, number of updates)
  *
  * @details The copy refers to the current finite element space: it can be restored only if the
  *          mesh has not changed in between.
@@ -911,11 +911,12 @@ mfem::Vector Variable<T, DIM>::get_last() const {
  */
 template <class T, int DIM>
 typename Variable<T, DIM>::State Variable<T, DIM>::save_state() const {
-  return State{this->unk_, this->map_of_unk_};
+  return State{this->unk_, this->map_of_unk_, this->nb_updates_};
 }
 
 /**
- * @brief Restore a state returned by save_state() (current unknown, grid function and history)
+ * @brief Restore a state returned by save_state() (current unknown, grid function, history and
+ *        number of updates)
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
@@ -928,6 +929,7 @@ void Variable<T, DIM>::restore_state(const State& state) {
   this->unk_ = state.unk;
   this->uh_.SetFromTrueDofs(this->unk_);
   this->map_of_unk_ = state.history;
+  this->nb_updates_ = state.nb_updates;
 }
 
 /**

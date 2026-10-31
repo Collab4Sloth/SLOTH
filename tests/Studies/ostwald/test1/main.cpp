@@ -27,7 +27,7 @@ struct TestParameters {
   // Time
   double control_time_step = 1.e-2;
   double control_initial_time = 0.;
-  double control_final_time = 2.e4;
+  double control_final_time = 1.e-1;  // 2.e4;
   int control_iteration_restart = 0;
 };
 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Verbose);
+  setVerbosity(Verbosity::Quiet);
 
   mfem::Mpi::Init(argc, argv);
   mfem::Hypre::Init();
@@ -360,7 +360,7 @@ int main(int argc, char* argv[]) {
                        "SplitTimeDerivative");
   ch_oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
 
   auto ch_pst = PST(&spatial, ch_p_pst);
@@ -370,10 +370,10 @@ int main(int argc, char* argv[]) {
   TransientOPE ac_oper(ac_spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   ac_oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+      Parameters(Parameter("description", "LBFGS solver "), Parameter("print_level", -1),
                  Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
-  const auto& solver = HypreSolverType::HYPRE_FGMRES;
-  const auto& precond = HyprePreconditionerType::HYPRE_BOOMER_AMG;
+  const auto& solver = HypreSolverType::HYPRE_GMRES;
+  const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   ac_oper.overload_solver(solver);
   ac_oper.overload_preconditioner(precond);
   auto ac_pst = PST(&spatial, ac_p_pst);
@@ -391,16 +391,8 @@ int main(int argc, char* argv[]) {
   const double t_initial = p.control_initial_time;
   const double t_final = p.control_final_time;
   const double dt = p.control_time_step;
-  // auto time_params_ = Parameters(Parameter("initial_time", t_initial),
-  //                                Parameter("final_time", t_final), Parameter("time_step", dt));
-
-  auto time_params_ = Parameters(
-      Parameter("initial_time", t_initial), Parameter("final_time", t_final),
-      Parameter("time_step", dt), Parameter("adaptive_time_step", true),
-      Parameter("time_step_min", 1.e-2), Parameter("time_step_max", 10.),
-      Parameter("time_step_growth_factor", 1.5), Parameter("newton_iterations_low", 4),
-      Parameter("newton_iterations_high", 10), Parameter("max_time_step_rejections", 20));
-
+  auto time_params_ = Parameters(Parameter("initial_time", t_initial),
+                                 Parameter("final_time", t_final), Parameter("time_step", dt));
   auto time_params = time_params_;
   if (p.control_restart) {
     auto restart_parameters =

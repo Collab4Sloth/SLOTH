@@ -27,6 +27,7 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -1212,4 +1213,47 @@ void TransientOperator<T, DIM>::SetTime(const mfem::real_t t) {
   mfem::TimeDependentOperator::SetTime(t);
   this->set_time_coefficients(t);
   this->explicit_time_coefficients_.set_time(t);
+}
+
+/**
+ * @brief Largest ratio dt_n / dt_{n-1} allowed by the time scheme
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return double 1 + sqrt(2) for BDF2 (zero-stability, see BDF2Solver), infinity otherwise
+ */
+template <class T, int DIM>
+double TransientOperator<T, DIM>::get_max_time_step_ratio() const {
+  return (this->bdf2_solver_ != nullptr) ? BDF2Solver::MaxRatio()
+                                         : std::numeric_limits<double>::infinity();
+}
+
+/**
+ * @brief Save the internal state of the time scheme at the beginning of a time-step
+ *
+ * @details BDF2: previous time step dt_{n-1}. The previous state u^{n-1} is taken from the
+ *          history of the variables, saved with them. The other schemes have no internal state.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::save_time_scheme_state() {
+  if (this->bdf2_solver_ != nullptr) {
+    this->saved_previous_time_step_ = this->bdf2_solver_->GetPreviousTimeStep();
+  }
+}
+
+/**
+ * @brief Restore the internal state of the time scheme saved by save_time_scheme_state()
+ *        (rejected time-step)
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::restore_time_scheme_state() {
+  if (this->bdf2_solver_ != nullptr) {
+    this->bdf2_solver_->SetPreviousTimeStep(this->saved_previous_time_step_);
+  }
 }

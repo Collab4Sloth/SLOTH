@@ -33,7 +33,7 @@ Neumann boundary conditions are prescribed on $\Gamma_{left}$ (r=0) and $\Gamma_
 
 ### __Numerical scheme__
 
-- Time marching: Euler Implicit scheme, $t\in[0,50]$
+- Time marching: Euler Implicit scheme, $t\in[0,100]$
 - Adaptive time-stepping (`adaptive_time_step = true`):
 
 | Parameter                  | Value |
@@ -43,7 +43,7 @@ Neumann boundary conditions are prescribed on $\Gamma_{left}$ (r=0) and $\Gamma_
 | `time_step_cutback_factor` | 0.5   |
 | `time_step_growth_factor`  | 1.5   |
 | `newton_iterations_low`    | 2     |
-| `newton_iterations_high`   | 4     |
+| `newton_iterations_high`   | 3     |
 | `max_time_step_rejections` | 30    |
 
 - Newton solver: at most 5 iterations, relative tolerance $10^{-10}$

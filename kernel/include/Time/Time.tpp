@@ -28,6 +28,8 @@
 
 #pragma once
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -119,8 +121,10 @@ void TimeDiscretization<Args...>::get_parameters() {
  *            Newton solvers converge in few (resp. many) iterations;
  *          - newton_iterations_low (default 3), newton_iterations_high (default 8): numbers of
  *            Newton iterations for increasing (resp. decreasing) the time-step;
- *          - max_time_step_rejections (default 10): maximum number of successive rejections of
- *            the same time-step.
+ *          - max_time_step_rejections (default 10): maximum number of successive reductions of
+ *            the time-step (rejections, Newton criterion);
+ *          - time_step_max_ratio: largest ratio between two successive time-steps (default 2
+ *            with BDF2, which requires a ratio lower than 1 + sqrt(2); no limit otherwise);
  *          The initial time-step is time_step.
  *
  * @tparam Args
@@ -156,6 +160,23 @@ void TimeDiscretization<Args...>::get_adaptive_parameters() {
   MFEM_VERIFY(this->newton_iterations_low_ < this->newton_iterations_high_,
               "Error: newton_iterations_low must be lower than newton_iterations_high.");
   MFEM_VERIFY(this->max_rejections_ >= 0, "Error: max_time_step_rejections must be >= 0.");
+  MFEM_VERIFY(this->newton_iterations_low_ >= 1,
+              "Error: newton_iterations_low must be >= 1 (0 Newton iterations means a converged "
+              "initial residual: the time-step would never increase).");
+
+  // Largest ratio between two successive time-steps: limited by the time schemes (BDF2:
+  // zero-stability requires a ratio lower than 1 + sqrt(2), 2 by default)
+  const double scheme_ratio = this->get_max_time_step_ratio();
+  const double default_ratio = std::isfinite(scheme_ratio)
+                                   ? std::min(2., scheme_ratio)
+                                   : std::numeric_limits<double>::infinity();
+  this->max_time_step_ratio_ =
+      p.template get_param_value_or_default<double>("time_step_max_ratio", default_ratio);
+  MFEM_VERIFY(this->max_time_step_ratio_ > 1.,
+              "Error: time_step_max_ratio must be greater than 1.");
+  MFEM_VERIFY(!std::isfinite(scheme_ratio) || this->max_time_step_ratio_ < scheme_ratio,
+              "Error: time_step_max_ratio must be lower than "
+                  << scheme_ratio << " (time scheme of a problem, e.g. BDF2: 1 + sqrt(2)).");
 }
 
 /**
@@ -337,16 +358,25 @@ void TimeDiscretization<Args...>::time_management() {
     this->time_step_ = this->time_step_function_(this->current_time_);
   }
   auto dt_real = this->time_step_;
-  SlothInfo::verbose("    - Real (requested) time step ", dt_real);
   this->last_step_ = false;
-  SlothInfo::verbose("    - Predicted time ", (this->current_time_ + this->time_step_), " ;",
-                     (this->final_time_ - (this->current_time_ + this->time_step_)));
-  if ((this->final_time_ - (this->current_time_ + this->time_step_)) < this->time_step_min_) {
-    // if ((this->current_time_ + this->time_step_) + 0.5 * this->time_step_ > this->final_time_) {
-    this->last_step_ = true;
-    dt_real = this->final_time_ - this->current_time_;
+  const double remaining = this->final_time_ - this->current_time_;
+  // Tolerance on the comparisons: a remaining time equal to 1.5 time_step (resp. time_step) up to
+  // round-off is never absorbed (resp. is taken in one step), whatever the rounding (same decision
+  // on every machine)
+  const double tolerance = 1.e-10 * this->time_step_;
+  if ((this->current_time_ + this->time_step_) + 0.5 * this->time_step_ >
+      this->final_time_ + tolerance) {
+    if (!this->adaptive_ || remaining <= this->time_step_ + tolerance) {
+      // Last time-step: up to 1.5 time_step without adaptive time-stepping (the remaining time
+      // is absorbed), up to the requested time-step otherwise
+      this->last_step_ = true;
+      dt_real = remaining;
+    } else {
+      // Adaptive time-stepping, time_step < remaining < 1.5 time_step: two equal time-steps,
+      // lower than the requested one (no time-step larger than requested, no tiny last one)
+      dt_real = 0.5 * remaining;
+    }
   }
-  SlothInfo::verbose("    - Real (accepted) time step ", dt_real);
   this->current_time_step_ = dt_real;
 }
 
@@ -359,10 +389,12 @@ template <class... Args>
 void TimeDiscretization<Args...>::save_state() {
   Catch_Time_Section("TimeDiscretization::save_state");
   std::apply([](auto&... coupling) { (coupling.save_state(), ...); }, couplings_);
+  this->saved_time_ = this->current_time_;
 }
 
 /**
- * @brief Restore the state of every coupling saved at the beginning of the time-step
+ * @brief Restore the state of every coupling and the time saved at the beginning of the
+ *        time-step
  *
  * @tparam Args
  */
@@ -370,6 +402,7 @@ template <class... Args>
 void TimeDiscretization<Args...>::restore_state() {
   Catch_Time_Section("TimeDiscretization::restore_state");
   std::apply([](auto&... coupling) { (coupling.restore_state(), ...); }, couplings_);
+  this->current_time_ = this->saved_time_;
   this->convergence_.clear();
 }
 
@@ -420,6 +453,23 @@ std::optional<std::string> TimeDiscretization<Args...>::try_time_step(const int&
 }
 
 /**
+ * @brief Largest ratio between two successive time-steps allowed by the time schemes
+ *
+ * @tparam Args
+ * @return double infinity if no time scheme limits the ratio
+ */
+template <class... Args>
+double TimeDiscretization<Args...>::get_max_time_step_ratio() const {
+  double ratio = std::numeric_limits<double>::infinity();
+  std::apply(
+      [&ratio](const auto&... coupling) {
+        ((ratio = std::min(ratio, coupling.get_max_time_step_ratio())), ...);
+      },
+      couplings_);
+  return ratio;
+}
+
+/**
  * @brief Reduce the time-step, whatever the reason (rejected time-step, Newton criterion)
  *
  * @details Stops the computation if the number of successive reductions exceeds
@@ -448,6 +498,7 @@ void TimeDiscretization<Args...>::cut_time_step(const double& dt_new, const std:
 
 /**
  * @brief Reject the time-step: restore the state saved at its beginning and reduce the time-step
+ *        (time_step_cutback_factor)
  *
  * @tparam Args
  * @param reason Reason of the rejection.
@@ -465,6 +516,7 @@ void TimeDiscretization<Args...>::reject_time_step(const std::string& reason) {
  *
  * @details A decrease is a reduction of the time-step (see cut_time_step). No increase right
  *          after a rejection. Without Newton solve (explicit schemes), the time-step is kept.
+ *          The ratio to the accepted time-step is limited by time_step_max_ratio.
  *
  * @tparam Args
  * @param rejections Number of rejections of the accepted time-step.
@@ -472,10 +524,8 @@ void TimeDiscretization<Args...>::reject_time_step(const std::string& reason) {
 template <class... Args>
 void TimeDiscretization<Args...>::adapt_time_step(const int& rejections) {
   const int iterations = this->get_nonlinear_iterations();
-  SlothInfo::verbose("    - Nonlinear iterations : ", iterations);
   if (iterations >= 0 && iterations >= this->newton_iterations_high_) {
     const double dt_new = std::max(this->time_step_ / this->growth_factor_, this->time_step_min_);
-    SlothInfo::verbose("    - Decrease of the time-step from ", this->time_step_, " to ", dt_new);
     this->cut_time_step(dt_new, std::to_string(iterations) + " Newton iterations");
     return;
   }
@@ -484,8 +534,9 @@ void TimeDiscretization<Args...>::adapt_time_step(const int& rejections) {
   double dt = this->time_step_;
   if (iterations >= 0 && iterations <= this->newton_iterations_low_ && rejections == 0) {
     dt *= this->growth_factor_;
-    SlothInfo::verbose("    - Increase of the time-step from ", this->time_step_, " to ", dt);
   }
+  // Ratio between two successive time-steps (zero-stability of BDF2)
+  dt = std::min(dt, this->max_time_step_ratio_ * this->current_time_step_);
   this->time_step_ = std::clamp(dt, this->time_step_min_, this->time_step_max_);
 }
 
@@ -639,7 +690,6 @@ void TimeDiscretization<Args...>::solve() {
     for (auto failure = this->try_time_step(iter); failure.has_value();
          failure = this->try_time_step(iter)) {
       ++rejections;
-      SlothInfo::verbose("    - Rejection at iteration ", iter, " : ", rejections);
       this->reject_time_step(*failure);
     }
     //-------------------
@@ -652,10 +702,12 @@ void TimeDiscretization<Args...>::solve() {
     //------------
     if (this->adaptive_) {
       this->adapt_time_step(rejections);
-      SlothInfo::verbose("    - Adaptive time-step for the next iteration ", this->time_step_);
+      if (mfem::Mpi::WorldRank() == 0) {
+        SlothInfo::debug("     - adaptive time-step: ", rejections, " rejection(s), ",
+                         this->get_nonlinear_iterations(),
+                         " Newton iterations, next time-step requested ", this->time_step_);
+      }
     }
-
-    SlothInfo::verbose("    - Final Rejections at iteration ", iter, " : ", rejections);
 
     //------------
     // Check convergence
@@ -697,6 +749,9 @@ void TimeDiscretization<Args...>::get_tree() {
                          this->growth_factor_, ", Newton iterations [",
                          this->newton_iterations_low_, ", ", this->newton_iterations_high_,
                          "], max rejections ", this->max_rejections_);
+      if (std::isfinite(this->max_time_step_ratio_)) {
+        SlothInfo::verbose("      max ratio between two time-steps ", this->max_time_step_ratio_);
+      }
     } else {
       SlothInfo::verbose("    - Maximum time-step: ", this->time_step_);
     }
