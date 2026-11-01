@@ -25,9 +25,12 @@
  */
 
 #pragma once
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -45,6 +48,7 @@
 #include "Parameters/Parameters.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Spatial/Spatial.hpp"
+#include "Time/TimeStepFailure.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -251,6 +255,9 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   //// Call ODE solver
   this->current_time_ = current_time;
   this->current_dt_ = current_time_step;
+  this->newton_iterations_ = -1;
+  // Throws TimeStepFailure if a nonlinear solve fails (see ImplicitSolve): vect_unk is then left
+  // unchanged
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
 
   // The last stage of a Runge-Kutta scheme is not necessarily at the end of the step (e.g.
@@ -725,7 +732,8 @@ void TransientOperator<T, DIM>::project_algebraic_variables(mfem::BlockVector& u
       ub.GetBlock(c) -= d;
     }
   }
-  MFEM_ABORT("Split system: projection of the algebraic variables did not converge.");
+  // Same decision on every rank (norms reduced over all the ranks)
+  throw TimeStepFailure("Split system: projection of the algebraic variables did not converge.");
 }
 
 /**
@@ -964,15 +972,37 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
+#ifdef MFEM_USE_EXCEPTIONS
+    // A failure inside the Newton solver (e.g. non-finite residual norm, MFEM_VERIFY) is a failure
+    // of the time-step. Without MFEM_USE_EXCEPTIONS, MFEM aborts the computation.
+    try {
+      this->newton_solver_->Mult(zero_rhs, dv_dt);
+    } catch (const mfem::ErrorException& error) {
+      MATools::MATrace::stop("Solve");
+      this->free_memory();
+      throw TimeStepFailure(std::string("Nonlinear solver failed: ") + error.what());
+    }
+#else
     this->newton_solver_->Mult(zero_rhs, dv_dt);
+#endif
     MATools::MATrace::stop("Solve");
   }
 
-  bool converged = this->newton_solver_->GetConverged();
+  // Same values on every rank: the Newton solver is built with MPI_COMM_WORLD (see
+  // SolverNewton::create_solver), so its residual norms are reduced over all the ranks
+  const bool converged = this->newton_solver_->GetConverged();
+  const int iterations = this->newton_solver_->GetNumIterations();
+  const double final_norm = this->newton_solver_->GetFinalNorm();
+  this->newton_iterations_ = std::max(this->newton_iterations_, iterations);
 
   this->free_memory();
 
-  MFEM_VERIFY(converged, "Nonlinear solver did not converge.");
+  if (!converged) {
+    std::ostringstream msg;
+    msg << "Nonlinear solver did not converge (" << iterations << " iterations, final norm "
+        << final_norm << ", implicit stage step " << dt << ").";
+    throw TimeStepFailure(msg.str());
+  }
 }
 
 /**
@@ -1183,4 +1213,47 @@ void TransientOperator<T, DIM>::SetTime(const mfem::real_t t) {
   mfem::TimeDependentOperator::SetTime(t);
   this->set_time_coefficients(t);
   this->explicit_time_coefficients_.set_time(t);
+}
+
+/**
+ * @brief Largest ratio dt_n / dt_{n-1} allowed by the time scheme
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return double 1 + sqrt(2) for BDF2 (zero-stability, see BDF2Solver), infinity otherwise
+ */
+template <class T, int DIM>
+double TransientOperator<T, DIM>::get_max_time_step_ratio() const {
+  return (this->bdf2_solver_ != nullptr) ? BDF2Solver::MaxRatio()
+                                         : std::numeric_limits<double>::infinity();
+}
+
+/**
+ * @brief Save the internal state of the time scheme at the beginning of a time-step
+ *
+ * @details BDF2: previous time step dt_{n-1}. The previous state u^{n-1} is taken from the
+ *          history of the variables, saved with them. The other schemes have no internal state.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::save_time_scheme_state() {
+  if (this->bdf2_solver_ != nullptr) {
+    this->saved_previous_time_step_ = this->bdf2_solver_->GetPreviousTimeStep();
+  }
+}
+
+/**
+ * @brief Restore the internal state of the time scheme saved by save_time_scheme_state()
+ *        (rejected time-step)
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::restore_time_scheme_state() {
+  if (this->bdf2_solver_ != nullptr) {
+    this->bdf2_solver_->SetPreviousTimeStep(this->saved_previous_time_step_);
+  }
 }

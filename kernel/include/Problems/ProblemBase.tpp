@@ -362,6 +362,48 @@ void ProblemBase<VAR, PST>::update() {
 }
 
 /**
+ * @brief Save the state of the Variables of the problem (unknowns and history) and of its time
+ *        scheme at the beginning of a time-step
+ *
+ * @details Only the Variables owned by the problem are saved: the auxiliary variables are saved
+ *          by the problems that own them.
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::save_state() {
+  const auto nvars = this->variables_.get_variables_number();
+  this->saved_state_.clear();
+  this->saved_state_.reserve(nvars);
+  for (std::size_t i = 0; i < nvars; i++) {
+    this->saved_state_.emplace_back(this->variables_[i].save_state());
+  }
+  this->save_time_scheme_state();
+}
+
+/**
+ * @brief Restore the state of the Variables and of the time scheme saved by save_state() and
+ *        discard the results of the rejected time-step (unknowns not yet used for the update,
+ *        convergence information)
+ *
+ * @tparam VAR Type representing the problem Variables.
+ * @tparam PST Type representing the post-processing.
+ */
+template <class VAR, class PST>
+void ProblemBase<VAR, PST>::restore_state() {
+  const auto nvars = this->variables_.get_variables_number();
+  MFEM_VERIFY(this->saved_state_.size() == nvars,
+              "ProblemBase::restore_state: no saved state for the problem " << this->name_);
+  for (std::size_t i = 0; i < nvars; i++) {
+    this->variables_[i].restore_state(this->saved_state_[i]);
+  }
+  this->restore_time_scheme_state();
+  this->unknown_.clear();
+  this->var_convergence_.clear();
+}
+
+/**
  * @brief Execute step
  *
  * @tparam VAR Type representing the problem Variables.

@@ -1,0 +1,15 @@
+[
+    {
+    "expression":"5.0*(x - 0.3) * (x - 0.3) * (0.7 - x) * (0.7 - x)",
+    "variables":"x",
+    "class_name":"DoubleWell",
+    "outputfile":"CahnHilliardCoefficients"
+    },
+    {
+    "expression":"dot(x,x)",
+    "variables":"x",
+    "class_name":"GradEnergy",
+    "outputfile":"CahnHilliardCoefficients",
+    "gradient":true
+    }
+]
