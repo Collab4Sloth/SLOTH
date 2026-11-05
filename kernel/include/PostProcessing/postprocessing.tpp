@@ -163,6 +163,12 @@ void PostProcessing<T, DC, DIM>::get_common_parameters() {
                   this->params_.has_parameter("iterations_list") ||
                   this->params_.has_parameter("times_list"),
               error_msg.c_str());
+  // save_var_old: also save the previous time level of each variable ("<name>_old")
+  if (this->params_.has_parameter("save_var_old")) {
+    this->save_var_old_ = this->params_.template get_param_value<bool>("save_var_old");
+  } else {
+    this->save_var_old_ = false;
+  }
   if (this->params_.has_parameter("frequency")) {
     this->frequency_ = this->params_.template get_param_value<int>("frequency");
   } else {
@@ -215,6 +221,11 @@ void PostProcessing<T, DC, DIM>::save_variables(Variables<T, DIM>& vars, const i
     std::map<std::string, mfem::ParGridFunction*> map_var = vars.get_map_gridfunction();
     for (auto& [name, gf_ptr] : map_var) {
       this->dc_->RegisterField(name, gf_ptr);
+    }
+    if (this->save_var_old_) {
+      for (auto& [name, gf_ptr] : this->get_old_fields(vars)) {
+        this->dc_->RegisterField(name, gf_ptr);
+      }
     }
     this->dc_->Save();
   }
@@ -441,15 +452,11 @@ bool PostProcessing<T, DC, DIM>::need_to_be_saved(const int iteration, const dou
   // Tolerance used to detect time to save
   const double epsilon = 1.e-12;
 
-  bool check_frequency = (iteration % this->frequency_ == 0);
-  bool check_iterations_list =
-      std::ranges::find(this->iterations_list_, iteration) != this->iterations_list_.end();
-  bool check_times_list =
-      std::any_of(this->times_list_.begin(), this->times_list_.end(),
-                  [time, epsilon](double t) { return std::abs(t - time) < epsilon; });
-  bool check = check_frequency;
+  bool check = (iteration % this->frequency_ == 0);
   if (!this->iterations_list_.empty() || !this->times_list_.empty()) {
-    check &= (check_iterations_list || check_times_list);
+    check &= std::ranges::find(this->iterations_list_, iteration) != this->iterations_list_.end() ||
+             std::any_of(this->times_list_.begin(), this->times_list_.end(),
+                         [time, epsilon](double t) { return std::abs(t - time) < epsilon; });
   }
   return check;
 }
@@ -557,6 +564,42 @@ void PostProcessing<T, DC, DIM>::collect_vtk_fields(
     Variables<T, DIM>& vars, std::map<std::string, mfem::ParGridFunction*>& all_fields) {
   auto map_var = vars.get_map_gridfunction();
   all_fields.insert(map_var.begin(), map_var.end());
+  if (this->save_var_old_) {
+    auto map_old = this->get_old_fields(vars);
+    all_fields.insert(map_old.begin(), map_old.end());
+  }
+}
+
+/**
+ * @brief Previous time level of each variable, as grid functions named "<name>_old".
+ *
+ * @details The previous level is the second to last entry of the history of each variable
+ *          (u^{n-1} when u^n is saved). After an AMR pass, the history has already been
+ *          transferred to the current mesh: both levels are saved on the same mesh, which
+ *          allows computing time derivatives (e.g. (phi - phi_old) / dt) in post-processing.
+ *          The grid functions are refreshed at each call and kept in `old_fields_`, so that
+ *          the pointers registered in the DataCollection remain valid.
+ *
+ * @tparam T mfem FECollection
+ * @tparam DC mfem DataCollection
+ * @tparam DIM Spatial dimension
+ * @param vars Variables whose previous time level is extracted.
+ * @return std::map<std::string, mfem::ParGridFunction*> Map from "<name>_old" to its grid
+ *         function.
+ */
+template <class T, class DC, int DIM>
+std::map<std::string, mfem::ParGridFunction*> PostProcessing<T, DC, DIM>::get_old_fields(
+    Variables<T, DIM>& vars) {
+  std::map<std::string, mfem::ParGridFunction*> map_old;
+  for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
+    auto& var = vars[i];
+    const std::string name = var.getVariableName() + "_old";
+    auto& gf = this->old_fields_[name];
+    gf.SetSpace(var.get_fespace());
+    gf.SetFromTrueDofs(var.get_second_to_last());
+    map_old.emplace(name, &gf);
+  }
+  return map_old;
 }
 
 /**
