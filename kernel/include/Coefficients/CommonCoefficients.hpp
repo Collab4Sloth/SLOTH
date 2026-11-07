@@ -33,6 +33,41 @@
 #include <vector>
 
 #include "Coefficients/FunctionCoefficient.hpp"
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+/**
+ * @brief Evaluation of W at one point, on the host or on the device
+ *
+ * Same expressions as W (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct WEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    [[maybe_unused]] const double x = values[0];
+    if (F != nullptr) {
+      *F = prefactor_ * (pow(x, 2) * pow(1 - x, 2));
+    }
+    if (gradient != nullptr) {
+      gradient[0] = prefactor_ * (pow(x, 2) * (2 * x - 2) + 2 * x * pow(1 - x, 2));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ * (2 * pow(x, 2) + 4 * x * (2 * x - 2) + 2 * pow(1 - x, 2));
+    }
+  }
+};
 
 /**
  *
@@ -41,7 +76,7 @@
  */
 class W : public FunctionCoefficient {
  private:
-  double prefactor_;
+  WEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -56,9 +91,46 @@ class W : public FunctionCoefficient {
 
  public:
   bool is_single_variable() const override { return true; }
-  W() : prefactor_(1.0) {}
-  explicit W(const double prefactor) { this->prefactor_ = prefactor; }
+  W() = default;
+  explicit W(const double prefactor) { eval_.prefactor_ = prefactor; }
   virtual ~W() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const WEval& get_eval() const { return eval_; }
+};
+
+/**
+ * @brief Evaluation of Fw at one point, on the host or on the device
+ *
+ * Same expressions as Fw (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct FwEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    [[maybe_unused]] const double x = values[0];
+    if (F != nullptr) {
+      *F = prefactor_ * (((1.0 / 4.0) * pow(x, 2) - 1.0 / 4.0) * (pow(x, 2) - 1));
+    }
+    if (gradient != nullptr) {
+      gradient[0] = prefactor_ * (2 * x * ((1.0 / 4.0) * pow(x, 2) - 1.0 / 4.0) +
+                                  (1.0 / 2.0) * x * (pow(x, 2) - 1));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ * (3 * pow(x, 2) - 1);
+    }
+  }
 };
 
 /**
@@ -68,7 +140,7 @@ class W : public FunctionCoefficient {
  */
 class Fw : public FunctionCoefficient {
  private:
-  double prefactor_;
+  FwEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -83,10 +155,48 @@ class Fw : public FunctionCoefficient {
 
  public:
   bool is_single_variable() const override { return true; }
-  Fw() : prefactor_(1.0) {}
-  explicit Fw(const double prefactor) : prefactor_(prefactor) {}
+  Fw() = default;
+  explicit Fw(const double prefactor) { eval_.prefactor_ = prefactor; }
 
   virtual ~Fw() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const FwEval& get_eval() const { return eval_; }
+};
+
+/**
+ * @brief Evaluation of H at one point, on the host or on the device
+ *
+ * Same expressions as H (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct HEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    [[maybe_unused]] const double x = values[0];
+    if (F != nullptr) {
+      *F = prefactor_ * (pow(x, 3) * (6 * pow(x, 2) - 15 * x + 10));
+    }
+    if (gradient != nullptr) {
+      gradient[0] =
+          prefactor_ * (pow(x, 3) * (12 * x - 15) + 3 * pow(x, 2) * (6 * pow(x, 2) - 15 * x + 10));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ * (12 * pow(x, 3) + 6 * pow(x, 2) * (12 * x - 15) +
+                                 6 * x * (6 * pow(x, 2) - 15 * x + 10));
+    }
+  }
 };
 
 /**
@@ -96,7 +206,7 @@ class Fw : public FunctionCoefficient {
  */
 class H : public FunctionCoefficient {
  private:
-  double prefactor_;
+  HEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -111,10 +221,51 @@ class H : public FunctionCoefficient {
 
  public:
   bool is_single_variable() const override { return true; }
-  H() : prefactor_(1.0) {}
-  explicit H(const double prefactor) : prefactor_(prefactor) {}
+  H() = default;
+  explicit H(const double prefactor) { eval_.prefactor_ = prefactor; }
 
   virtual ~H() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const HEval& get_eval() const { return eval_; }
+};
+
+/**
+ * @brief Evaluation of Log at one point, on the host or on the device
+ *
+ * Same expressions as Log (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ *
+ * Bounded variables (F, gradient and Hessian evaluated at the clamped values):
+ *   x in [eps, (1.0 - eps)]
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct LogEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+  double eps = 1.e-10;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    // Bounded variables: clamped to their bounds
+    [[maybe_unused]] const double x = fmin((1.0 - eps), fmax(eps, values[0]));
+    if (F != nullptr) {
+      *F = prefactor_ * (x * log(x) + (1 - x) * log(1 - x));
+    }
+    if (gradient != nullptr) {
+      gradient[0] = prefactor_ * (log(x) - log(1 - x));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ * (1.0 / (1 - x) + 1.0 / x);
+    }
+  }
 };
 
 /**
@@ -124,7 +275,7 @@ class H : public FunctionCoefficient {
  */
 class Log : public FunctionCoefficient {
  private:
-  double prefactor_;
+  LogEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -139,10 +290,12 @@ class Log : public FunctionCoefficient {
 
  public:
   bool is_single_variable() const override { return true; }
-  Log() : prefactor_(1.0) {}
-  explicit Log(const double prefactor) : prefactor_(prefactor) {}
+  Log() = default;
+  explicit Log(const double prefactor) { eval_.prefactor_ = prefactor; }
 
   virtual ~Log() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const LogEval& get_eval() const { return eval_; }
 };
 
 /**

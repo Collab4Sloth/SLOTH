@@ -13,4 +13,65 @@
 	"class_name":"FunctionB",
 	"outputfile":"OtherFunction"
 	}
+	,
+	{
+	"expression":"a*c*c*(1-c) + R*T*c*Sum(eta[i]*eta[i],(i,1,2))",
+	"variables":"c",
+	"auxiliary_variables":"eta(1..2)",
+	"constants":"(a:4.0),(R:R),(T:T)",
+	"class_name":"FunctionC",
+	"outputfile":"EvalCases"
+	}
+	,
+	{
+	"expression":"x*x*y + 3*x*xe*ye",
+	"variables":"x,y",
+	"explicit_variables":"xe,ye",
+	"class_name":"FunctionD",
+	"outputfile":"EvalCases"
+	}
+	,
+	{
+	"expression":"v*(1 - ((X - 1)/2)**2)*u*u",
+	"variables":"u",
+	"coordinates":"X,Y",
+	"constants":"(v:0.5)",
+	"class_name":"FunctionE",
+	"outputfile":"EvalCases"
+	}
+	,
+	{
+	"expressions":[
+		{"expression":"x*x", "lower":0.0, "upper":1.0},
+		{"expression":"2*x-1", "lower_strict":1.0, "upper":2.0},
+		{"expression":"3", "default":true}
+	],
+	"range_variable":"x",
+	"variables":"x",
+	"class_name":"FunctionF",
+	"outputfile":"EvalCases"
+	}
+	,
+	{
+	"expression":"x*x*y + 2*y*eta1*eta2 + x*eta2",
+	"variables":"x,y",
+	"auxiliary_variables":"eta(1..2)",
+	"constants":"(lo:-1.0),(hi:2.0)",
+	"bounds":{"x":["lo", "hi"], "y":[0.0, null], "eta(1..2)":[null, 1.0]},
+	"class_name":"FunctionG",
+	"outputfile":"EvalCases"
+	}
+	,
+	{
+	"expressions":[
+		{"expression":"x*x", "lower":0.0, "upper":1.0},
+		{"expression":"2*x-1", "lower_strict":1.0, "upper":2.0},
+		{"expression":"100", "default":true}
+	],
+	"range_variable":"x",
+	"variables":"x",
+	"bounds":{"x":[0.0, 2.0]},
+	"class_name":"FunctionH",
+	"outputfile":"EvalCases"
+	}
 ]

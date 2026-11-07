@@ -127,6 +127,13 @@ sloth_add_unit_test(NAME Coefficients
                             Coefficients/test_MfemCoefficients.cpp
                     COEFFICIENTS_JSON Coefficients/CoefficientExample.json)
 
+# eval_at_points with the MFEM "debug" device (memory managed as with a GPU, loops run on the
+# host): own executable, the device is configured once for the whole program
+sloth_add_unit_test(NAME CoefficientsDebugDevice
+                    SOURCES Coefficients/test_EvalDebugDevice.cpp
+                    NPROCS 1
+                    COEFFICIENTS_JSON Coefficients/CoefficientExample.json)
+
 sloth_add_unit_test(NAME Convergence
                     SOURCES Convergence/test_Convergence.cpp
                     NPROCS 1)
