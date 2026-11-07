@@ -24,12 +24,80 @@
 #include <functional>
 #include <numeric>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
-#include "Coefficients/FunctionCoefficient.hpp"
 #include "Options/PhysicalPropertiesOptions.hpp"
 
+#include "Coefficients/FunctionCoefficient.hpp"
+
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
 #pragma once
+
+/**
+ * @brief Evaluation of D at one point, on the host or on the device
+ *
+ * Same expressions as D (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ *
+ * Bounded variables (F, gradient and Hessian evaluated at the clamped values):
+ *   c in [eps, (1.0 - eps)]
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct DEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 9;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+  double dvol = 0.04;
+  double dvap = 0.002;
+  double dsurf = 16.0;
+  double dgb = 1.6;
+  double eps = 1.e-10;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    // Bounded variables: clamped to their bounds
+    [[maybe_unused]] const double c = fmin((1.0 - eps), fmax(eps, values[0]));
+    [[maybe_unused]] const double eta1 = auxiliary_values[0];
+    [[maybe_unused]] const double eta2 = auxiliary_values[1];
+    [[maybe_unused]] const double eta3 = auxiliary_values[2];
+    [[maybe_unused]] const double eta4 = auxiliary_values[3];
+    [[maybe_unused]] const double eta5 = auxiliary_values[4];
+    [[maybe_unused]] const double eta6 = auxiliary_values[5];
+    [[maybe_unused]] const double eta7 = auxiliary_values[6];
+    [[maybe_unused]] const double eta8 = auxiliary_values[7];
+    [[maybe_unused]] const double eta9 = auxiliary_values[8];
+    if (F != nullptr) {
+      *F = prefactor_ *
+           (pow(c, 3) * dvol * (6 * pow(c, 2) - 15 * c + 10) + c * dsurf * (1 - c) +
+            dgb * (-pow(eta1, 2) - pow(eta2, 2) - pow(eta3, 2) - pow(eta4, 2) - pow(eta5, 2) -
+                   pow(eta6, 2) - pow(eta7, 2) - pow(eta8, 2) - pow(eta9, 2) +
+                   pow(eta1 + eta2 + eta3 + eta4 + eta5 + eta6 + eta7 + eta8 + eta9, 2)) +
+            dvap * (-pow(c, 3) * (6 * pow(c, 2) - 15 * c + 10) + 1));
+    }
+    if (gradient != nullptr) {
+      gradient[0] =
+          prefactor_ *
+          (pow(c, 3) * dvol * (12 * c - 15) + 3 * pow(c, 2) * dvol * (6 * pow(c, 2) - 15 * c + 10) -
+           c * dsurf + dsurf * (1 - c) +
+           dvap * (-pow(c, 3) * (12 * c - 15) - 3 * pow(c, 2) * (6 * pow(c, 2) - 15 * c + 10)));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ * (12 * pow(c, 3) * dvol + 6 * pow(c, 2) * dvol * (12 * c - 15) +
+                                 6 * c * dvol * (6 * pow(c, 2) - 15 * c + 10) - 2 * dsurf +
+                                 dvap * (-12 * pow(c, 3) - 6 * pow(c, 2) * (12 * c - 15) -
+                                         6 * c * (6 * pow(c, 2) - 15 * c + 10)));
+    }
+  }
+};
 
 /**
  *
@@ -41,7 +109,7 @@
  */
 class D : public FunctionCoefficient {
  private:
-  double prefactor_;
+  DEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -55,130 +123,317 @@ class D : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  D() : prefactor_(1.0) {}
-  explicit D(const double prefactor) : prefactor_(prefactor) {}
+  D() = default;
+  explicit D(const double prefactor) { eval_.prefactor_ = prefactor; }
   virtual ~D() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const DEval& get_eval() const { return eval_; }
 };
 
 /**
- *
- * @brief C++ function of the expression
- *
- *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
- * std::span<const double>&, const unsigned int dimension)>
+ * @brief Value of D (see DEval)
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const std::span<const double>&, const unsigned int dimension)>
 D::F() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = std::clamp(input_vector[0], 0.0, 1.0);
-    double eta1 = auxiliary_vector[0];
-    double eta2 = auxiliary_vector[1];
-    double eta3 = auxiliary_vector[2];
-    double eta4 = auxiliary_vector[3];
-    double eta5 = auxiliary_vector[4];
-    double eta6 = auxiliary_vector[5];
-    double eta7 = auxiliary_vector[6];
-    double eta8 = auxiliary_vector[7];
-    double eta9 = auxiliary_vector[8];
-    double dvol = 0.04;
-    double dvap = 0.002;
-    double dsurf = 16.0;
-    double dgb = 1.6;
-    double F = std::pow(c, 3) * dvol * (6 * std::pow(c, 2) - 15 * c + 10) + c * dsurf * (1 - c) +
-               dgb * (-std::pow(eta1, 2) - std::pow(eta2, 2) - std::pow(eta3, 2) -
-                      std::pow(eta4, 2) - std::pow(eta5, 2) - std::pow(eta6, 2) -
-                      std::pow(eta7, 2) - std::pow(eta8, 2) - std::pow(eta9, 2) +
-                      std::pow(eta1 + eta2 + eta3 + eta4 + eta5 + eta6 + eta7 + eta8 + eta9, 2)) +
-               dvap * (-std::pow(c, 3) * (6 * std::pow(c, 2) - 15 * c + 10) + 1);
-    return this->prefactor_ * F;
+    double value = 0.0;
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, &value, nullptr, nullptr);
+    return value;
   };
   return func;
 }
 
 /**
- *
- * @brief Gradient
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const unsigned int dimension)>
+ * @brief Gradient of D (see DEval)
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 D::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = auxiliary_vector[0];
-    double eta2 = auxiliary_vector[1];
-    double eta3 = auxiliary_vector[2];
-    double eta4 = auxiliary_vector[3];
-    double eta5 = auxiliary_vector[4];
-    double eta6 = auxiliary_vector[5];
-    double eta7 = auxiliary_vector[6];
-    double eta8 = auxiliary_vector[7];
-    double eta9 = auxiliary_vector[8];
-    double dvol = 0.04;
-    double dvap = 0.002;
-    double dsurf = 16.0;
-    double dgb = 1.6;
     std::vector<double> gradient(1);
-    gradient[0] =
-        this->prefactor_ * (std::pow(c, 3) * dvol * (12 * c - 15) +
-                            3 * std::pow(c, 2) * dvol * (6 * std::pow(c, 2) - 15 * c + 10) -
-                            c * dsurf + dsurf * (1 - c) +
-                            dvap * (-std::pow(c, 3) * (12 * c - 15) -
-                                    3 * std::pow(c, 2) * (6 * std::pow(c, 2) - 15 * c + 10)));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, gradient.data(), nullptr);
     return gradient;
   };
   return func;
 }
 
 /**
- *
- * @brief Hessian
+ * @brief Hessian of D (see DEval)
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 D::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = std::clamp(input_vector[0], 0.0, 1.0);
-    double eta1 = auxiliary_vector[0];
-    double eta2 = auxiliary_vector[1];
-    double eta3 = auxiliary_vector[2];
-    double eta4 = auxiliary_vector[3];
-    double eta5 = auxiliary_vector[4];
-    double eta6 = auxiliary_vector[5];
-    double eta7 = auxiliary_vector[6];
-    double eta8 = auxiliary_vector[7];
-    double eta9 = auxiliary_vector[8];
-    double dvol = 0.04;
-    double dvap = 0.002;
-    double dsurf = 16.0;
-    double dgb = 1.6;
     std::vector<double> hessian(1);
-    hessian[0] =
-        this->prefactor_ * (12 * std::pow(c, 3) * dvol + 6 * std::pow(c, 2) * dvol * (12 * c - 15) +
-                            6 * c * dvol * (6 * std::pow(c, 2) - 15 * c + 10) - 2 * dsurf +
-                            dvap * (-12 * std::pow(c, 3) - 6 * std::pow(c, 2) * (12 * c - 15) -
-                                    6 * c * (6 * std::pow(c, 2) - 15 * c + 10)));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, nullptr, hessian.data());
     return hessian;
   };
   return func;
 }
+/**
+ * @brief Evaluation of Gimp at one point, on the host or on the device
+ *
+ * Same expressions as Gimp (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct GimpEval {
+  static constexpr int nb_variables = 10;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+  double A = 16.0;
+  double B = 1.0;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    [[maybe_unused]] const double c = values[0];
+    [[maybe_unused]] const double eta1 = values[1];
+    [[maybe_unused]] const double eta2 = values[2];
+    [[maybe_unused]] const double eta3 = values[3];
+    [[maybe_unused]] const double eta4 = values[4];
+    [[maybe_unused]] const double eta5 = values[5];
+    [[maybe_unused]] const double eta6 = values[6];
+    [[maybe_unused]] const double eta7 = values[7];
+    [[maybe_unused]] const double eta8 = values[8];
+    [[maybe_unused]] const double eta9 = values[9];
+    if (F != nullptr) {
+      *F = prefactor_ *
+           (A * pow(c, 2) * pow(1 - c, 2) +
+            B * (pow(c, 2) +
+                 (6 - 6 * c) *
+                     (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                      pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2)) -
+                 (8 - 4 * c) *
+                     (pow(eta1, 3) + pow(eta2, 3) + pow(eta3, 3) + pow(eta4, 3) + pow(eta5, 3) +
+                      pow(eta6, 3) + pow(eta7, 3) + pow(eta8, 3) + pow(eta9, 3)) +
+                 3 * pow(pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                             pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2),
+                         2)));
+    }
+    if (gradient != nullptr) {
+      gradient[0] =
+          prefactor_ *
+          (A * pow(c, 2) * (2 * c - 2) + 2 * A * c * pow(1 - c, 2) +
+           B * (2 * c + 4 * pow(eta1, 3) - 6 * pow(eta1, 2) + 4 * pow(eta2, 3) - 6 * pow(eta2, 2) +
+                4 * pow(eta3, 3) - 6 * pow(eta3, 2) + 4 * pow(eta4, 3) - 6 * pow(eta4, 2) +
+                4 * pow(eta5, 3) - 6 * pow(eta5, 2) + 4 * pow(eta6, 3) - 6 * pow(eta6, 2) +
+                4 * pow(eta7, 3) - 6 * pow(eta7, 2) + 4 * pow(eta8, 3) - 6 * pow(eta8, 2) +
+                4 * pow(eta9, 3) - 6 * pow(eta9, 2)));
+      gradient[1] =
+          prefactor_ *
+          (B * (-3 * pow(eta1, 2) * (8 - 4 * c) + 2 * eta1 * (6 - 6 * c) +
+                12 * eta1 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[2] =
+          prefactor_ *
+          (B * (-3 * pow(eta2, 2) * (8 - 4 * c) + 2 * eta2 * (6 - 6 * c) +
+                12 * eta2 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[3] =
+          prefactor_ *
+          (B * (-3 * pow(eta3, 2) * (8 - 4 * c) + 2 * eta3 * (6 - 6 * c) +
+                12 * eta3 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[4] =
+          prefactor_ *
+          (B * (-3 * pow(eta4, 2) * (8 - 4 * c) + 2 * eta4 * (6 - 6 * c) +
+                12 * eta4 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[5] =
+          prefactor_ *
+          (B * (-3 * pow(eta5, 2) * (8 - 4 * c) + 2 * eta5 * (6 - 6 * c) +
+                12 * eta5 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[6] =
+          prefactor_ *
+          (B * (-3 * pow(eta6, 2) * (8 - 4 * c) + 2 * eta6 * (6 - 6 * c) +
+                12 * eta6 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[7] =
+          prefactor_ *
+          (B * (-3 * pow(eta7, 2) * (8 - 4 * c) + 2 * eta7 * (6 - 6 * c) +
+                12 * eta7 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[8] =
+          prefactor_ *
+          (B * (-3 * pow(eta8, 2) * (8 - 4 * c) + 2 * eta8 * (6 - 6 * c) +
+                12 * eta8 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[9] =
+          prefactor_ *
+          (B * (-3 * pow(eta9, 2) * (8 - 4 * c) + 2 * eta9 * (6 - 6 * c) +
+                12 * eta9 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ *
+                   (2 * A * pow(c, 2) + 4 * A * c * (2 * c - 2) + 2 * A * pow(1 - c, 2) + 2 * B);
+      hessian[1] = prefactor_ * (B * (12 * pow(eta1, 2) - 12 * eta1));
+      hessian[2] = prefactor_ * (B * (12 * pow(eta2, 2) - 12 * eta2));
+      hessian[3] = prefactor_ * (B * (12 * pow(eta3, 2) - 12 * eta3));
+      hessian[4] = prefactor_ * (B * (12 * pow(eta4, 2) - 12 * eta4));
+      hessian[5] = prefactor_ * (B * (12 * pow(eta5, 2) - 12 * eta5));
+      hessian[6] = prefactor_ * (B * (12 * pow(eta6, 2) - 12 * eta6));
+      hessian[7] = prefactor_ * (B * (12 * pow(eta7, 2) - 12 * eta7));
+      hessian[8] = prefactor_ * (B * (12 * pow(eta8, 2) - 12 * eta8));
+      hessian[9] = prefactor_ * (B * (12 * pow(eta9, 2) - 12 * eta9));
+      hessian[10] = hessian[1];
+      hessian[11] = prefactor_ * (B * (-12 * c + 36 * pow(eta1, 2) - 6 * eta1 * (8 - 4 * c) +
+                                       12 * pow(eta2, 2) + 12 * pow(eta3, 2) + 12 * pow(eta4, 2) +
+                                       12 * pow(eta5, 2) + 12 * pow(eta6, 2) + 12 * pow(eta7, 2) +
+                                       12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[12] = prefactor_ * (24 * B * eta1 * eta2);
+      hessian[13] = prefactor_ * (24 * B * eta1 * eta3);
+      hessian[14] = prefactor_ * (24 * B * eta1 * eta4);
+      hessian[15] = prefactor_ * (24 * B * eta1 * eta5);
+      hessian[16] = prefactor_ * (24 * B * eta1 * eta6);
+      hessian[17] = prefactor_ * (24 * B * eta1 * eta7);
+      hessian[18] = prefactor_ * (24 * B * eta1 * eta8);
+      hessian[19] = prefactor_ * (24 * B * eta1 * eta9);
+      hessian[20] = hessian[2];
+      hessian[21] = hessian[12];
+      hessian[22] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 36 * pow(eta2, 2) - 6 * eta2 * (8 - 4 * c) +
+                12 * pow(eta3, 2) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[23] = prefactor_ * (24 * B * eta2 * eta3);
+      hessian[24] = prefactor_ * (24 * B * eta2 * eta4);
+      hessian[25] = prefactor_ * (24 * B * eta2 * eta5);
+      hessian[26] = prefactor_ * (24 * B * eta2 * eta6);
+      hessian[27] = prefactor_ * (24 * B * eta2 * eta7);
+      hessian[28] = prefactor_ * (24 * B * eta2 * eta8);
+      hessian[29] = prefactor_ * (24 * B * eta2 * eta9);
+      hessian[30] = hessian[3];
+      hessian[31] = hessian[13];
+      hessian[32] = hessian[23];
+      hessian[33] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 36 * pow(eta3, 2) -
+                6 * eta3 * (8 - 4 * c) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[34] = prefactor_ * (24 * B * eta3 * eta4);
+      hessian[35] = prefactor_ * (24 * B * eta3 * eta5);
+      hessian[36] = prefactor_ * (24 * B * eta3 * eta6);
+      hessian[37] = prefactor_ * (24 * B * eta3 * eta7);
+      hessian[38] = prefactor_ * (24 * B * eta3 * eta8);
+      hessian[39] = prefactor_ * (24 * B * eta3 * eta9);
+      hessian[40] = hessian[4];
+      hessian[41] = hessian[14];
+      hessian[42] = hessian[24];
+      hessian[43] = hessian[34];
+      hessian[44] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                36 * pow(eta4, 2) - 6 * eta4 * (8 - 4 * c) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[45] = prefactor_ * (24 * B * eta4 * eta5);
+      hessian[46] = prefactor_ * (24 * B * eta4 * eta6);
+      hessian[47] = prefactor_ * (24 * B * eta4 * eta7);
+      hessian[48] = prefactor_ * (24 * B * eta4 * eta8);
+      hessian[49] = prefactor_ * (24 * B * eta4 * eta9);
+      hessian[50] = hessian[5];
+      hessian[51] = hessian[15];
+      hessian[52] = hessian[25];
+      hessian[53] = hessian[35];
+      hessian[54] = hessian[45];
+      hessian[55] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                12 * pow(eta4, 2) + 36 * pow(eta5, 2) - 6 * eta5 * (8 - 4 * c) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[56] = prefactor_ * (24 * B * eta5 * eta6);
+      hessian[57] = prefactor_ * (24 * B * eta5 * eta7);
+      hessian[58] = prefactor_ * (24 * B * eta5 * eta8);
+      hessian[59] = prefactor_ * (24 * B * eta5 * eta9);
+      hessian[60] = hessian[6];
+      hessian[61] = hessian[16];
+      hessian[62] = hessian[26];
+      hessian[63] = hessian[36];
+      hessian[64] = hessian[46];
+      hessian[65] = hessian[56];
+      hessian[66] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 36 * pow(eta6, 2) - 6 * eta6 * (8 - 4 * c) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[67] = prefactor_ * (24 * B * eta6 * eta7);
+      hessian[68] = prefactor_ * (24 * B * eta6 * eta8);
+      hessian[69] = prefactor_ * (24 * B * eta6 * eta9);
+      hessian[70] = hessian[7];
+      hessian[71] = hessian[17];
+      hessian[72] = hessian[27];
+      hessian[73] = hessian[37];
+      hessian[74] = hessian[47];
+      hessian[75] = hessian[57];
+      hessian[76] = hessian[67];
+      hessian[77] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) + 36 * pow(eta7, 2) -
+                6 * eta7 * (8 - 4 * c) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[78] = prefactor_ * (24 * B * eta7 * eta8);
+      hessian[79] = prefactor_ * (24 * B * eta7 * eta9);
+      hessian[80] = hessian[8];
+      hessian[81] = hessian[18];
+      hessian[82] = hessian[28];
+      hessian[83] = hessian[38];
+      hessian[84] = hessian[48];
+      hessian[85] = hessian[58];
+      hessian[86] = hessian[68];
+      hessian[87] = hessian[78];
+      hessian[88] = prefactor_ * (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) +
+                                       12 * pow(eta3, 2) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) +
+                                       12 * pow(eta6, 2) + 12 * pow(eta7, 2) + 36 * pow(eta8, 2) -
+                                       6 * eta8 * (8 - 4 * c) + 12 * pow(eta9, 2) + 12));
+      hessian[89] = prefactor_ * (24 * B * eta8 * eta9);
+      hessian[90] = hessian[9];
+      hessian[91] = hessian[19];
+      hessian[92] = hessian[29];
+      hessian[93] = hessian[39];
+      hessian[94] = hessian[49];
+      hessian[95] = hessian[59];
+      hessian[96] = hessian[69];
+      hessian[97] = hessian[79];
+      hessian[98] = hessian[89];
+      hessian[99] = prefactor_ * (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) +
+                                       12 * pow(eta3, 2) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) +
+                                       12 * pow(eta6, 2) + 12 * pow(eta7, 2) + 12 * pow(eta8, 2) +
+                                       36 * pow(eta9, 2) - 6 * eta9 * (8 - 4 * c) + 12));
+    }
+  }
+};
+
 /**
  *
  * @brief C++ function of the analytical expression
@@ -190,7 +445,7 @@ D::HessianF() {
  */
 class Gimp : public FunctionCoefficient {
  private:
-  double prefactor_;
+  GimpEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -204,319 +459,131 @@ class Gimp : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  Gimp() : prefactor_(1.0) {}
-  explicit Gimp(const double prefactor) : prefactor_(prefactor) {}
+  Gimp() = default;
+  explicit Gimp(const double prefactor) { eval_.prefactor_ = prefactor; }
   virtual ~Gimp() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const GimpEval& get_eval() const { return eval_; }
 };
 
 /**
- *
- * @brief C++ function of the expression
- *
- *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
- * std::span<const double>&, const unsigned int dimension)>
+ * @brief Value of Gimp (see GimpEval)
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const std::span<const double>&, const unsigned int dimension)>
 Gimp::F() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = input_vector[1];
-    double eta2 = input_vector[2];
-    double eta3 = input_vector[3];
-    double eta4 = input_vector[4];
-    double eta5 = input_vector[5];
-    double eta6 = input_vector[6];
-    double eta7 = input_vector[7];
-    double eta8 = input_vector[8];
-    double eta9 = input_vector[9];
-    double A = 16.0;
-    double B = 1.0;
-    double F = A * std::pow(c, 2) * std::pow(1 - c, 2) +
-               B * (std::pow(c, 2) +
-                    (6 - 6 * c) * (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                   std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                   std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2)) -
-                    (8 - 4 * c) * (std::pow(eta1, 3) + std::pow(eta2, 3) + std::pow(eta3, 3) +
-                                   std::pow(eta4, 3) + std::pow(eta5, 3) + std::pow(eta6, 3) +
-                                   std::pow(eta7, 3) + std::pow(eta8, 3) + std::pow(eta9, 3)) +
-                    3 * std::pow(std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                     std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                     std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2),
-                                 2));
-    return this->prefactor_ * F;
+    double value = 0.0;
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, &value, nullptr, nullptr);
+    return value;
   };
   return func;
 }
 
 /**
- *
- * @brief Gradient
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const unsigned int dimension)>
+ * @brief Gradient of Gimp (see GimpEval)
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 Gimp::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = input_vector[1];
-    double eta2 = input_vector[2];
-    double eta3 = input_vector[3];
-    double eta4 = input_vector[4];
-    double eta5 = input_vector[5];
-    double eta6 = input_vector[6];
-    double eta7 = input_vector[7];
-    double eta8 = input_vector[8];
-    double eta9 = input_vector[9];
-    double A = 16.0;
-    double B = 1.0;
     std::vector<double> gradient(10);
-    gradient[0] =
-        this->prefactor_ *
-        (A * std::pow(c, 2) * (2 * c - 2) + 2 * A * c * std::pow(1 - c, 2) +
-         B * (2 * c + 4 * std::pow(eta1, 3) - 6 * std::pow(eta1, 2) + 4 * std::pow(eta2, 3) -
-              6 * std::pow(eta2, 2) + 4 * std::pow(eta3, 3) - 6 * std::pow(eta3, 2) +
-              4 * std::pow(eta4, 3) - 6 * std::pow(eta4, 2) + 4 * std::pow(eta5, 3) -
-              6 * std::pow(eta5, 2) + 4 * std::pow(eta6, 3) - 6 * std::pow(eta6, 2) +
-              4 * std::pow(eta7, 3) - 6 * std::pow(eta7, 2) + 4 * std::pow(eta8, 3) -
-              6 * std::pow(eta8, 2) + 4 * std::pow(eta9, 3) - 6 * std::pow(eta9, 2)));
-    gradient[1] =
-        this->prefactor_ * (B * (-3 * std::pow(eta1, 2) * (8 - 4 * c) + 2 * eta1 * (6 - 6 * c) +
-                                 12 * eta1 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[2] =
-        this->prefactor_ * (B * (-3 * std::pow(eta2, 2) * (8 - 4 * c) + 2 * eta2 * (6 - 6 * c) +
-                                 12 * eta2 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[3] =
-        this->prefactor_ * (B * (-3 * std::pow(eta3, 2) * (8 - 4 * c) + 2 * eta3 * (6 - 6 * c) +
-                                 12 * eta3 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[4] =
-        this->prefactor_ * (B * (-3 * std::pow(eta4, 2) * (8 - 4 * c) + 2 * eta4 * (6 - 6 * c) +
-                                 12 * eta4 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[5] =
-        this->prefactor_ * (B * (-3 * std::pow(eta5, 2) * (8 - 4 * c) + 2 * eta5 * (6 - 6 * c) +
-                                 12 * eta5 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[6] =
-        this->prefactor_ * (B * (-3 * std::pow(eta6, 2) * (8 - 4 * c) + 2 * eta6 * (6 - 6 * c) +
-                                 12 * eta6 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[7] =
-        this->prefactor_ * (B * (-3 * std::pow(eta7, 2) * (8 - 4 * c) + 2 * eta7 * (6 - 6 * c) +
-                                 12 * eta7 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[8] =
-        this->prefactor_ * (B * (-3 * std::pow(eta8, 2) * (8 - 4 * c) + 2 * eta8 * (6 - 6 * c) +
-                                 12 * eta8 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[9] =
-        this->prefactor_ * (B * (-3 * std::pow(eta9, 2) * (8 - 4 * c) + 2 * eta9 * (6 - 6 * c) +
-                                 12 * eta9 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, gradient.data(), nullptr);
     return gradient;
   };
   return func;
 }
 
 /**
- *
- * @brief Hessian
+ * @brief Hessian of Gimp (see GimpEval)
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 Gimp::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
+                  const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = input_vector[1];
-    double eta2 = input_vector[2];
-    double eta3 = input_vector[3];
-    double eta4 = input_vector[4];
-    double eta5 = input_vector[5];
-    double eta6 = input_vector[6];
-    double eta7 = input_vector[7];
-    double eta8 = input_vector[8];
-    double eta9 = input_vector[9];
-    double A = 16.0;
-    double B = 1.0;
     std::vector<double> hessian(100);
-    hessian[0] = this->prefactor_ * (2 * A * std::pow(c, 2) + 4 * A * c * (2 * c - 2) +
-                                     2 * A * std::pow(1 - c, 2) + 2 * B);
-    hessian[1] = this->prefactor_ * (B * (12 * std::pow(eta1, 2) - 12 * eta1));
-    hessian[2] = this->prefactor_ * (B * (12 * std::pow(eta2, 2) - 12 * eta2));
-    hessian[3] = this->prefactor_ * (B * (12 * std::pow(eta3, 2) - 12 * eta3));
-    hessian[4] = this->prefactor_ * (B * (12 * std::pow(eta4, 2) - 12 * eta4));
-    hessian[5] = this->prefactor_ * (B * (12 * std::pow(eta5, 2) - 12 * eta5));
-    hessian[6] = this->prefactor_ * (B * (12 * std::pow(eta6, 2) - 12 * eta6));
-    hessian[7] = this->prefactor_ * (B * (12 * std::pow(eta7, 2) - 12 * eta7));
-    hessian[8] = this->prefactor_ * (B * (12 * std::pow(eta8, 2) - 12 * eta8));
-    hessian[9] = this->prefactor_ * (B * (12 * std::pow(eta9, 2) - 12 * eta9));
-    hessian[10] = this->prefactor_ * (B * (12 * std::pow(eta1, 2) - 12 * eta1));
-    hessian[11] = this->prefactor_ *
-                  (B * (-12 * c + 36 * std::pow(eta1, 2) - 6 * eta1 * (8 - 4 * c) +
-                        12 * std::pow(eta2, 2) + 12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[12] = this->prefactor_ * (24 * B * eta1 * eta2);
-    hessian[13] = this->prefactor_ * (24 * B * eta1 * eta3);
-    hessian[14] = this->prefactor_ * (24 * B * eta1 * eta4);
-    hessian[15] = this->prefactor_ * (24 * B * eta1 * eta5);
-    hessian[16] = this->prefactor_ * (24 * B * eta1 * eta6);
-    hessian[17] = this->prefactor_ * (24 * B * eta1 * eta7);
-    hessian[18] = this->prefactor_ * (24 * B * eta1 * eta8);
-    hessian[19] = this->prefactor_ * (24 * B * eta1 * eta9);
-    hessian[20] = this->prefactor_ * (B * (12 * std::pow(eta2, 2) - 12 * eta2));
-    hessian[21] = this->prefactor_ * (24 * B * eta1 * eta2);
-    hessian[22] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 36 * std::pow(eta2, 2) -
-                        6 * eta2 * (8 - 4 * c) + 12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[23] = this->prefactor_ * (24 * B * eta2 * eta3);
-    hessian[24] = this->prefactor_ * (24 * B * eta2 * eta4);
-    hessian[25] = this->prefactor_ * (24 * B * eta2 * eta5);
-    hessian[26] = this->prefactor_ * (24 * B * eta2 * eta6);
-    hessian[27] = this->prefactor_ * (24 * B * eta2 * eta7);
-    hessian[28] = this->prefactor_ * (24 * B * eta2 * eta8);
-    hessian[29] = this->prefactor_ * (24 * B * eta2 * eta9);
-    hessian[30] = this->prefactor_ * (B * (12 * std::pow(eta3, 2) - 12 * eta3));
-    hessian[31] = this->prefactor_ * (24 * B * eta1 * eta3);
-    hessian[32] = this->prefactor_ * (24 * B * eta2 * eta3);
-    hessian[33] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        36 * std::pow(eta3, 2) - 6 * eta3 * (8 - 4 * c) + 12 * std::pow(eta4, 2) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[34] = this->prefactor_ * (24 * B * eta3 * eta4);
-    hessian[35] = this->prefactor_ * (24 * B * eta3 * eta5);
-    hessian[36] = this->prefactor_ * (24 * B * eta3 * eta6);
-    hessian[37] = this->prefactor_ * (24 * B * eta3 * eta7);
-    hessian[38] = this->prefactor_ * (24 * B * eta3 * eta8);
-    hessian[39] = this->prefactor_ * (24 * B * eta3 * eta9);
-    hessian[40] = this->prefactor_ * (B * (12 * std::pow(eta4, 2) - 12 * eta4));
-    hessian[41] = this->prefactor_ * (24 * B * eta1 * eta4);
-    hessian[42] = this->prefactor_ * (24 * B * eta2 * eta4);
-    hessian[43] = this->prefactor_ * (24 * B * eta3 * eta4);
-    hessian[44] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 36 * std::pow(eta4, 2) - 6 * eta4 * (8 - 4 * c) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[45] = this->prefactor_ * (24 * B * eta4 * eta5);
-    hessian[46] = this->prefactor_ * (24 * B * eta4 * eta6);
-    hessian[47] = this->prefactor_ * (24 * B * eta4 * eta7);
-    hessian[48] = this->prefactor_ * (24 * B * eta4 * eta8);
-    hessian[49] = this->prefactor_ * (24 * B * eta4 * eta9);
-    hessian[50] = this->prefactor_ * (B * (12 * std::pow(eta5, 2) - 12 * eta5));
-    hessian[51] = this->prefactor_ * (24 * B * eta1 * eta5);
-    hessian[52] = this->prefactor_ * (24 * B * eta2 * eta5);
-    hessian[53] = this->prefactor_ * (24 * B * eta3 * eta5);
-    hessian[54] = this->prefactor_ * (24 * B * eta4 * eta5);
-    hessian[55] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 36 * std::pow(eta5, 2) -
-                        6 * eta5 * (8 - 4 * c) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[56] = this->prefactor_ * (24 * B * eta5 * eta6);
-    hessian[57] = this->prefactor_ * (24 * B * eta5 * eta7);
-    hessian[58] = this->prefactor_ * (24 * B * eta5 * eta8);
-    hessian[59] = this->prefactor_ * (24 * B * eta5 * eta9);
-    hessian[60] = this->prefactor_ * (B * (12 * std::pow(eta6, 2) - 12 * eta6));
-    hessian[61] = this->prefactor_ * (24 * B * eta1 * eta6);
-    hessian[62] = this->prefactor_ * (24 * B * eta2 * eta6);
-    hessian[63] = this->prefactor_ * (24 * B * eta3 * eta6);
-    hessian[64] = this->prefactor_ * (24 * B * eta4 * eta6);
-    hessian[65] = this->prefactor_ * (24 * B * eta5 * eta6);
-    hessian[66] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        36 * std::pow(eta6, 2) - 6 * eta6 * (8 - 4 * c) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[67] = this->prefactor_ * (24 * B * eta6 * eta7);
-    hessian[68] = this->prefactor_ * (24 * B * eta6 * eta8);
-    hessian[69] = this->prefactor_ * (24 * B * eta6 * eta9);
-    hessian[70] = this->prefactor_ * (B * (12 * std::pow(eta7, 2) - 12 * eta7));
-    hessian[71] = this->prefactor_ * (24 * B * eta1 * eta7);
-    hessian[72] = this->prefactor_ * (24 * B * eta2 * eta7);
-    hessian[73] = this->prefactor_ * (24 * B * eta3 * eta7);
-    hessian[74] = this->prefactor_ * (24 * B * eta4 * eta7);
-    hessian[75] = this->prefactor_ * (24 * B * eta5 * eta7);
-    hessian[76] = this->prefactor_ * (24 * B * eta6 * eta7);
-    hessian[77] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        12 * std::pow(eta6, 2) + 36 * std::pow(eta7, 2) - 6 * eta7 * (8 - 4 * c) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[78] = this->prefactor_ * (24 * B * eta7 * eta8);
-    hessian[79] = this->prefactor_ * (24 * B * eta7 * eta9);
-    hessian[80] = this->prefactor_ * (B * (12 * std::pow(eta8, 2) - 12 * eta8));
-    hessian[81] = this->prefactor_ * (24 * B * eta1 * eta8);
-    hessian[82] = this->prefactor_ * (24 * B * eta2 * eta8);
-    hessian[83] = this->prefactor_ * (24 * B * eta3 * eta8);
-    hessian[84] = this->prefactor_ * (24 * B * eta4 * eta8);
-    hessian[85] = this->prefactor_ * (24 * B * eta5 * eta8);
-    hessian[86] = this->prefactor_ * (24 * B * eta6 * eta8);
-    hessian[87] = this->prefactor_ * (24 * B * eta7 * eta8);
-    hessian[88] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) + 36 * std::pow(eta8, 2) -
-                        6 * eta8 * (8 - 4 * c) + 12 * std::pow(eta9, 2) + 12));
-    hessian[89] = this->prefactor_ * (24 * B * eta8 * eta9);
-    hessian[90] = this->prefactor_ * (B * (12 * std::pow(eta9, 2) - 12 * eta9));
-    hessian[91] = this->prefactor_ * (24 * B * eta1 * eta9);
-    hessian[92] = this->prefactor_ * (24 * B * eta2 * eta9);
-    hessian[93] = this->prefactor_ * (24 * B * eta3 * eta9);
-    hessian[94] = this->prefactor_ * (24 * B * eta4 * eta9);
-    hessian[95] = this->prefactor_ * (24 * B * eta5 * eta9);
-    hessian[96] = this->prefactor_ * (24 * B * eta6 * eta9);
-    hessian[97] = this->prefactor_ * (24 * B * eta7 * eta9);
-    hessian[98] = this->prefactor_ * (24 * B * eta8 * eta9);
-    hessian[99] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) + 12 * std::pow(eta8, 2) +
-                        36 * std::pow(eta9, 2) - 6 * eta9 * (8 - 4 * c) + 12));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, nullptr, hessian.data());
     return hessian;
   };
   return func;
 }
+/**
+ * @brief Evaluation of Gc at one point, on the host or on the device
+ *
+ * Same expressions as Gc (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct GcEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 9;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+  double A = 16.0;
+  double B = 1.0;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    [[maybe_unused]] const double c = values[0];
+    [[maybe_unused]] const double eta1 = auxiliary_values[0];
+    [[maybe_unused]] const double eta2 = auxiliary_values[1];
+    [[maybe_unused]] const double eta3 = auxiliary_values[2];
+    [[maybe_unused]] const double eta4 = auxiliary_values[3];
+    [[maybe_unused]] const double eta5 = auxiliary_values[4];
+    [[maybe_unused]] const double eta6 = auxiliary_values[5];
+    [[maybe_unused]] const double eta7 = auxiliary_values[6];
+    [[maybe_unused]] const double eta8 = auxiliary_values[7];
+    [[maybe_unused]] const double eta9 = auxiliary_values[8];
+    if (F != nullptr) {
+      *F = prefactor_ *
+           (A * pow(c, 2) * pow(1 - c, 2) +
+            B * (pow(c, 2) +
+                 (6 - 6 * c) *
+                     (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                      pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2)) -
+                 (8 - 4 * c) *
+                     (pow(eta1, 3) + pow(eta2, 3) + pow(eta3, 3) + pow(eta4, 3) + pow(eta5, 3) +
+                      pow(eta6, 3) + pow(eta7, 3) + pow(eta8, 3) + pow(eta9, 3)) +
+                 3 * pow(pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                             pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2),
+                         2)));
+    }
+    if (gradient != nullptr) {
+      gradient[0] =
+          prefactor_ *
+          (A * pow(c, 2) * (2 * c - 2) + 2 * A * c * pow(1 - c, 2) +
+           B * (2 * c + 4 * pow(eta1, 3) - 6 * pow(eta1, 2) + 4 * pow(eta2, 3) - 6 * pow(eta2, 2) +
+                4 * pow(eta3, 3) - 6 * pow(eta3, 2) + 4 * pow(eta4, 3) - 6 * pow(eta4, 2) +
+                4 * pow(eta5, 3) - 6 * pow(eta5, 2) + 4 * pow(eta6, 3) - 6 * pow(eta6, 2) +
+                4 * pow(eta7, 3) - 6 * pow(eta7, 2) + 4 * pow(eta8, 3) - 6 * pow(eta8, 2) +
+                4 * pow(eta9, 3) - 6 * pow(eta9, 2)));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ *
+                   (2 * A * pow(c, 2) + 4 * A * c * (2 * c - 2) + 2 * A * pow(1 - c, 2) + 2 * B);
+    }
+  }
+};
+
 /**
  *
  * @brief C++ function of the analytical expression
@@ -528,7 +595,7 @@ Gimp::HessianF() {
  */
 class Gc : public FunctionCoefficient {
  private:
-  double prefactor_;
+  GcEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -542,130 +609,289 @@ class Gc : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  Gc() : prefactor_(1.0) {}
-  explicit Gc(const double prefactor) : prefactor_(prefactor) {}
+  Gc() = default;
+  explicit Gc(const double prefactor) { eval_.prefactor_ = prefactor; }
   virtual ~Gc() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const GcEval& get_eval() const { return eval_; }
 };
 
 /**
- *
- * @brief C++ function of the expression
- *
- *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
- * std::span<const double>&, const unsigned int dimension)>
+ * @brief Value of Gc (see GcEval)
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const std::span<const double>&, const unsigned int dimension)>
 Gc::F() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = auxiliary_vector[0];
-    double eta2 = auxiliary_vector[1];
-    double eta3 = auxiliary_vector[2];
-    double eta4 = auxiliary_vector[3];
-    double eta5 = auxiliary_vector[4];
-    double eta6 = auxiliary_vector[5];
-    double eta7 = auxiliary_vector[6];
-    double eta8 = auxiliary_vector[7];
-    double eta9 = auxiliary_vector[8];
-    double A = 16.0;
-    double B = 1.0;
-    double F = A * std::pow(c, 2) * std::pow(1 - c, 2) +
-               B * (std::pow(c, 2) +
-                    (6 - 6 * c) * (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                   std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                   std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2)) -
-                    (8 - 4 * c) * (std::pow(eta1, 3) + std::pow(eta2, 3) + std::pow(eta3, 3) +
-                                   std::pow(eta4, 3) + std::pow(eta5, 3) + std::pow(eta6, 3) +
-                                   std::pow(eta7, 3) + std::pow(eta8, 3) + std::pow(eta9, 3)) +
-                    3 * std::pow(std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                     std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                     std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2),
-                                 2));
-    return this->prefactor_ * F;
+    double value = 0.0;
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, &value, nullptr, nullptr);
+    return value;
   };
   return func;
 }
 
 /**
- *
- * @brief Gradient
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const unsigned int dimension)>
+ * @brief Gradient of Gc (see GcEval)
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 Gc::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = auxiliary_vector[0];
-    double eta2 = auxiliary_vector[1];
-    double eta3 = auxiliary_vector[2];
-    double eta4 = auxiliary_vector[3];
-    double eta5 = auxiliary_vector[4];
-    double eta6 = auxiliary_vector[5];
-    double eta7 = auxiliary_vector[6];
-    double eta8 = auxiliary_vector[7];
-    double eta9 = auxiliary_vector[8];
-    double A = 16.0;
-    double B = 1.0;
     std::vector<double> gradient(1);
-    gradient[0] =
-        this->prefactor_ *
-        (A * std::pow(c, 2) * (2 * c - 2) + 2 * A * c * std::pow(1 - c, 2) +
-         B * (2 * c + 4 * std::pow(eta1, 3) - 6 * std::pow(eta1, 2) + 4 * std::pow(eta2, 3) -
-              6 * std::pow(eta2, 2) + 4 * std::pow(eta3, 3) - 6 * std::pow(eta3, 2) +
-              4 * std::pow(eta4, 3) - 6 * std::pow(eta4, 2) + 4 * std::pow(eta5, 3) -
-              6 * std::pow(eta5, 2) + 4 * std::pow(eta6, 3) - 6 * std::pow(eta6, 2) +
-              4 * std::pow(eta7, 3) - 6 * std::pow(eta7, 2) + 4 * std::pow(eta8, 3) -
-              6 * std::pow(eta8, 2) + 4 * std::pow(eta9, 3) - 6 * std::pow(eta9, 2)));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, gradient.data(), nullptr);
     return gradient;
   };
   return func;
 }
 
 /**
- *
- * @brief Hessian
+ * @brief Hessian of Gc (see GcEval)
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 Gc::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double c = input_vector[0];
-    double eta1 = auxiliary_vector[0];
-    double eta2 = auxiliary_vector[1];
-    double eta3 = auxiliary_vector[2];
-    double eta4 = auxiliary_vector[3];
-    double eta5 = auxiliary_vector[4];
-    double eta6 = auxiliary_vector[5];
-    double eta7 = auxiliary_vector[6];
-    double eta8 = auxiliary_vector[7];
-    double eta9 = auxiliary_vector[8];
-    double A = 16.0;
-    double B = 1.0;
     std::vector<double> hessian(1);
-    hessian[0] = this->prefactor_ * (2 * A * std::pow(c, 2) + 4 * A * c * (2 * c - 2) +
-                                     2 * A * std::pow(1 - c, 2) + 2 * B);
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, nullptr, hessian.data());
     return hessian;
   };
   return func;
 }
+/**
+ * @brief Evaluation of Geta at one point, on the host or on the device
+ *
+ * Same expressions as Geta (F, gradient and Hessian), without memory
+ * allocation. Each output is computed only if its pointer is not null.
+ * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
+ */
+struct GetaEval {
+  static constexpr int nb_variables = 9;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 1;
+  static constexpr int nb_coordinates = 0;
+
+  double prefactor_ = 1.0;
+  double A = 16.0;
+  double B = 1.0;
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   [[maybe_unused]] const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    [[maybe_unused]] const double eta1 = values[0];
+    [[maybe_unused]] const double eta2 = values[1];
+    [[maybe_unused]] const double eta3 = values[2];
+    [[maybe_unused]] const double eta4 = values[3];
+    [[maybe_unused]] const double eta5 = values[4];
+    [[maybe_unused]] const double eta6 = values[5];
+    [[maybe_unused]] const double eta7 = values[6];
+    [[maybe_unused]] const double eta8 = values[7];
+    [[maybe_unused]] const double eta9 = values[8];
+    [[maybe_unused]] const double c = auxiliary_values[0];
+    if (F != nullptr) {
+      *F = prefactor_ *
+           (A * pow(c, 2) * pow(1 - c, 2) +
+            B * (pow(c, 2) +
+                 (6 - 6 * c) *
+                     (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                      pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2)) -
+                 (8 - 4 * c) *
+                     (pow(eta1, 3) + pow(eta2, 3) + pow(eta3, 3) + pow(eta4, 3) + pow(eta5, 3) +
+                      pow(eta6, 3) + pow(eta7, 3) + pow(eta8, 3) + pow(eta9, 3)) +
+                 3 * pow(pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                             pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2),
+                         2)));
+    }
+    if (gradient != nullptr) {
+      gradient[0] =
+          prefactor_ *
+          (B * (-3 * pow(eta1, 2) * (8 - 4 * c) + 2 * eta1 * (6 - 6 * c) +
+                12 * eta1 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[1] =
+          prefactor_ *
+          (B * (-3 * pow(eta2, 2) * (8 - 4 * c) + 2 * eta2 * (6 - 6 * c) +
+                12 * eta2 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[2] =
+          prefactor_ *
+          (B * (-3 * pow(eta3, 2) * (8 - 4 * c) + 2 * eta3 * (6 - 6 * c) +
+                12 * eta3 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[3] =
+          prefactor_ *
+          (B * (-3 * pow(eta4, 2) * (8 - 4 * c) + 2 * eta4 * (6 - 6 * c) +
+                12 * eta4 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[4] =
+          prefactor_ *
+          (B * (-3 * pow(eta5, 2) * (8 - 4 * c) + 2 * eta5 * (6 - 6 * c) +
+                12 * eta5 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[5] =
+          prefactor_ *
+          (B * (-3 * pow(eta6, 2) * (8 - 4 * c) + 2 * eta6 * (6 - 6 * c) +
+                12 * eta6 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[6] =
+          prefactor_ *
+          (B * (-3 * pow(eta7, 2) * (8 - 4 * c) + 2 * eta7 * (6 - 6 * c) +
+                12 * eta7 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[7] =
+          prefactor_ *
+          (B * (-3 * pow(eta8, 2) * (8 - 4 * c) + 2 * eta8 * (6 - 6 * c) +
+                12 * eta8 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+      gradient[8] =
+          prefactor_ *
+          (B * (-3 * pow(eta9, 2) * (8 - 4 * c) + 2 * eta9 * (6 - 6 * c) +
+                12 * eta9 *
+                    (pow(eta1, 2) + pow(eta2, 2) + pow(eta3, 2) + pow(eta4, 2) + pow(eta5, 2) +
+                     pow(eta6, 2) + pow(eta7, 2) + pow(eta8, 2) + pow(eta9, 2))));
+    }
+    if (hessian != nullptr) {
+      hessian[0] = prefactor_ * (B * (-12 * c + 36 * pow(eta1, 2) - 6 * eta1 * (8 - 4 * c) +
+                                      12 * pow(eta2, 2) + 12 * pow(eta3, 2) + 12 * pow(eta4, 2) +
+                                      12 * pow(eta5, 2) + 12 * pow(eta6, 2) + 12 * pow(eta7, 2) +
+                                      12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[1] = prefactor_ * (24 * B * eta1 * eta2);
+      hessian[2] = prefactor_ * (24 * B * eta1 * eta3);
+      hessian[3] = prefactor_ * (24 * B * eta1 * eta4);
+      hessian[4] = prefactor_ * (24 * B * eta1 * eta5);
+      hessian[5] = prefactor_ * (24 * B * eta1 * eta6);
+      hessian[6] = prefactor_ * (24 * B * eta1 * eta7);
+      hessian[7] = prefactor_ * (24 * B * eta1 * eta8);
+      hessian[8] = prefactor_ * (24 * B * eta1 * eta9);
+      hessian[9] = hessian[1];
+      hessian[10] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 36 * pow(eta2, 2) - 6 * eta2 * (8 - 4 * c) +
+                12 * pow(eta3, 2) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[11] = prefactor_ * (24 * B * eta2 * eta3);
+      hessian[12] = prefactor_ * (24 * B * eta2 * eta4);
+      hessian[13] = prefactor_ * (24 * B * eta2 * eta5);
+      hessian[14] = prefactor_ * (24 * B * eta2 * eta6);
+      hessian[15] = prefactor_ * (24 * B * eta2 * eta7);
+      hessian[16] = prefactor_ * (24 * B * eta2 * eta8);
+      hessian[17] = prefactor_ * (24 * B * eta2 * eta9);
+      hessian[18] = hessian[2];
+      hessian[19] = hessian[11];
+      hessian[20] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 36 * pow(eta3, 2) -
+                6 * eta3 * (8 - 4 * c) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[21] = prefactor_ * (24 * B * eta3 * eta4);
+      hessian[22] = prefactor_ * (24 * B * eta3 * eta5);
+      hessian[23] = prefactor_ * (24 * B * eta3 * eta6);
+      hessian[24] = prefactor_ * (24 * B * eta3 * eta7);
+      hessian[25] = prefactor_ * (24 * B * eta3 * eta8);
+      hessian[26] = prefactor_ * (24 * B * eta3 * eta9);
+      hessian[27] = hessian[3];
+      hessian[28] = hessian[12];
+      hessian[29] = hessian[21];
+      hessian[30] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                36 * pow(eta4, 2) - 6 * eta4 * (8 - 4 * c) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[31] = prefactor_ * (24 * B * eta4 * eta5);
+      hessian[32] = prefactor_ * (24 * B * eta4 * eta6);
+      hessian[33] = prefactor_ * (24 * B * eta4 * eta7);
+      hessian[34] = prefactor_ * (24 * B * eta4 * eta8);
+      hessian[35] = prefactor_ * (24 * B * eta4 * eta9);
+      hessian[36] = hessian[4];
+      hessian[37] = hessian[13];
+      hessian[38] = hessian[22];
+      hessian[39] = hessian[31];
+      hessian[40] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                12 * pow(eta4, 2) + 36 * pow(eta5, 2) - 6 * eta5 * (8 - 4 * c) + 12 * pow(eta6, 2) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[41] = prefactor_ * (24 * B * eta5 * eta6);
+      hessian[42] = prefactor_ * (24 * B * eta5 * eta7);
+      hessian[43] = prefactor_ * (24 * B * eta5 * eta8);
+      hessian[44] = prefactor_ * (24 * B * eta5 * eta9);
+      hessian[45] = hessian[5];
+      hessian[46] = hessian[14];
+      hessian[47] = hessian[23];
+      hessian[48] = hessian[32];
+      hessian[49] = hessian[41];
+      hessian[50] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 36 * pow(eta6, 2) - 6 * eta6 * (8 - 4 * c) +
+                12 * pow(eta7, 2) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[51] = prefactor_ * (24 * B * eta6 * eta7);
+      hessian[52] = prefactor_ * (24 * B * eta6 * eta8);
+      hessian[53] = prefactor_ * (24 * B * eta6 * eta9);
+      hessian[54] = hessian[6];
+      hessian[55] = hessian[15];
+      hessian[56] = hessian[24];
+      hessian[57] = hessian[33];
+      hessian[58] = hessian[42];
+      hessian[59] = hessian[51];
+      hessian[60] =
+          prefactor_ *
+          (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) + 12 * pow(eta3, 2) +
+                12 * pow(eta4, 2) + 12 * pow(eta5, 2) + 12 * pow(eta6, 2) + 36 * pow(eta7, 2) -
+                6 * eta7 * (8 - 4 * c) + 12 * pow(eta8, 2) + 12 * pow(eta9, 2) + 12));
+      hessian[61] = prefactor_ * (24 * B * eta7 * eta8);
+      hessian[62] = prefactor_ * (24 * B * eta7 * eta9);
+      hessian[63] = hessian[7];
+      hessian[64] = hessian[16];
+      hessian[65] = hessian[25];
+      hessian[66] = hessian[34];
+      hessian[67] = hessian[43];
+      hessian[68] = hessian[52];
+      hessian[69] = hessian[61];
+      hessian[70] = prefactor_ * (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) +
+                                       12 * pow(eta3, 2) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) +
+                                       12 * pow(eta6, 2) + 12 * pow(eta7, 2) + 36 * pow(eta8, 2) -
+                                       6 * eta8 * (8 - 4 * c) + 12 * pow(eta9, 2) + 12));
+      hessian[71] = prefactor_ * (24 * B * eta8 * eta9);
+      hessian[72] = hessian[8];
+      hessian[73] = hessian[17];
+      hessian[74] = hessian[26];
+      hessian[75] = hessian[35];
+      hessian[76] = hessian[44];
+      hessian[77] = hessian[53];
+      hessian[78] = hessian[62];
+      hessian[79] = hessian[71];
+      hessian[80] = prefactor_ * (B * (-12 * c + 12 * pow(eta1, 2) + 12 * pow(eta2, 2) +
+                                       12 * pow(eta3, 2) + 12 * pow(eta4, 2) + 12 * pow(eta5, 2) +
+                                       12 * pow(eta6, 2) + 12 * pow(eta7, 2) + 12 * pow(eta8, 2) +
+                                       36 * pow(eta9, 2) - 6 * eta9 * (8 - 4 * c) + 12));
+    }
+  }
+};
+
 /**
  *
  * @brief C++ function of the analytical expression
@@ -677,7 +903,7 @@ Gc::HessianF() {
  */
 class Geta : public FunctionCoefficient {
  private:
-  double prefactor_;
+  GetaEval eval_;  ///< F, gradient and Hessian (host and device)
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -691,286 +917,63 @@ class Geta : public FunctionCoefficient {
   HessianF() final;
 
  public:
-  Geta() : prefactor_(1.0) {}
-  explicit Geta(const double prefactor) : prefactor_(prefactor) {}
+  Geta() = default;
+  explicit Geta(const double prefactor) { eval_.prefactor_ = prefactor; }
   virtual ~Geta() = default;
+  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
+  const GetaEval& get_eval() const { return eval_; }
 };
 
 /**
- *
- * @brief C++ function of the expression
- *
- *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
- * std::span<const double>&, const unsigned int dimension)>
+ * @brief Value of Geta (see GetaEval)
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const std::span<const double>&, const unsigned int dimension)>
 Geta::F() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double eta1 = input_vector[0];
-    double eta2 = input_vector[1];
-    double eta3 = input_vector[2];
-    double eta4 = input_vector[3];
-    double eta5 = input_vector[4];
-    double eta6 = input_vector[5];
-    double eta7 = input_vector[6];
-    double eta8 = input_vector[7];
-    double eta9 = input_vector[8];
-    double c = auxiliary_vector[0];
-    double A = 16.0;
-    double B = 1.0;
-    double F = A * std::pow(c, 2) * std::pow(1 - c, 2) +
-               B * (std::pow(c, 2) +
-                    (6 - 6 * c) * (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                   std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                   std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2)) -
-                    (8 - 4 * c) * (std::pow(eta1, 3) + std::pow(eta2, 3) + std::pow(eta3, 3) +
-                                   std::pow(eta4, 3) + std::pow(eta5, 3) + std::pow(eta6, 3) +
-                                   std::pow(eta7, 3) + std::pow(eta8, 3) + std::pow(eta9, 3)) +
-                    3 * std::pow(std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                     std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                     std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2),
-                                 2));
-    return this->prefactor_ * F;
+    double value = 0.0;
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, &value, nullptr, nullptr);
+    return value;
   };
   return func;
 }
 
 /**
- *
- * @brief Gradient
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const unsigned int dimension)>
+ * @brief Gradient of Geta (see GetaEval)
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 Geta::GradientF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double eta1 = input_vector[0];
-    double eta2 = input_vector[1];
-    double eta3 = input_vector[2];
-    double eta4 = input_vector[3];
-    double eta5 = input_vector[4];
-    double eta6 = input_vector[5];
-    double eta7 = input_vector[6];
-    double eta8 = input_vector[7];
-    double eta9 = input_vector[8];
-    double c = auxiliary_vector[0];
-    double A = 16.0;
-    double B = 1.0;
     std::vector<double> gradient(9);
-    gradient[0] =
-        this->prefactor_ * (B * (-3 * std::pow(eta1, 2) * (8 - 4 * c) + 2 * eta1 * (6 - 6 * c) +
-                                 12 * eta1 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[1] =
-        this->prefactor_ * (B * (-3 * std::pow(eta2, 2) * (8 - 4 * c) + 2 * eta2 * (6 - 6 * c) +
-                                 12 * eta2 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[2] =
-        this->prefactor_ * (B * (-3 * std::pow(eta3, 2) * (8 - 4 * c) + 2 * eta3 * (6 - 6 * c) +
-                                 12 * eta3 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[3] =
-        this->prefactor_ * (B * (-3 * std::pow(eta4, 2) * (8 - 4 * c) + 2 * eta4 * (6 - 6 * c) +
-                                 12 * eta4 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[4] =
-        this->prefactor_ * (B * (-3 * std::pow(eta5, 2) * (8 - 4 * c) + 2 * eta5 * (6 - 6 * c) +
-                                 12 * eta5 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[5] =
-        this->prefactor_ * (B * (-3 * std::pow(eta6, 2) * (8 - 4 * c) + 2 * eta6 * (6 - 6 * c) +
-                                 12 * eta6 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[6] =
-        this->prefactor_ * (B * (-3 * std::pow(eta7, 2) * (8 - 4 * c) + 2 * eta7 * (6 - 6 * c) +
-                                 12 * eta7 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[7] =
-        this->prefactor_ * (B * (-3 * std::pow(eta8, 2) * (8 - 4 * c) + 2 * eta8 * (6 - 6 * c) +
-                                 12 * eta8 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
-    gradient[8] =
-        this->prefactor_ * (B * (-3 * std::pow(eta9, 2) * (8 - 4 * c) + 2 * eta9 * (6 - 6 * c) +
-                                 12 * eta9 *
-                                     (std::pow(eta1, 2) + std::pow(eta2, 2) + std::pow(eta3, 2) +
-                                      std::pow(eta4, 2) + std::pow(eta5, 2) + std::pow(eta6, 2) +
-                                      std::pow(eta7, 2) + std::pow(eta8, 2) + std::pow(eta9, 2))));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, gradient.data(), nullptr);
     return gradient;
   };
   return func;
 }
 
 /**
- *
- * @brief Hessian
+ * @brief Hessian of Geta (see GetaEval)
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
- *
- * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
 Geta::HessianF() {
   auto func = [&](const std::span<const double>& input_vector,
-                  [[maybe_unused]] const std::span<const double>&,
+                  const std::span<const double>& exp_input_vector,
                   const std::span<const double>& auxiliary_vector,
                   [[maybe_unused]] const unsigned int dimension) {
-    double eta1 = input_vector[0];
-    double eta2 = input_vector[1];
-    double eta3 = input_vector[2];
-    double eta4 = input_vector[3];
-    double eta5 = input_vector[4];
-    double eta6 = input_vector[5];
-    double eta7 = input_vector[6];
-    double eta8 = input_vector[7];
-    double eta9 = input_vector[8];
-    double c = auxiliary_vector[0];
-    double A = 16.0;
-    double B = 1.0;
     std::vector<double> hessian(81);
-    hessian[0] = this->prefactor_ *
-                 (B * (-12 * c + 36 * std::pow(eta1, 2) - 6 * eta1 * (8 - 4 * c) +
-                       12 * std::pow(eta2, 2) + 12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) +
-                       12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                       12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[1] = this->prefactor_ * (24 * B * eta1 * eta2);
-    hessian[2] = this->prefactor_ * (24 * B * eta1 * eta3);
-    hessian[3] = this->prefactor_ * (24 * B * eta1 * eta4);
-    hessian[4] = this->prefactor_ * (24 * B * eta1 * eta5);
-    hessian[5] = this->prefactor_ * (24 * B * eta1 * eta6);
-    hessian[6] = this->prefactor_ * (24 * B * eta1 * eta7);
-    hessian[7] = this->prefactor_ * (24 * B * eta1 * eta8);
-    hessian[8] = this->prefactor_ * (24 * B * eta1 * eta9);
-    hessian[9] = this->prefactor_ * (24 * B * eta1 * eta2);
-    hessian[10] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 36 * std::pow(eta2, 2) -
-                        6 * eta2 * (8 - 4 * c) + 12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[11] = this->prefactor_ * (24 * B * eta2 * eta3);
-    hessian[12] = this->prefactor_ * (24 * B * eta2 * eta4);
-    hessian[13] = this->prefactor_ * (24 * B * eta2 * eta5);
-    hessian[14] = this->prefactor_ * (24 * B * eta2 * eta6);
-    hessian[15] = this->prefactor_ * (24 * B * eta2 * eta7);
-    hessian[16] = this->prefactor_ * (24 * B * eta2 * eta8);
-    hessian[17] = this->prefactor_ * (24 * B * eta2 * eta9);
-    hessian[18] = this->prefactor_ * (24 * B * eta1 * eta3);
-    hessian[19] = this->prefactor_ * (24 * B * eta2 * eta3);
-    hessian[20] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        36 * std::pow(eta3, 2) - 6 * eta3 * (8 - 4 * c) + 12 * std::pow(eta4, 2) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[21] = this->prefactor_ * (24 * B * eta3 * eta4);
-    hessian[22] = this->prefactor_ * (24 * B * eta3 * eta5);
-    hessian[23] = this->prefactor_ * (24 * B * eta3 * eta6);
-    hessian[24] = this->prefactor_ * (24 * B * eta3 * eta7);
-    hessian[25] = this->prefactor_ * (24 * B * eta3 * eta8);
-    hessian[26] = this->prefactor_ * (24 * B * eta3 * eta9);
-    hessian[27] = this->prefactor_ * (24 * B * eta1 * eta4);
-    hessian[28] = this->prefactor_ * (24 * B * eta2 * eta4);
-    hessian[29] = this->prefactor_ * (24 * B * eta3 * eta4);
-    hessian[30] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 36 * std::pow(eta4, 2) - 6 * eta4 * (8 - 4 * c) +
-                        12 * std::pow(eta5, 2) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[31] = this->prefactor_ * (24 * B * eta4 * eta5);
-    hessian[32] = this->prefactor_ * (24 * B * eta4 * eta6);
-    hessian[33] = this->prefactor_ * (24 * B * eta4 * eta7);
-    hessian[34] = this->prefactor_ * (24 * B * eta4 * eta8);
-    hessian[35] = this->prefactor_ * (24 * B * eta4 * eta9);
-    hessian[36] = this->prefactor_ * (24 * B * eta1 * eta5);
-    hessian[37] = this->prefactor_ * (24 * B * eta2 * eta5);
-    hessian[38] = this->prefactor_ * (24 * B * eta3 * eta5);
-    hessian[39] = this->prefactor_ * (24 * B * eta4 * eta5);
-    hessian[40] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 36 * std::pow(eta5, 2) -
-                        6 * eta5 * (8 - 4 * c) + 12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[41] = this->prefactor_ * (24 * B * eta5 * eta6);
-    hessian[42] = this->prefactor_ * (24 * B * eta5 * eta7);
-    hessian[43] = this->prefactor_ * (24 * B * eta5 * eta8);
-    hessian[44] = this->prefactor_ * (24 * B * eta5 * eta9);
-    hessian[45] = this->prefactor_ * (24 * B * eta1 * eta6);
-    hessian[46] = this->prefactor_ * (24 * B * eta2 * eta6);
-    hessian[47] = this->prefactor_ * (24 * B * eta3 * eta6);
-    hessian[48] = this->prefactor_ * (24 * B * eta4 * eta6);
-    hessian[49] = this->prefactor_ * (24 * B * eta5 * eta6);
-    hessian[50] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        36 * std::pow(eta6, 2) - 6 * eta6 * (8 - 4 * c) + 12 * std::pow(eta7, 2) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[51] = this->prefactor_ * (24 * B * eta6 * eta7);
-    hessian[52] = this->prefactor_ * (24 * B * eta6 * eta8);
-    hessian[53] = this->prefactor_ * (24 * B * eta6 * eta9);
-    hessian[54] = this->prefactor_ * (24 * B * eta1 * eta7);
-    hessian[55] = this->prefactor_ * (24 * B * eta2 * eta7);
-    hessian[56] = this->prefactor_ * (24 * B * eta3 * eta7);
-    hessian[57] = this->prefactor_ * (24 * B * eta4 * eta7);
-    hessian[58] = this->prefactor_ * (24 * B * eta5 * eta7);
-    hessian[59] = this->prefactor_ * (24 * B * eta6 * eta7);
-    hessian[60] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        12 * std::pow(eta6, 2) + 36 * std::pow(eta7, 2) - 6 * eta7 * (8 - 4 * c) +
-                        12 * std::pow(eta8, 2) + 12 * std::pow(eta9, 2) + 12));
-    hessian[61] = this->prefactor_ * (24 * B * eta7 * eta8);
-    hessian[62] = this->prefactor_ * (24 * B * eta7 * eta9);
-    hessian[63] = this->prefactor_ * (24 * B * eta1 * eta8);
-    hessian[64] = this->prefactor_ * (24 * B * eta2 * eta8);
-    hessian[65] = this->prefactor_ * (24 * B * eta3 * eta8);
-    hessian[66] = this->prefactor_ * (24 * B * eta4 * eta8);
-    hessian[67] = this->prefactor_ * (24 * B * eta5 * eta8);
-    hessian[68] = this->prefactor_ * (24 * B * eta6 * eta8);
-    hessian[69] = this->prefactor_ * (24 * B * eta7 * eta8);
-    hessian[70] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) + 36 * std::pow(eta8, 2) -
-                        6 * eta8 * (8 - 4 * c) + 12 * std::pow(eta9, 2) + 12));
-    hessian[71] = this->prefactor_ * (24 * B * eta8 * eta9);
-    hessian[72] = this->prefactor_ * (24 * B * eta1 * eta9);
-    hessian[73] = this->prefactor_ * (24 * B * eta2 * eta9);
-    hessian[74] = this->prefactor_ * (24 * B * eta3 * eta9);
-    hessian[75] = this->prefactor_ * (24 * B * eta4 * eta9);
-    hessian[76] = this->prefactor_ * (24 * B * eta5 * eta9);
-    hessian[77] = this->prefactor_ * (24 * B * eta6 * eta9);
-    hessian[78] = this->prefactor_ * (24 * B * eta7 * eta9);
-    hessian[79] = this->prefactor_ * (24 * B * eta8 * eta9);
-    hessian[80] = this->prefactor_ *
-                  (B * (-12 * c + 12 * std::pow(eta1, 2) + 12 * std::pow(eta2, 2) +
-                        12 * std::pow(eta3, 2) + 12 * std::pow(eta4, 2) + 12 * std::pow(eta5, 2) +
-                        12 * std::pow(eta6, 2) + 12 * std::pow(eta7, 2) + 12 * std::pow(eta8, 2) +
-                        36 * std::pow(eta9, 2) - 6 * eta9 * (8 - 4 * c) + 12));
+    this->eval_(input_vector.data(), exp_input_vector.data(), auxiliary_vector.data(),
+                this->coordinates_.data(), this->time_, nullptr, nullptr, hessian.data());
     return hessian;
   };
   return func;
