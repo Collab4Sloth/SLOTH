@@ -66,17 +66,23 @@ TEST_CASE("UserIntegrator: name of an integrator entry", "[Operators][Extensions
   const IntegratorEntry<VARS> user = user_integrator<FourierNLFormIntegrator, VARS>("UserFourier");
   CHECK(integrator_name<VARS>(built_in) == "Fourier");
   CHECK(integrator_name<VARS>(user) == "UserFourier");
+
+  // Aliases of the Sloth2D namespace
+  const IntegratorList list{"AllenCahn", CustomIntegrator<FourierNLFormIntegrator>("Custom")};
+  REQUIRE(list.size() == 2);
+  CHECK(integrator_name<VARS>(list[0]) == "AllenCahn");
+  CHECK(integrator_name<VARS>(list[1]) == "Custom");
 }
 
 // Steady heat equation, T = 1 on x = 0 and T = 2 on x = 1: exact solution T = 1 + x (exact in Q1)
-// with the built-in Fourier integrator class used as a user integrator
+// with the built-in Fourier integrator class declared as a custom integrator (Sloth2D alias)
 TEST_CASE_METHOD(HeatSquare, "UserIntegrator: right-hand side integrator of a steady operator",
                  "[Operators][Extensions]") {
   BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 2.),
           Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 1.));
   auto vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 1.5));
 
-  SteadyOPE oper(spatials, {user_integrator<FourierNLFormIntegrator, VARS>("UserFourier")});
+  SteadyOPE oper(spatials, {CustomIntegrator<FourierNLFormIntegrator>("UserFourier")});
   oper.overload_nl_solver(NLSolverType::NEWTON, newton);
   SteadyPB problem("Heat", oper, vars, {coefs});
   auto coupling = Coupling("Heat", problem);

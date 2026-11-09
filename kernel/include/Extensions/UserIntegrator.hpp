@@ -84,8 +84,11 @@ class UserIntegrator {
  *        integrators (geometry, time step, previous unknowns, previous auxiliary fields,
  *        parameters, auxiliary variables, coefficients).
  *
+ * @details In a data set, use the CustomIntegrator alias of the Sloth1D/2D/3D namespaces, which
+ *          sets VARS:
  * @code
- *   TransientOPE oper(spatials, {"AllenCahn", user_integrator<MyNLFormIntegrator, VARS>("Mine")},
+ *   using namespace Sloth2D;
+ *   TransientOPE oper(spatials, {"AllenCahn", CustomIntegrator<MyNLFormIntegrator>("Mine")},
  *                     TimeScheme::EulerImplicit, "TimeDerivative");
  * @endcode
  */

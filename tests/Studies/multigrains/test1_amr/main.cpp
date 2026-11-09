@@ -331,7 +331,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < ngrains; ++i) {
       // Operator
       opes.emplace_back(std::make_unique<TransientOPE>(
-          std::vector<SPA*>{spatials[i]}, std::vector<IntegratorEntry<VARS>>{"AllenCahn"},
+          std::vector<SPA*>{spatials[i]}, IntegratorList{"AllenCahn"},
           TimeScheme::EulerImplicit, "TimeDerivative"));
 
       // Auxiliary variables: all the other grains
