@@ -194,6 +194,31 @@ void TransientOperator<T, DIM>::initialize(const double& initial_time, const dou
 }
 
 /**
+ * @brief Resynchronize the operator with the current mesh (see OperatorBase::sync_with_mesh()),
+ *        then reset the data of the transient operator that depend on the mesh.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return true The mesh had changed: the operator has been resynchronized.
+ * @return false The operator was already up to date.
+ */
+template <class T, int DIM>
+bool TransientOperator<T, DIM>::sync_with_mesh() {
+  if (!OperatorBase<T, DIM>::sync_with_mesh()) return false;
+  // The other height/width copy, inherited via mfem::TimeDependentOperator
+  this->mfem::TimeDependentOperator::height = this->OperatorBase<T, DIM>::height;
+  this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
+  // Work vectors of the ODE solver
+  this->ode_solver_->Init(*this);
+  // Mass matrices, lumped masses, last projected state and constraint solvers of split systems
+  this->free_mass_matrices();
+  this->lumped_.clear();
+  this->last_projection_signature_.Destroy();
+  this->free_constraint_solvers();
+  return true;
+}
+
+/**
  * @brief Solve the time-dependent problem
  *
  * @tparam T
@@ -206,23 +231,8 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                       double& next_time, const double& current_time,
                                       double current_time_step, [[maybe_unused]] const int iter) {
-  if (this->enable_amr_ && this->mesh_has_changed()) {
-    // Resynchronize height/width/z/block_trueOffsets_
-    this->UpdateAfterMeshChange();
-    // Resynchronize the OTHER height/width copy, inherited via mfem::TimeDependentOperator,
-    // which UpdateAfterMeshChange() does not touch.
-    this->mfem::TimeDependentOperator::height = this->OperatorBase<T, DIM>::height;
-    this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
-    // Resize k (the ODE solver's internal work vector)
-    this->ode_solver_->Init(*this);
-    // The mesh has changed: the mass matrices must be rebuilt
-    this->free_mass_matrices();
-    // Split systems: lumped masses and last projected state refer to the old mesh
-    this->lumped_.clear();
-    this->last_projection_signature_.Destroy();
-    this->free_constraint_solvers();
-    this->record_fes_sequence();
-  }
+  // Operator sizes, essential dofs and mesh-dependent data on the current mesh
+  this->sync_with_mesh();
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
   this->solve_time_step_ = current_time_step;
@@ -870,13 +880,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
 
-    // Get the unknown vectors of the auxiliary variables
-    std::vector<mfem::Vector> auxvars_unk;
-    for (const auto& auxvar_vec : this->auxvariables_) {
-      for (const auto& auxvar : auxvar_vec->getVariables()) {
-        auxvars_unk.emplace_back(auxvar.get_unknown());
-      }
-    }
+    const auto auxvars_unk = this->get_auxvars_unknowns();
     for (int i = 0; i < fes_size; ++i) {
       const int off = this->block_trueOffsets_[i];
       const int sz = this->block_trueOffsets_[i + 1] - off;

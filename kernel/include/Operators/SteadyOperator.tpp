@@ -113,22 +113,16 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   // Important line if solvers parameters are overloaded.
   this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
 
-  if (this->enable_amr_ && this->mesh_has_changed()) {
-    // Resynchronize height/width/z/block_trueOffsets_ and the Dirichlet dofs
-    this->UpdateAfterMeshChange();
-    this->record_fes_sequence();
-    // Dirichlet values on the new mesh: the unknowns have been interpolated, or reset to their
-    // initial condition by a pre-refinement (AMRBase::InitialRefine)
-    std::vector<mfem::Vector> auxvars_unk;
-    for (const auto& auxvar_vec : this->auxvariables_) {
-      for (const auto& auxvar : auxvar_vec->getVariables()) {
-        auxvars_unk.emplace_back(auxvar.get_unknown());
-      }
-    }
-    for (size_t i = 0; i < vect_unk.size(); i++) {
-      this->bcs_[i]->SetDirichletBoundaryConditions(*(vect_unk[i]), this->coefficients_[i],
-                                                    auxvars_unk);
-    }
+  // Operator sizes and essential dofs on the current mesh (AMR of this Problem or of another
+  // Problem sharing the mesh)
+  this->sync_with_mesh();
+
+  // Dirichlet values imposed at each solve: they may depend on time or on the auxiliary
+  // variables, and the unknowns may have been interpolated or reset on a new mesh
+  const auto auxvars_unk = this->get_auxvars_unknowns();
+  for (size_t i = 0; i < vect_unk.size(); i++) {
+    this->bcs_[i]->SetDirichletBoundaryConditions(*(vect_unk[i]), this->coefficients_[i],
+                                                  auxvars_unk);
   }
 
   //// Constructing array of offsets
@@ -145,19 +139,6 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   }
 
   this->SetTransientParameters(dt, u_vect);
-
-  /// Apply BCs: check if need to be uncomment
-  // Get the unknown vectors of the auxiliary variables
-  // std::vector<mfem::Vector> auxvars_unk;
-  // for (const auto& auxvar_vec : this->auxvariables_) {
-  //   for (const auto& auxvar : auxvar_vec->getVariables()) {
-  //     auxvars_unk.emplace_back(auxvar.get_unknown());
-  //   }
-  // }
-  // for (size_t i = 0; i < unk_size; i++) {
-  //   auto &unk_i = *(vect_unk[i]);
-  //   this->bcs_[i]->SetDirichletBoundaryConditions(unk_i, this->coefficients_[i], auxvars_unk);
-  // }
 
   // Zero right-hand side: source terms are part of the RHS nonlinear form (SourceTerm
   // integrator)

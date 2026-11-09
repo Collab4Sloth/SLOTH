@@ -69,7 +69,6 @@ class OperatorBase : public mfem::Operator {
   void set_default_solver();
 
  protected:
-  bool enable_amr_{true};
   Geometry geometry_ = Geometry::Cartesian;
   Parameters nl_solver_params_;
   std::optional<Coefficient> energy_coefficient_;
@@ -109,6 +108,8 @@ class OperatorBase : public mfem::Operator {
   std::vector<long> fes_sequence_;
   void record_fes_sequence();
   bool mesh_has_changed() const;
+  virtual bool sync_with_mesh();
+  std::vector<mfem::Vector> get_auxvars_unknowns() const;
 
   void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
