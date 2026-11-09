@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AuxiliaryCoefficient.hpp"
 #include "Integrators/MeltingBaseNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -38,6 +39,35 @@
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+/**
+ * @brief Phase change of MeltingTemperatureNLFormIntegrator: melting enthalpy where the
+ * temperature exceeds the melting temperature, zero elsewhere.
+ */
+struct MeltingTemperaturePhaseChangeEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;  ///< read by index: see max_auxiliary_index
+  static constexpr int nb_coordinates = 0;
+  int temperature_index = 0;  ///< index of the temperature among the auxiliary variables
+  double melting_temperature = 0.0;
+  double melting_enthalpy = 0.0;
+
+  int max_auxiliary_index() const { return temperature_index; }
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    if (F != nullptr) {
+      *F = auxiliary_values[temperature_index] > melting_temperature ? melting_enthalpy : 0.0;
+    }
+    if (gradient != nullptr) gradient[0] = 0.0;
+    if (hessian != nullptr) hessian[0] = 0.0;
+  }
+};
 
 /**
  * @brief Class dedicated to the VF of an ad-hoc temperature melting contribution found in
@@ -55,10 +85,6 @@ class MeltingTemperatureNLFormIntegrator : public MeltingBaseNLFormIntegrator<VA
   double melting_enthalpy_;
   void get_parameters();
   void check_variables_consistency() override;
-
- protected:
-  double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
-                                const std::span<const double>& aux_values) override;
 
  public:
   MeltingTemperatureNLFormIntegrator(Geometry geometry, const double time_step,

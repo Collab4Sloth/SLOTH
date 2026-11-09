@@ -57,14 +57,16 @@
  * natural condition is a zero advective flux.
  *
  * Default (Advection): one term (b, b) per block having Velocity coefficients.
- * Derived classes redefine the terms through build_terms() (see SplitAdvection) and may
- * redefine the velocity through compute_velocity().
+ * Derived classes redefine the terms through build_terms() (see SplitAdvection).
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  */
 template <class VARS>
 class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   // Work arrays reused across elements and integration points
   std::vector<mfem::Vector> shape_;       ///< shape functions of each block at ip
   std::vector<mfem::Vector> u_old_dofs_;  ///< local dofs of u_old for each block
@@ -74,11 +76,26 @@ class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::Vector v_;                        ///< velocity at ip
   mfem::Vector adv_;                      ///< v . grad(psi_r)
 
+  /// Velocity of each advected block at the integration points of the current element, when all
+  /// the blocks have the same finite element: v_d at point q = velocity_at_points_[blk](d, q)
+  std::vector<mfem::DenseMatrix> velocity_at_points_;
+  /// Velocity component or prefactor at the integration points (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints coefficient_at_points_;
+  mfem::Vector grad_;  ///< gradient of the auxiliary variable (Gradient mode)
+
+  bool velocity_at_points(const mfem::Array<const mfem::FiniteElement*>& el,
+                          mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+                          const mfem::Array<const mfem::Vector*>& elfun);
+  void compute_velocity(int blk, mfem::ElementTransformation& Tr, const std::span<const double>& u,
+                        const std::span<const double>& aux, mfem::Vector& v);
+
   void prepare_element(const mfem::Array<const mfem::FiniteElement*>& el,
                        mfem::ElementTransformation& Tr);
   double evaluate_at_ip(const mfem::Array<const mfem::FiniteElement*>& el,
                         const mfem::Array<const mfem::Vector*>& elfun,
-                        mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
+                        mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
+                        const bool with_aux);
   void compute_advection_shape(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr);
   static const mfem::IntegrationRule& get_integration_rule(
       const mfem::Array<const mfem::FiniteElement*>& el, const mfem::ElementTransformation& Tr);
@@ -103,11 +120,6 @@ class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
   /// Define the advection terms (called in init(), after get_coefficients())
   virtual void build_terms();
-
-  /// Velocity of block 'blk' at the current integration point (Tr set at ip)
-  virtual void compute_velocity(int blk, mfem::ElementTransformation& Tr,
-                                const std::span<const double>& u,
-                                const std::span<const double>& aux, mfem::Vector& v);
 
  public:
   void init() override;

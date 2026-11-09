@@ -136,13 +136,15 @@ void SourceTermNLFormIntegrator<VARS>::prepare_element(
  * @brief Evaluate the shape functions at ip and, if needed, the current, previous and
  * auxiliary values (once for all blocks).
  *
+ * @param with_values false if the source terms are already evaluated at the integration points
+ *        of the element (see source_terms_at_points): values not needed
  * @return The quadrature weight at ip (including the axisymmetric factor if needed).
  */
 template <class VARS>
 double SourceTermNLFormIntegrator<VARS>::evaluate_at_ip(
     const mfem::Array<const mfem::FiniteElement*>& el,
     const mfem::Array<const mfem::Vector*>& elfun, mfem::ElementTransformation& Tr,
-    const mfem::IntegrationPoint& ip) {
+    const mfem::IntegrationPoint& ip, const bool with_values) {
   this->set_int_point(Tr, ip);
 
   const int nb = el.Size();
@@ -150,7 +152,7 @@ double SourceTermNLFormIntegrator<VARS>::evaluate_at_ip(
     el[b]->CalcShape(ip, this->shape_[b]);
   }
 
-  if (this->needs_fields_) {
+  if (this->needs_fields_ && with_values) {
     for (int b = 0; b < nb; ++b) {
       this->u_values_[b] = (*elfun[b]) * this->shape_[b];
       this->u_values_[b + nb] = this->u_old_dofs_[b] * this->shape_[b];
@@ -165,6 +167,39 @@ double SourceTermNLFormIntegrator<VARS>::evaluate_at_ip(
     weight *= AxiCylindricalCoefficient().Eval(Tr, ip);
   }
   return weight;
+}
+
+/**
+ * @brief Evaluates the source terms at all the integration points of the element, when all the
+ * blocks have the same finite element (see SlothNLFormIntegrator::eval_coefficient_at_points).
+ * Otherwise, nothing is done: the source terms are evaluated point by point.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param ir      Integration rule.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param outputs Requested outputs (see SlothNLFormIntegrator::CoefficientOutput).
+ * @return true if the source terms are evaluated at the integration points (source_at_points_).
+ */
+template <class VARS>
+bool SourceTermNLFormIntegrator<VARS>::source_terms_at_points(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::IntegrationRule& ir, const mfem::Array<const mfem::Vector*>& elfun,
+    const unsigned int outputs) {
+  if (!this->same_finite_elements(el)) {
+    return false;
+  }
+  const int nb = el.Size();
+  if (this->needs_fields_) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir);
+  }
+  this->source_at_points_.resize(static_cast<std::size_t>(nb));
+  for (int b = 0; b < nb; ++b) {
+    this->eval_coefficient_at_points(this->source_term_[b], b, outputs, *el[0], Tr, ir, elfun,
+                                     this->vaux_gf_,
+                                     this->source_at_points_[static_cast<std::size_t>(b)]);
+  }
+  return true;
 }
 
 /**
@@ -191,13 +226,15 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementVector(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  const bool at_points = this->source_terms_at_points(el, Tr, ir, elfun, SlothNLBase::CoefValue);
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
+    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip, !at_points);
 
     for (int b = 0; b < nb; ++b) {
-      const double s = this->eval_coefficient(this->source_term_[b], u, aux, b);
+      const double s = at_points ? this->source_at_points_[static_cast<std::size_t>(b)].value(q)
+                                 : this->eval_coefficient(this->source_term_[b], u, aux, b);
       elvect[b]->Add(-s * weight, this->shape_[b]);
     }
   }
@@ -238,17 +275,21 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementGrad(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  const bool at_points =
+      this->source_terms_at_points(el, Tr, ir, elfun, SlothNLBase::CoefFirstDerivative);
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
+    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip, !at_points);
 
     for (int i = 0; i < nb; ++i) {
       if (!this->has_derivative_[i]) {
         continue;
       }
       for (int j = 0; j < nb; ++j) {
-        const double ds = this->eval_gradient_coefficient(this->source_term_[i], j, u, aux, i);
+        const double ds =
+            at_points ? this->source_at_points_[static_cast<std::size_t>(i)].derivative(q, j)
+                      : this->eval_gradient_coefficient(this->source_term_[i], j, u, aux, i);
         if (ds == 0.0) {
           continue;
         }

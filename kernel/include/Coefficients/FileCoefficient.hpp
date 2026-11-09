@@ -80,6 +80,10 @@ class FileCoefficient : public FunctionCoefficient {
   int input_dim() const;
 
   double value(double time, std::span<const double> coordinates) const;
+
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const override;
   virtual ~FileCoefficient() = default;
 
   void set_time(double time) override;

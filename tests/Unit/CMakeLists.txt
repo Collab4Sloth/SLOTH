@@ -116,7 +116,8 @@ sloth_add_unit_test(NAME AnalyticalFunctions
 
 sloth_add_unit_test(NAME BCs
                     SOURCES BCs/test_Boundary.cpp
-                            BCs/test_BoundaryConditions.cpp)
+                            BCs/test_BoundaryConditions.cpp
+                    COEFFICIENTS_JSON BCs/BoundaryCoefficients.json)
 
 sloth_add_unit_test(NAME Coefficients
                     SOURCES Coefficients/test_FunctionCoefficients.cpp
@@ -139,7 +140,8 @@ sloth_add_unit_test(NAME Convergence
                     NPROCS 1)
 
 sloth_add_unit_test(NAME Couplings
-                    SOURCES Couplings/test_Couplings.cpp)
+                    SOURCES Couplings/test_Couplings.cpp
+                    COEFFICIENTS_JSON Couplings/CouplingCoefficients.json)
 
 sloth_add_unit_test(NAME Framework
                     SOURCES framework/test_mpi.cpp)
@@ -174,7 +176,8 @@ sloth_add_unit_test(NAME PreProcessing
 sloth_add_unit_test(NAME Problems
                     SOURCES Problems/test_CahnHilliardDirichlet.cpp
                             Problems/test_MPIProblem.cpp
-                            Problems/test_SteadyAndExplicit.cpp)
+                            Problems/test_SteadyAndExplicit.cpp
+                    COEFFICIENTS_JSON Problems/ProblemCoefficients.json)
 
 sloth_add_unit_test(NAME Property
                     SOURCES Property/test_InterDiffusionCoefficient.cpp

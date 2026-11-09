@@ -532,6 +532,7 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 
 #include "Options/PhysicalPropertiesOptions.hpp"\n  
 #include "Coefficients/FunctionCoefficient.hpp"\n  
+#include "Coefficients/EvalAtPoints.hpp"\n
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]\n
 
 #pragma once\n
@@ -586,6 +587,17 @@ def write_class_using_eval(cpp_file, class_name, list_expr, n, coord_vars,
         f.write(f"  virtual ~{class_name}() = default;\n")
         f.write(f"  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points\n")
         f.write(f"  const {class_name}Eval& get_eval() const {{ return eval_; }}\n")
+        f.write("  /// Evaluation at a set of points with the evaluation structure (see eval_at_points)\n")
+        f.write("  bool eval_batch(const int npts, const mfem::Vector& values,\n")
+        f.write("                  const mfem::Vector& explicit_values,\n")
+        f.write("                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,\n")
+        f.write("                  mfem::Vector* F, mfem::Vector* gradient,\n")
+        f.write("                  mfem::Vector* hessian) const final {\n")
+        f.write("    eval_at_points(eval_, npts, this->time_, values, explicit_values, auxiliary_values,\n")
+        f.write("                   coordinates, F, gradient, hessian);\n")
+        f.write("    return true;\n")
+        f.write("  }\n")
+        f.write(f"  int batch_nb_variables() const final {{ return {class_name}Eval::nb_variables; }}\n")
         if coord_vars:
             f.write("  bool uses_coordinates() const final { return true; }\n")
         f.write("};\n\n")

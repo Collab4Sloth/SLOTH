@@ -117,7 +117,8 @@ void AdvectionNLFormIntegrator<VARS>::build_terms() {
 }
 
 /**
- * @brief Velocity of block 'blk' at the current integration point (Tr set at ip).
+ * @brief Velocity of block 'blk' at the current integration point (Tr set at ip), for blocks
+ * with different finite elements (see velocity_at_points otherwise).
  */
 template <class VARS>
 void AdvectionNLFormIntegrator<VARS>::compute_velocity(int blk, mfem::ElementTransformation& Tr,
@@ -129,6 +130,58 @@ void AdvectionNLFormIntegrator<VARS>::compute_velocity(int blk, mfem::ElementTra
     return this->eval_coefficient(copy, u, aux);
   };
   this->velocity_[blk].eval(Tr, this->vaux_gf_, coef, v);
+}
+
+/**
+ * @brief Velocity of each advected block at all the integration points of the element, when all
+ * the blocks have the same finite element: components or prefactor evaluated once per element
+ * (see SlothNLFormIntegrator::eval_coefficient_at_points), same values as compute_velocity.
+ *
+ * @return false if the blocks have different finite elements (velocity point by point)
+ */
+template <class VARS>
+bool AdvectionNLFormIntegrator<VARS>::velocity_at_points(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::IntegrationRule& ir, const mfem::Array<const mfem::Vector*>& elfun) {
+  if (!this->same_finite_elements(el)) {
+    return false;
+  }
+  if (this->needs_aux_) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir);
+  }
+  const int nip = ir.GetNPoints();
+  this->velocity_at_points_.resize(this->nb_blk_);
+  for (unsigned int b = 0; b < this->nb_blk_; ++b) {
+    VelocityField& velocity = this->velocity_[b];
+    if (!velocity.active()) continue;
+    mfem::DenseMatrix& v = this->velocity_at_points_[b];
+    v.SetSize(this->sdim_, nip);
+    if (velocity.mode() == VelocityField::Mode::Components) {
+      for (int d = 0; d < this->sdim_; ++d) {
+        this->eval_coefficient_at_points(velocity.component(d), 0, SlothNLBase::CoefValue, *el[0],
+                                         Tr, ir, elfun, this->vaux_gf_,
+                                         this->coefficient_at_points_);
+        for (int q = 0; q < nip; ++q) {
+          v(d, q) = this->coefficient_at_points_.value(q);
+        }
+      }
+    } else {
+      // v = alpha grad(a)
+      this->eval_coefficient_at_points(velocity.prefactor(), 0, SlothNLBase::CoefValue, *el[0], Tr,
+                                       ir, elfun, this->vaux_gf_, this->coefficient_at_points_);
+      const mfem::ParGridFunction& a =
+          this->vaux_gf_[static_cast<std::size_t>(velocity.gradient_index())];
+      for (int q = 0; q < nip; ++q) {
+        this->set_int_point(Tr, ir.IntPoint(q));
+        a.GetGradient(Tr, this->grad_);
+        const double alpha = this->coefficient_at_points_.value(q);
+        for (int d = 0; d < this->sdim_; ++d) {
+          v(d, q) = alpha * this->grad_(d);
+        }
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -164,7 +217,8 @@ void AdvectionNLFormIntegrator<VARS>::prepare_element(
 }
 
 /**
- * @brief Evaluate the shape functions, the unknowns and (if needed) the auxiliary fields at ip.
+ * @brief Evaluate the shape functions, the unknowns and (if needed by compute_velocity, with_aux)
+ * the auxiliary fields at ip.
  *
  * @return The quadrature weight (including the axisymmetric factor if needed).
  */
@@ -172,7 +226,7 @@ template <class VARS>
 double AdvectionNLFormIntegrator<VARS>::evaluate_at_ip(
     const mfem::Array<const mfem::FiniteElement*>& el,
     const mfem::Array<const mfem::Vector*>& elfun, mfem::ElementTransformation& Tr,
-    const mfem::IntegrationPoint& ip) {
+    const mfem::IntegrationPoint& ip, const bool with_aux) {
   this->set_int_point(Tr, ip);
 
   const int nb = el.Size();
@@ -182,7 +236,7 @@ double AdvectionNLFormIntegrator<VARS>::evaluate_at_ip(
     this->u_values_[b + nb] = this->u_old_dofs_[b] * this->shape_[b];
   }
 
-  if (this->needs_aux_) {
+  if (with_aux && this->needs_aux_) {
     for (std::size_t k = 0; k < this->vaux_gf_.size(); ++k) {
       this->aux_values_[k] = this->vaux_gf_[k].GetValue(Tr, ip);
     }
@@ -227,12 +281,18 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementVector(
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
 
+  const bool by_element = this->velocity_at_points(el, Tr, ir, elfun);
+
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
+    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip, !by_element);
 
     for (const auto& term : this->terms_) {
-      this->compute_velocity(term.vel, Tr, u, aux, this->v_);
+      if (by_element) {
+        this->velocity_at_points_[static_cast<std::size_t>(term.vel)].GetColumn(q, this->v_);
+      } else {
+        this->compute_velocity(term.vel, Tr, u, aux, this->v_);
+      }
       this->compute_advection_shape(*el[term.row], Tr);
       elvect[term.row]->Add(-weight * this->u_values_[term.var], this->adv_);
     }
@@ -265,12 +325,18 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementGrad(
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
 
+  const bool by_element = this->velocity_at_points(el, Tr, ir, elfun);
+
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip);
+    const double weight = this->evaluate_at_ip(el, elfun, Tr, ip, !by_element);
 
     for (const auto& term : this->terms_) {
-      this->compute_velocity(term.vel, Tr, u, aux, this->v_);
+      if (by_element) {
+        this->velocity_at_points_[static_cast<std::size_t>(term.vel)].GetColumn(q, this->v_);
+      } else {
+        this->compute_velocity(term.vel, Tr, u, aux, this->v_);
+      }
       this->compute_advection_shape(*el[term.row], Tr);
       mfem::AddMult_a_VWt(-weight, this->adv_, this->shape_[term.var], *elmats(term.row, term.var));
     }

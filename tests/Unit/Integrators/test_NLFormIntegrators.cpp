@@ -45,10 +45,16 @@
 //   MobilityCross = m0 phi0 (1 - phi1)      (two phases, monolithic coupling)
 //   MobilityDegenerate = m0 phi0 (1 - phi0) (two phases, depends on phi0 only)
 //   CoupledEnergy = w0 phi0^2 phi1^2         (free energy coupling two phases)
+//   MobilityX = m0 (1 + X phi0 phi1)        (first coordinate only, X)
+//   SemiImplicitEnergy = phi0^2 phi1e + phi1^2 phi0e^2  (explicit variables phi0e, phi1e)
+//   FirstAuxiliary = a                      (first auxiliary variable)
 #include "CoupledEnergy.hpp"
+#include "FirstAuxiliary.hpp"
 #include "MobilityCross.hpp"
 #include "MobilityDegenerate.hpp"
 #include "MobilityPhi.hpp"
+#include "MobilityX.hpp"
+#include "SemiImplicitEnergy.hpp"
 
 using Catch::Matchers::WithinAbs;
 
@@ -666,37 +672,6 @@ double moment_x(const SlothSquare& sq, const mfem::Vector& F) {
 }
 }  // namespace
 
-/// @brief Coefficient equal to the auxiliary field number k (no dependence on u)
-class AuxValue final : public FunctionCoefficient {
- public:
-  explicit AuxValue(std::size_t k) : k_(k) {}
-
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [this](const std::span<const double>&, const std::span<const double>&,
-                  const std::span<const double>& aux, const unsigned int) { return aux[k_]; };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size(), 0.); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-
- private:
-  std::size_t k_;
-};
-
 TEST_CASE_METHOD(SlothSquare,
                  "AdvectionNLFormIntegrator: divergence form with a non-solenoidal velocity",
                  "[Integrators]") {
@@ -709,7 +684,7 @@ TEST_CASE_METHOD(SlothSquare,
   ctx.auxvars = {&b};
   ctx.aux_old = {b.getVariables()[0].get_gf()};
   auto v = [](int bdr) {
-    Coefficients c(Coefficient(Glossary::Velocity_X, Scheme::Implicit, AuxValue(0)),
+    Coefficients c(Coefficient(Glossary::Velocity_X, Scheme::Implicit, FirstAuxiliary()),
                    Coefficient(Glossary::Velocity_Y, 0.));
     if (bdr >= 0) c.add(on_boundary(Coefficient(Glossary::Inflow, 0.), bdr));
     return c;
@@ -972,6 +947,8 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "CahnHilliardNLFormIntegrator: residual
 // Coefficient of the spatial coordinates in an integrator: the integrator
 // gives it the physical point of each integration point.
 // Source f = 1 + x + y: |sum_i F_i| = |(f, 1)| = 2 over the unit square.
+// Written by hand on purpose (not generated from a JSON file): a coefficient without
+// evaluation structure, evaluated point by point by eval_coefficient_at_points.
 // -----------------------------------------------------------------------------
 namespace {
 class OnePlusXPlusY final : public FunctionCoefficient {
@@ -1018,93 +995,197 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "SourceTermNLFormIntegrator: source of 
 }
 
 // -----------------------------------------------------------------------------
-// Phases on different finite element spaces (general path of the integrator).
-// Phase 0 on Q1, phase 1 on Q2, mobility M = m0 phi0 (1 - phi1) of both phases.
-// With fields exact in both spaces (phi0 = 0.3 + 0.1 y, phi1 = 0.4 + 0.2 x), the
-// residual is the one computed with both phases on Q1:
-//   block 0 (Q1 in both cases): equal dof by dof;
-//   block 1: equal moments (R_1, 1) and (R_1, x), 1 and x being in Q1 and Q2.
-// The Jacobian (rectangular off-diagonal blocks) matches the residual.
+// Phases on different finite element spaces: not supported, all the phases of a
+// multiphase Allen-Cahn problem share the same finite element space.
 // -----------------------------------------------------------------------------
-namespace {
-double phi0_affine(const mfem::Vector& p) { return 0.3 + 0.1 * p[1]; }
-double phi1_affine(const mfem::Vector& p) { return 0.4 + 0.2 * p[0]; }
-
-/// @brief Interpolant of f on a space, as true dofs
-mfem::Vector true_dofs(mfem::ParFiniteElementSpace* fes, double (*f)(const mfem::Vector&)) {
-  mfem::ParGridFunction gf(fes);
-  mfem::FunctionCoefficient c(f);
-  gf.ProjectCoefficient(c);
-  mfem::Vector v;
-  gf.GetTrueDofs(v);
-  return v;
-}
-
-/// @brief Two-phase Allen-Cahn form on the spaces (s0, s1); ctx must outlive the form
-std::unique_ptr<mfem::ParBlockNonlinearForm> two_phase_form(mfem::ParFiniteElementSpace* s0,
-                                                            mfem::ParFiniteElementSpace* s1,
-                                                            Context& ctx) {
-  for (auto* s : {s0, s1}) {
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "AllenCahnNLFormIntegrator: phases on different finite element spaces",
+                 "[Integrators][errors]") {
+  mfem::H1_FECollection fec2(2, 2);
+  mfem::ParFiniteElementSpace fes2(pmesh.get(), &fec2);
+  Context ctx;
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(2);
+  spaces[0] = fes.get();
+  spaces[1] = &fes2;
+  for (auto* s : spaces) {
     mfem::ParGridFunction old(s);
     mfem::FunctionCoefficient c(phi_old);
     old.ProjectCoefficient(c);
     ctx.u_old.push_back(old);
   }
-  mfem::Array<mfem::ParFiniteElementSpace*> spaces(2);
-  spaces[0] = s0;
-  spaces[1] = s1;
-  auto form = std::make_unique<mfem::ParBlockNonlinearForm>(spaces);
-  form->AddDomainIntegrator(
+  mfem::ParBlockNonlinearForm form(spaces);
+  form.AddDomainIntegrator(
       maker<AllenCahnNLFormIntegrator>({two_phase_mobility_coefficients<MobilityCross>(),
                                         two_phase_mobility_coefficients<MobilityCross>()})(ctx));
-  return form;
+  mfem::Vector x(fes->GetTrueVSize() + fes2.GetTrueVSize()), y(x.Size());
+  x = 0.5;
+  SLOTH_CHECK_MFEM_ERROR_WITH(form.Mult(x, y), "same finite element space");
 }
 
-/// @brief True dofs of (phi0, phi1) on the spaces (s0, s1), blocks one after the other
-mfem::Vector two_phase_fields(mfem::ParFiniteElementSpace* s0, mfem::ParFiniteElementSpace* s1) {
-  const mfem::Vector x0 = true_dofs(s0, phi0_affine), x1 = true_dofs(s1, phi1_affine);
-  mfem::Vector x(x0.Size() + x1.Size());
-  x.SetVector(x0, 0);
-  x.SetVector(x1, x0.Size());
-  return x;
+// -----------------------------------------------------------------------------
+// Evaluation of a coefficient at all the integration points of an element
+// (eval_coefficient_at_points): same values as the point by point evaluation,
+// by batch for the generated coefficients, point by point for the others.
+// -----------------------------------------------------------------------------
+namespace {
+/// @brief Allen-Cahn integrator giving access to eval_coefficient_at_points
+template <class VARS>
+class CoefficientAtPointsProbe : public AllenCahnNLFormIntegrator<VARS> {
+  using Base = AllenCahnNLFormIntegrator<VARS>;
+
+ public:
+  using Base::Base;
+
+  /// Result of the comparison on one element
+  struct Comparison {
+    double max_difference = 0.;  ///< max over the points of |at points - point by point|
+    bool by_batch = false;       ///< evaluated by batch
+  };
+
+  /**
+   * @brief Compares eval_coefficient_at_points with the point by point evaluation on element e
+   * @param with_table values at the points from the tables of prepare_element_values
+   * @param at_end_of_step coefficient evaluated at the end of the step (u_old + dt k)
+   */
+  Comparison compare(Coefficient& coef, const int var_blk, mfem::ParFiniteElementSpace& fes,
+                     const std::vector<mfem::ParGridFunction>& u, const int e,
+                     const bool with_table, const bool at_end_of_step = false) {
+    const int nb = static_cast<int>(u.size());
+    std::vector<mfem::Vector> dofs(u.size());
+    mfem::Array<const mfem::Vector*> elfun(nb);
+    mfem::Array<const mfem::FiniteElement*> el(nb);
+    for (int b = 0; b < nb; ++b) {
+      u[static_cast<std::size_t>(b)].GetElementDofValues(e, dofs[static_cast<std::size_t>(b)]);
+      elfun[b] = &dofs[static_cast<std::size_t>(b)];
+      el[b] = fes.GetFE(e);
+    }
+    const mfem::FiniteElement& fe = *fes.GetFE(e);
+    mfem::ElementTransformation& Tr = *fes.GetElementTransformation(e);
+    const mfem::IntegrationRule& ir =
+        mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
+    const std::vector<mfem::ParGridFunction> no_aux;
+    if (with_table) {
+      this->prepare_element_values(el, Tr, elfun, no_aux, ir);
+    } else {
+      // Tables of another rule: not used
+      this->prepare_element_values(el, Tr, elfun, no_aux, mfem::IntRules.Get(fe.GetGeomType(), 1));
+    }
+
+    typename SlothNLFormIntegrator<VARS>::CoefficientAtPoints out;
+    this->eval_coefficient_at_points(
+        coef, var_blk, Base::CoefValue | Base::CoefFirstDerivative | Base::CoefSecondDerivative, fe,
+        Tr, ir, elfun, no_aux, out,
+        at_end_of_step ? Base::ValuesAt::EndOfStep : Base::ValuesAt::Unknowns);
+
+    Comparison result;
+    result.by_batch = out.by_batch;
+    mfem::Vector shape(fe.GetDof());
+    auto update = [&result](const double a, const double b) {
+      result.max_difference = std::max(result.max_difference, std::abs(a - b));
+    };
+    for (int q = 0; q < ir.GetNPoints(); ++q) {
+      const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+      this->set_int_point(Tr, ip);
+      fe.CalcShape(ip, shape);
+      const auto ipv = this->values_at_ip(ir, q, shape, elfun, no_aux, Tr);
+      // Integrators of the time derivative: values at the end of the step
+      const std::span<const double> values =
+          at_end_of_step ? this->values_at_end_of_step(ipv.u) : ipv.u;
+      update(out.value(q), this->eval_coefficient(coef, values, ipv.aux, var_blk));
+      for (int i = 0; i < nb; ++i) {
+        update(out.derivative(q, i),
+               this->eval_gradient_coefficient(coef, i, values, ipv.aux, var_blk));
+        update(out.energy_derivative(q, i),
+               this->eval_gradient_energy_coefficient(coef, i, values, ipv.aux, var_blk));
+        for (int j = 0; j < nb; ++j) {
+          update(out.second_derivative(q, i, j),
+                 this->eval_hessian_coefficient(coef, i, j, values, ipv.aux, var_blk));
+        }
+      }
+    }
+    return result;
+  }
+};
+
+double phi1_old(const mfem::Vector& p) {
+  return 0.4 + 0.15 * std::cos(2. * p[0]) * std::sin(3. * p[1]);
 }
+double phi0_now(const mfem::Vector& p) { return 0.3 + 0.2 * p[0] * p[1]; }
+double phi1_now(const mfem::Vector& p) { return 0.6 - 0.25 * p[0] + 0.1 * p[1]; }
+
+/// @brief One coefficient to compare: name, coefficient, block of a coefficient of one
+/// variable, expected evaluation by batch
+struct AtPointsCase {
+  std::string name;
+  Coefficient coef;
+  int var_blk;
+  bool by_batch;
+};
 }  // namespace
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare,
-                 "AllenCahnNLFormIntegrator: phases on different finite element spaces",
-                 "[Integrators][derivatives]") {
-  mfem::H1_FECollection fec2(2, 2);
-  mfem::ParFiniteElementSpace fes2(pmesh.get(), &fec2);
-  Context ctx_mixed;
-  auto mixed = two_phase_form(fes.get(), &fes2, ctx_mixed);
-  const int n0 = fes->GetTrueVSize();
+                 "eval_coefficient_at_points: same values as the point by point evaluation",
+                 "[Integrators][coefficients]") {
+  // Two blocks: u_old and u differ, so that the scheme of each coefficient is checked
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.u_old.push_back(project(phi1_old));
+  std::vector<mfem::ParGridFunction> u;
+  u.push_back(project(phi0_now));
+  u.push_back(project(phi1_now));
 
-  SECTION("residual: same as with both phases on Q1") {
-    Context ctx_ref;
-    auto ref = two_phase_form(fes.get(), fes.get(), ctx_ref);
-    const mfem::Vector x_ref = two_phase_fields(fes.get(), fes.get());
-    const mfem::Vector x_mixed = two_phase_fields(fes.get(), &fes2);
-    mfem::Vector F_ref(x_ref.Size()), F_mixed(x_mixed.Size());
-    ref->Mult(x_ref, F_ref);
-    mixed->Mult(x_mixed, F_mixed);
+  CoefficientAtPointsProbe<VARS2D> probe(Geometry::Cartesian, ctx.dt, ctx.u_old, ctx.aux_old,
+                                         ctx.params, ctx.auxvars,
+                                         {phase_field_coefficients(), phase_field_coefficients()});
+  probe.init();
 
-    for (int r = 0; r < n0; ++r) {
-      CAPTURE(r);
-      CHECK_THAT(F_mixed(r), Catch::Matchers::WithinAbs(F_ref(r), 1.e-12));
+  // Coefficient from a file: F = 1 + x y + t on a 3 x 3 grid (bilinear in each cell)
+  std::string csv_content = "t,x,y,F\n";
+  for (const double t : {0., 1.}) {
+    for (const double x : {0., 0.5, 1.}) {
+      for (const double y : {0., 0.5, 1.}) {
+        csv_content += std::to_string(t) + "," + std::to_string(x) + "," + std::to_string(y) + "," +
+                       std::to_string(1. + x * y + t) + "\n";
+      }
     }
-    mfem::Vector R1_ref(F_ref.GetData() + n0, F_ref.Size() - n0);
-    mfem::Vector R1_mixed(F_mixed.GetData() + n0, F_mixed.Size() - n0);
-    CHECK_THAT(global_sum(R1_mixed), Catch::Matchers::WithinAbs(global_sum(R1_ref), 1.e-12));
-    const mfem::Vector X_ref = true_dofs(fes.get(), x_of), X_mixed = true_dofs(&fes2, x_of);
-    CHECK_THAT(
-        mfem::InnerProduct(MPI_COMM_WORLD, X_mixed, R1_mixed),
-        Catch::Matchers::WithinAbs(mfem::InnerProduct(MPI_COMM_WORLD, X_ref, R1_ref), 1.e-12));
   }
-  SECTION("Jacobian") {
-    mfem::Vector x(n0 + fes2.GetTrueVSize());
-    x.Randomize(5);
-    x *= 0.6;
-    x += 0.2;
-    check_gradient(*mixed, x);
+  const sloth_unit::TemporaryFile csv("at_points.csv", csv_content);
+
+  const std::vector<AtPointsCase> cases{
+      {"W, implicit, block 0", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(3.)), 0, true},
+      {"W, implicit, block 1", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(3.)), 1, true},
+      {"Log, implicit", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, Log(2.)), 1, true},
+      {"H, explicit", Coefficient(Glossary::FreeEnergy, Scheme::Explicit, H()), 0, true},
+      {"MobilityCross, implicit",
+       Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityCross()), 0, true},
+      {"MobilityCross, explicit",
+       Coefficient(Glossary::Mobility, Scheme::Explicit, MobilityCross()), 0, true},
+      {"SemiImplicitEnergy, semi-implicit",
+       Coefficient(Glossary::FreeEnergy, Scheme::SemiImplicit, SemiImplicitEnergy()), 0, true},
+      {"MobilityX, first coordinate only",
+       Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityX()), 1, true},
+      {"constant", Coefficient(Glossary::Mobility, 3.5), 0, false},
+      {"file", Coefficient(Glossary::Mobility, FileCoefficient(csv.path())), 0, true},
+      {"hand-written, coordinates",
+       Coefficient(Glossary::Mobility, Scheme::Implicit, OnePlusXPlusY()), 0, false},
+  };
+
+  // Values at the points: from the element tables or point by point; values of the unknowns
+  // (u, u_old) or at the end of the step (integrators of the time derivative: u_old + dt k)
+  for (const bool with_table : {true, false}) {
+    for (const bool at_end_of_step : {false, true}) {
+      for (const AtPointsCase& c : cases) {
+        INFO(c.name << (with_table ? " (element tables)" : " (point by point values)")
+                    << (at_end_of_step ? " (end of step)" : ""));
+        Coefficient coef = c.coef;
+        for (int e = 0; e < fes->GetNE(); ++e) {
+          CAPTURE(e);
+          const auto r = probe.compare(coef, c.var_blk, *fes, u, e, with_table, at_end_of_step);
+          CHECK(r.by_batch == c.by_batch);
+          // Coefficient from a file: same tabulated values at the same points
+          CHECK(r.max_difference <= (c.name == "file" ? 0. : 1.e-12));
+        }
+      }
+    }
   }
 }

@@ -35,39 +35,12 @@
 #include "Sloth/tests.hpp"
 #include "sloth_unit.hpp"
 
+// Coefficient generated at configure time from Couplings/CouplingCoefficients.json:
+//   FirstAuxiliary = a  (first auxiliary variable)
+#include "FirstAuxiliary.hpp"
+
 namespace {
 using namespace Sloth2D;
-
-/// @brief Coefficient equal to the auxiliary field number k (no dependence on u)
-class AuxValue final : public FunctionCoefficient {
- public:
-  explicit AuxValue(std::size_t k) : k_(k) {}
-
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [this](const std::span<const double>&, const std::span<const double>&,
-                  const std::span<const double>& aux, const unsigned int) { return aux[k_]; };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size(), 0.); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-
- private:
-  std::size_t k_;
-};
 
 Parameters newton() {
   return Parameters(Parameter("description", std::string("Newton")), Parameter("rel_tol", 1.e-12),
@@ -93,7 +66,7 @@ struct TwoProblems {
   VARS u_vars;
   std::vector<SPA*> spatials{&spatial};
   Coefficients coefs_T{Coefficient(Glossary::Conductivity, 1.)};
-  Coefficients coefs_u{Coefficient(Glossary::SourceTerm, Scheme::Implicit, AuxValue(0))};
+  Coefficients coefs_u{Coefficient(Glossary::SourceTerm, Scheme::Implicit, FirstAuxiliary())};
 
   static VAR make_T(SPA* s, BCS& b) {
     auto v = VAR(s, b, "T", Glossary::Temperature, 2, 1.5);  // initial guess 1.5

@@ -41,9 +41,9 @@
 //   FunctionA = a x + b y + c z,  (a, b, c) = (2, 30, 0.1)
 //   FunctionB = 2 x^2 + 30 x y + 0.1 x y z
 //   FunctionC to FunctionH: see the evaluation structures and the bounds below
+#include "EvalCases.hpp"
 #include "Function.hpp"
 #include "OtherFunction.hpp"
-#include "EvalCases.hpp"
 
 using Catch::Matchers::WithinAbs;
 using Catch::Matchers::WithinRel;
@@ -128,6 +128,90 @@ TEST_CASE("Generated coefficients: product A * B", "[Coefficients][generated]") 
     for (double g : grad) grad2.push_back(2. * g);
     for (double h : hess) hess2.push_back(2. * h);
     check_at_X(s, 2. * A * B, grad2, hess2);
+  }
+}
+
+// Sums and products of generated coefficients evaluated by batch (eval_batch): same values,
+// gradients and Hessians as the point by point evaluation (eval_f, eval_gradient, eval_hessian)
+namespace {
+/// @brief Compares eval_batch of c with its point by point evaluation at npts points (x, y, z)
+void check_batch(FunctionCoefficient& c, const bool with_F, const bool with_gradient,
+                 const bool with_hessian) {
+  constexpr int npts = 4;
+  constexpr int n = 3;
+  REQUIRE(c.batch_nb_variables() == n);
+  mfem::Vector values(n * npts), none;
+  for (int q = 0; q < npts; ++q) {
+    values(n * q) = 0.5 + q;
+    values(n * q + 1) = -1. + 0.7 * q;
+    values(n * q + 2) = 2. - 0.3 * q;
+  }
+  mfem::Vector F(npts), gradient(n * npts), hessian(n * n * npts);
+  REQUIRE(c.eval_batch(npts, values, none, none, none, with_F ? &F : nullptr,
+                       with_gradient ? &gradient : nullptr, with_hessian ? &hessian : nullptr));
+  F.HostRead();
+  gradient.HostRead();
+  hessian.HostRead();
+  values.HostRead();
+  for (int q = 0; q < npts; ++q) {
+    CAPTURE(q);
+    const std::span<const double> x(values.GetData() + n * q, n);
+    if (with_F) {
+      const double expected = c.eval_f(x);
+      CHECK_THAT(F(q), WithinAbs(expected, tol * (1. + std::abs(expected))));
+    }
+    for (int i = 0; i < n; ++i) {
+      CAPTURE(i);
+      if (with_gradient) {
+        const double expected = c.eval_gradient(i, x);
+        CHECK_THAT(gradient(n * q + i), WithinAbs(expected, tol * (1. + std::abs(expected))));
+      }
+      for (int j = 0; j < n && with_hessian; ++j) {
+        CAPTURE(j);
+        const double expected = c.eval_hessian(i, j, x);
+        CHECK_THAT(hessian((q * n + i) * n + j),
+                   WithinAbs(expected, tol * (1. + std::abs(expected))));
+      }
+    }
+  }
+}
+}  // namespace
+
+TEST_CASE("Sum and product of coefficients: evaluation by batch",
+          "[Coefficients][generated][eval]") {
+  FunctionA fa;
+  FunctionB fb;
+  SECTION("sum A + B") {
+    SumCoefficient c({&fa, &fb});
+    check_batch(c, true, true, true);
+  }
+  SECTION("product A * B") {
+    ProductCoefficient c({&fa, &fb});
+    check_batch(c, true, true, true);
+  }
+  SECTION("product A * B * B") {
+    ProductCoefficient c({&fa, &fb, &fb});
+    check_batch(c, true, true, true);
+  }
+  SECTION("product A * B: gradient only, Hessian only") {
+    ProductCoefficient c({&fa, &fb, &fb});
+    check_batch(c, false, true, false);
+    check_batch(c, false, false, true);
+  }
+  SECTION("nested: (A * B) + (A * B) and (A + B) * B") {
+    ProductCoefficient p({&fa, &fb});
+    SumCoefficient s({&p, &p});
+    check_batch(s, true, true, true);
+    SumCoefficient a_plus_b({&fa, &fb});
+    ProductCoefficient q({&a_plus_b, &fb});
+    check_batch(q, true, true, true);
+  }
+  SECTION("terms with different numbers of variables: point by point evaluation") {
+    FunctionC fc;  // one variable
+    ProductCoefficient c({&fa, &fc});
+    CHECK(c.batch_nb_variables() == 0);
+    mfem::Vector values(3), none, F(1);
+    CHECK_FALSE(c.eval_batch(1, values, none, none, none, &F, nullptr, nullptr));
   }
 }
 
@@ -276,8 +360,8 @@ TEST_CASE("Evaluation structures: evaluation at a set of points (eval_at_points)
     hessian.HostRead();
     for (int q = 0; q < npts; ++q) {
       CAPTURE(q);
-      const EvalOutput expected = eval_at_point(
-          eval, {values(q)}, {}, {auxiliary(2 * q), auxiliary(2 * q + 1)}, {}, time);
+      const EvalOutput expected =
+          eval_at_point(eval, {values(q)}, {}, {auxiliary(2 * q), auxiliary(2 * q + 1)}, {}, time);
       CHECK_THAT(F(q), WithinRel(expected.F, tol));
       CHECK_THAT(gradient(q), WithinRel(expected.gradient[0], tol));
       const double h = expected.hessian[0];
@@ -291,8 +375,34 @@ TEST_CASE("Evaluation structures: evaluation at a set of points (eval_at_points)
     gradient.HostRead();
     for (int q = 0; q < npts; ++q) {
       CAPTURE(q);
-      const EvalOutput expected = eval_at_point(
-          eval, {values(q)}, {}, {auxiliary(2 * q), auxiliary(2 * q + 1)}, {}, time);
+      const EvalOutput expected =
+          eval_at_point(eval, {values(q)}, {}, {auxiliary(2 * q), auxiliary(2 * q + 1)}, {}, time);
+      CHECK_THAT(gradient(q), WithinRel(expected.gradient[0], tol));
+    }
+  }
+
+  SECTION("inputs with more components per point than read by the structure") {
+    // 3 values and 4 auxiliary fields per point: FunctionC reads the first 1 and the first 2
+    mfem::Vector values3(3 * npts), auxiliary4(4 * npts), F(npts), gradient(npts);
+    for (int q = 0; q < npts; ++q) {
+      values3(3 * q) = values(q);
+      values3(3 * q + 1) = 100.;
+      values3(3 * q + 2) = -100.;
+      auxiliary4(4 * q) = auxiliary(2 * q);
+      auxiliary4(4 * q + 1) = auxiliary(2 * q + 1);
+      auxiliary4(4 * q + 2) = 50.;
+      auxiliary4(4 * q + 3) = -50.;
+    }
+    eval_at_points(eval, npts, time, values3, none, auxiliary4, none, &F, &gradient);
+    F.HostRead();
+    gradient.HostRead();
+    values.HostRead();
+    auxiliary.HostRead();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const EvalOutput expected =
+          eval_at_point(eval, {values(q)}, {}, {auxiliary(2 * q), auxiliary(2 * q + 1)}, {}, time);
+      CHECK_THAT(F(q), WithinRel(expected.F, tol));
       CHECK_THAT(gradient(q), WithinRel(expected.gradient[0], tol));
     }
   }
@@ -410,8 +520,7 @@ TEST_CASE("Bounds of variables: values outside the bounds are clamped",
   SECTION("constants used as bounds follow the members of the structure") {
     FunctionGEval eval;
     eval.hi = 4.;
-    check_output(eval_at_point(eval, {3., 1.}, {}, {0.5, 0.5}, {}, 0.),
-                 exact_G(3., 1., 0.5, 0.5));
+    check_output(eval_at_point(eval, {3., 1.}, {}, {0.5, 0.5}, {}, 0.), exact_G(3., 1., 0.5, 0.5));
   }
 }
 

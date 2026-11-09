@@ -35,38 +35,12 @@
 #include "Sloth/tests.hpp"
 #include "sloth_unit.hpp"
 
+// Coefficient generated at configure time from BCs/BoundaryCoefficients.json:
+//   OnePlusXPlusY = 1 + X + Y  (coordinates)
+#include "OnePlusXPlusY.hpp"
+
 namespace {
 using namespace Sloth2D;
-
-/// @brief Coefficient of the coordinates only: 1 + x + y
-class OnePlusXPlusY final : public FunctionCoefficient {
- public:
-  bool uses_coordinates() const override { return true; }
-
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [this](const std::span<const double>&, const std::span<const double>&,
-                  const std::span<const double>&, const unsigned int) {
-      return 1. + this->coordinates_[0] + this->coordinates_[1];
-    };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size(), 0.); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-};
 
 /// @brief Coefficient attached to some boundaries (indices = attributes - 1)
 Coefficient on_boundaries(Coefficient c, const std::vector<int>& bdr) {

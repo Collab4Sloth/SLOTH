@@ -30,4 +30,29 @@
 	"class_name":"CoupledEnergy",
 	"outputfile":"CoupledEnergy"
 	}
+	,
+	{
+	"expression":"m0*(1+X*phi0*phi1)",
+	"variables":"phi0,phi1",
+	"coordinates":"X",
+	"constants":"(m0:2.0)",
+	"class_name":"MobilityX",
+	"outputfile":"MobilityX"
+	}
+	,
+	{
+	"expression":"phi0*phi0*phi1e + phi1*phi1*phi0e*phi0e",
+	"variables":"phi0,phi1",
+	"explicit_variables":"phi0e,phi1e",
+	"class_name":"SemiImplicitEnergy",
+	"outputfile":"SemiImplicitEnergy"
+	}
+	,
+	{
+	"expression":"a",
+	"variables":"phi",
+	"auxiliary_variables":"a",
+	"class_name":"FirstAuxiliary",
+	"outputfile":"FirstAuxiliary"
+	}
 ]

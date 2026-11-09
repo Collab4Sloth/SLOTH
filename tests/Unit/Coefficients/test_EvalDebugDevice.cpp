@@ -38,6 +38,8 @@
 #include <vector>
 
 #include "Coefficients/EvalAtPoints.hpp"
+#include "Coefficients/ProductFunctionCoefficients.hpp"
+#include "Coefficients/SumFunctionCoefficients.hpp"
 #include "sloth_unit.hpp"
 
 // Generated at configure time from Coefficients/CoefficientExample.json:
@@ -69,8 +71,8 @@ void eval_on_host(const EVAL& eval, const std::vector<double>& values,
   constexpr int n = EVAL::nb_variables;
   gradient.assign(n, 0.);
   hessian.assign(n * n, 0.);
-  eval(values.data(), explicit_values.data(), auxiliary_values.data(), coordinates.data(), time,
-       &F, gradient.data(), hessian.data());
+  eval(values.data(), explicit_values.data(), auxiliary_values.data(), coordinates.data(), time, &F,
+       gradient.data(), hessian.data());
 }
 
 void check_close(const double value, const double expected) {
@@ -188,5 +190,53 @@ TEST_CASE("eval_at_points on the debug device: coordinates (FunctionE)",
     const double X = coordinates(dim * q);
     const double u = values(q);
     check_close(F(q), 0.5 * (1. - 0.25 * (X - 1.) * (X - 1.)) * u * u);
+  }
+}
+
+TEST_CASE("Sum and product on the debug device: D + D and D * D (FunctionD)",
+          "[Coefficients][eval][device]") {
+  use_debug_device();
+  constexpr int n = FunctionDEval::nb_variables;
+  mfem::Vector u(n * npts), u_exp(n * npts), none;
+  for (int q = 0; q < npts; ++q) {
+    u(n * q) = 1. + q;
+    u(n * q + 1) = 0.5 * q;
+    u_exp(n * q) = -1. + 0.3 * q;
+    u_exp(n * q + 1) = 2.;
+  }
+  FunctionD fd;
+  SumCoefficient sum({&fd, &fd});
+  ProductCoefficient product({&fd, &fd});
+  mfem::Vector F_sum(npts), g_sum(n * npts), h_sum(n * n * npts);
+  mfem::Vector F_prod(npts), g_prod(n * npts), h_prod(n * n * npts);
+  REQUIRE(sum.eval_batch(npts, u, u_exp, none, none, &F_sum, &g_sum, &h_sum));
+  REQUIRE(product.eval_batch(npts, u, u_exp, none, none, &F_prod, &g_prod, &h_prod));
+
+  // Results written on the device: copied back to the host before being read
+  for (mfem::Vector* v : {&F_sum, &g_sum, &h_sum, &F_prod, &g_prod, &h_prod, &u, &u_exp}) {
+    v->HostRead();
+  }
+  for (int q = 0; q < npts; ++q) {
+    CAPTURE(q);
+    double f = 0.;
+    std::vector<double> g, h;
+    eval_on_host(FunctionDEval{}, {u(n * q), u(n * q + 1)}, {u_exp(n * q), u_exp(n * q + 1)}, {},
+                 {}, 0., f, g, h);
+    // D + D: 2 f, 2 g, 2 h;  D * D: f^2, 2 f g, 2 (g g^T + f h)
+    check_close(F_sum(q), 2. * f);
+    check_close(F_prod(q), f * f);
+    for (int i = 0; i < n; ++i) {
+      CAPTURE(i);
+      const auto ui = static_cast<std::size_t>(i);
+      check_close(g_sum(n * q + i), 2. * g[ui]);
+      check_close(g_prod(n * q + i), 2. * f * g[ui]);
+      for (int j = 0; j < n; ++j) {
+        CAPTURE(j);
+        const auto uij = static_cast<std::size_t>(i * n + j);
+        check_close(h_sum(n * n * q + i * n + j), 2. * h[uij]);
+        check_close(h_prod(n * n * q + i * n + j),
+                    2. * (g[ui] * g[static_cast<std::size_t>(j)] + f * h[uij]));
+      }
+    }
   }
 }

@@ -1,0 +1,9 @@
+[
+	{
+	"expression":"1 + X + Y",
+	"variables":"u",
+	"coordinates":"X,Y",
+	"class_name":"OnePlusXPlusY",
+	"outputfile":"OnePlusXPlusY"
+	}
+]

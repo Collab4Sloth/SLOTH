@@ -48,6 +48,8 @@
 class SumCoefficient : public FunctionCoefficient {
  private:
   std::vector<FunctionCoefficient*> vect_coefficients_;
+  // Work arrays of eval_batch
+  mutable mfem::Vector term_F_, term_gradient_, term_hessian_;  ///< outputs of one term
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -70,4 +72,9 @@ class SumCoefficient : public FunctionCoefficient {
   bool uses_coordinates() const override;
   bool is_single_variable() const override;
   void set_coordinates(std::span<const double> x) override;
+
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const override;
+  int batch_nb_variables() const override;
 };

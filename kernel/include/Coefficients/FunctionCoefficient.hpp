@@ -38,6 +38,8 @@
 #include <utility>
 #include <vector>
 
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
 /**
  * @brief Base class defining analytical expression, first and second derivatives of a Coefficient
  *
@@ -106,4 +108,27 @@ class FunctionCoefficient {
   /// integrator with several blocks, it is then evaluated on the variable of its block only.
   virtual bool is_single_variable() const { return false; }
   virtual void set_coordinates(std::span<const double> x);
+
+  /**
+   * @brief Evaluation at a set of points with the evaluation structure of the coefficient
+   *
+   * Same arguments and layout as eval_at_points (Coefficients/EvalAtPoints.hpp), at the time of
+   * the coefficient. The loop runs on the host or on the device according to mfem::Device.
+   *
+   * @return false if the coefficient has no evaluation structure (nothing is computed): it must
+   * then be evaluated point by point with eval_f, eval_gradient and eval_hessian.
+   */
+  virtual bool eval_batch([[maybe_unused]] const int npts,
+                          [[maybe_unused]] const mfem::Vector& values,
+                          [[maybe_unused]] const mfem::Vector& explicit_values,
+                          [[maybe_unused]] const mfem::Vector& auxiliary_values,
+                          [[maybe_unused]] const mfem::Vector& coordinates,
+                          [[maybe_unused]] mfem::Vector* F, [[maybe_unused]] mfem::Vector* gradient,
+                          [[maybe_unused]] mfem::Vector* hessian) const {
+    return false;
+  }
+
+  /// Number of variables of the evaluation structure (derivatives given by eval_batch), 0 if
+  /// the coefficient has no evaluation structure
+  virtual int batch_nb_variables() const { return 0; }
 };

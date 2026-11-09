@@ -122,6 +122,14 @@ class SlothBaseCoefficient {
   bool is_single_variable() const;
   void set_coordinates(std::span<const double> x);
 
+  // Evaluation at a set of points (see FunctionCoefficient::eval_batch): false if the
+  // coefficient has no evaluation structure (constant, file, hand-written...)
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const;
+  // Number of variables of the evaluation structure, 0 if eval_batch is not available
+  int batch_nb_variables() const;
+
   std::string get_name();
   void set_name(const std::string& name);
   void set_bdr_index_coef(std::vector<int> ids);

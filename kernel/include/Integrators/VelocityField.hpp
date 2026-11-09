@@ -139,6 +139,12 @@ class VelocityField {
 
   Mode mode() const { return this->mode_; }
   bool active() const { return this->mode_ != Mode::None; }
+  /// Components mode: coefficient of component d
+  Coefficient& component(const int d) { return this->components_[static_cast<std::size_t>(d)]; }
+  /// Gradient mode: prefactor alpha
+  Coefficient& prefactor() { return *this->prefactor_; }
+  /// Gradient mode: index of the auxiliary variable a among the auxiliary fields
+  int gradient_index() const { return this->grad_aux_; }
   /// The coefficients need the values of the auxiliary fields at the integration point
   bool needs_aux_values() const { return this->needs_aux_values_; }
 

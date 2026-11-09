@@ -32,6 +32,7 @@
 #include <span>
 #include <vector>
 
+#include "Coefficients/EvalAtPoints.hpp"
 #include "Coefficients/FunctionCoefficient.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -96,6 +97,15 @@ class W : public FunctionCoefficient {
   virtual ~W() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const WEval& get_eval() const { return eval_; }
+  /// Evaluation at a set of points with the evaluation structure (see eval_at_points)
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const final {
+    eval_at_points(eval_, npts, this->time_, values, explicit_values, auxiliary_values, coordinates,
+                   F, gradient, hessian);
+    return true;
+  }
+  int batch_nb_variables() const final { return WEval::nb_variables; }
 };
 
 /**
@@ -161,6 +171,15 @@ class Fw : public FunctionCoefficient {
   virtual ~Fw() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const FwEval& get_eval() const { return eval_; }
+  /// Evaluation at a set of points with the evaluation structure (see eval_at_points)
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const final {
+    eval_at_points(eval_, npts, this->time_, values, explicit_values, auxiliary_values, coordinates,
+                   F, gradient, hessian);
+    return true;
+  }
+  int batch_nb_variables() const final { return FwEval::nb_variables; }
 };
 
 /**
@@ -227,6 +246,15 @@ class H : public FunctionCoefficient {
   virtual ~H() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const HEval& get_eval() const { return eval_; }
+  /// Evaluation at a set of points with the evaluation structure (see eval_at_points)
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const final {
+    eval_at_points(eval_, npts, this->time_, values, explicit_values, auxiliary_values, coordinates,
+                   F, gradient, hessian);
+    return true;
+  }
+  int batch_nb_variables() const final { return HEval::nb_variables; }
 };
 
 /**
@@ -296,6 +324,15 @@ class Log : public FunctionCoefficient {
   virtual ~Log() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const LogEval& get_eval() const { return eval_; }
+  /// Evaluation at a set of points with the evaluation structure (see eval_at_points)
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const final {
+    eval_at_points(eval_, npts, this->time_, values, explicit_values, auxiliary_values, coordinates,
+                   F, gradient, hessian);
+    return true;
+  }
+  int batch_nb_variables() const final { return LogEval::nb_variables; }
 };
 
 /**

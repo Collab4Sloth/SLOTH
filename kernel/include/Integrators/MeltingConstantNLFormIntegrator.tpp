@@ -66,6 +66,8 @@ MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
   this->integrator_name_ = "MeltingConstant";
 
   this->get_parameters();
+  // Phase change: melting factor
+  this->phase_change_.emplace(Glossary::DrivingForce, this->alpha_);
 }
 
 /**
@@ -86,26 +88,4 @@ MeltingConstantNLFormIntegrator<VARS>::MeltingConstantNLFormIntegrator(
 template <class VARS>
 void MeltingConstantNLFormIntegrator<VARS>::get_parameters() {
   this->alpha_ = this->params_.template get_param_value_or_default<double>("melting_factor", 1.);
-}
-
-/**
- * @brief Compute the value of the phase change at integration point
- *
- * @remark Written for two phase
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed phase change at integration point
- */
-template <class VARS>
-double MeltingConstantNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  return this->alpha_;
 }

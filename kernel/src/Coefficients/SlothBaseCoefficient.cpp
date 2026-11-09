@@ -383,6 +383,44 @@ void SlothBaseCoefficient::set_coordinates(std::span<const double> x) {
 }
 
 /**
+ * @brief Evaluation at a set of points with the evaluation structure of the coefficient.
+ *
+ * Same arguments and layout as eval_at_points (Coefficients/EvalAtPoints.hpp). The values are
+ * those of the variables of the coefficient: the caller selects them according to the scheme
+ * (current or previous values, explicit values for a semi-implicit coefficient).
+ *
+ * A coefficient from a file is evaluated at the physical points given in coordinates (see
+ * FileCoefficient::eval_batch).
+ *
+ * @return false if the coefficient has no evaluation structure (constant, hand-written
+ * FunctionCoefficient...): nothing is computed.
+ */
+bool SlothBaseCoefficient::eval_batch(const int npts, const mfem::Vector& values,
+                                      const mfem::Vector& explicit_values,
+                                      const mfem::Vector& auxiliary_values,
+                                      const mfem::Vector& coordinates, mfem::Vector* F,
+                                      mfem::Vector* gradient, mfem::Vector* hessian) const {
+  if (this->coefficient_ == nullptr || this->is_scalar()) {
+    return false;
+  }
+  return this->coefficient_->eval_batch(npts, values, explicit_values, auxiliary_values,
+                                        coordinates, F, gradient, hessian);
+}
+
+/**
+ * @brief Number of variables of the evaluation structure of the coefficient (derivatives given
+ * by eval_batch).
+ *
+ * @return 0 if the coefficient has no evaluation structure (see eval_batch).
+ */
+int SlothBaseCoefficient::batch_nb_variables() const {
+  if (this->coefficient_ == nullptr || this->is_scalar() || this->is_file()) {
+    return 0;
+  }
+  return this->coefficient_->batch_nb_variables();
+}
+
+/**
  * @brief Set the boundary index for a coefficient.
  *
  * @param ids Vector of boundary ids where the coefficient should apply.

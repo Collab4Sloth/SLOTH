@@ -199,22 +199,23 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Implicit coefficient: evaluated at the end of the step (phi = phi_old + dt dphi/dt), at all
+    // the integration points of the element
+    this->eval_coefficient_at_points(this->coefficient_A[blk], 0, SlothNLBase::CoefValue, *el[blk],
+                                     Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      // Implicit coefficient: evaluated at the end of the step (phi = phi_old + dt dphi/dt)
-      const double coef_a =
-          this->eval_coefficient(this->coefficient_A[blk], this->values_at_end_of_step(ipv.u),
-                                 ipv.aux);
+      const double coef_a = this->a_at_points_.value(i);
       const double ww = coef_a * phi * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -262,27 +263,28 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
   Psi.SetSize(el[blk]->GetDof());
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+  // A and its derivatives at all the integration points of the element, at the end of the step
+  this->eval_coefficient_at_points(this->coefficient_A[blk], 0,
+                                   SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,
+                                   *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
+                                   SlothNLBase::ValuesAt::EndOfStep);
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     this->set_int_point(Tr, ip);
     el[blk]->CalcShape(ip, Psi);
-
-    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-    const auto u_end = this->values_at_end_of_step(ipv.u);
 
     double weight_coef = ip.weight * Tr.Weight();
     if (this->isAxisymmetric()) {
       weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
     }
 
-    const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux);
+    const double coef_a = this->a_at_points_.value(i);
     AddMult_a_VVt(coef_a * weight_coef, Psi, *elmats(blk, off_blk));
 
     const double dphi_dt = *elfun[off_blk] * Psi;
     for (int jblk = 0; jblk < 2; ++jblk) {
       const double d =
-          this->eval_gradient_coefficient(this->coefficient_A[blk], jblk, u_end, ipv.aux) *
-          this->time_step_ * dphi_dt * weight_coef;
+          this->a_at_points_.derivative(i, jblk) * this->time_step_ * dphi_dt * weight_coef;
       if (d != 0.0) AddMult_a_VVt(d, Psi, *elmats(blk, jblk));
     }
   }

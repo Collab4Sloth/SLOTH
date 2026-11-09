@@ -68,6 +68,14 @@ MeltingCalphadNLFormIntegrator<VARS>::MeltingCalphadNLFormIntegrator(
   this->get_parameters();
   this->check_driving_forces();
   this->check_nucleus();
+
+  // Phase change: melting factor times the difference of the driving forces
+  MeltingCalphadPhaseChangeEval phase_change;
+  phase_change.primary_index = this->dgm_primary_phase_index_;
+  phase_change.secondary_index = this->dgm_secondary_phase_index_;
+  phase_change.melting_factor = this->alpha_;
+  this->phase_change_.emplace(Glossary::DrivingForce, Scheme::Implicit,
+                              AuxiliaryCoefficient<MeltingCalphadPhaseChangeEval>(phase_change));
 }
 
 /**
@@ -181,57 +189,60 @@ void MeltingCalphadNLFormIntegrator<VARS>::check_nucleus() {
 }
 
 /**
- * @brief Compute the value of the phase change at integration point
- *
- * @remark Written for two phase
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed phase change at integration point
- */
-template <class VARS>
-double MeltingCalphadNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  double primary_dgm = -1.;
-  double secondary_dgm = -1.;
-  if (this->dgm_primary_phase_index_ > 0 && this->dgm_secondary_phase_index_ > 0) {
-    primary_dgm = aux_values[this->dgm_primary_phase_index_];
-    secondary_dgm = aux_values[this->dgm_secondary_phase_index_];
-  }
-  constexpr double epsilon = 1.e-12;
-  return (std::abs(primary_dgm) > epsilon && std::abs(secondary_dgm) > epsilon)
-             ? (this->alpha_ * (secondary_dgm - primary_dgm))
-             : 0.;
-}
-
-/**
- * @brief Compute the value of a seed of the secondary or primary phases at integration point
+ * @brief Compute the value of the nucleation seed of the secondary or primary phases at
+ * integration point
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
+ * @param aux_values values of the auxiliary variables at the integration point
  *
  * @return The computed seed at integration point
  */
 template <class VARS>
 double MeltingCalphadNLFormIntegrator<VARS>::get_seed_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
+    const std::span<const double>& aux_values) const {
   // Nucleus must be equal to zero except when phase transition starts
-
   const double seed =
       -aux_values[this->secondary_nucleus_index_] - aux_values[this->primary_nucleus_index_];
 
   return seed / this->time_step_;
+}
+
+/**
+ * @brief Assemble the element-level residual vector: melting contribution of
+ * MeltingBaseNLFormIntegrator and nucleation seed.
+ *
+ * The seed does not depend on the unknowns: it does not contribute to the Jacobian.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ *
+ * @param el      Array of pointers to finite elements.
+ * @param Tr      Element transformation.
+ * @param elfun   Array of local finite element solution vectors.
+ * @param elvect  Array of vectors where the computed element contributions will be stored.
+ */
+template <class VARS>
+void MeltingCalphadNLFormIntegrator<VARS>::AssembleElementVector(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
+  MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(el, Tr, elfun, elvect);
+
+  for (int blk = 0; blk < el.Size(); ++blk) {
+    Psi_.SetSize(el[blk]->GetDof());
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi_);
+      this->set_int_point(Tr, ip);
+
+      const auto ipv = this->values_at_ip(*ir, i, Psi_, elfun, this->vaux_gf_, Tr);
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+      add(*elvect[blk], this->get_seed_at_ip(ipv.aux) * weight_coef, Psi_, *elvect[blk]);
+    }
+  }
 }

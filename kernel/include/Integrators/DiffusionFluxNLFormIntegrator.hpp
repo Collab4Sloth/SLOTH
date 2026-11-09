@@ -48,6 +48,12 @@
 template <class VARS>
 class DiffusionFluxNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
+  /// Diffusion coefficient at the integration points of the current element (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints diffusion_at_points_;
   void add_diffusion_flux(mfem::ElementTransformation& Tr, const int nElement,
                           const mfem::IntegrationPoint& ip, const int dim);
 
