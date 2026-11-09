@@ -164,7 +164,57 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::prepare_element(
 }
 
 /**
+ * @brief Velocity (and inflow value) at all the integration points of the boundary element, when
+ * all the blocks have the same finite element: components, prefactor and inflow value evaluated
+ * once per element (see SlothNLFormIntegrator::eval_coefficient_at_points), same values as
+ * evaluate_at_ip point by point.
+ *
+ * @return false if the blocks have different finite elements (evaluation point by point)
+ */
+template <class VARS>
+bool AdvectionBoundaryNLFormIntegrator<VARS>::values_at_points(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::IntegrationRule& ir, const mfem::Array<const mfem::Vector*>& elfun,
+    const bool with_inflow) {
+  if (!this->same_finite_elements(el)) {
+    return false;
+  }
+  const int nip = ir.GetNPoints();
+  this->velocity_at_points_.SetSize(this->sdim_, nip);
+  if (this->velocity_.mode() == VelocityField::Mode::Components) {
+    for (int d = 0; d < this->sdim_; ++d) {
+      this->eval_coefficient_at_points(this->velocity_.component(d), 0, SlothNLBase::CoefValue,
+                                       *el[0], Tr, ir, elfun, this->vaux_gf_,
+                                       this->coefficient_at_points_);
+      for (int q = 0; q < nip; ++q) {
+        this->velocity_at_points_(d, q) = this->coefficient_at_points_.value(q);
+      }
+    }
+  } else {
+    // v = alpha grad(a), gradient taken in the adjacent element
+    this->eval_coefficient_at_points(this->velocity_.prefactor(), 0, SlothNLBase::CoefValue, *el[0],
+                                     Tr, ir, elfun, this->vaux_gf_, this->coefficient_at_points_);
+    const mfem::ParGridFunction& a =
+        this->vaux_gf_[static_cast<std::size_t>(this->velocity_.gradient_index())];
+    for (int q = 0; q < nip; ++q) {
+      this->set_int_point(Tr, ir.IntPoint(q));
+      a.GetGradient(Tr, this->grad_);
+      const double alpha = this->coefficient_at_points_.value(q);
+      for (int d = 0; d < this->sdim_; ++d) {
+        this->velocity_at_points_(d, q) = alpha * this->grad_(d);
+      }
+    }
+  }
+  if (with_inflow) {
+    this->eval_coefficient_at_points(this->inflow_, 0, SlothNLBase::CoefValue, *el[0], Tr, ir,
+                                     elfun, this->vaux_gf_, this->inflow_at_points_);
+  }
+  return true;
+}
+
+/**
  * @brief Evaluate shapes, unknowns, auxiliary fields (if needed), normal and velocity at ip.
+ * The velocity is read in velocity_at_points_ (point q) if by_element (see values_at_points).
  *
  * @return weight * (v.n). The normal from CalcOrtho is not normalized and carries the surface
  *         measure, hence no Tr.Weight() factor. Axisymmetric factor included.
@@ -173,7 +223,7 @@ template <class VARS>
 double AdvectionBoundaryNLFormIntegrator<VARS>::evaluate_at_ip(
     const mfem::Array<const mfem::FiniteElement*>& el,
     const mfem::Array<const mfem::Vector*>& elfun, mfem::ElementTransformation& Tr,
-    const mfem::IntegrationPoint& ip) {
+    const mfem::IntegrationPoint& ip, const int q, const bool by_element) {
   this->set_int_point(Tr, ip);
 
   // Normal first, while Tr is set at ip
@@ -190,19 +240,22 @@ double AdvectionBoundaryNLFormIntegrator<VARS>::evaluate_at_ip(
     this->u_values_[b] = (*elfun[b]) * this->shape_[b];
     this->u_values_[b + nb] = this->u_old_[b].GetValue(Tr, ip);
   }
-  if (this->needs_aux_) {
-    for (std::size_t k = 0; k < this->vaux_gf_.size(); ++k) {
-      this->aux_values_[k] = this->vaux_gf_[k].GetValue(Tr, ip);
+  if (by_element) {
+    this->velocity_at_points_.GetColumn(q, this->v_);
+  } else {
+    if (this->needs_aux_) {
+      for (std::size_t k = 0; k < this->vaux_gf_.size(); ++k) {
+        this->aux_values_[k] = this->vaux_gf_[k].GetValue(Tr, ip);
+      }
     }
+    const std::span<const double> u(this->u_values_);
+    const std::span<const double> aux(this->aux_values_);
+    const auto coef = [this, &u, &aux](const Coefficient& c) {
+      Coefficient copy = c;  // eval_coefficient may set the coordinates of the coefficient
+      return this->eval_coefficient(copy, u, aux);
+    };
+    this->velocity_.eval(Tr, this->vaux_gf_, coef, this->v_);
   }
-
-  const std::span<const double> u(this->u_values_);
-  const std::span<const double> aux(this->aux_values_);
-  const auto coef = [this, &u, &aux](const Coefficient& c) {
-    Coefficient copy = c;  // eval_coefficient may set the coordinates of the coefficient
-    return this->eval_coefficient(copy, u, aux);
-  };
-  this->velocity_.eval(Tr, this->vaux_gf_, coef, this->v_);
 
   double weight = ip.weight;
   if (this->isAxisymmetric()) {
@@ -229,16 +282,20 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementVector(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  const bool by_element = this->values_at_points(el, Tr, ir, elfun, true);
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-    const double w_vn = this->evaluate_at_ip(el, elfun, Tr, ip);  // weight * (v.n)
+    const double w_vn = this->evaluate_at_ip(el, elfun, Tr, ip, q, by_element);  // weight * (v.n)
     if (w_vn == 0.0) {
       continue;  // wall
     }
     // Outflow: interior value; inflow: imposed value
-    const double advected = (w_vn > 0.0) ? this->u_values_[this->var_blk_]
-                                         : this->eval_coefficient(this->inflow_, u, aux);
+    double advected = this->u_values_[this->var_blk_];
+    if (w_vn < 0.0) {
+      advected = by_element ? this->inflow_at_points_.value(q)
+                            : this->eval_coefficient(this->inflow_, u, aux);
+    }
     elvect[this->row_blk_]->Add(w_vn * advected, this->shape_[this->row_blk_]);
   }
 }
@@ -265,10 +322,11 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementGrad(
   }
 
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  const bool by_element = this->values_at_points(el, Tr, ir, elfun, false);
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-    const double w_vn = this->evaluate_at_ip(el, elfun, Tr, ip);  // weight * (v.n)
+    const double w_vn = this->evaluate_at_ip(el, elfun, Tr, ip, q, by_element);  // weight * (v.n)
     if (w_vn <= 0.0) {
       continue;  // wall or inflow: no dependence on the unknowns
     }
