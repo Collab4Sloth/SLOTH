@@ -192,18 +192,6 @@ void OperatorBase<T, DIM>::set_coefficients(const std::vector<Coefficients>& coe
                                             bool enable_compute_energies) {
   this->coefficients_ = coefficients;
 
-  // Custom quantities are read by custom integrators only
-  if (!this->has_custom_integrator()) {
-    for (const auto& coefs : this->coefficients_) {
-      for (unsigned int i = 0; i < coefs.size(); i++) {
-        MFEM_VERIFY(coefs[i].get_type() != GlossaryType::Custom,
-                    "Custom quantity '" + coefs[i].get_custom_name() +
-                        "' given to an operator without custom integrator: it would be ignored. "
-                        "Custom quantities are read by custom integrators only.");
-      }
-    }
-  }
-
   if (enable_compute_energies) {
     Coefficients coefs = this->coefficients_[0];
     for (unsigned int i = 0; i < coefs.size(); i++) {
@@ -394,21 +382,6 @@ bool OperatorBase<T, DIM>::sync_with_mesh() {
   this->UpdateAfterMeshChange();
   this->record_fes_sequence();
   return true;
-}
-
-/**
- * @brief Whether at least one integrator of the operator is a custom integrator
- *        (see Extensions/UserIntegrator.hpp).
- *
- * @tparam T Finite Element collection (mfem object)
- * @tparam DIM Spatial dimension
- */
-template <class T, int DIM>
-bool OperatorBase<T, DIM>::has_custom_integrator() const {
-  return std::any_of(this->rhs_integrators_.begin(), this->rhs_integrators_.end(),
-                     [](const auto& entry) {
-                       return std::holds_alternative<UserIntegrator<Variables<T, DIM>>>(entry);
-                     });
 }
 
 /**

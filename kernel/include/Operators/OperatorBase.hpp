@@ -115,7 +115,6 @@ class OperatorBase : public mfem::Operator {
   void record_fes_sequence();
   bool mesh_has_changed() const;
   virtual bool sync_with_mesh();
-  virtual bool has_custom_integrator() const;
   std::vector<mfem::Vector> get_auxvars_unknowns() const;
 
   void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);

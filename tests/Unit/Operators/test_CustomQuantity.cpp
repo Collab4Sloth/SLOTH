@@ -121,12 +121,39 @@ TEST_CASE_METHOD(HeatSquare, "CustomQuantity: missing custom quantity",
   SLOTH_CHECK_MFEM_ERROR_WITH(build(), "MyConductivity");
 }
 
-// A custom quantity given to an operator without custom integrator is rejected
-TEST_CASE_METHOD(HeatSquare, "CustomQuantity: operator without custom integrator",
+// One coefficient set shared by an operator with built-in integrators only and an operator
+// mixing built-in and custom integrators: the custom quantity is ignored by the first one and
+// read by the second one. T = 1 + x in both cases.
+TEST_CASE_METHOD(HeatSquare, "CustomQuantity: coefficient set shared by built-in and custom",
                  "[Operators][Extensions]") {
-  SteadyOPE oper(spatials, {"Fourier"});
-  const std::vector<Coefficients> coefs{Coefficients(
-      Coefficient(Glossary::Conductivity, 1.), Coefficient(CustomQuantity("MyConductivity"), 1.))};
-  auto build = [&]() { oper.set_coefficients(coefs, false); };
-  SLOTH_CHECK_MFEM_ERROR_WITH(build(), "without custom integrator");
+  const Coefficients shared(Coefficient(Glossary::Conductivity, 1.),
+                            Coefficient(CustomQuantity("MyConductivity"), 1.));
+  mfem::FunctionCoefficient exact([](const mfem::Vector& p) { return 1. + p[0]; });
+
+  SECTION("built-in integrators only") {
+    SteadyOPE oper(spatials, {"Fourier"});
+    oper.overload_nl_solver(NLSolverType::NEWTON, newton);
+    SteadyPB problem("Heat", oper, vars, {shared});
+    auto coupling = Coupling("Heat", problem);
+    auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
+                                              Parameter("final_time", 1.),
+                                              Parameter("time_step", 1.)),
+                                   coupling);
+    time.solve();
+    CHECK(vars[0].get_ref_gf().ComputeL2Error(exact) < 1.e-10);
+  }
+
+  SECTION("built-in and custom integrators") {
+    SteadyOPE oper(spatials,
+                   {"Fourier", CustomIntegrator<NamedConductivityIntegrator>("NamedFourier")});
+    oper.overload_nl_solver(NLSolverType::NEWTON, newton);
+    SteadyPB problem("Heat", oper, vars, {shared});
+    auto coupling = Coupling("Heat", problem);
+    auto time = TimeDiscretization(Parameters(Parameter("initial_time", 0.),
+                                              Parameter("final_time", 1.),
+                                              Parameter("time_step", 1.)),
+                                   coupling);
+    time.solve();
+    CHECK(vars[0].get_ref_gf().ComputeL2Error(exact) < 1.e-10);
+  }
 }
