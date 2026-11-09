@@ -60,6 +60,7 @@ const auto abs_tol = 1.e-13;
 const auto rel_tol = 1.e-13;
 const bool iterative_mode = false;
 const auto print_level = -1;
+const double divergence_factor = 1.e4;  // <= 0: no divergence detection
 }  // namespace NewtonDefaultConstant
 
 /**

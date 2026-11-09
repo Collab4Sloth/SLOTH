@@ -37,6 +37,7 @@
 #include "Parameters/Parameters.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Solvers/NLSolver.hpp"
+#include "Solvers/SlothNewtonSolver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variables.hpp"
@@ -151,6 +152,10 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   // integrator)
   mfem::BlockVector zero_rhs(this->block_trueOffsets_);
   zero_rhs = 0.0;
+  // No divergence detection for steady problems: no time-step to reject (see SlothNewtonSolver)
+  if (auto sloth_newton = std::dynamic_pointer_cast<SlothNewtonSolver>(this->newton_solver_)) {
+    sloth_newton->set_divergence_factor(0.);
+  }
   this->newton_solver_->Mult(zero_rhs, block_unk);
 
   this->free_memory();
