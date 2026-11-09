@@ -61,6 +61,7 @@ class PostProcessing {
   std::string calculation_path_;
 
   int frequency_;
+  bool save_var_old_;
   std::vector<int> iterations_list_save_gf_;
   std::vector<int> iterations_list_;
   std::vector<double> times_list_;
@@ -77,6 +78,10 @@ class PostProcessing {
   std::map<std::string, mfem::ParGridFunction> fields_to_save_;
   std::string post_processing_directory_;
   std::vector<mfem::ParGridFunction> projected_coeffs_;
+  /// Previous time level of each variable, saved as "<name>_old" when save_var_old is set.
+  /// Node-based container: the addresses registered in the DataCollection stay valid.
+  std::map<std::string, mfem::ParGridFunction> old_fields_;
+  std::map<std::string, mfem::ParGridFunction*> get_old_fields(Variables<T, DIM>& vars);
   void get_parameters();
   void get_specialized_parameters();
   void get_restart_parameters();
