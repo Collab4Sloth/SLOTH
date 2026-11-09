@@ -147,7 +147,8 @@ sloth_add_unit_test(NAME Integrators
                     COEFFICIENTS_JSON Integrators/MobilityCoefficients.json)
 
 sloth_add_unit_test(NAME Operators
-                    SOURCES Operators/test_ReducedOperators.cpp)
+                    SOURCES Operators/test_ReducedOperators.cpp
+                            Operators/test_UserIntegrator.cpp)
 
 sloth_add_unit_test(NAME Options
                     SOURCES Options/test_Options.cpp
