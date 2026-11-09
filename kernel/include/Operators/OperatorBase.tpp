@@ -227,6 +227,9 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
   }
   this->block_trueOffsets_.PartialSum();
   this->set_default_solver();
+  // Sizes above are those of the current mesh: a later mesh change (e.g. pre-refinement by the
+  // AMR of another Problem, before initialize()) is detected by mesh_has_changed()
+  this->record_fes_sequence();
 }
 
 /**
@@ -265,6 +268,9 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
   }
   this->block_trueOffsets_.PartialSum();
   this->set_default_solver();
+  // Sizes above are those of the current mesh: a later mesh change (e.g. pre-refinement by the
+  // AMR of another Problem, before initialize()) is detected by mesh_has_changed()
+  this->record_fes_sequence();
 }
 
 /**
@@ -285,26 +291,25 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
   const auto nvars = vars.get_variables_number();
   std::vector<mfem::Vector> u_vect;
   u_vect.reserve(nvars);
+  const auto auxvars_unk = this->get_auxvars_unknowns();
   for (unsigned int iv = 0; iv < nvars; iv++) {
     auto& vv = vars[iv];
     auto u = vv.get_unknown();
 
     this->bcs_.emplace_back(vv.get_boundary_conditions());
+    // The mesh may have changed since the boundary conditions were built (e.g. pre-refinement
+    // by the AMR of a Problem initialized before this one): essential dofs on the current mesh
+    this->bcs_[iv]->UpdateEssentialDofs();
     this->ess_tdof_list_.emplace_back(this->bcs_[iv]->GetEssentialDofs());
 
-    // Get the unknown vectors of the auxiliary variables
-    std::vector<mfem::Vector> auxvars_unk;
-    for (const auto& auxvar_vec : this->auxvariables_) {
-      for (const auto& auxvar : auxvar_vec->getVariables()) {
-        auxvars_unk.emplace_back(auxvar.get_unknown());
-      }
-    }
     this->bcs_[iv]->SetDirichletBoundaryConditions(u, this->coefficients_[iv], auxvars_unk);
     vv.update(u);
     u_vect.emplace_back(u);
   }
+  // Sizes of the operator on the current mesh (built on a coarser mesh if the mesh was refined
+  // between the construction and the initialization, e.g. by the AMR of another Problem)
+  this->sync_with_mesh();
   this->SetTransientParameters(dt, u_vect);
-  this->record_fes_sequence();
 }
 
 /**
@@ -339,6 +344,47 @@ bool OperatorBase<T, DIM>::mesh_has_changed() const {
     if (this->fes_[i]->GetSequence() != this->fes_sequence_[static_cast<size_t>(i)]) return true;
   }
   return false;
+}
+
+/**
+ * @brief Resynchronize the operator with the current mesh if it has changed since the last
+ *        synchronization (AMR of this Problem or of any Problem sharing the mesh).
+ *
+ * @details Updates the sizes, the block offsets and the essential dofs
+ *          (UpdateAfterMeshChange()), then records the new state of the finite element spaces.
+ *          Derived operators override this method to reset their own mesh-dependent data, after
+ *          calling it.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return true The mesh had changed: the operator has been resynchronized.
+ * @return false The operator was already up to date.
+ */
+template <class T, int DIM>
+bool OperatorBase<T, DIM>::sync_with_mesh() {
+  if (!this->mesh_has_changed()) return false;
+  this->UpdateAfterMeshChange();
+  this->record_fes_sequence();
+  return true;
+}
+
+/**
+ * @brief Current unknown vectors of all the auxiliary variables, in the order of
+ *        `auxvariables_` (input of the Dirichlet coefficients).
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return std::vector<mfem::Vector> One vector of true dofs per auxiliary variable.
+ */
+template <class T, int DIM>
+std::vector<mfem::Vector> OperatorBase<T, DIM>::get_auxvars_unknowns() const {
+  std::vector<mfem::Vector> auxvars_unk;
+  for (const auto& auxvar_vec : this->auxvariables_) {
+    for (const auto& auxvar : auxvar_vec->getVariables()) {
+      auxvars_unk.emplace_back(auxvar.get_unknown());
+    }
+  }
+  return auxvars_unk;
 }
 
 //////////////////////////////////////////////////////////////////////////////
