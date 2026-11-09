@@ -210,6 +210,19 @@ void TransientOperator<T, DIM>::initialize(const double& initial_time, const dou
 }
 
 /**
+ * @brief Whether at least one integrator of the operator, right-hand side or time derivative, is a
+ *        custom integrator.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+bool TransientOperator<T, DIM>::has_custom_integrator() const {
+  return OperatorBase<T, DIM>::has_custom_integrator() ||
+         std::holds_alternative<UserIntegrator<Variables<T, DIM>>>(this->lhs_integrator_);
+}
+
+/**
  * @brief Resynchronize the operator with the current mesh (see OperatorBase::sync_with_mesh()),
  *        then reset the data of the transient operator that depend on the mesh.
  *

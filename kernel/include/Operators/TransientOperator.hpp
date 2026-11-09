@@ -86,6 +86,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   void free_memory();
   void free_mass_matrices();
   bool sync_with_mesh() override;
+  bool has_custom_integrator() const override;
 
   Coefficients explicit_time_coefficients_;
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);

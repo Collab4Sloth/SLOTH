@@ -154,6 +154,10 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   void check_coefficient_types(std::list<GlossaryType> expected_type);
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id,
                                              std::optional<int> bdr_id = std::nullopt);
+  std::optional<Coefficient> get_coefficient(const int blk, const std::string& custom_name,
+                                             unsigned int id,
+                                             std::optional<int> bdr_id = std::nullopt);
+  void check_custom_coefficient_names(const std::list<std::string>& expected_names);
 
   // Evaluation of a coefficient and of its derivatives at the current integration point.
   // The coefficient is passed by reference (no copy at each integration point) and may be
