@@ -55,7 +55,10 @@ class AMRBase {
   int amr_nc_limit_{0};
   int amr_max_level_{0};
   int amr_max_preref_cycles_{1};
+  // Rebalancing of the mesh among the MPI processes after an AMR pass that modified it, if
+  // max(elements per process) > amr_rebalance_tolerance_ * mean (tolerance >= 1)
   bool amr_rebalance_{false};
+  double amr_rebalance_tolerance_{1.0};
   // Auxiliary variables of the Problem owning this AMR object. Those which are pilot
   // variables of another AMR object on the same mesh take part in the derefinement decision
   std::vector<VAR*> coupled_vars_;
@@ -91,8 +94,10 @@ class AMRBase {
   void EnsureNCMeshIfNeeded();
   bool IsOnMesh(const mfem::ParFiniteElementSpace* fes) const;
   void UpdateVariables(VAR& vars, const std::vector<VAR*>& auxvars);
+
   bool Rebalance(VAR& vars, const std::vector<VAR*>& auxvars);
   void PrintLoadBalance(const std::string& stage) const;
+  bool IsLoadImbalanced() const;  // max(elements per process) > tolerance * mean
 
   // Pilot variables of every AMR object, per mesh: variable -> AMR object it drives
   using PilotRegistry_t = std::map<const mfem::ParMesh*, std::map<const void*, AMRBase<VAR>*>>;
