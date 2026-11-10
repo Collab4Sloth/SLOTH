@@ -31,6 +31,7 @@
 
 #include "Options/Options.hpp"
 #include "Parameters/Parameters.hpp"
+#include "Solvers/SlothNewtonSolver.hpp"
 #include "Solvers/SolverBase.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -64,7 +65,12 @@ std::shared_ptr<mfem::NewtonSolver> SolverNewton::create_solver(const Parameters
   const double n_abs_tol =
       params.get_param_value_or_default<double>("abs_tol", NewtonDefaultConstant::abs_tol);
 
-  auto ss = std::make_shared<mfem::NewtonSolver>(MPI_COMM_WORLD);
+  // Divergence detection: ||r_k|| > divergence_factor * ||r_0|| stops the solver (TimeStepFailure)
+  const double n_div_factor = params.get_param_value_or_default<double>(
+      "divergence_factor", NewtonDefaultConstant::divergence_factor);
+
+  std::shared_ptr<mfem::NewtonSolver> ss =
+      std::make_shared<SlothNewtonSolver>(MPI_COMM_WORLD, n_div_factor);
 
   ss->SetPrintLevel(print_level);
   ss->iterative_mode = iterative_mode;
