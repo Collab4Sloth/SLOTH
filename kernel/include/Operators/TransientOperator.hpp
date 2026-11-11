@@ -41,8 +41,8 @@
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
-#include "Solvers/SlothBDF2Solver.hpp"
 #include "Solvers/LSolver.hpp"
+#include "Solvers/SlothBDF2Solver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variables.hpp"
@@ -81,7 +81,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   SlothNLFormIntegrator<Variables<T, DIM>>* get_lhs_integrator(
       const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
-  std::string lhs_integrator_;
+  IntegratorEntry<Variables<T, DIM>> lhs_integrator_;
 
   void free_memory();
   void free_mass_matrices();
@@ -170,12 +170,14 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   void restore_time_scheme_state();
 
   TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
-                    const std::string lhs_integrator);
+                    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators,
+                    TimeScheme::value ode,
+                    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator);
 
   TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                    const std::vector<std::string>& rhs_integrators, const Parameters& params,
-                    TimeScheme::value ode, const std::string lhs_integrator);
+                    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators,
+                    const Parameters& params, TimeScheme::value ode,
+                    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator);
 
   ~TransientOperator() override;
 

@@ -296,6 +296,14 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
  */
 GlossaryType SlothBaseCoefficient::get_type() const { return this->coefficient_quantity_.type; }
 /**
+ * @brief Returns the name of the quantity of a custom coefficient (empty for a built-in quantity).
+ *
+ * @return the name of the custom quantity.
+ */
+const std::string& SlothBaseCoefficient::get_custom_name() const {
+  return this->coefficient_quantity_.name;
+}
+/**
  * @brief Returns the quantity associated with the coefficient.
  *
  * @return the quantity.

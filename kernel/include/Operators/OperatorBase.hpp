@@ -40,6 +40,7 @@
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/Coefficients.hpp"
+#include "Extensions/UserIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
@@ -107,7 +108,7 @@ class OperatorBase : public mfem::Operator {
   int height_;
   mutable mfem::Vector z;  // auxiliary vector
 
-  std::vector<std::string> rhs_integrators_;
+  std::vector<IntegratorEntry<Variables<T, DIM>>> rhs_integrators_;
 
   /// Mesh change detection (AMR): FE space sequence numbers at last synchronization
   std::vector<long> fes_sequence_;
@@ -130,10 +131,10 @@ class OperatorBase : public mfem::Operator {
       const unsigned int block, const unsigned int bdr_id);
 
  public:
-  OperatorBase(const std::vector<std::string>& integrators,
+  OperatorBase(const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials);
 
-  OperatorBase(const std::vector<std::string>& integrators,
+  OperatorBase(const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params);
 
   void set_coefficients(const std::vector<Coefficients>& coefficients,
@@ -193,8 +194,9 @@ class OperatorBase : public mfem::Operator {
   virtual void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) = 0;
   virtual void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
                      const double& current_time, double current_time_step, const int iter) = 0;
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const double dt, const std::string nlfi,
-                                                         const std::vector<mfem::Vector>& u);
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
+      const double dt, const IntegratorEntry<Variables<T, DIM>>& nlfi,
+      const std::vector<mfem::Vector>& u);
   SlothNLFormIntegrator<Variables<T, DIM>>* set_bdr_nlfi_ptr(const double dt,
                                                              const std::string nlfi,
                                                              const std::vector<mfem::Vector>& u,

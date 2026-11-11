@@ -65,10 +65,10 @@
  * @param ode
  */
 template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                             const std::vector<std::string>& rhs_integrators,
-                                             TimeScheme::value ode,
-                                             const std::string lhs_integrator)
+TransientOperator<T, DIM>::TransientOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators, TimeScheme::value ode,
+    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
@@ -90,10 +90,11 @@ TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T
  * @param ode
  */
 template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                             const std::vector<std::string>& rhs_integrators,
-                                             const Parameters& params, TimeScheme::value ode,
-                                             const std::string lhs_integrator)
+TransientOperator<T, DIM>::TransientOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators,
+    const Parameters& params, TimeScheme::value ode,
+    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials, params),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
@@ -389,8 +390,11 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     mfem::ParGridFunction un(this->fes_[ib]);
     un.SetFromTrueDofs(u_vect[i]);
 
-    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], {un}, {un}, vauxn);
-    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], {un}, {un}, vauxn);
+    // MfemCoefficient keeps references to the vectors of grid functions: they must outlive the
+    // assembly (no temporary)
+    const std::vector<mfem::ParGridFunction> vun{un};
+    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], vun, vun, vauxn);
+    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], vun, vun, vauxn);
     mfem::ProductCoefficient mass_coefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
@@ -462,7 +466,21 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
   }
   const Parameters& all_params = this->params_ - this->default_p_;
 
-  auto lhs = this->get_lhs_integrator(dt, this->lhs_integrator_, vun, vauxn, all_params);
+  SlothNLFormIntegrator<Variables<T, DIM>>* lhs = nullptr;
+  if (const auto* user = std::get_if<UserIntegrator<Variables<T, DIM>>>(&this->lhs_integrator_)) {
+    const UserIntegratorArgs<Variables<T, DIM>> args{
+        this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_};
+    lhs = user->build(args);
+  } else {
+    lhs = this->get_lhs_integrator(dt, std::get<std::string>(this->lhs_integrator_), vun, vauxn,
+                                   all_params);
+  }
+
+  const std::string& verify_msg = "TransientOperator: integrator '" +
+                                  integrator_name<Variables<T, DIM>>(this->lhs_integrator_) +
+                                  "' could not be built.";
+
+  MFEM_VERIFY(lhs != nullptr, verify_msg.c_str());
   lhs->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
   lhs->init();
   return lhs;
@@ -597,13 +615,18 @@ void TransientOperator<T, DIM>::setup_split_structure(const double dt,
                                                       const std::vector<mfem::Vector>& u_vect) {
   this->split_checked_ = true;
   this->split_explicit_ =
-      this->is_explicit_ && this->lhs_integrator_.find("Split") != std::string::npos;
+      this->is_explicit_ &&
+      integrator_name<Variables<T, DIM>>(this->lhs_integrator_).find("Split") != std::string::npos;
   if (!this->split_explicit_) return;
 
   std::unique_ptr<SlothNLFormIntegrator<Variables<T, DIM>>> lhs(this->set_lhs_nlfi_ptr(dt, u_vect));
   const auto map = lhs->time_derivative_map();
-  MFEM_VERIFY(!map.empty(), "Split LHS integrator '" + this->lhs_integrator_ +
-                                "' must define time_derivative_map() for explicit schemes.");
+
+  const std::string& verify_msg = "Split LHS integrator '" +
+                                  integrator_name<Variables<T, DIM>>(this->lhs_integrator_) +
+                                  "' must define time_derivative_map() for explicit schemes.";
+
+  MFEM_VERIFY(!map.empty(), verify_msg.c_str());
 
   const int n = this->fes_.Size();
   std::vector<bool> row_evol(static_cast<size_t>(n), false);

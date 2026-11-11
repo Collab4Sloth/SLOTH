@@ -50,18 +50,22 @@
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
- * @brief Set the NonLinearFormIntegrator dedicated to AllenCahn
+ * @brief Build and initialize an integrator of the right-hand side
+ *
+ * @details A built-in integrator is built from its name; a user integrator by its own builder,
+ *          with the same arguments.
  *
  * @tparam T
  * @tparam DIM
- * @tparam OPEBASE
- * @param dt
- * @param u
+ * @param dt Time step
+ * @param nlfi Name of a built-in integrator, or user integrator
+ * @param u Unknowns
  * @return NLFI*
  */
 template <class T, int DIM>
 SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
-    const double dt, const std::string nlfi, const std::vector<mfem::Vector>& u) {
+    const double dt, const IntegratorEntry<Variables<T, DIM>>& nlfi,
+    const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("OperatorBase::set_nlfi_ptr");
   std::vector<mfem::ParGridFunction> vun;
   std::vector<mfem::ParGridFunction> vauxn;
@@ -81,7 +85,18 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
   }
 
   const Parameters& all_params = this->params_ - this->default_p_;
-  auto rhs_nlfi = this->get_rhs_integrator(dt, nlfi, vun, vauxn, all_params);
+  SlothNLFormIntegrator<Variables<T, DIM>>* rhs_nlfi = nullptr;
+  if (const auto* user = std::get_if<UserIntegrator<Variables<T, DIM>>>(&nlfi)) {
+    const UserIntegratorArgs<Variables<T, DIM>> args{
+        this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_};
+    rhs_nlfi = user->build(args);
+  } else {
+    rhs_nlfi = this->get_rhs_integrator(dt, std::get<std::string>(nlfi), vun, vauxn, all_params);
+  }
+  const std::string& verify_msg = "OperatorBase: integrator '" +
+                                  integrator_name<Variables<T, DIM>>(nlfi) +
+                                  "' could not be built.";
+  MFEM_VERIFY(rhs_nlfi != nullptr, verify_msg.c_str());
   rhs_nlfi->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
   rhs_nlfi->init();
   return rhs_nlfi;
@@ -202,8 +217,9 @@ void OperatorBase<T, DIM>::set_coefficients(const std::vector<Coefficients>& coe
  * @param spatial
  */
 template <class T, int DIM>
-OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
-                                   std::vector<SpatialDiscretization<T, DIM>*> spatials)
+OperatorBase<T, DIM>::OperatorBase(
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
+    std::vector<SpatialDiscretization<T, DIM>*> spatials)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
       params_(default_params_),
       RHS(NULL),
@@ -241,9 +257,9 @@ OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
  * @param params
  */
 template <class T, int DIM>
-OperatorBase<T, DIM>::OperatorBase(const std::vector<std::string>& integrators,
-                                   std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                   const Parameters& params)
+OperatorBase<T, DIM>::OperatorBase(
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
+    std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params)
     : mfem::Operator(this->compute_total_height(spatials), this->compute_total_width(spatials)),
       params_(params),
       RHS(NULL),
@@ -407,8 +423,8 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
     delete this->RHS;
   }
   this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
-  for (const std::string& s_integrator : this->rhs_integrators_) {
-    auto integrator_ptr = this->set_nlfi_ptr(dt, s_integrator, u_vect);
+  for (const auto& integrator : this->rhs_integrators_) {
+    auto integrator_ptr = this->set_nlfi_ptr(dt, integrator, u_vect);
     this->RHS->AddDomainIntegrator(integrator_ptr);
   }
 
@@ -427,8 +443,9 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
   // Advection: an Inflow coefficient attached to a boundary
   // activates the inflow/outflow term
   const auto has_rhs_integrator = [this](const std::string& name) {
-    return std::find(this->rhs_integrators_.begin(), this->rhs_integrators_.end(), name) !=
-           this->rhs_integrators_.end();
+    return std::any_of(
+        this->rhs_integrators_.begin(), this->rhs_integrators_.end(),
+        [&name](const auto& entry) { return integrator_name<Variables<T, DIM>>(entry) == name; });
   };
   const bool advection = has_rhs_integrator("Advection");
   const bool split_advection = has_rhs_integrator("SplitAdvection");
