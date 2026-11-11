@@ -314,8 +314,7 @@ void TransientOperator<T, DIM>::report_lagged_auxiliary_variables() {
   if (this->bdf2_solver_ != nullptr || this->lagged_aux_info_printed_ || this->vars_ == nullptr) {
     return;
   }
-  if (this->vars_->get_variables_number() == 0 ||
-      (*this->vars_)[0].get_number_of_updates() == 0) {
+  if (this->vars_->get_variables_number() == 0 || (*this->vars_)[0].get_number_of_updates() == 0) {
     return;  // first step: fixed fields cannot be distinguished
   }
   this->lagged_aux_info_printed_ = true;
@@ -976,19 +975,23 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
-#ifdef MFEM_USE_EXCEPTIONS
-    // A failure inside the Newton solver (e.g. non-finite residual norm, MFEM_VERIFY) is a failure
-    // of the time-step. Without MFEM_USE_EXCEPTIONS, MFEM aborts the computation.
+    // A failure inside the Newton solver is a failure of the time-step:
+    // - divergence detected by SlothNewtonSolver (TimeStepFailure);
+    // - with MFEM_USE_EXCEPTIONS, any MFEM error (e.g. non-finite residual norm, MFEM_VERIFY).
+    //   Without MFEM_USE_EXCEPTIONS, MFEM aborts the computation.
     try {
       this->newton_solver_->Mult(zero_rhs, dv_dt);
+    } catch (const TimeStepFailure&) {
+      MATools::MATrace::stop("Solve");
+      this->free_memory();
+      throw;
+#ifdef MFEM_USE_EXCEPTIONS
     } catch (const mfem::ErrorException& error) {
       MATools::MATrace::stop("Solve");
       this->free_memory();
       throw TimeStepFailure(std::string("Nonlinear solver failed: ") + error.what());
-    }
-#else
-    this->newton_solver_->Mult(zero_rhs, dv_dt);
 #endif
+    }
     MATools::MATrace::stop("Solve");
   }
 
