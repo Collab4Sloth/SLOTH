@@ -51,8 +51,9 @@
  * @param spatial
  */
 template <class T, int DIM>
-SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                       const std::vector<std::string>& integrators)
+SteadyOperator<T, DIM>::SteadyOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators)
     : OperatorBase<T, DIM>(integrators, spatials), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -68,9 +69,9 @@ SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>
  * @param params
  */
 template <class T, int DIM>
-SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                       const std::vector<std::string>& integrators,
-                                       const Parameters& params)
+SteadyOperator<T, DIM>::SteadyOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators, const Parameters& params)
     : OperatorBase<T, DIM>(integrators, spatials, params), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));

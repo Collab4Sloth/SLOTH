@@ -54,10 +54,11 @@ class SteadyOperator : public OperatorBase<T, DIM> {
 
  public:
   SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                 const std::vector<std::string>& integrators);
+                 const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators);
 
   SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                 const std::vector<std::string>& integrators, const Parameters& params);
+                 const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
+                 const Parameters& params);
 
   /// Not used: the steady solve goes through SteadyPhaseFieldReducedOperator (Mult is required
   /// by mfem::Operator). An error is raised if it is called.

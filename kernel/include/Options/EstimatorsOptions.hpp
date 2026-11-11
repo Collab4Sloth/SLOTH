@@ -30,4 +30,7 @@
 ///////////////////////////////////////////////////
 //////// ESTIMATORS
 ///////////////////////////////////////////////////
-enum class ErrorEstimatorType { L2_ZIENKIEWICZ_ZHU, KELLY };
+/// L2_ZIENKIEWICZ_ZHU : Zienkiewicz-Zhu estimator
+/// KELLY              : Kelly estimator (jump of the normal flux across faces)
+/// CUSTOM             : estimator built by a function given by the user
+enum class ErrorEstimatorType { L2_ZIENKIEWICZ_ZHU, KELLY, CUSTOM };

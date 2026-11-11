@@ -109,6 +109,7 @@ class SlothBaseCoefficient {
                          std::optional<int> dimension = std::nullopt);
 
   GlossaryType get_type() const;
+  const std::string& get_custom_name() const;
   const GlossaryQuantity get_quantity();
   unsigned int get_id() const;
   bool is_implicit() const;

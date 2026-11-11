@@ -59,6 +59,21 @@ SlothErrorEstimators::SlothErrorEstimators(ErrorEstimatorType value)
     : value_(value), integ_(nullptr) {}
 
 /**
+ * @brief Construct a custom estimator (ErrorEstimatorType::CUSTOM).
+ *
+ * @param custom_estimator Function building the estimator of a field. It receives the field, its
+ * finite element space and the mesh, and returns a new mfem::ErrorEstimator. Usually built by
+ * CustomEstimator<Estimator>(args...).
+ */
+SlothErrorEstimators::SlothErrorEstimators(Factory custom_estimator)
+    : value_(ErrorEstimatorType::CUSTOM),
+      integ_(nullptr),
+      custom_estimator_(std::move(custom_estimator)) {
+  MFEM_VERIFY(static_cast<bool>(this->custom_estimator_),
+              "SlothErrorEstimators: empty custom estimator.");
+}
+
+/**
  * @brief Finite element space `name` for the given mesh and polynomial order,
  *        built at the first request (collection given by `make_fec`, `vdim`
  *        components) and updated (Update(false)) if the mesh has changed since
@@ -130,8 +145,17 @@ std::shared_ptr<mfem::ErrorEstimator> SlothErrorEstimators::get_value(
       MFEM_VERIFY(this->integ_ != nullptr, "SlothErrorEstimators: KELLY requires an integrator.");
       return std::make_shared<mfem::KellyErrorEstimator>(*this->integ_, x, l2_flux());
     }
+    case ErrorEstimatorType::CUSTOM: {
+      MFEM_VERIFY(static_cast<bool>(this->custom_estimator_),
+                  "SlothErrorEstimators: CUSTOM requires a custom estimator.");
+      auto estimator = this->custom_estimator_(x, fespace, mesh);
+      MFEM_VERIFY(estimator != nullptr,
+                  "SlothErrorEstimators: the custom estimator returned no estimator.");
+      return estimator;
+    }
     default:
-      mfem::mfem_error("SlothErrorEstimators::get_value: unknown estimator type.");
+      mfem::mfem_error("SlothErrorEstimators: unknown estimator type.");
   }
+
   return nullptr;
 }

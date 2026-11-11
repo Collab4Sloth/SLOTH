@@ -44,6 +44,12 @@
  *        runtime, selected via an ErrorEstimatorType
  */
 class SlothErrorEstimators {
+ public:
+  /// Function building a custom estimator of a field (ErrorEstimatorType::CUSTOM), see
+  /// CustomEstimator()
+  using Factory = std::function<std::shared_ptr<mfem::ErrorEstimator>(
+      mfem::ParGridFunction&, mfem::ParFiniteElementSpace&, mfem::ParMesh&)>;
+
  private:
   /**
    * @brief Finite element space used by an estimator (flux space...), with its
@@ -63,6 +69,7 @@ class SlothErrorEstimators {
 
   ErrorEstimatorType value_;
   mfem::BilinearFormIntegrator* integ_{nullptr};
+  Factory custom_estimator_;
   std::map<SpaceKey, CachedSpace> spaces_;
 
   mfem::ParFiniteElementSpace& space(
@@ -72,6 +79,7 @@ class SlothErrorEstimators {
  public:
   SlothErrorEstimators(ErrorEstimatorType value, mfem::BilinearFormIntegrator* integ);
   explicit SlothErrorEstimators(ErrorEstimatorType value);
+  explicit SlothErrorEstimators(Factory custom_estimator);
 
   SlothErrorEstimators(const SlothErrorEstimators&) = delete;
   SlothErrorEstimators& operator=(const SlothErrorEstimators&) = delete;
@@ -85,3 +93,31 @@ class SlothErrorEstimators {
 
   ~SlothErrorEstimators() = default;
 };
+
+/**
+ * @brief Custom error estimator (ErrorEstimatorType::CUSTOM) of class `Estimator`.
+ *
+ * @details `Estimator` derives from mfem::ErrorEstimator and its constructor follows the SLOTH
+ *          convention: the field, its finite element space and the mesh (provided by SLOTH at
+ *          each AMR pass), then its own arguments `args` (copied, use std::cref for a
+ *          reference).
+ *
+ * @code
+ *   class MyEstimator : public mfem::ErrorEstimator {
+ *    public:
+ *     MyEstimator(mfem::ParGridFunction& x, mfem::ParFiniteElementSpace& fes,
+ *                 mfem::ParMesh& mesh, double my_parameter);
+ *     const mfem::Vector& GetLocalErrors() override;
+ *     void Reset() override;
+ *   };
+ *   SlothErrorEstimators estimator(CustomEstimator<MyEstimator>(0.5));
+ * @endcode
+ */
+template <class Estimator, class... Args>
+SlothErrorEstimators::Factory CustomEstimator(Args... args) {
+  return [args...](mfem::ParGridFunction& x, mfem::ParFiniteElementSpace& fespace,
+                   mfem::ParMesh& mesh) -> std::shared_ptr<mfem::ErrorEstimator> {
+    return std::make_shared<Estimator>(x, fespace, mesh, args...);
+  };
+}
+

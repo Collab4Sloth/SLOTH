@@ -153,6 +153,63 @@ void SlothNLFormIntegrator<VARS>::check_coefficient_types(std::list<GlossaryType
 }
 
 /**
+ * @brief Verify that the coefficients associated with the integrator contain the expected custom
+ *        quantities (see CustomQuantity()).
+ *
+ * @details To be called by custom integrators, as check_coefficient_types() for the built-in
+ *          quantities. Aborts via MFEM_VERIFY if a name is missing in at least one block.
+ *
+ * @tparam VARS Template parameter defining the variable set handled by the integrator.
+ * @param expected_names Names of the custom quantities required by the integrator.
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::check_custom_coefficient_names(
+    const std::list<std::string>& expected_names) {
+  for (const auto& coefficients : this->coefficients_) {
+    for (const auto& name : expected_names) {
+      bool found = false;
+      for (unsigned int i = 0; i < coefficients.size() && !found; i++) {
+        found = coefficients[i].get_type() == GlossaryType::Custom &&
+                coefficients[i].get_custom_name() == name;
+      }
+      MFEM_VERIFY(found, "Error in " + this->integrator_name_ + ": custom quantity '" + name +
+                             "' not found in the coefficients. Please check your data.");
+    }
+  }
+}
+
+/**
+ * @brief Retrieve a coefficient of a custom quantity by name and identifier.
+ *
+ * @tparam VARS Template parameter defining the variable set handled by the integrator.
+ * @param blk          Index of the block.
+ * @param custom_name  Name of the custom quantity (see CustomQuantity()).
+ * @param id           Identifier of the coefficient.
+ * @param bdr_id       Optional boundary id for boundary coefficients.
+ * @return An std::optional containing the matching Coefficient if found; std::nullopt otherwise.
+ */
+template <class VARS>
+std::optional<Coefficient> SlothNLFormIntegrator<VARS>::get_coefficient(
+    const int blk, const std::string& custom_name, unsigned int id, std::optional<int> bdr_id) {
+  const Coefficients& coefficients = this->coefficients_[blk];
+  for (unsigned int i = 0; i < coefficients.size(); i++) {
+    const auto& coef = coefficients[i];
+    if (coef.get_type() != GlossaryType::Custom || coef.get_custom_name() != custom_name ||
+        coef.get_id() != id) {
+      continue;
+    }
+    if (!bdr_id.has_value()) {
+      return coef;
+    }
+    const auto bdr_index = coef.get_bdr_index_coef();
+    if (std::find(bdr_index.begin(), bdr_index.end(), bdr_id) != bdr_index.end()) {
+      return coef;
+    }
+  }
+  return std::nullopt;
+}
+
+/**
  * @brief Retrieve a coefficient by type and identifier.
  *
  * This function searches the list of coefficients associated with the
