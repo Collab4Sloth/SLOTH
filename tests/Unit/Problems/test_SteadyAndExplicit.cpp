@@ -405,8 +405,13 @@ TEST_CASE("Problems: explicit Euler with ExplicitTime coefficients of auxiliary 
   BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
           Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
   auto vars = VARS(VAR(&spatial, bcs, "u", Glossary::Concentration, 2, 0.));
-  auto v_vars = VARS(VAR(&spatial, bcs, "v", Glossary::Concentration, 2, 0.25));
-  auto w_vars = VARS(VAR(&spatial, bcs, "w", Glossary::Concentration, 2, 0.5));
+  // Auxiliary variables: an additional information (symbol) is required by the integrators
+  VAR v_var(&spatial, bcs, "v", Glossary::Concentration, 2, 0.25);
+  v_var.set_additional_information("v");
+  VAR w_var(&spatial, bcs, "w", Glossary::Concentration, 2, 0.5);
+  w_var.set_additional_information("w");
+  auto v_vars = VARS(v_var);
+  auto w_vars = VARS(w_var);
 
   Coefficients coefs(
       Coefficient(Glossary::SourceTerm, 1.),
