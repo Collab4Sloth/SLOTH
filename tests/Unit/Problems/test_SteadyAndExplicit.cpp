@@ -293,3 +293,64 @@ TEST_CASE("Problems: order of convergence in time (implicit Euler, BDF2)",
   CHECK(observed > order - 0.25);
   CHECK(observed < order + 0.5);
 }
+
+// -----------------------------------------------------------------------------
+// Explicit Euler with a non-scalar ExplicitTime coefficient (mass matrix rebuilt at each step):
+//   C(u) du/dt = 1, C(u) = 1 + u (explicit), u(0) = 0, uniform field (no spatial error).
+//   Explicit Euler: u_{n+1} = u_n + dt / (1 + u_n).
+// The coefficient is evaluated with the state of the step, through MfemCoefficient (regression:
+// the vectors of grid functions given to MfemCoefficient must outlive the assembly).
+// -----------------------------------------------------------------------------
+namespace {
+/// @brief Explicit capacity C(u) = 1 + u
+class LinearCapacity final : public FunctionCoefficient {
+ protected:
+  std::function<double(const std::span<const double>&, const std::span<const double>&,
+                       const std::span<const double>&, const unsigned int)>
+  F() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&, const unsigned int) { return 1. + u[0]; };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  GradientF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size(), 1.); };
+  }
+  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
+                                    const std::span<const double>&, const unsigned int)>
+  HessianF() override {
+    return [](const std::span<const double>& u, const std::span<const double>&,
+              const std::span<const double>&,
+              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
+  }
+};
+}  // namespace
+
+TEST_CASE("Problems: explicit Euler with a non-scalar ExplicitTime coefficient",
+          "[Problems][Operators]") {
+  SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(2, 2, 1., 1.));
+  BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+          Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
+  auto vars = VARS(VAR(&spatial, bcs, "u", Glossary::Concentration, 2, 0.));
+  Coefficients coefs(Coefficient(Glossary::SourceTerm, 1.),
+                     Coefficient(Glossary::ExplicitTime_A, Scheme::Explicit, LinearCapacity()));
+  std::vector<SPA*> spatials{&spatial};
+  TransientOPE oper(spatials, {"SourceTerm"}, TimeScheme::EulerExplicit, "TimeDerivative");
+  TransientPB problem("u", oper, vars, {coefs});
+  auto coupling = Coupling("u", problem);
+  const double dt = 0.25;
+  auto time = TimeDiscretization(time_parameters(1., dt), coupling);
+  time.solve();
+
+  double expected = 0.;
+  for (int n = 0; n < 4; ++n) {
+    expected += dt / (1. + expected);
+  }
+  const mfem::Vector u = vars[0].get_unknown();
+  for (int i = 0; i < u.Size(); ++i) {
+    CAPTURE(i);
+    CHECK_THAT(u(i), Catch::Matchers::WithinAbs(expected, 1.e-10));
+  }
+}

@@ -390,8 +390,11 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     mfem::ParGridFunction un(this->fes_[ib]);
     un.SetFromTrueDofs(u_vect[i]);
 
-    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], {un}, {un}, vauxn);
-    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], {un}, {un}, vauxn);
+    // MfemCoefficient keeps references to the vectors of grid functions: they must outlive the
+    // assembly (no temporary)
+    const std::vector<mfem::ParGridFunction> vun{un};
+    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], vun, vun, vauxn);
+    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], vun, vun, vauxn);
     mfem::ProductCoefficient mass_coefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
