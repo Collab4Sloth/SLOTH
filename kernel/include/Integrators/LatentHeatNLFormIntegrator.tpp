@@ -164,6 +164,9 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Mobility at all the integration points of the element
+    this->eval_coefficient_at_points(mobility[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->mobility_at_points_);
     // elvect = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -177,7 +180,8 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double latent_heat = this->get_latent_heat_at_ip(blk, ipv.u, ipv.aux) * weight_coef;
+      const double latent_heat =
+          this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), ipv.aux) * weight_coef;
       add(*elvect[blk], latent_heat, Psi, *elvect[blk]);
     }
   }
@@ -247,22 +251,17 @@ void LatentHeatNLFormIntegrator<VARS>::get_coefficients() {
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
+ * @param mobility_value value of the mobility at the integration point
+ * @param aux_values values of the auxiliary variables at the current then at the previous time
+ * step at the integration point
  *
- * @return The computed mobility at integration point
+ * @return The computed latent heat at integration point
  */
 template <class VARS>
 double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
+    const double mobility_value, const std::span<const double>& aux_values) {
   std::span<const double> local_auxvalues(aux_values.begin(), aux_values.begin() + this->nb_vaux_);
   std::span<const double> local_auxvalues_n(aux_values.begin() + this->nb_vaux_, aux_values.end());
-
-  const double mobility_value = this->get_mob_at_ip(blk, values, local_auxvalues);
 
   const double phi = local_auxvalues[this->phase_field_index_];
   const double phin = local_auxvalues_n[this->phase_field_index_];
@@ -279,27 +278,4 @@ double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(
   const double latent_heat = -square_time_derivative / std::max(epsilon, mobility_value);
 
   return latent_heat;
-}
-
-/**
- * @brief Compute the value of the mobility at integration point
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed mobility at integration point
- */
-template <class VARS>
-double LatentHeatNLFormIntegrator<VARS>::get_mob_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi =
-      this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
-
-  return mobi;
 }

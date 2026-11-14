@@ -159,6 +159,10 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
+  // Stabilization coefficient at all the integration points of the element
+  this->eval_coefficient_at_points(stab_diffusion[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr,
+                                   *ir, elfun, this->vaux_gf_, this->diffusion_at_points_);
+
   // Loop over integration points
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -166,15 +170,13 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     el[blk]->CalcShape(ip, Psi);
     this->set_int_point(Tr, ip);
 
-    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-
     // Stabilization contribution : D_stab * (Grad u - Grad un)
     el[blk]->CalcPhysDShape(Tr, this->gradPsi);
     this->gradPsi.MultTranspose(*elfun[blk], this->Flux_);
     this->sloth_u_old_[blk].GetGradient(Tr, this->gradPsi, grad_uold);
 
     this->Flux_.Add(-1, grad_uold);
-    this->Flux_ *= this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux, blk);
+    this->Flux_ *= this->diffusion_at_points_.value(i);
 
     // Diffusion flux (see child classes)
     this->add_diffusion_flux(Tr, nElement, ip, dim);
@@ -229,10 +231,14 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
 
+  // Stabilization coefficient and its derivatives at all the integration points of the element
+  this->eval_coefficient_at_points(
+      stab_diffusion[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk],
+      Tr, *ir, elfun, this->vaux_gf_, this->diffusion_at_points_);
+
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     el[blk]->CalcShape(ip, Psi);
-    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
     this->set_int_point(Tr, ip);
 
@@ -241,15 +247,13 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
       weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
     }
 
-    const double coeff_diffu =
-        this->eval_coefficient(stab_diffusion[blk], ipv.u, ipv.aux, blk) * weight_coef;
+    const double coeff_diffu = this->diffusion_at_points_.value(i) * weight_coef;
     el[blk]->CalcPhysDShape(Tr, gradPsi);
     AddMult_a_AAt(coeff_diffu, gradPsi, *elmat(blk, blk));
 
     // d/du_j (D(u) (grad u - grad u_old) . grad psi_i)
     //   = D grad psi_j . grad psi_i + D'(u) psi_j (grad u - grad u_old) . grad psi_i
-    const double dcoeff_diffu =
-        this->eval_gradient_coefficient(stab_diffusion[blk], blk, ipv.u, ipv.aux, blk) * weight_coef;
+    const double dcoeff_diffu = this->diffusion_at_points_.derivative(i, blk) * weight_coef;
     if (dcoeff_diffu != 0.0) {
       gradPsi.MultTranspose(*elfun[blk], grad_u);
       this->sloth_u_old_[blk].GetGradient(Tr, gradPsi, grad_uold);

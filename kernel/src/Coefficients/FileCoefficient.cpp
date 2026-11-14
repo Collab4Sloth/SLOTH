@@ -176,3 +176,36 @@ double FileCoefficient::value(double time, std::span<const double> coordinates) 
   if (n == 2) q[1] = coordinates[2];
   return this->prefactor_ * this->field_->interpolate(time, std::span<const double>(q.data(), n));
 }
+
+/**
+ * @brief Evaluation at a set of points (see FunctionCoefficient::eval_batch): tabulated values at
+ * the physical points, same values as value(time, x) point by point. Zero derivatives (the
+ * coefficient does not depend on the unknowns). Computed on the host (tabulated data).
+ *
+ * @param npts Number of points
+ * @param coordinates Physical points (dim values per point, point after point)
+ * @param F Values at the points (if not null)
+ * @param gradient Zero (if not null)
+ * @param hessian Zero (if not null)
+ * @return true
+ */
+bool FileCoefficient::eval_batch(const int npts, [[maybe_unused]] const mfem::Vector& values,
+                                 [[maybe_unused]] const mfem::Vector& explicit_values,
+                                 [[maybe_unused]] const mfem::Vector& auxiliary_values,
+                                 const mfem::Vector& coordinates, mfem::Vector* F,
+                                 mfem::Vector* gradient, mfem::Vector* hessian) const {
+  const int dim = npts > 0 ? coordinates.Size() / npts : 0;
+  MFEM_VERIFY(npts == 0 || (dim > 0 && coordinates.Size() == npts * dim),
+              "FileCoefficient: the physical points are expected.");
+  if (F != nullptr) {
+    MFEM_VERIFY(F->Size() == npts, "FileCoefficient: wrong size of F");
+    const double* x = coordinates.HostRead();
+    double* f = F->HostWrite();
+    for (int q = 0; q < npts; ++q) {
+      f[q] = this->value(this->time_, std::span<const double>(x + q * dim, dim));
+    }
+  }
+  if (gradient != nullptr) *gradient = 0.0;
+  if (hessian != nullptr) *hessian = 0.0;
+  return true;
+}

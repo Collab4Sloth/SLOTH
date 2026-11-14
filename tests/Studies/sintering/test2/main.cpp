@@ -523,7 +523,6 @@ int main(int argc, char* argv[]) {
   ac_v9.set_additional_information("eta");
   auto ac_vars = VARS(ac_v1, ac_v2, ac_v3, ac_v4, ac_v5, ac_v6, ac_v7, ac_v8, ac_v9);
 
-
   // ###################################################
   //   Two physics = two operators + integrators      //
   //   TransientOPE + time scheme (eg. EulerImplicit) //
@@ -602,7 +601,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
   // ###########################################
   const double t_initial = 0.0;
-  const double t_final = 2.e-4; 2. ; //100.;
+  const double t_final = 2.e-4;  // 2. ; //100.;
   const double dt = 1.e-4;
   auto time_params = Parameters(
       Parameter("initial_time", t_initial), Parameter("final_time", t_final),

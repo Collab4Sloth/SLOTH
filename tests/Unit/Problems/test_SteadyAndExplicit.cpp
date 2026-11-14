@@ -24,10 +24,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
-#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <span>
@@ -38,6 +38,12 @@
 
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
+
+// Coefficients generated at configure time from Problems/ProblemCoefficients.json:
+//   TimeValue = t  (time)
+//   Decay     = -u
+#include "Decay.hpp"
+#include "TimeValue.hpp"
 #include "sloth_unit.hpp"
 
 using Catch::Matchers::WithinRel;
@@ -148,39 +154,11 @@ TEST_CASE("SteadyOperator: Mult is not used", "[Problems][Operators][errors]") {
 //   of the first step, which evolves as 3 e_{n+1} - 4 e_n + e_{n-1} = 0
 //   -> e_4 = 3/2 e_1 (1 - 1/81), u(1) = 1/2 + 3.75/81 = 44.25/81
 // -----------------------------------------------------------------------------
-namespace {
-/// @brief Coefficient equal to the time: f(t) = t
-class TimeValue final : public FunctionCoefficient {
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [this](const std::span<const double>&, const std::span<const double>&,
-                  const std::span<const double>&, const unsigned int) { return this->get_time(); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size(), 0.); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-};
-}  // namespace
-
 TEST_CASE("Problems: coefficients evaluated at the time of each stage", "[Problems][Operators]") {
-  const auto [time_scheme, expected] =
-      GENERATE(std::pair{TimeScheme::EulerImplicit, 0.625},
-               std::pair{TimeScheme::EulerExplicit, 0.375}, std::pair{TimeScheme::SDIRK23, 0.5},
-               std::pair{TimeScheme::SDIRK33, 0.5}, std::pair{TimeScheme::RungeKutta4, 0.5},
-               std::pair{TimeScheme::BDF2, 44.25 / 81.});
+  const auto [time_scheme, expected] = GENERATE(
+      std::pair{TimeScheme::EulerImplicit, 0.625}, std::pair{TimeScheme::EulerExplicit, 0.375},
+      std::pair{TimeScheme::SDIRK23, 0.5}, std::pair{TimeScheme::SDIRK33, 0.5},
+      std::pair{TimeScheme::RungeKutta4, 0.5}, std::pair{TimeScheme::BDF2, 44.25 / 81.});
   CAPTURE(static_cast<int>(time_scheme), expected);
 
   SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(2, 2, 1., 1.));
@@ -216,34 +194,6 @@ TEST_CASE("Problems: coefficients evaluated at the time of each stage", "[Proble
 //   implicit Euler: 1, BDF2: 2.
 // -----------------------------------------------------------------------------
 namespace {
-/// @brief Implicit source term f(u) = -u
-class Decay final : public FunctionCoefficient {
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) { return -u[0]; };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&, const unsigned int) {
-      std::vector<double> grad(u.size(), 0.);
-      grad[0] = -1.;
-      return grad;
-    };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-};
-
 /// @brief |u(1) - exp(-1)| for du/dt = -u, with a time step h (constant) or h (1 + t/2)
 double decay_error(TimeScheme::value time_scheme, double h, bool variable_step) {
   SPA spatial("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(2, 2, 1., 1.));

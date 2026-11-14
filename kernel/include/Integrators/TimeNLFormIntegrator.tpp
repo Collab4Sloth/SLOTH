@@ -177,16 +177,21 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // A and B at all the integration points of the element, at the end of the step
+    this->eval_coefficient_at_points(this->coefficient_A[blk], blk, SlothNLBase::CoefValue,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
+    this->eval_coefficient_at_points(this->coefficient_B[blk], blk, SlothNLBase::CoefValue,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->b_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
 
       const double k = *elfun[blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      const auto u_end = this->values_at_end_of_step(ipv.u);
-      const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux, blk);
-      const double coef_b = this->eval_coefficient(this->coefficient_B[blk], u_end, ipv.aux, blk);
+      const double coef_a = this->a_at_points_.value(i);
+      const double coef_b = this->b_at_points_.value(i);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -228,16 +233,24 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
     Psi.SetSize(el[blk]->GetDof());
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // A, B and their derivatives at all the integration points of the element, at the end of
+    // the step
+    this->eval_coefficient_at_points(this->coefficient_A[blk], blk,
+                                     SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
+    this->eval_coefficient_at_points(this->coefficient_B[blk], blk,
+                                     SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->b_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
 
       const double k = *elfun[blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      const auto u_end = this->values_at_end_of_step(ipv.u);
-      const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux, blk);
-      const double coef_b = this->eval_coefficient(this->coefficient_B[blk], u_end, ipv.aux, blk);
+      const double coef_a = this->a_at_points_.value(i);
+      const double coef_b = this->b_at_points_.value(i);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -247,10 +260,8 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
 
       // Coefficients depending on u at the end of the step: d/dk_j = dt d/du_j
       for (int jblk = 0; jblk < num_blocks; ++jblk) {
-        const double d_a =
-            this->eval_gradient_coefficient(this->coefficient_A[blk], jblk, u_end, ipv.aux, blk);
-        const double d_b =
-            this->eval_gradient_coefficient(this->coefficient_B[blk], jblk, u_end, ipv.aux, blk);
+        const double d_a = this->a_at_points_.derivative(i, jblk);
+        const double d_b = this->b_at_points_.derivative(i, jblk);
         const double d = (d_a * coef_b + coef_a * d_b) * this->time_step_ * k * weight_coef;
         if (d == 0.0) continue;
         if (jblk == blk) {

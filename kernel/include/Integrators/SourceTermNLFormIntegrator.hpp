@@ -51,6 +51,9 @@
 template <class VARS>
 class SourceTermNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   std::list<GlossaryType> expected_list_{GlossaryType::SourceTerm};
 
   // Work arrays reused across elements and integration points (one entry per block)
@@ -59,12 +62,22 @@ class SourceTermNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<double> u_values_;          ///< [u_0..u_{n-1}, u_old_0..u_old_{n-1}] at ip
   std::vector<double> aux_values_;        ///< auxiliary fields at ip
 
+  /// Source terms at the integration points of the current element, when all the blocks have
+  /// the same finite element (see SlothNLFormIntegrator::eval_coefficient_at_points)
+  std::vector<typename SlothNLBase::CoefficientAtPoints> source_at_points_;
+
   void prepare_element(const mfem::Array<const mfem::FiniteElement*>& el,
                        mfem::ElementTransformation& Tr);
 
   double evaluate_at_ip(const mfem::Array<const mfem::FiniteElement*>& el,
                         const mfem::Array<const mfem::Vector*>& elfun,
-                        mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
+                        mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
+                        const bool with_values = true);
+
+  bool source_terms_at_points(const mfem::Array<const mfem::FiniteElement*>& el,
+                              mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+                              const mfem::Array<const mfem::Vector*>& elfun,
+                              const unsigned int outputs);
 
   static const mfem::IntegrationRule& get_integration_rule(
       const mfem::Array<const mfem::FiniteElement*>& el, const mfem::ElementTransformation& Tr);

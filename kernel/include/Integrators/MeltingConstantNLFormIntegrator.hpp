@@ -54,10 +54,6 @@ class MeltingConstantNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS>
 
   void get_parameters();
 
- protected:
-  double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
-                                const std::span<const double>& aux_values) override;
-
  public:
   MeltingConstantNLFormIntegrator(Geometry geometry, const double time_step,
                                   const std::vector<mfem::ParGridFunction>& u_old,

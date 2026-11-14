@@ -230,3 +230,106 @@ bool ProductCoefficient::is_single_variable() const {
   }
   return true;
 }
+
+/**
+ * @brief Number of variables of the evaluation by batch: the one of the terms, if all of them are
+ * evaluated by batch with the same number of variables, 0 otherwise (point by point evaluation).
+ */
+int ProductCoefficient::batch_nb_variables() const {
+  int n = 0;
+  for (const auto* coef : vect_coefficients_) {
+    const int nc = coef->batch_nb_variables();
+    if (nc <= 0 || (n > 0 && nc != n)) return 0;
+    n = nc;
+  }
+  return n;
+}
+
+/**
+ * @brief Evaluation by batch (see FunctionCoefficient::eval_batch): product of the factors, each
+ * one evaluated by batch, on the host or on the device.
+ *
+ * The product P of the first factors is multiplied by each new factor f (product rule):
+ *   d2(P f) = d2P f + dP (x) df + df (x) dP + P d2f,   d(P f) = dP f + P df,   P f
+ *
+ * @return false if a factor is not evaluated by batch (point by point evaluation)
+ */
+bool ProductCoefficient::eval_batch(const int npts, const mfem::Vector& values,
+                                    const mfem::Vector& explicit_values,
+                                    const mfem::Vector& auxiliary_values,
+                                    const mfem::Vector& coordinates, mfem::Vector* F,
+                                    mfem::Vector* gradient, mfem::Vector* hessian) const {
+  const int n = this->batch_nb_variables();
+  if (n <= 0) return false;
+  const bool want_hessian = hessian != nullptr;
+  const bool need_gradient = gradient != nullptr || want_hessian;
+
+  // Product of the first factors and its gradient: in the outputs if requested
+  mfem::Vector& P = F != nullptr ? *F : this->product_F_;
+  mfem::Vector& dP = gradient != nullptr ? *gradient : this->product_gradient_;
+  P.SetSize(npts);
+  if (need_gradient) dP.SetSize(npts * n);
+
+  bool first = true;
+  for (const auto* coef : vect_coefficients_) {
+    if (first) {
+      if (!coef->eval_batch(npts, values, explicit_values, auxiliary_values, coordinates, &P,
+                            need_gradient ? &dP : nullptr, hessian)) {
+        return false;
+      }
+      first = false;
+      continue;
+    }
+    this->term_F_.SetSize(npts);
+    if (need_gradient) this->term_gradient_.SetSize(npts * n);
+    if (want_hessian) this->term_hessian_.SetSize(npts * n * n);
+    if (!coef->eval_batch(npts, values, explicit_values, auxiliary_values, coordinates,
+                          &this->term_F_, need_gradient ? &this->term_gradient_ : nullptr,
+                          want_hessian ? &this->term_hessian_ : nullptr)) {
+      return false;
+    }
+
+    // Data read and written where the loop runs (host or device)
+    P.UseDevice(true);
+    this->term_F_.UseDevice(true);
+    double* p = P.ReadWrite();
+    const double* f = this->term_F_.Read();
+    double* dp = nullptr;
+    const double* df = nullptr;
+    if (need_gradient) {
+      dP.UseDevice(true);
+      this->term_gradient_.UseDevice(true);
+      dp = dP.ReadWrite();
+      df = this->term_gradient_.Read();
+    }
+    double* d2p = nullptr;
+    const double* d2f = nullptr;
+    if (want_hessian) {
+      hessian->UseDevice(true);
+      this->term_hessian_.UseDevice(true);
+      d2p = hessian->ReadWrite();
+      d2f = this->term_hessian_.Read();
+    }
+    mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
+      const double pq = p[q];
+      const double fq = f[q];
+      // Second derivatives first: they use the gradient and the value of the previous product
+      if (d2p != nullptr) {
+        for (int i = 0; i < n; ++i) {
+          for (int j = 0; j < n; ++j) {
+            const int ij = (q * n + i) * n + j;
+            d2p[ij] = d2p[ij] * fq + dp[q * n + i] * df[q * n + j] + df[q * n + i] * dp[q * n + j] +
+                      pq * d2f[ij];
+          }
+        }
+      }
+      if (dp != nullptr) {
+        for (int i = 0; i < n; ++i) {
+          dp[q * n + i] = dp[q * n + i] * fq + pq * df[q * n + i];
+        }
+      }
+      p[q] = pq * fq;
+    });
+  }
+  return true;
+}

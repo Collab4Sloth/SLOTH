@@ -35,64 +35,14 @@
 #include "Sloth/tests.hpp"
 #include "sloth_unit.hpp"
 
+// Coefficients generated at configure time from BCs/BoundaryCoefficients.json:
+//   OnePlusXPlusY = 1 + X + Y  (coordinates)
+//   StepInTime    = 1 for 0 <= t <= 0.5, 2 afterwards  (time)
+#include "OnePlusXPlusY.hpp"
+#include "StepInTime.hpp"
+
 namespace {
 using namespace Sloth2D;
-
-/// @brief Coefficient of the coordinates only: 1 + x + y
-class OnePlusXPlusY final : public FunctionCoefficient {
- public:
-  bool uses_coordinates() const override { return true; }
-
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [this](const std::span<const double>&, const std::span<const double>&,
-                  const std::span<const double>&, const unsigned int) {
-      return 1. + this->coordinates_[0] + this->coordinates_[1];
-    };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size(), 0.); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-};
-
-/// @brief Coefficient of time only: 1 at t <= 0.5, 2 afterwards
-class StepInTime final : public FunctionCoefficient {
- protected:
-  std::function<double(const std::span<const double>&, const std::span<const double>&,
-                       const std::span<const double>&, const unsigned int)>
-  F() override {
-    return [this](const std::span<const double>&, const std::span<const double>&,
-                  const std::span<const double>&,
-                  const unsigned int) { return this->time_ > 0.5 ? 2. : 1.; };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  GradientF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size(), 0.); };
-  }
-  std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
-                                    const std::span<const double>&, const unsigned int)>
-  HessianF() override {
-    return [](const std::span<const double>& u, const std::span<const double>&,
-              const std::span<const double>&,
-              const unsigned int) { return std::vector<double>(u.size() * u.size(), 0.); };
-  }
-};
 
 /// @brief Coefficient attached to some boundaries (indices = attributes - 1)
 Coefficient on_boundaries(Coefficient c, const std::vector<int>& bdr) {
@@ -180,8 +130,8 @@ TEST_CASE_METHOD(HeatSquare, "BoundaryConditions: time-dependent Dirichlet value
                  "[BCs][Problems][Operators]") {
   BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 0.),
           Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 0.));
-  Coefficients coefs(conductivity, on_boundaries(Coefficient(Glossary::Dirichlet, Scheme::Implicit,
-                                                             StepInTime()),
-                                                 {3}));
+  Coefficients coefs(
+      conductivity,
+      on_boundaries(Coefficient(Glossary::Dirichlet, Scheme::Implicit, StepInTime()), {3}));
   CHECK(solve(bcs, coefs, two_times_one_minus_x) < 1.e-10);
 }

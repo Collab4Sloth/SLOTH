@@ -137,17 +137,18 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Diffusion coefficient at all the integration points of the element
+    this->eval_coefficient_at_points(diffusion[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->diffusion_at_points_);
 
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
-      double diffu = this->eval_coefficient(diffusion[blk], ipv.u, ipv.aux, blk);
+      double diffu = this->diffusion_at_points_.value(i);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -200,6 +201,10 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Diffusion coefficient and its derivatives at all the integration points of the element
+    this->eval_coefficient_at_points(
+        diffusion[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk],
+        Tr, *ir, elfun, this->vaux_gf_, this->diffusion_at_points_);
 
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -207,10 +212,8 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
 
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-
-      double diffu = this->eval_coefficient(diffusion[blk], ipv.u, ipv.aux, blk);
-      double grad_diffu = this->eval_gradient_coefficient(diffusion[blk], blk, ipv.u, ipv.aux, blk);
+      double diffu = this->diffusion_at_points_.value(i);
+      double grad_diffu = this->diffusion_at_points_.derivative(i, blk);
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 

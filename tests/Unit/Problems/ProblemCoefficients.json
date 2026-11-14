@@ -1,0 +1,16 @@
+[
+	{
+	"expression":"t",
+	"variables":"u",
+	"constants":"(t:T)",
+	"class_name":"TimeValue",
+	"outputfile":"TimeValue"
+	}
+	,
+	{
+	"expression":"-u",
+	"variables":"u",
+	"class_name":"Decay",
+	"outputfile":"Decay"
+	}
+]

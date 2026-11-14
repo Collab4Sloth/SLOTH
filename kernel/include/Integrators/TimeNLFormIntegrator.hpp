@@ -47,7 +47,13 @@
 template <class VARS>
 class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   mfem::Vector Psi;
+  /// Coefficients A and B at the integration points of the current element, at the end of the
+  /// step (see SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints a_at_points_, b_at_points_;
 
   void check_variables_consistency();
 

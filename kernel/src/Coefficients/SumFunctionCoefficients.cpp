@@ -177,3 +177,56 @@ bool SumCoefficient::is_single_variable() const {
   }
   return true;
 }
+
+/**
+ * @brief Number of variables of the evaluation by batch: the one of the terms, if all of them are
+ * evaluated by batch with the same number of variables, 0 otherwise (point by point evaluation).
+ */
+int SumCoefficient::batch_nb_variables() const {
+  int n = 0;
+  for (const auto* coef : vect_coefficients_) {
+    const int nc = coef->batch_nb_variables();
+    if (nc <= 0 || (n > 0 && nc != n)) return 0;
+    n = nc;
+  }
+  return n;
+}
+
+/**
+ * @brief Evaluation by batch (see FunctionCoefficient::eval_batch): sum of the outputs of the
+ * terms, each one evaluated by batch, on the host or on the device.
+ *
+ * @return false if a term is not evaluated by batch (point by point evaluation)
+ */
+bool SumCoefficient::eval_batch(const int npts, const mfem::Vector& values,
+                                const mfem::Vector& explicit_values,
+                                const mfem::Vector& auxiliary_values,
+                                const mfem::Vector& coordinates, mfem::Vector* F,
+                                mfem::Vector* gradient, mfem::Vector* hessian) const {
+  if (this->batch_nb_variables() <= 0) return false;
+  bool first = true;
+  for (const auto* coef : vect_coefficients_) {
+    if (first) {
+      // First term: written in the outputs
+      if (!coef->eval_batch(npts, values, explicit_values, auxiliary_values, coordinates, F,
+                            gradient, hessian)) {
+        return false;
+      }
+      first = false;
+      continue;
+    }
+    if (F != nullptr) this->term_F_.SetSize(F->Size());
+    if (gradient != nullptr) this->term_gradient_.SetSize(gradient->Size());
+    if (hessian != nullptr) this->term_hessian_.SetSize(hessian->Size());
+    if (!coef->eval_batch(npts, values, explicit_values, auxiliary_values, coordinates,
+                          F != nullptr ? &this->term_F_ : nullptr,
+                          gradient != nullptr ? &this->term_gradient_ : nullptr,
+                          hessian != nullptr ? &this->term_hessian_ : nullptr)) {
+      return false;
+    }
+    if (F != nullptr) *F += this->term_F_;
+    if (gradient != nullptr) *gradient += this->term_gradient_;
+    if (hessian != nullptr) *hessian += this->term_hessian_;
+  }
+  return true;
+}

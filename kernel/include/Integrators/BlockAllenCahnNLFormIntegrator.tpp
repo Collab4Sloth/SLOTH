@@ -148,6 +148,12 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     *elvect[blk] = 0.;
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Coefficients at all the integration points of the element
+    this->eval_coefficient_at_points(lambda[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->lambda_at_points_);
+    this->eval_coefficient_at_points(double_well_energy[blk], 0, SlothNLBase::CoefFirstDerivative,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_,
+                                     this->energy_at_points_);
     ///// CCI
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -155,8 +161,6 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       this->set_int_point(Tr, ip);
 
       const auto& eta = *elfun[off_blk] * Psi;
-
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -166,11 +170,10 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcPhysDShape(Tr, gradPsi);
       gradPsi.MultTranspose(*elfun[blk], gradU);
 
-      gradU *= weight_coef * this->eval_coefficient(lambda[blk], ipv.u, ipv.aux);
+      gradU *= weight_coef * this->lambda_at_points_.value(i);
       gradPsi.AddMult(gradU, *elvect[blk]);
 
-      const double ww = weight_coef * (eta + this->eval_gradient_energy_coefficient(
-                                                 double_well_energy[blk], blk, ipv.u, ipv.aux));
+      const double ww = weight_coef * (eta + this->energy_at_points_.energy_derivative(i, blk));
 
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -191,6 +194,8 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     *elvect[blk] = 0.;
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    this->eval_coefficient_at_points(mobility[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->mobility_at_points_);
 
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -198,14 +203,13 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       this->set_int_point(Tr, ip);
 
       const auto& eta = *elfun[blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double coef_mob = this->eval_coefficient(mobility[blk], ipv.u, ipv.aux) * weight_coef;
+      const double coef_mob = this->mobility_at_points_.value(i) * weight_coef;
 
       const double ww = -coef_mob * eta;
 
@@ -257,11 +261,16 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Coefficients at all the integration points of the element
+    this->eval_coefficient_at_points(lambda[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->lambda_at_points_);
+    this->eval_coefficient_at_points(double_well_energy[blk], 0, SlothNLBase::CoefSecondDerivative,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_,
+                                     this->energy_at_points_);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -270,12 +279,11 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
-      const double coef_lambda = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux);
+      const double coef_lambda = this->lambda_at_points_.value(i);
 
       AddMult_a_AAt(weight_coef * coef_lambda, gradPsi, *elmats(blk, blk));
 
-      double fun_val = weight_coef * this->eval_hessian_coefficient(double_well_energy[blk], blk,
-                                                                    blk, ipv.u, ipv.aux);
+      double fun_val = weight_coef * this->energy_at_points_.second_derivative(i, blk, blk);
       AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
     }
   }
@@ -339,20 +347,20 @@ void BlockAllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     *elmats(blk, blk) = 0.0;
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    this->eval_coefficient_at_points(mobility[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->mobility_at_points_);
     ///// CCI
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double coef_mob = -this->eval_coefficient(mobility[blk], ipv.u, ipv.aux) * weight_coef;
+      const double coef_mob = -this->mobility_at_points_.value(i) * weight_coef;
 
       AddMult_a_VVt(coef_mob, Psi, *elmats(blk, blk));
     }

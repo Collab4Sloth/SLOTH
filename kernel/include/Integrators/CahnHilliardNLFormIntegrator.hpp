@@ -48,12 +48,22 @@
 template <class VARS>
 class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility, GlossaryType::Capillary,
                                          GlossaryType::FreeEnergy};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
   void check_variables_consistency();
+
+  // Coefficients at the integration points of the current element (see
+  // SlothNLFormIntegrator::eval_coefficient_at_points)
+  using CoefficientAtPoints = typename SlothNLBase::CoefficientAtPoints;
+  CoefficientAtPoints lambda_at_points_;    ///< capillary coefficient (block 0)
+  CoefficientAtPoints energy_at_points_;    ///< free energy (block 0)
+  CoefficientAtPoints mobility_at_points_;  ///< mobility (block 1)
 
  protected:
   Coefficients lambda;

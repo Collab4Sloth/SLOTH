@@ -51,6 +51,9 @@
 template <class VARS>
 class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility, GlossaryType::Capillary,
                                          GlossaryType::FreeEnergy};
   mfem::DenseMatrix gradPsi;
@@ -59,27 +62,17 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<double> mob_at_ip_;   ///< mobility of each block at the current point
   std::vector<double> dmob_at_ip_;  ///< dM/du_j at the current point
 
-  // General case: blocks with different finite elements (e.g. different orders). Same
-  // formulas as AssembleElementVector/AssembleElementGrad, with the shape functions of each
-  // block and rectangular off-diagonal element matrices.
-  std::vector<mfem::Vector> shapes_;  ///< shape functions of each block at the current point
-  std::vector<double> u_generic_;     ///< {u, u_old} at the current point (general case)
-  std::vector<double> aux_generic_;   ///< auxiliary values at the current point (general case)
+  // Coefficients of each block at the integration points of the current element (blocks with
+  // the same finite element, see SlothNLFormIntegrator::eval_coefficient_at_points)
+  using CoefficientAtPoints = typename SlothNLBase::CoefficientAtPoints;
+  std::vector<CoefficientAtPoints> mobility_at_points_;
+  std::vector<CoefficientAtPoints> lambda_at_points_;
+  std::vector<CoefficientAtPoints> energy_at_points_;
+  mfem::Vector grad_u_mob_, g_mob_;  ///< work vectors of add_mobility_derivative
 
-  const mfem::IntegrationRule& generic_integration_rule(
-      const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr) const;
-  void generic_values_at_ip(const mfem::Array<const mfem::FiniteElement*>& el,
-                            mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
-                            const mfem::Array<const mfem::Vector*>& elfun);
-
-  void AssembleElementVectorGeneric(const mfem::Array<const mfem::FiniteElement*>& el,
-                                    mfem::ElementTransformation& Tr,
-                                    const mfem::Array<const mfem::Vector*>& elfun,
-                                    const mfem::Array<mfem::Vector*>& elvec);
-  void AssembleElementGradGeneric(const mfem::Array<const mfem::FiniteElement*>& el,
-                                  mfem::ElementTransformation& Tr,
-                                  const mfem::Array<const mfem::Vector*>& elfun,
-                                  const mfem::Array2D<mfem::DenseMatrix*>& elmats);
+  void coefficients_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                              const mfem::IntegrationRule& ir,
+                              const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian);
 
  protected:
   Coefficients lambda;
@@ -92,15 +85,10 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
   virtual void check_variables_consistency();
 
-  void add_mobility_derivative(const int blk, const double lamb, const mfem::DenseMatrix& gradPsi,
-                               const mfem::Vector& Psi, const mfem::Vector& elfun_blk,
-                               const std::span<const double>& u, const std::span<const double>& aux,
-                               const double weight_coef,
-                               const mfem::Array2D<mfem::DenseMatrix*>& elmats,
-                               const std::vector<mfem::Vector>* col_shapes = nullptr);
-
-  virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
-                               const std::span<const double>& aux_values);
+  void add_mobility_derivative(const int blk, const double lamb, const double w_prime,
+                               const mfem::DenseMatrix& gradPsi, const mfem::Vector& Psi,
+                               const mfem::Vector& elfun_blk, const double weight_coef,
+                               const mfem::Array2D<mfem::DenseMatrix*>& elmats);
 
  public:
   void init() override;

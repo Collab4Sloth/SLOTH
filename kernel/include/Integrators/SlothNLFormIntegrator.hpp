@@ -81,6 +81,12 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::vector<char> ipv_aux_dot_;                  ///< aux k evaluated from its element dofs
   mfem::Vector ipv_shape_;                         ///< shape functions at one point
 
+  // Work data of eval_coefficient_at_points()
+  std::vector<double> cap_u_;    ///< {u, u_old} at each point of the element (nip x 2 nb)
+  std::vector<double> cap_aux_;  ///< auxiliary fields at each point of the element (nip x naux)
+  std::vector<double> cap_u_end_of_step_;  ///< {u_old + dt k, u_old} at each point (nip x 2 nb)
+  mfem::DenseMatrix cap_points_;           ///< physical coordinates of the points (dim x nip)
+
  protected:
   bool isAxisymmetric() const noexcept;
 
@@ -180,6 +186,98 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                   const std::span<const double>& values,
                                   const std::span<const double>& aux_values, const int var_blk = 0);
 
+  //////////////////////////////////////////////////////////////////////////////
+  // Evaluation of a coefficient at all the integration points of an element
+  //////////////////////////////////////////////////////////////////////////////
+  /// Outputs of eval_coefficient_at_points (combined with |)
+  enum CoefficientOutput : unsigned int {
+    CoefValue = 1u,             ///< value of the coefficient
+    CoefFirstDerivative = 2u,   ///< first derivatives with respect to the blocks
+    CoefSecondDerivative = 4u,  ///< second derivatives with respect to the blocks
+  };
+
+  /// Values of a coefficient at the integration points of an element, filled by
+  /// eval_coefficient_at_points. The derivatives are given with respect to the blocks of the
+  /// integrator, with the same rules as the point by point evaluation (eval_coefficient,
+  /// eval_gradient_coefficient, eval_gradient_energy_coefficient, eval_hessian_coefficient).
+  struct CoefficientAtPoints {
+    int nb = 0;                ///< number of blocks
+    bool is_explicit = false;  ///< explicit coefficient: no derivative in the Jacobian
+    bool by_batch = false;     ///< evaluated by batch (eval_batch), not point by point
+    std::vector<double> F;     ///< value at point q: F[q]
+    std::vector<double> dF;    ///< dF/du_b at point q: dF[q nb + b]
+    std::vector<double> d2F;   ///< d2F/du_i du_j at point q: d2F[(q nb + i) nb + j]
+
+    // Inputs and outputs of the evaluation by batch (FunctionCoefficient::eval_batch)
+    mfem::Vector values, explicit_values, auxiliary_values, coordinates;
+    mfem::Vector batch_F, batch_gradient, batch_hessian;
+
+    /// Value at point q (as eval_coefficient)
+    double value(const int q) const { return F[static_cast<std::size_t>(q)]; }
+    /// dF/du_b at point q, zero for an explicit coefficient (as eval_gradient_coefficient)
+    double derivative(const int q, const int b) const {
+      return is_explicit ? 0. : dF[static_cast<std::size_t>(q * nb + b)];
+    }
+    /// dF/du_b at point q, at the values selected by the scheme, also for an explicit
+    /// coefficient (as eval_gradient_energy_coefficient)
+    double energy_derivative(const int q, const int b) const {
+      return dF[static_cast<std::size_t>(q * nb + b)];
+    }
+    /// d2F/du_i du_j at point q, zero for an explicit coefficient (as eval_hessian_coefficient)
+    double second_derivative(const int q, const int i, const int j) const {
+      return d2F[static_cast<std::size_t>((q * nb + i) * nb + j)];
+    }
+  };
+
+  /// Values of the variables given to the coefficients by eval_coefficient_at_points
+  enum class ValuesAt {
+    Unknowns,  ///< {u, u_old}: values of the unknowns of the integrator
+    EndOfStep  ///< {u_old + dt k, u_old}: integrators of the time derivative, whose unknown is
+               ///< k = du/dt (see values_at_end_of_step)
+  };
+
+  void eval_coefficient_at_points(Coefficient& coef, const int var_blk, const unsigned int outputs,
+                                  const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                  const mfem::IntegrationRule& ir,
+                                  const mfem::Array<const mfem::Vector*>& elfun,
+                                  const std::vector<mfem::ParGridFunction>& aux_gf,
+                                  CoefficientAtPoints& out,
+                                  const ValuesAt values_at = ValuesAt::Unknowns);
+
+ private:
+  // Steps of eval_coefficient_at_points
+  /// Values {u, u_old} and auxiliary fields at the integration points of an element
+  struct ElementValues {
+    std::span<const double> u_uold;  ///< [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at each point
+    std::span<const double> aux;     ///< auxiliary fields at each point
+    std::size_t nb = 0;              ///< number of blocks
+    std::size_t naux = 0;            ///< number of auxiliary fields
+
+    /// [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at point q
+    std::span<const double> u_uold_at(const std::size_t q) const {
+      return u_uold.subspan(q * 2 * nb, 2 * nb);
+    }
+    /// Auxiliary fields at point q
+    std::span<const double> aux_at(const std::size_t q) const {
+      return aux.subspan(q * naux, naux);
+    }
+  };
+
+  ElementValues values_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                 const mfem::IntegrationRule& ir,
+                                 const mfem::Array<const mfem::Vector*>& elfun,
+                                 const std::vector<mfem::ParGridFunction>& aux_gf,
+                                 const ValuesAt values_at);
+  bool eval_by_batch(const Coefficient& coef, const int var_blk, const unsigned int outputs,
+                     mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+                     const ElementValues& values, CoefficientAtPoints& out);
+  void eval_point_by_point(Coefficient& coef, const int var_blk, const unsigned int outputs,
+                           mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+                           const ElementValues& values, CoefficientAtPoints& out);
+  void eval_file_at_points(const Coefficient& coef, mfem::ElementTransformation& Tr,
+                           const mfem::IntegrationRule& ir, CoefficientAtPoints& out);
+
+ protected:
   // Integrators of the time derivative: their unknown is k = du/dt, and u at the end of the
   // step is u_old + dt k (u_old: values given to the integrator, dt: time_step_; see
   // TransientOperator::ImplicitSolve). Returns {u_old + dt k, u_old} from {k, u_old}, so that

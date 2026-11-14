@@ -695,3 +695,307 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::get_physical_time_step() const {
   return this->physical_time_step_ > 0. ? this->physical_time_step_ : this->time_step_;
 }
+/**
+ * @brief Evaluates a coefficient at all the integration points of an element.
+ *
+ * The coefficient is evaluated by batch with its evaluation structure when it has one
+ * (FunctionCoefficient::eval_batch: coefficients generated from a JSON file), and point by point
+ * otherwise (hand-written FunctionCoefficient...). A constant coefficient is evaluated once, a
+ * coefficient from a file at the physical points of the element (eval_file_at_points).
+ * In all cases, out holds the same values as the point by point evaluation (eval_coefficient,
+ * eval_gradient_coefficient, eval_gradient_energy_coefficient, eval_hessian_coefficient):
+ *  - the values of the variables are selected according to the scheme of the coefficient: u
+ *    (implicit), u_old (explicit), u and u_old (semi-implicit);
+ *  - a coefficient of one variable is evaluated on the block var_blk only, and its derivatives
+ *    with respect to the other blocks are zero;
+ *  - the second derivatives of an explicit coefficient are zero.
+ *
+ * @param coef Coefficient to evaluate
+ * @param var_blk Block of the variable of a coefficient of one variable (see eval_coefficient)
+ * @param outputs Requested outputs: CoefValue, CoefFirstDerivative, CoefSecondDerivative (with |)
+ * @param fe Finite element of the blocks
+ * @param Tr Transformation of the element
+ * @param ir Integration rule
+ * @param elfun Values of the dofs of each block on the element
+ * @param aux_gf Auxiliary fields
+ * @param out Values at the points
+ * @param values_at Values of the variables: unknowns {u, u_old}, or end of the step
+ *        {u_old + dt k, u_old} for the integrators of the time derivative
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::eval_coefficient_at_points(
+    Coefficient& coef, const int var_blk, const unsigned int outputs, const mfem::FiniteElement& fe,
+    mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const std::vector<mfem::ParGridFunction>& aux_gf,
+    CoefficientAtPoints& out, const ValuesAt values_at) {
+  const auto np = static_cast<std::size_t>(ir.GetNPoints());
+  const auto nb = static_cast<std::size_t>(elfun.Size());
+  const bool want_value = (outputs & CoefValue) != 0u;
+  const bool want_first_derivative = (outputs & CoefFirstDerivative) != 0u;
+  const bool want_second_derivative = (outputs & CoefSecondDerivative) != 0u;
+
+  out.nb = elfun.Size();
+  out.is_explicit = coef.is_explicit();
+  out.by_batch = false;
+  out.F.assign(want_value ? np : 0, 0.);
+  out.dF.assign(want_first_derivative ? np * nb : 0, 0.);
+  out.d2F.assign(want_second_derivative ? np * nb * nb : 0, 0.);
+
+  // Constant coefficient: same value at all the points, zero derivatives
+  if (coef.is_scalar()) {
+    if (want_value) std::ranges::fill(out.F, coef.compute());
+    return;
+  }
+  // Coefficient from a file: tabulated values at the physical points, zero derivatives
+  if (coef.is_file()) {
+    if (want_value) this->eval_file_at_points(coef, Tr, ir, out);
+    return;
+  }
+
+  const ElementValues values = this->values_at_points(fe, Tr, ir, elfun, aux_gf, values_at);
+  out.by_batch = this->eval_by_batch(coef, var_blk, outputs, Tr, ir, values, out);
+  if (!out.by_batch) {
+    this->eval_point_by_point(coef, var_blk, outputs, Tr, ir, values, out);
+  }
+}
+
+/**
+ * @brief Values {u, u_old} and auxiliary fields at the integration points of an element.
+ *
+ * Tables of prepare_element_values if they are prepared for this element and this rule (same
+ * layout, no copy), computed point by point with values_at_ip otherwise. For the integrators of
+ * the time derivative (ValuesAt::EndOfStep), {k, u_old} is replaced by {u_old + dt k, u_old}, as
+ * in values_at_end_of_step.
+ *
+ * @return Views on the values: valid until the next evaluation
+ */
+template <class VARS>
+typename SlothNLFormIntegrator<VARS>::ElementValues SlothNLFormIntegrator<VARS>::values_at_points(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const std::vector<mfem::ParGridFunction>& aux_gf,
+    const ValuesAt values_at) {
+  ElementValues values;
+  values.nb = static_cast<std::size_t>(elfun.Size());
+  values.naux = aux_gf.size();
+  const int nip = ir.GetNPoints();
+  const auto np = static_cast<std::size_t>(nip);
+  const std::size_t width = 2 * values.nb;  // [u, u_old] at one point
+
+  const bool table = this->ipv_ir_ == &ir && this->ipv_element_ == Tr.ElementNo &&
+                     this->ipv_nb_ == elfun.Size() && this->ipv_naux_ == values.naux;
+  if (table) {
+    values.u_uold = std::span<const double>(this->ipv_u_table_).first(np * width);
+    values.aux = std::span<const double>(this->ipv_aux_table_).first(np * values.naux);
+  } else {
+    this->ipv_shape_.SetSize(fe.GetDof());
+    this->cap_u_.resize(np * width);
+    this->cap_aux_.resize(np * values.naux);
+    for (int q = 0; q < nip; ++q) {
+      const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+      this->set_int_point(Tr, ip);
+      fe.CalcShape(ip, this->ipv_shape_);
+      const auto ipv = this->values_at_ip(ir, q, this->ipv_shape_, elfun, aux_gf, Tr);
+      const auto uq = static_cast<std::size_t>(q);
+      std::ranges::copy(ipv.u, this->cap_u_.begin() + static_cast<std::ptrdiff_t>(uq * width));
+      std::ranges::copy(ipv.aux,
+                        this->cap_aux_.begin() + static_cast<std::ptrdiff_t>(uq * values.naux));
+    }
+    values.u_uold = this->cap_u_;
+    values.aux = this->cap_aux_;
+  }
+
+  if (values_at == ValuesAt::EndOfStep) {
+    // [k, u_old] -> [u_old + dt k, u_old], as values_at_end_of_step
+    this->cap_u_end_of_step_.resize(np * width);
+    const std::size_t nb = values.nb;
+    for (std::size_t q = 0; q < np; ++q) {
+      const std::span<const double> k_uold = values.u_uold_at(q);
+      const std::span<double> u_end_of_step =
+          std::span<double>(this->cap_u_end_of_step_).subspan(q * width, width);
+      for (std::size_t b = 0; b < nb; ++b) {
+        u_end_of_step[b] = k_uold[nb + b] + this->time_step_ * k_uold[b];
+        u_end_of_step[nb + b] = k_uold[nb + b];
+      }
+    }
+    values.u_uold = this->cap_u_end_of_step_;
+  }
+  return values;
+}
+
+/**
+ * @brief Evaluation by batch of a coefficient with an evaluation structure (see
+ * FunctionCoefficient::eval_batch), at all the integration points of an element.
+ *
+ * The values given to the coefficient are selected according to its scheme and, for a
+ * coefficient of one variable, its block; the derivatives returned with respect to its variables
+ * are then stored with respect to the blocks of the integrator.
+ *
+ * @return false if the coefficient has no evaluation structure (nothing is computed)
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::eval_by_batch(const Coefficient& coef, const int var_blk,
+                                                const unsigned int outputs,
+                                                mfem::ElementTransformation& Tr,
+                                                const mfem::IntegrationRule& ir,
+                                                const ElementValues& values,
+                                                CoefficientAtPoints& out) {
+  if (coef.batch_nb_variables() <= 0) {
+    return false;
+  }
+  const bool want_value = (outputs & CoefValue) != 0u;
+  const bool want_first_derivative = (outputs & CoefFirstDerivative) != 0u;
+  const bool want_second_derivative = (outputs & CoefSecondDerivative) != 0u;
+  const int nip = ir.GetNPoints();
+  const auto np = static_cast<std::size_t>(nip);
+  const std::size_t nb = values.nb;
+
+  const bool single = coef.is_single_variable();
+  MFEM_VERIFY(!single || (var_blk >= 0 && static_cast<std::size_t>(var_blk) < nb),
+              "Error in " + this->integrator_name_ +
+                  ": coefficient of one variable evaluated for block " + std::to_string(var_blk) +
+                  ", which does not exist.");
+  // Values given to the coefficient: n per point, as in the point by point evaluation; its
+  // derivatives are taken with respect to its nc first variables
+  const std::size_t n = single ? 1 : nb;
+  const auto nc = static_cast<std::size_t>(coef.batch_nb_variables());
+  MFEM_VERIFY(nc <= n, "Error in " + this->integrator_name_ + ": coefficient of " +
+                           std::to_string(nc) + " variables evaluated with " + std::to_string(n) +
+                           " values.");
+  const bool semi = coef.is_semi_implicit();
+  const bool previous = coef.is_explicit();
+  // Block of the k-th variable of the coefficient
+  const auto block = [single, var_blk](const std::size_t k) {
+    return single ? static_cast<std::size_t>(var_blk) : k;
+  };
+
+  // Inputs written on the host (HostWrite: the device copy, if any, is no longer valid)
+  out.values.SetSize(static_cast<int>(np * n));
+  out.explicit_values.SetSize(semi ? static_cast<int>(np * n) : 0);
+  const std::span<double> h_values(out.values.HostWrite(), np * n);
+  const std::span<double> h_explicit(semi ? out.explicit_values.HostWrite() : nullptr,
+                                     semi ? np * n : 0);
+  for (std::size_t q = 0; q < np; ++q) {
+    const std::span<const double> u_uold = values.u_uold_at(q);
+    for (std::size_t k = 0; k < n; ++k) {
+      const std::size_t b = block(k);
+      h_values[q * n + k] = previous ? u_uold[nb + b] : u_uold[b];
+      if (semi) h_explicit[q * n + k] = u_uold[nb + b];
+    }
+  }
+  out.auxiliary_values.SetSize(static_cast<int>(values.aux.size()));
+  if (!values.aux.empty()) {
+    std::ranges::copy(values.aux, out.auxiliary_values.HostWrite());
+  }
+  if (coef.uses_coordinates()) {
+    Tr.Transform(ir, this->cap_points_);  // dim x nip, column q = point q
+    const std::span<const double> points(this->cap_points_.GetData(),
+                                         static_cast<std::size_t>(this->cap_points_.Height()) * np);
+    out.coordinates.SetSize(static_cast<int>(points.size()));
+    std::ranges::copy(points, out.coordinates.HostWrite());
+  } else {
+    out.coordinates.SetSize(0);
+  }
+
+  // Second derivatives of an explicit coefficient: zero, not computed
+  const bool batch_second_derivative = want_second_derivative && !previous;
+  out.batch_F.SetSize(want_value ? nip : 0);
+  out.batch_gradient.SetSize(want_first_derivative ? static_cast<int>(np * nc) : 0);
+  out.batch_hessian.SetSize(batch_second_derivative ? static_cast<int>(np * nc * nc) : 0);
+  if (!coef.eval_batch(nip, out.values, out.explicit_values, out.auxiliary_values, out.coordinates,
+                       want_value ? &out.batch_F : nullptr,
+                       want_first_derivative ? &out.batch_gradient : nullptr,
+                       batch_second_derivative ? &out.batch_hessian : nullptr)) {
+    return false;
+  }
+
+  // Outputs written where the loop ran: read on the host, stored with respect to the blocks
+  if (want_value) {
+    std::ranges::copy(std::span<const double>(out.batch_F.HostRead(), np), out.F.begin());
+  }
+  if (want_first_derivative) {
+    const std::span<const double> gradient(out.batch_gradient.HostRead(), np * nc);
+    for (std::size_t q = 0; q < np; ++q) {
+      for (std::size_t k = 0; k < nc; ++k) {
+        out.dF[q * nb + block(k)] = gradient[q * nc + k];
+      }
+    }
+  }
+  if (batch_second_derivative) {
+    const std::span<const double> hessian(out.batch_hessian.HostRead(), np * nc * nc);
+    for (std::size_t q = 0; q < np; ++q) {
+      for (std::size_t k = 0; k < nc; ++k) {
+        for (std::size_t l = 0; l < nc; ++l) {
+          out.d2F[(q * nb + block(k)) * nb + block(l)] = hessian[(q * nc + k) * nc + l];
+        }
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * @brief Evaluation of a coefficient from a file at all the integration points of an element: one
+ * call of FileCoefficient::eval_batch at the physical points, computed as in get_physical_point
+ * (same values as eval_coefficient point by point).
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::eval_file_at_points(const Coefficient& coef,
+                                                      mfem::ElementTransformation& Tr,
+                                                      const mfem::IntegrationRule& ir,
+                                                      CoefficientAtPoints& out) {
+  const int nip = ir.GetNPoints();
+  const int dim = Tr.GetSpaceDim();
+  out.coordinates.SetSize(nip * dim);
+  double* x = out.coordinates.HostWrite();
+  for (int q = 0; q < nip; ++q) {
+    this->set_int_point(Tr, ir.IntPoint(q));
+    std::ranges::copy(this->get_physical_point(), x + static_cast<std::ptrdiff_t>(q) * dim);
+  }
+  out.batch_F.SetSize(nip);
+  const mfem::Vector none;
+  MFEM_VERIFY(
+      coef.eval_batch(nip, none, none, none, out.coordinates, &out.batch_F, nullptr, nullptr),
+      "Error in " + this->integrator_name_ + ": evaluation of a coefficient from a file.");
+  std::ranges::copy(std::span<const double>(out.batch_F.HostRead(), static_cast<std::size_t>(nip)),
+                    out.F.begin());
+  out.by_batch = true;
+}
+
+/**
+ * @brief Evaluation point by point of a coefficient without evaluation structure (hand-written
+ * FunctionCoefficient...), at all the integration points of an element, with
+ * eval_coefficient, eval_gradient_energy_coefficient and eval_hessian_coefficient.
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::eval_point_by_point(Coefficient& coef, const int var_blk,
+                                                      const unsigned int outputs,
+                                                      mfem::ElementTransformation& Tr,
+                                                      const mfem::IntegrationRule& ir,
+                                                      const ElementValues& values,
+                                                      CoefficientAtPoints& out) {
+  const bool want_value = (outputs & CoefValue) != 0u;
+  const bool want_first_derivative = (outputs & CoefFirstDerivative) != 0u;
+  const bool want_second_derivative = (outputs & CoefSecondDerivative) != 0u;
+  const int nb = static_cast<int>(values.nb);
+
+  for (int q = 0; q < ir.GetNPoints(); ++q) {
+    this->set_int_point(Tr, ir.IntPoint(q));
+    const auto uq = static_cast<std::size_t>(q);
+    const std::span<const double> u_uold = values.u_uold_at(uq);
+    const std::span<const double> aux = values.aux_at(uq);
+    if (want_value) {
+      out.F[uq] = this->eval_coefficient(coef, u_uold, aux, var_blk);
+    }
+    for (int i = 0; i < nb && want_first_derivative; ++i) {
+      out.dF[uq * values.nb + static_cast<std::size_t>(i)] =
+          this->eval_gradient_energy_coefficient(coef, i, u_uold, aux, var_blk);
+    }
+    for (int i = 0; i < nb && want_second_derivative; ++i) {
+      for (int j = 0; j < nb; ++j) {
+        out.d2F[(uq * values.nb + static_cast<std::size_t>(i)) * values.nb +
+                static_cast<std::size_t>(j)] =
+            this->eval_hessian_coefficient(coef, i, j, u_uold, aux, var_blk);
+      }
+    }
+  }
+}

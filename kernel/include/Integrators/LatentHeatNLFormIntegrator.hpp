@@ -51,11 +51,18 @@
 template <class VARS>
 class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   int phase_field_index_;
 
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
+
+  /// Mobility at the integration points of the current element (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints mobility_at_points_;
 
  protected:
   Coefficients mobility;
@@ -63,11 +70,7 @@ class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   /// [aux_0..aux_{n-1}, aux_old_0..aux_old_{n-1}] (order expected by get_latent_heat_at_ip)
   std::vector<mfem::ParGridFunction> vaux_gf_;
 
-  double get_latent_heat_at_ip(unsigned int blk, const std::span<const double>& values,
-                               const std::span<const double>& aux_values);
-
-  virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
-                               const std::span<const double>& aux_values);
+  double get_latent_heat_at_ip(const double mobility, const std::span<const double>& aux_values);
 
   void get_coefficients() override;
 
