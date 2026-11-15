@@ -384,6 +384,25 @@ std::vector<AssemblyCase> assembly_cases() {
                          Coefficient(Glossary::Cp, Scheme::Implicit, W(5.)))})},
       {"SplitTimeDerivative, A = 1", 2,
        maker<TimeCHNLFormIntegrator>({Coefficients(), Coefficients()})},
+      {"CahnHilliard, W(phi), M constant", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)),
+            phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))})},
+      {"CahnHilliard, mobility M(phi)", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)),
+            phase_field_coefficients(mobility_phi)})},
+      {"CahnHilliard, degenerate mobility H(phi)", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)), h_mobility(2.)})},
+      {"SplitAllenCahn, W(phi), M constant", 2,
+       maker<BlockAllenCahnNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)),
+            phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))})},
+      {"SplitAllenCahn, mobility M(phi)", 2,
+       maker<BlockAllenCahnNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)),
+            phase_field_coefficients(mobility_phi)})},
       {"SplitTimeDerivative, implicit A(phi)", 2,
        maker<TimeCHNLFormIntegrator>(
            {Coefficients(),

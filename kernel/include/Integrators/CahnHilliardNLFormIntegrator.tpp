@@ -75,6 +75,7 @@ CahnHilliardNLFormIntegrator<VARS>::CahnHilliardNLFormIntegrator(
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the coefficients evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -90,6 +91,16 @@ void CahnHilliardNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
   }
+
+  // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
+  // with the outputs of the residual and of the Jacobian: capillary coefficient and free energy
+  // of the equation of block 0, mobility of the equation of block 1 (variable of block 0)
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  const unsigned int second = SlothNLBase::CoefSecondDerivative;
+  this->prepare_on_mesh(this->lambda[0], 0, value, value, this->vaux_gf_);
+  this->prepare_on_mesh(this->double_well_energy[0], 0, first, second, this->vaux_gf_);
+  this->prepare_on_mesh(this->mobility[1], 0, value, value | first, this->vaux_gf_);
 }
 
 /**
@@ -156,10 +167,12 @@ template <class VARS>
 void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not needed if
+  // the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
 
   //
   // Block 0 R(phi)=mu - w' + div lambda grad phi
@@ -176,8 +189,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
     gradU.SetSize(dim);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Coefficients at all the integration points of the element
     this->eval_coefficient_at_points(lambda[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                      elfun, this->vaux_gf_, this->lambda_at_points_);
@@ -222,8 +234,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
     gradU.SetSize(dim);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     this->eval_coefficient_at_points(mobility[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                      elfun, this->vaux_gf_, this->mobility_at_points_);
 
@@ -266,10 +277,12 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not needed if
+  // the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
 
   // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
   {
@@ -285,8 +298,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Coefficients at all the integration points of the element
     this->eval_coefficient_at_points(lambda[blk], 0, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                      elfun, this->vaux_gf_, this->lambda_at_points_);
@@ -328,8 +340,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
     elmats(blk, off_blk)->SetSize(nd);
     *elmats(blk, off_blk) = 0.0;
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
@@ -363,8 +374,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
     // (zero, and skipped, for a mobility independent of phi)
     mfem::Vector Psi_phi(el[off_blk]->GetDof());
     mfem::Vector grad_mu(dim), adv(nd);
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Mobility and its derivatives at all the integration points (also used by block 1 1)
     this->eval_coefficient_at_points(
         mobility[blk], 0, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk], Tr,
@@ -402,8 +412,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Mobility at the integration points: computed for block 1 0 (same element and rule)
     ///// CCI
     for (int i = 0; i < ir->GetNPoints(); i++) {
