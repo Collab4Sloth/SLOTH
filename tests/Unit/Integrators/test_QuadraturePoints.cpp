@@ -75,10 +75,15 @@ double max_difference(const mfem::Vector& a, const mfem::Vector& b) {
   return global;
 }
 
-/// @brief Allen-Cahn integrator giving access to the evaluation on the local mesh
-class MeshProbe : public AllenCahnNLFormIntegrator<VARS2D> {
+/// @brief Integrator declaring no coefficient on the local mesh (Fourier), giving access to the
+/// evaluation on the local mesh of the coefficients declared by the test
+class MeshProbe : public FourierNLFormIntegrator<VARS2D> {
  public:
-  using AllenCahnNLFormIntegrator<VARS2D>::AllenCahnNLFormIntegrator;
+  explicit MeshProbe(const std::vector<mfem::ParGridFunction>& u_old)
+      : FourierNLFormIntegrator<VARS2D>(
+            Geometry::Cartesian, 0.1, u_old, {}, kNoParameters, {},
+            std::vector<Coefficients>(u_old.size(),
+                                      Coefficients(Coefficient(Glossary::Conductivity, 1.)))) {}
   using Base::CoefficientAtPoints;
   using Base::ValuesAt;
   static constexpr unsigned int kValue = Base::CoefValue;
@@ -114,30 +119,11 @@ class MeshProbe : public AllenCahnNLFormIntegrator<VARS2D> {
     if (prepared) {
       return this->read_prepared_coefficient(coef, var_blk, outputs, aux, values_at, e, ir, out);
     }
-    // As AllenCahnNLFormIntegrator: element tables, then the coefficient
+    // As during the assembly: element tables, then the coefficient
     this->prepare_element_values(el, Tr, elfun, aux, ir);
     this->eval_coefficient_at_points(coef, var_blk, outputs, fe, Tr, ir, elfun, aux, out,
                                      values_at);
     return true;
-  }
-};
-
-/// @brief Allen-Cahn integrator declaring its coefficients on the local mesh
-class AllenCahnOnMesh : public AllenCahnNLFormIntegrator<VARS2D> {
- public:
-  using AllenCahnNLFormIntegrator<VARS2D>::AllenCahnNLFormIntegrator;
-
-  void init() override {
-    AllenCahnNLFormIntegrator<VARS2D>::init();
-    const unsigned int value = Base::CoefValue;
-    const unsigned int first = Base::CoefFirstDerivative;
-    const unsigned int second = Base::CoefSecondDerivative;
-    for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
-      this->prepare_on_mesh(this->mobility[blk], blk, value, value | first, this->vaux_gf_);
-      this->prepare_on_mesh(this->lambda[blk], blk, value, value, this->vaux_gf_);
-      this->prepare_on_mesh(this->double_well_energy[blk], blk, first, first | second,
-                            this->vaux_gf_);
-    }
   }
 };
 
@@ -180,10 +166,10 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   spaces[0] = spaces[1] = fes.get();
 
   const std::vector<MeshCase> cases{
-      {"W, implicit, block 0", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(3.)), 0,
-       false, true},
-      {"W, implicit, block 1", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(3.)), 1,
-       false, true},
+      {"W, implicit, block 0", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(3.)), 0, false,
+       true},
+      {"W, implicit, block 1", Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(3.)), 1, false,
+       true},
       {"H, explicit", Coefficient(Glossary::FreeEnergy, Scheme::Explicit, H()), 0, false, true},
       {"MobilityCross, implicit",
        Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityCross()), 0, false, true},
@@ -192,25 +178,23 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
       {"SemiImplicitEnergy, semi-implicit",
        Coefficient(Glossary::FreeEnergy, Scheme::SemiImplicit, SemiImplicitEnergy()), 0, false,
        true},
-      {"MobilityX, coordinates", Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityX()),
-       1, false, true},
+      {"MobilityX, coordinates", Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityX()), 1,
+       false, true},
       {"FirstAuxiliary, auxiliary field",
        Coefficient(Glossary::Mobility, Scheme::Implicit, FirstAuxiliary()), 0, true, true},
       {"constant", Coefficient(Glossary::Mobility, 3.5), 0, false, false},
   };
 
   using Assembly = Base::Assembly;
-  const unsigned int all =
-      MeshProbe::kValue | MeshProbe::kFirst | MeshProbe::kSecond;
+  const unsigned int all = MeshProbe::kValue | MeshProbe::kFirst | MeshProbe::kSecond;
   for (const bool at_end_of_step : {false, true}) {
-    const auto values_at = at_end_of_step ? MeshProbe::ValuesAt::EndOfStep
-                                          : MeshProbe::ValuesAt::Unknowns;
+    const auto values_at =
+        at_end_of_step ? MeshProbe::ValuesAt::EndOfStep : MeshProbe::ValuesAt::Unknowns;
     for (const MeshCase& c : cases) {
       INFO(c.name << (at_end_of_step ? " (end of step)" : ""));
-      MeshProbe probe(Geometry::Cartesian, 0.1, u_old, {}, kNoParameters, {},
-                      {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)),
-                       phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))});
+      MeshProbe probe(u_old);
       probe.init();
+      REQUIRE(!probe.uses_quadrature_points());
       Coefficient coef = c.coef;
       const std::vector<mfem::ParGridFunction>& a = c.uses_aux ? aux : no_aux;
       probe.declare(coef, c.var_blk, all, a, values_at);
@@ -226,8 +210,7 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
                 c.prepared);
         // Other block: not read
         MeshProbe::CoefficientAtPoints unused;
-        CHECK(!probe.at_element(coef, 1 - c.var_blk, all, a, values_at, *fes, u, e, true,
-                                unused));
+        CHECK(!probe.at_element(coef, 1 - c.var_blk, all, a, values_at, *fes, u, e, true, unused));
       }
 
       // After the assembly: nothing is read, the coefficient is evaluated element by element
@@ -239,8 +222,8 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
         CAPTURE(e);
         const auto& prepared = on_mesh[static_cast<std::size_t>(e)];
         MeshProbe::CoefficientAtPoints by_element;
-        REQUIRE(probe.at_element(coef, c.var_blk, all, a, values_at, *fes, u, e, false,
-                                 by_element));
+        REQUIRE(
+            probe.at_element(coef, c.var_blk, all, a, values_at, *fes, u, e, false, by_element));
         CHECK(prepared.nb == by_element.nb);
         CHECK(prepared.is_explicit == by_element.is_explicit);
         CHECK(max_difference(prepared.F, by_element.F) == 0.);
@@ -266,8 +249,7 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   mfem::Array<mfem::FiniteElementSpace*> spaces(1);
   spaces[0] = fes.get();
 
-  MeshProbe probe(Geometry::Cartesian, 0.1, u_old, {}, kNoParameters, {},
-                  {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))});
+  MeshProbe probe(u_old);
   probe.init();
   Coefficient coef(Glossary::FreeEnergy, Scheme::Implicit, W(3.));
   const auto unknowns = MeshProbe::ValuesAt::Unknowns;
@@ -281,8 +263,8 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   CHECK(!probe.at_element(coef, 0, first | second, no_aux, unknowns, *fes, u, 0, true, out));
 }
 
-// Assembly with the coefficients of Allen-Cahn prepared on the local mesh: same residual and
-// Jacobian as mfem::ParBlockNonlinearForm with the evaluation element by element
+// Allen-Cahn assembled by SlothParBlockNonlinearForm (coefficients prepared on the local mesh):
+// same residual and Jacobian as with mfem::ParBlockNonlinearForm (evaluation element by element)
 TEST_CASE_METHOD(sloth_unit::UnitSquare,
                  "AllenCahn: same residual and Jacobian with the coefficients prepared on the mesh",
                  "[Integrators][coefficients]") {
@@ -292,10 +274,10 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   };
   const Coefficient mobility_phi(Glossary::Mobility, Scheme::Implicit, MobilityPhi());
   const Coefficient mobility_cross(Glossary::Mobility, Scheme::Implicit, MobilityCross());
-  const Coefficients coupled(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, CoupledEnergy()),
-                             Coefficient(Glossary::Capillary, 0.15), mobility_cross,
-                             Coefficient(Glossary::GradEnergy, Scheme::Implicit,
-                                         GradientEnergy(0.15)));
+  const Coefficients coupled(
+      Coefficient(Glossary::FreeEnergy, Scheme::Implicit, CoupledEnergy()),
+      Coefficient(Glossary::Capillary, 0.15), mobility_cross,
+      Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(0.15)));
   const std::vector<AllenCahnCase> cases{
       {"1 phase, M constant", {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))}},
       {"1 phase, M(phi)", {phase_field_coefficients(mobility_phi)}},
@@ -314,14 +296,14 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
     for (int b = 0; b < nb; ++b) spaces[b] = fes.get();
 
     mfem::ParBlockNonlinearForm reference(spaces);
-    auto* by_element = new AllenCahnNLFormIntegrator<VARS2D>(
-        Geometry::Cartesian, 0.1, u_old, {}, kNoParameters, {}, c.coefficients);
+    auto* by_element = new AllenCahnNLFormIntegrator<VARS2D>(Geometry::Cartesian, 0.1, u_old, {},
+                                                             kNoParameters, {}, c.coefficients);
     by_element->init();
     reference.AddDomainIntegrator(by_element);
 
     SlothParBlockNonlinearForm<VARS2D> form(spaces);
-    auto* on_mesh = new AllenCahnOnMesh(Geometry::Cartesian, 0.1, u_old, {}, kNoParameters, {},
-                                        c.coefficients);
+    auto* on_mesh = new AllenCahnNLFormIntegrator<VARS2D>(Geometry::Cartesian, 0.1, u_old, {},
+                                                          kNoParameters, {}, c.coefficients);
     on_mesh->init();
     REQUIRE(on_mesh->uses_quadrature_points());
     form.AddDomainIntegrator(on_mesh);

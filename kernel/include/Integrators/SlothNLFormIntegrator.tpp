@@ -1049,6 +1049,9 @@ const mfem::IntegrationRule& SlothNLFormIntegrator<VARS>::integration_rule(
  * Only the coefficients with an evaluation structure (generated from a JSON file) are prepared;
  * the others are evaluated element by element during the assembly, as without declaration.
  *
+ * An integrator declaring all the coefficients it evaluates can skip the values at the points of
+ * the element during the assembly when they are not needed (see values_prepared_on_mesh).
+ *
  * @param coef Coefficient (must remain at the same address: member of the integrator)
  * @param var_blk Block of the variable of a coefficient of one variable (see eval_coefficient)
  * @param residual_outputs Outputs used by the residual (CoefValue, CoefFirstDerivative...)
@@ -1062,7 +1065,13 @@ void SlothNLFormIntegrator<VARS>::prepare_on_mesh(Coefficient& coef, const int v
                                                   const unsigned int jacobian_outputs,
                                                   const std::vector<mfem::ParGridFunction>& aux_gf,
                                                   const ValuesAt values_at) {
-  if (coef.is_scalar() || coef.is_file() || coef.batch_nb_variables() <= 0) {
+  // Constant coefficient or coefficient from a file: no values at the points needed
+  if (coef.is_scalar() || coef.is_file()) {
+    return;
+  }
+  // No evaluation structure: evaluated with the values at the points of the element
+  if (coef.batch_nb_variables() <= 0) {
+    this->mesh_needs_element_values_ = true;
     return;
   }
   MeshCoefficient mesh_coefficient;
@@ -1106,6 +1115,7 @@ template <class VARS>
 void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
     const mfem::Array<mfem::FiniteElementSpace*>& fes, const mfem::BlockVector& x,
     const Assembly assembly) {
+  Catch_Time_Section("SlothNLFormIntegrator::prepare_quadrature_points");
   const int nb = fes.Size();
   const int ne = fes[0]->GetNE();
   const bool coordinates =
@@ -1198,6 +1208,25 @@ void SlothNLFormIntegrator<VARS>::clear_quadrature_points() {
   for (auto& m : this->mesh_coefficients_) {
     m.prepared_outputs = 0u;
   }
+}
+
+/**
+ * @brief True if the declared coefficients (see prepare_on_mesh) are prepared for this element and
+ * this rule, and none of them needs the values at the points of the element: an integrator
+ * declaring all the coefficients it evaluates then does not compute these values
+ * (prepare_element_values) during the assembly.
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::values_prepared_on_mesh(const int elem,
+                                                          const mfem::IntegrationRule& ir) const {
+  const auto ue = static_cast<std::size_t>(elem);
+  if (this->mesh_needs_element_values_ || elem < 0 || ue >= this->mesh_rules_.size() ||
+      this->mesh_rules_[ue] != &ir) {
+    return false;
+  }
+  return std::ranges::all_of(this->mesh_coefficients_, [](const MeshCoefficient& m) {
+    return m.prepared_outputs != 0u;
+  });
 }
 
 /**

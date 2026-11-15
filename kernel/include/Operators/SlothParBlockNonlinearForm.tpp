@@ -60,6 +60,7 @@ void SlothParBlockNonlinearForm<VARS>::AddBoundaryIntegrator(SlothNLFormIntegrat
  */
 template <class VARS>
 void SlothParBlockNonlinearForm<VARS>::Mult(const mfem::Vector& x, mfem::Vector& y) const {
+  Catch_Time_Section("SlothParBlockNonlinearForm::Mult");
   const bool prepared = this->prepare_quadrature_points(x, Assembly::Residual);
   mfem::ParBlockNonlinearForm::Mult(x, y);
   if (prepared) this->clear_quadrature_points();
@@ -70,6 +71,7 @@ void SlothParBlockNonlinearForm<VARS>::Mult(const mfem::Vector& x, mfem::Vector&
  */
 template <class VARS>
 mfem::BlockOperator& SlothParBlockNonlinearForm<VARS>::GetGradient(const mfem::Vector& x) const {
+  Catch_Time_Section("SlothParBlockNonlinearForm::GetGradient");
   const bool prepared = this->prepare_quadrature_points(x, Assembly::Jacobian);
   mfem::BlockOperator& gradient = mfem::ParBlockNonlinearForm::GetGradient(x);
   if (prepared) this->clear_quadrature_points();

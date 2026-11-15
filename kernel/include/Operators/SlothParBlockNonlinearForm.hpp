@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "Integrators/SlothNLFormIntegrator.hpp"
+#include "MAToolsProfiling/MATimersAPI.hxx"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**

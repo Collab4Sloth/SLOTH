@@ -72,6 +72,7 @@ AllenCahnNLFormIntegrator<VARS>::AllenCahnNLFormIntegrator(
  *
  * 1. Checks that all coefficients contain the expected types.
  * 2. Retrieves and stores the coefficients internally.
+ * 3. Declares the coefficients evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -83,6 +84,18 @@ void AllenCahnNLFormIntegrator<VARS>::init() {
 
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
+
+  // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
+  // with the outputs of the residual and of the Jacobian (see coefficients_at_points)
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  const unsigned int second = SlothNLBase::CoefSecondDerivative;
+  for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
+    this->prepare_on_mesh(this->mobility[blk], blk, value, value | first, this->vaux_gf_);
+    this->prepare_on_mesh(this->lambda[blk], blk, value, value, this->vaux_gf_);
+    this->prepare_on_mesh(this->double_well_energy[blk], blk, first, first | second,
+                          this->vaux_gf_);
   }
 }
 
@@ -105,11 +118,12 @@ void AllenCahnNLFormIntegrator<VARS>::check_variables_consistency() {}
  * All the blocks share the same finite element:
  * - integration points in the outer loop, blocks in the inner loop;
  * - shape functions, physical gradients and weight computed once per integration point;
- * - {u, u_old} and auxiliary values computed once per element for all the blocks
- *   (see SlothNLFormIntegrator::prepare_element_values);
- * - coefficients evaluated once per element at all the integration points (see
- *   SlothNLFormIntegrator::eval_coefficient_at_points): by batch for the coefficients generated
- *   from a JSON file.
+ * - coefficients generated from a JSON file evaluated at all the quadrature points of the local
+ *   mesh before the assembly (declared in init, see SlothNLFormIntegrator::prepare_on_mesh), read
+ *   here for the element;
+ * - otherwise {u, u_old} and auxiliary values computed once per element for all the blocks
+ *   (see SlothNLFormIntegrator::prepare_element_values) and coefficients evaluated once per
+ *   element at all the integration points (see SlothNLFormIntegrator::eval_coefficient_at_points).
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  */
@@ -132,9 +146,11 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     *elvect[blk] = 0.;
   }
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
-  this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  const mfem::IntegrationRule* ir = &this->integration_rule(fe, Tr);
+  // {u, u_old} at the points: not needed if all the coefficients are prepared on the mesh
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, *ir)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  }
   this->coefficients_at_points(fe, Tr, *ir, elfun, false);
 
   for (int i = 0; i < ir->GetNPoints(); i++) {
@@ -202,9 +218,11 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     }
   }
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
-  this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  const mfem::IntegrationRule* ir = &this->integration_rule(fe, Tr);
+  // {u, u_old} at the points: not needed if all the coefficients are prepared on the mesh
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, *ir)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  }
   this->coefficients_at_points(fe, Tr, *ir, elfun, true);
   this->mob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
   this->dmob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);

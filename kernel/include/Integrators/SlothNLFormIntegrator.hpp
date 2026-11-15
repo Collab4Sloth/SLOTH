@@ -252,6 +252,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                        const unsigned int jacobian_outputs,
                        const std::vector<mfem::ParGridFunction>& aux_gf,
                        const ValuesAt values_at = ValuesAt::Unknowns);
+  bool values_prepared_on_mesh(const int elem, const mfem::IntegrationRule& ir) const;
   bool read_prepared_coefficient(const Coefficient& coef, const int var_blk,
                                  const unsigned int outputs,
                                  const std::vector<mfem::ParGridFunction>& aux_gf,
@@ -311,6 +312,9 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
     std::vector<double> aux;
   };
   std::vector<MeshCoefficient> mesh_coefficients_;
+  /// A declared coefficient is evaluated during the assembly with the values at the points of
+  /// the element (no evaluation structure): see values_prepared_on_mesh
+  bool mesh_needs_element_values_ = false;
   std::vector<MeshValues> mesh_values_;
   std::vector<const mfem::IntegrationRule*> mesh_rules_;  ///< rule of each element (nullptr: none)
   std::vector<std::size_t> mesh_offsets_;  ///< first point of each element (size: elements + 1)
