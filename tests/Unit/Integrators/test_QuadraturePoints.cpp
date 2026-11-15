@@ -696,3 +696,33 @@ TEST_CASE_METHOD(AuxiliarySquare,
                         kRight);
   }
 }
+
+// Latent heat: mobility prepared on the mesh, auxiliary fields (phi, phi_old) read in the values
+// prepared on the mesh
+TEST_CASE_METHOD(AuxiliarySquare,
+                 "LatentHeat: same residual and Jacobian with the coefficients prepared on the mesh",
+                 "[Integrators][coefficients]") {
+  VARS2D phi = aux_variable("phi", {"phi"}, Glossary::PhaseField,
+                            [](const mfem::Vector& p, double) { return 0.4 + 0.1 * p[0] * p[1]; });
+  const std::vector<VARS2D*> auxvars{&phi};
+  const std::vector<mfem::ParGridFunction> aux_old{project(phi1_old)};
+  const std::vector<mfem::ParGridFunction> u_old{project(phi0_old)};
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+
+  const std::vector<std::pair<std::string, Coefficient>> mobilities{
+      {"M constant", Coefficient(Glossary::Mobility, 2.)},
+      {"M(u) generated", Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi())},
+  };
+  for (const auto& m : mobilities) {
+    INFO(m.first);
+    const Coefficient& mobility = m.second;
+    check_same_assembly(spaces, [&]() {
+      SlothNLFormIntegrator<VARS2D>* integrator = new LatentHeatNLFormIntegrator<VARS2D>(
+          Geometry::Cartesian, 0.1, u_old, aux_old, kNoParameters, auxvars,
+          {Coefficients(mobility)});
+      integrator->init();
+      return integrator;
+    });
+  }
+}

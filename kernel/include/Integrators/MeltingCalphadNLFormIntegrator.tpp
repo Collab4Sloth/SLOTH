@@ -26,6 +26,7 @@
 #pragma once
 #include <algorithm>
 #include <memory>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -227,12 +228,10 @@ void MeltingCalphadNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(el, Tr, elfun, elvect);
 
-  // {u, u_old} and auxiliary fields at the integration points, read below (values_at_ip): not
-  // computed by MeltingBaseNLFormIntegrator when the coefficients are prepared on the mesh
-  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
-  if (this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
-    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
-  }
+  // Auxiliary fields at the integration points: read in the values prepared on the mesh if
+  // available, in the element tables of MeltingBaseNLFormIntegrator otherwise (values_at_ip)
+  const auto prepared =
+      this->prepared_values(Tr.ElementNo, this->integration_rule(*el[0], Tr), this->vaux_gf_);
 
   for (int blk = 0; blk < el.Size(); ++blk) {
     Psi_.SetSize(el[blk]->GetDof());
@@ -242,13 +241,15 @@ void MeltingCalphadNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi_);
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi_, elfun, this->vaux_gf_, Tr);
+      const std::span<const double> aux =
+          prepared ? prepared->aux_at(static_cast<std::size_t>(i))
+                   : this->values_at_ip(*ir, i, Psi_, elfun, this->vaux_gf_, Tr).aux;
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      add(*elvect[blk], this->get_seed_at_ip(ipv.aux) * weight_coef, Psi_, *elvect[blk]);
+      add(*elvect[blk], this->get_seed_at_ip(aux) * weight_coef, Psi_, *elvect[blk]);
     }
   }
 }

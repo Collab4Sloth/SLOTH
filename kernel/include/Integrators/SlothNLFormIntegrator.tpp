@@ -1125,17 +1125,37 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
   const bool boundary = bdr_marker != nullptr;
   const mfem::Mesh& mesh = *fes[0]->GetMesh();
   const int ne = boundary ? fes[0]->GetNBE() : fes[0]->GetNE();
+
+  // Outputs of a coefficient for this assembly: the values at the points (and the coordinates) are
+  // computed only if used by a coefficient
+  const auto outputs_of = [assembly](const MeshCoefficient& m) {
+    return assembly == Assembly::Residual ? m.residual_outputs : m.jacobian_outputs;
+  };
   const bool coordinates =
-      std::ranges::any_of(this->mesh_coefficients_,
-                          [](const MeshCoefficient& m) { return m.coef->uses_coordinates(); });
+      std::ranges::any_of(this->mesh_coefficients_, [&outputs_of](const MeshCoefficient& m) {
+        return outputs_of(m) != 0u && m.coef->uses_coordinates();
+      });
+  this->mesh_prepared_ = false;
+  for (auto& m : this->mesh_coefficients_) {
+    m.prepared_outputs = 0u;
+  }
+  for (auto& mesh_values : this->mesh_values_) {
+    mesh_values.used =
+        std::ranges::any_of(this->mesh_coefficients_, [&](const MeshCoefficient& m) {
+          return outputs_of(m) != 0u && m.aux_gf == mesh_values.aux_gf &&
+                 m.values_at == mesh_values.values_at;
+        });
+    mesh_values.nb = static_cast<std::size_t>(nb);
+    mesh_values.u_uold.clear();
+    mesh_values.aux.clear();
+  }
+  if (std::ranges::none_of(this->mesh_values_, [](const MeshValues& v) { return v.used; })) {
+    return;  // nothing to prepare for this assembly
+  }
 
   this->mesh_rules_.assign(static_cast<std::size_t>(ne), nullptr);
   this->mesh_offsets_.assign(static_cast<std::size_t>(ne) + 1, 0);
   this->mesh_coordinates_.clear();
-  for (auto& mesh_values : this->mesh_values_) {
-    mesh_values.u_uold.clear();
-    mesh_values.aux.clear();
-  }
   this->mesh_elfun_.resize(static_cast<std::size_t>(nb));
   mfem::Array<const mfem::FiniteElement*> el(nb);
   mfem::Array<const mfem::Vector*> elfun(nb);
@@ -1167,6 +1187,7 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
     // {u, u_old} and auxiliary fields at the points, as during the assembly: element tables in
     // the domain, point by point on the boundary
     for (auto& mesh_values : this->mesh_values_) {
+      if (!mesh_values.used) continue;
       if (boundary) {
         this->ipv_ir_ = nullptr;
       } else {
@@ -1190,6 +1211,8 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
   const std::size_t np = this->mesh_offsets_.back();
   const auto unb = static_cast<std::size_t>(nb);
   for (auto& m : this->mesh_coefficients_) {
+    const unsigned int outputs = outputs_of(m);
+    if (outputs == 0u) continue;  // not used by this assembly
     const auto it = std::ranges::find_if(this->mesh_values_, [&m](const MeshValues& v) {
       return v.aux_gf == m.aux_gf && v.values_at == m.values_at;
     });
@@ -1199,10 +1222,6 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
     values.u_uold = it->u_uold;
     values.aux = it->aux;
 
-    const unsigned int outputs =
-        assembly == Assembly::Residual ? m.residual_outputs : m.jacobian_outputs;
-    m.prepared_outputs = 0u;
-    if (outputs == 0u) continue;  // not used by this assembly
     CoefficientAtPoints& out = m.at_points;
     out.nb = nb;
     out.is_explicit = m.coef->is_explicit();
@@ -1244,6 +1263,44 @@ bool SlothNLFormIntegrator<VARS>::values_prepared_on_mesh(const int elem,
   const auto ue = static_cast<std::size_t>(elem);
   return this->mesh_prepared_ && !this->mesh_needs_element_values_ && elem >= 0 &&
          ue < this->mesh_rules_.size() && this->mesh_rules_[ue] == &ir;
+}
+
+/**
+ * @brief {u, u_old} and auxiliary fields at the integration points of an element, read in the
+ * values prepared at all the points of the local mesh (see prepare_quadrature_points): same values
+ * as values_at_ip (element tables in the domain, point by point on the boundary).
+ *
+ * Prepared when a coefficient is declared with these auxiliary fields and this kind of values
+ * (see prepare_on_mesh).
+ *
+ * @return Views on the values of the element, valid until the next preparation; std::nullopt if
+ * the values are not prepared for this element and this rule
+ */
+template <class VARS>
+std::optional<typename SlothNLFormIntegrator<VARS>::ElementValues>
+SlothNLFormIntegrator<VARS>::prepared_values(const int elem, const mfem::IntegrationRule& ir,
+                                             const std::vector<mfem::ParGridFunction>& aux_gf,
+                                             const ValuesAt values_at) const {
+  const auto ue = static_cast<std::size_t>(elem);
+  if (!this->mesh_prepared_ || elem < 0 || ue >= this->mesh_rules_.size() ||
+      this->mesh_rules_[ue] != &ir) {
+    return std::nullopt;
+  }
+  const auto it = std::ranges::find_if(this->mesh_values_, [&](const MeshValues& v) {
+    return v.aux_gf == &aux_gf && v.values_at == values_at;
+  });
+  if (it == this->mesh_values_.end() || !it->used) {
+    return std::nullopt;
+  }
+  ElementValues values;
+  values.nb = it->nb;
+  values.naux = aux_gf.size();
+  const std::size_t first = this->mesh_offsets_[ue];
+  const auto np = static_cast<std::size_t>(ir.GetNPoints());
+  values.u_uold = std::span<const double>(it->u_uold).subspan(first * 2 * values.nb,
+                                                               np * 2 * values.nb);
+  values.aux = std::span<const double>(it->aux).subspan(first * values.naux, np * values.naux);
+  return values;
 }
 
 /**

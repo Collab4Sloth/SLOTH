@@ -102,6 +102,7 @@ void LatentHeatNLFormIntegrator<VARS>::check_variables_consistency() {
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the mobility evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -121,6 +122,12 @@ void LatentHeatNLFormIntegrator<VARS>::init() {
   }
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_old_gf_[i]));
+  }
+
+  // Mobility evaluated at all the quadrature points of the local mesh before the assembly of the
+  // residual (the Jacobian is zero), with the auxiliary fields at the points (see prepared_values)
+  for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
+    this->prepare_on_mesh(this->mobility[blk], blk, SlothNLBase::CoefValue, 0u, this->vaux_gf_);
   }
 }
 
@@ -147,10 +154,13 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): read in the
+  // values prepared on the mesh if available
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  const auto prepared = this->prepared_values(Tr.ElementNo, ir_values, this->vaux_gf_);
+  if (!prepared) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -162,8 +172,7 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Mobility at all the integration points of the element
     this->eval_coefficient_at_points(mobility[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                      elfun, this->vaux_gf_, this->mobility_at_points_);
@@ -173,7 +182,9 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+      const std::span<const double> aux =
+          prepared ? prepared->aux_at(static_cast<std::size_t>(i))
+                   : this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr).aux;
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -181,7 +192,7 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       }
 
       const double latent_heat =
-          this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), ipv.aux) * weight_coef;
+          this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), aux) * weight_coef;
       add(*elvect[blk], latent_heat, Psi, *elvect[blk]);
     }
   }

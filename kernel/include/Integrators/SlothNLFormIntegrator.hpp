@@ -236,6 +236,23 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                ///< k = du/dt (see values_at_end_of_step)
   };
 
+  /// Values {u, u_old} and auxiliary fields at the integration points of an element
+  struct ElementValues {
+    std::span<const double> u_uold;  ///< [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at each point
+    std::span<const double> aux;     ///< auxiliary fields at each point
+    std::size_t nb = 0;              ///< number of blocks
+    std::size_t naux = 0;            ///< number of auxiliary fields
+
+    /// [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at point q
+    std::span<const double> u_uold_at(const std::size_t q) const {
+      return u_uold.subspan(q * 2 * nb, 2 * nb);
+    }
+    /// Auxiliary fields at point q
+    std::span<const double> aux_at(const std::size_t q) const {
+      return aux.subspan(q * naux, naux);
+    }
+  };
+
   void eval_coefficient_at_points(Coefficient& coef, const int var_blk, const unsigned int outputs,
                                   const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
                                   const mfem::IntegrationRule& ir,
@@ -253,6 +270,10 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                        const std::vector<mfem::ParGridFunction>& aux_gf,
                        const ValuesAt values_at = ValuesAt::Unknowns);
   bool values_prepared_on_mesh(const int elem, const mfem::IntegrationRule& ir) const;
+  std::optional<ElementValues> prepared_values(
+      const int elem, const mfem::IntegrationRule& ir,
+      const std::vector<mfem::ParGridFunction>& aux_gf,
+      const ValuesAt values_at = ValuesAt::Unknowns) const;
   bool read_prepared_coefficient(const Coefficient& coef, const int var_blk,
                                  const unsigned int outputs,
                                  const std::vector<mfem::ParGridFunction>& aux_gf,
@@ -261,22 +282,6 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
 
  private:
   // Steps of eval_coefficient_at_points
-  /// Values {u, u_old} and auxiliary fields at the integration points of an element
-  struct ElementValues {
-    std::span<const double> u_uold;  ///< [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at each point
-    std::span<const double> aux;     ///< auxiliary fields at each point
-    std::size_t nb = 0;              ///< number of blocks
-    std::size_t naux = 0;            ///< number of auxiliary fields
-
-    /// [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at point q
-    std::span<const double> u_uold_at(const std::size_t q) const {
-      return u_uold.subspan(q * 2 * nb, 2 * nb);
-    }
-    /// Auxiliary fields at point q
-    std::span<const double> aux_at(const std::size_t q) const {
-      return aux.subspan(q * naux, naux);
-    }
-  };
 
   ElementValues values_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
                                  const mfem::IntegrationRule& ir,
@@ -308,6 +313,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   struct MeshValues {
     const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
     ValuesAt values_at = ValuesAt::Unknowns;
+    std::size_t nb = 0;  ///< number of blocks
+    bool used = false;   ///< used by a coefficient for the current assembly (prepared)
     std::vector<double> u_uold;
     std::vector<double> aux;
   };
