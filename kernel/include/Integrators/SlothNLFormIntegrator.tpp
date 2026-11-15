@@ -1107,17 +1107,24 @@ void SlothNLFormIntegrator<VARS>::prepare_on_mesh(Coefficient& coef, const int v
  * An element whose blocks do not share the same finite element is not prepared (evaluated during
  * the assembly).
  *
+ * Boundary integrator (bdr_marker not null): the boundary elements of the marked attributes are
+ * prepared, as in mfem::BlockNonlinearForm::MultBlocked; {u, u_old} and the auxiliary fields are
+ * evaluated point by point (values_at_ip), as during the assembly of the boundary integrators.
+ *
  * @param fes Finite element spaces of the blocks
  * @param x Values at the local dofs of each block
  * @param assembly Residual or Jacobian: outputs to prepare
+ * @param bdr_marker Boundary attributes of a boundary integrator, nullptr for a domain integrator
  */
 template <class VARS>
 void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
     const mfem::Array<mfem::FiniteElementSpace*>& fes, const mfem::BlockVector& x,
-    const Assembly assembly) {
+    const Assembly assembly, const mfem::Array<int>* bdr_marker) {
   Catch_Time_Section("SlothNLFormIntegrator::prepare_quadrature_points");
   const int nb = fes.Size();
-  const int ne = fes[0]->GetNE();
+  const bool boundary = bdr_marker != nullptr;
+  const mfem::Mesh& mesh = *fes[0]->GetMesh();
+  const int ne = boundary ? fes[0]->GetNBE() : fes[0]->GetNE();
   const bool coordinates =
       std::ranges::any_of(this->mesh_coefficients_,
                           [](const MeshCoefficient& m) { return m.coef->uses_coordinates(); });
@@ -1137,23 +1144,34 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
   for (int e = 0; e < ne; ++e) {
     const auto ue = static_cast<std::size_t>(e);
     this->mesh_offsets_[ue + 1] = this->mesh_offsets_[ue];
-    for (int s = 0; s < nb; ++s) el[s] = fes[s]->GetFE(e);
+    if (boundary && (*bdr_marker)[mesh.GetBdrAttribute(e) - 1] == 0) continue;
+    for (int s = 0; s < nb; ++s) el[s] = boundary ? fes[s]->GetBE(e) : fes[s]->GetFE(e);
     if (!same_finite_elements(el)) continue;
 
-    mfem::ElementTransformation& Tr = *fes[0]->GetElementTransformation(e);
+    mfem::ElementTransformation& Tr =
+        boundary ? *fes[0]->GetBdrElementTransformation(e) : *fes[0]->GetElementTransformation(e);
     const mfem::IntegrationRule& ir = this->integration_rule(*el[0], Tr);
     // Element dofs of each block, as in mfem::BlockNonlinearForm::MultBlocked
     for (int s = 0; s < nb; ++s) {
       mfem::Vector& elfun_s = this->mesh_elfun_[static_cast<std::size_t>(s)];
-      fes[s]->GetElementVDofs(e, this->mesh_vdofs_, doftrans);
+      if (boundary) {
+        fes[s]->GetBdrElementVDofs(e, this->mesh_vdofs_, doftrans);
+      } else {
+        fes[s]->GetElementVDofs(e, this->mesh_vdofs_, doftrans);
+      }
       x.GetBlock(s).GetSubVector(this->mesh_vdofs_, elfun_s);
       doftrans.InvTransformPrimal(elfun_s);
       elfun[s] = &elfun_s;
     }
 
-    // {u, u_old} and auxiliary fields at the points, as during the assembly
+    // {u, u_old} and auxiliary fields at the points, as during the assembly: element tables in
+    // the domain, point by point on the boundary
     for (auto& mesh_values : this->mesh_values_) {
-      this->prepare_element_values(el, Tr, elfun, *mesh_values.aux_gf, ir);
+      if (boundary) {
+        this->ipv_ir_ = nullptr;
+      } else {
+        this->prepare_element_values(el, Tr, elfun, *mesh_values.aux_gf, ir);
+      }
       const ElementValues values =
           this->values_at_points(*el[0], Tr, ir, elfun, *mesh_values.aux_gf, mesh_values.values_at);
       mesh_values.u_uold.insert(mesh_values.u_uold.end(), values.u_uold.begin(),
@@ -1183,6 +1201,8 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
 
     const unsigned int outputs =
         assembly == Assembly::Residual ? m.residual_outputs : m.jacobian_outputs;
+    m.prepared_outputs = 0u;
+    if (outputs == 0u) continue;  // not used by this assembly
     CoefficientAtPoints& out = m.at_points;
     out.nb = nb;
     out.is_explicit = m.coef->is_explicit();
@@ -1196,6 +1216,7 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
         this->eval_by_batch(*m.coef, m.var_blk, outputs, static_cast<int>(np), values, points, out);
     m.prepared_outputs = out.by_batch ? outputs : 0u;
   }
+  this->mesh_prepared_ = true;
 }
 
 /**
@@ -1205,6 +1226,7 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
  */
 template <class VARS>
 void SlothNLFormIntegrator<VARS>::clear_quadrature_points() {
+  this->mesh_prepared_ = false;
   for (auto& m : this->mesh_coefficients_) {
     m.prepared_outputs = 0u;
   }
@@ -1220,13 +1242,8 @@ template <class VARS>
 bool SlothNLFormIntegrator<VARS>::values_prepared_on_mesh(const int elem,
                                                           const mfem::IntegrationRule& ir) const {
   const auto ue = static_cast<std::size_t>(elem);
-  if (this->mesh_needs_element_values_ || elem < 0 || ue >= this->mesh_rules_.size() ||
-      this->mesh_rules_[ue] != &ir) {
-    return false;
-  }
-  return std::ranges::all_of(this->mesh_coefficients_, [](const MeshCoefficient& m) {
-    return m.prepared_outputs != 0u;
-  });
+  return this->mesh_prepared_ && !this->mesh_needs_element_values_ && elem >= 0 &&
+         ue < this->mesh_rules_.size() && this->mesh_rules_[ue] == &ir;
 }
 
 /**
@@ -1242,7 +1259,8 @@ bool SlothNLFormIntegrator<VARS>::read_prepared_coefficient(
     const std::vector<mfem::ParGridFunction>& aux_gf, const ValuesAt values_at, const int elem,
     const mfem::IntegrationRule& ir, CoefficientAtPoints& out) const {
   const auto ue = static_cast<std::size_t>(elem);
-  if (elem < 0 || ue >= this->mesh_rules_.size() || this->mesh_rules_[ue] != &ir) {
+  if (!this->mesh_prepared_ || elem < 0 || ue >= this->mesh_rules_.size() ||
+      this->mesh_rules_[ue] != &ir) {
     return false;
   }
   const auto it = std::ranges::find_if(this->mesh_coefficients_, [&](const MeshCoefficient& m) {

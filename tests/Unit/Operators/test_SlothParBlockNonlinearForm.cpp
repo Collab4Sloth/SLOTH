@@ -48,7 +48,8 @@ class PreparedFourier : public FourierNLFormIntegrator<VARS2D> {
 
   bool uses_quadrature_points() const override { return uses_; }
   void prepare_quadrature_points(const mfem::Array<mfem::FiniteElementSpace*>& /*fes*/,
-                                 const mfem::BlockVector& x, const Assembly assembly) override {
+                                 const mfem::BlockVector& x, const Assembly assembly,
+                                 const mfem::Array<int>* /*bdr_marker*/) override {
     ++calls;
     prepared = x;
     last_assembly = assembly;

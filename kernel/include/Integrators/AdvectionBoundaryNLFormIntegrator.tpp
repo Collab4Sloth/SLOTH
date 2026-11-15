@@ -84,7 +84,8 @@ AdvectionBoundaryNLFormIntegrator<VARS>::AdvectionBoundaryNLFormIntegrator(
 }
 
 /**
- * @brief Initialize the integrator: coefficients and auxiliary fields.
+ * @brief Initialize the integrator: coefficients and auxiliary fields; velocity and inflow value
+ * declared to be evaluated at all the quadrature points of the boundary (see values_at_points).
  */
 template <class VARS>
 void AdvectionBoundaryNLFormIntegrator<VARS>::init() {
@@ -99,6 +100,18 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
   }
+
+  // Velocity (residual and Jacobian) and inflow value (residual only) evaluated at all the
+  // quadrature points of the boundary before each assembly
+  const unsigned int value = SlothNLBase::CoefValue;
+  if (this->velocity_.mode() == VelocityField::Mode::Components) {
+    for (int d = 0; d < this->sdim_; ++d) {
+      this->prepare_on_mesh(this->velocity_.component(d), 0, value, value, this->vaux_gf_);
+    }
+  } else {
+    this->prepare_on_mesh(this->velocity_.prefactor(), 0, value, value, this->vaux_gf_);
+  }
+  this->prepare_on_mesh(this->inflow_, 0, value, 0u, this->vaux_gf_);
 }
 
 /**

@@ -40,7 +40,7 @@ SlothParBlockNonlinearForm<VARS>::SlothParBlockNonlinearForm(
  */
 template <class VARS>
 void SlothParBlockNonlinearForm<VARS>::AddDomainIntegrator(SlothNLFormIntegrator<VARS>* nlfi) {
-  this->integrators_.push_back(nlfi);
+  this->integrators_.push_back({nlfi, nullptr});
   mfem::ParBlockNonlinearForm::AddDomainIntegrator(nlfi);
 }
 
@@ -51,7 +51,7 @@ void SlothParBlockNonlinearForm<VARS>::AddDomainIntegrator(SlothNLFormIntegrator
 template <class VARS>
 void SlothParBlockNonlinearForm<VARS>::AddBoundaryIntegrator(SlothNLFormIntegrator<VARS>* nlfi,
                                                              mfem::Array<int>& bdr_marker) {
-  this->integrators_.push_back(nlfi);
+  this->integrators_.push_back({nlfi, &bdr_marker});
   mfem::ParBlockNonlinearForm::AddBoundaryIntegrator(nlfi, bdr_marker);
 }
 
@@ -89,8 +89,8 @@ mfem::BlockOperator& SlothParBlockNonlinearForm<VARS>::GetGradient(const mfem::V
 template <class VARS>
 bool SlothParBlockNonlinearForm<VARS>::prepare_quadrature_points(const mfem::Vector& x,
                                                                  const Assembly assembly) const {
-  const auto uses_quadrature_points = [](const SlothNLFormIntegrator<VARS>* nlfi) {
-    return nlfi->uses_quadrature_points();
+  const auto uses_quadrature_points = [](const Entry& entry) {
+    return entry.nlfi->uses_quadrature_points();
   };
   if (std::ranges::none_of(this->integrators_, uses_quadrature_points)) {
     return false;
@@ -103,9 +103,10 @@ bool SlothParBlockNonlinearForm<VARS>::prepare_quadrature_points(const mfem::Vec
     this->fes[s]->GetProlongationMatrix()->Mult(this->x_true_.GetBlock(s),
                                                 this->x_local_.GetBlock(s));
   }
-  for (auto* nlfi : this->integrators_) {
-    if (uses_quadrature_points(nlfi)) {
-      nlfi->prepare_quadrature_points(this->fes, this->x_local_, assembly);
+  for (const Entry& entry : this->integrators_) {
+    if (uses_quadrature_points(entry)) {
+      entry.nlfi->prepare_quadrature_points(this->fes, this->x_local_, assembly,
+                                            entry.bdr_marker);
     }
   }
   return true;
@@ -116,9 +117,9 @@ bool SlothParBlockNonlinearForm<VARS>::prepare_quadrature_points(const mfem::Vec
  */
 template <class VARS>
 void SlothParBlockNonlinearForm<VARS>::clear_quadrature_points() const {
-  for (auto* nlfi : this->integrators_) {
-    if (nlfi->uses_quadrature_points()) {
-      nlfi->clear_quadrature_points();
+  for (const Entry& entry : this->integrators_) {
+    if (entry.nlfi->uses_quadrature_points()) {
+      entry.nlfi->clear_quadrature_points();
     }
   }
 }

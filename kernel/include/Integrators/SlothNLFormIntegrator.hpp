@@ -312,6 +312,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
     std::vector<double> aux;
   };
   std::vector<MeshCoefficient> mesh_coefficients_;
+  bool mesh_prepared_ = false;  ///< values prepared for the current assembly
   /// A declared coefficient is evaluated during the assembly with the values at the points of
   /// the element (no evaluation structure): see values_prepared_on_mesh
   bool mesh_needs_element_values_ = false;
@@ -348,7 +349,8 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   /// by default, if coefficients are declared with prepare_on_mesh
   virtual bool uses_quadrature_points() const { return !this->mesh_coefficients_.empty(); }
   virtual void prepare_quadrature_points(const mfem::Array<mfem::FiniteElementSpace*>& fes,
-                                         const mfem::BlockVector& x, const Assembly assembly);
+                                         const mfem::BlockVector& x, const Assembly assembly,
+                                         const mfem::Array<int>* bdr_marker);
   virtual void clear_quadrature_points();
 
   virtual std::vector<std::pair<int, int>> time_derivative_map() const { return {}; }

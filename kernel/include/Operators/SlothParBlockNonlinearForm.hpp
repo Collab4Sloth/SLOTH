@@ -63,7 +63,12 @@ class SlothParBlockNonlinearForm : public mfem::ParBlockNonlinearForm {
   bool prepare_quadrature_points(const mfem::Vector& x, const Assembly assembly) const;
   void clear_quadrature_points() const;
 
-  std::vector<SlothNLFormIntegrator<VARS>*> integrators_;  ///< domain and boundary (not owned)
+  /// Integrator (not owned) and boundary attributes (nullptr for a domain integrator)
+  struct Entry {
+    SlothNLFormIntegrator<VARS>* nlfi;
+    const mfem::Array<int>* bdr_marker;
+  };
+  std::vector<Entry> integrators_;  ///< domain and boundary integrators
   mutable mfem::BlockVector x_true_;   ///< true dofs of each block (view on x)
   mutable mfem::BlockVector x_local_;  ///< local dofs of each block
 };

@@ -205,7 +205,7 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
 
       const int ne = fes->GetNE();
       std::vector<MeshProbe::CoefficientAtPoints> on_mesh(static_cast<std::size_t>(ne));
-      probe.prepare_quadrature_points(spaces, x, Assembly::Jacobian);
+      probe.prepare_quadrature_points(spaces, x, Assembly::Jacobian, nullptr);
       for (int e = 0; e < ne; ++e) {
         CAPTURE(e);
         auto& out = on_mesh[static_cast<std::size_t>(e)];
@@ -261,7 +261,7 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   probe.declare(coef, 0, first, no_aux, unknowns);  // same outputs for both assemblies
 
   MeshProbe::CoefficientAtPoints out;
-  probe.prepare_quadrature_points(spaces, x, Base::Assembly::Residual);
+  probe.prepare_quadrature_points(spaces, x, Base::Assembly::Residual, nullptr);
   CHECK(probe.at_element(coef, 0, first, no_aux, unknowns, *fes, u, 0, true, out));
   CHECK(!probe.at_element(coef, 0, first | second, no_aux, unknowns, *fes, u, 0, true, out));
 }
@@ -294,13 +294,24 @@ std::function<SlothNLFormIntegrator<VARS2D>*(const std::vector<mfem::ParGridFunc
  * @brief Assembles the integrators built by make with mfem::ParBlockNonlinearForm (evaluation
  * element by element: the hook is not called) and with SlothParBlockNonlinearForm (coefficients
  * prepared on the local mesh), and checks that the residuals and the products J v are identical.
+ *
+ * @param bdr Boundary index (attribute - 1) of a boundary integrator, -1 for a domain integrator
  */
 void check_same_assembly(mfem::Array<mfem::ParFiniteElementSpace*>& spaces,
-                         const std::function<SlothNLFormIntegrator<VARS2D>*()>& make) {
+                         const std::function<SlothNLFormIntegrator<VARS2D>*()>& make,
+                         const int bdr = -1) {
+  mfem::Array<int> marker(spaces[0]->GetMesh()->bdr_attributes.Max());  // must outlive the forms
+  marker = 0;
   mfem::ParBlockNonlinearForm reference(spaces);
-  reference.AddDomainIntegrator(make());
   SlothParBlockNonlinearForm<VARS2D> form(spaces);
-  form.AddDomainIntegrator(make());
+  if (bdr < 0) {
+    reference.AddDomainIntegrator(make());
+    form.AddDomainIntegrator(make());
+  } else {
+    marker[bdr] = 1;
+    reference.AddBoundaryIntegrator(make(), marker);
+    form.AddBoundaryIntegrator(make(), marker);
+  }
 
   // Values in [0.2, 0.8]
   int size = 0;
@@ -587,4 +598,101 @@ TEST_CASE_METHOD(AuxiliarySquare,
     integrator->init();
     return integrator;
   });
+}
+
+// -----------------------------------------------------------------------------
+// Boundary integrators: coefficients prepared at the quadrature points of the boundary elements
+// of their attribute
+// -----------------------------------------------------------------------------
+namespace {
+// Boundaries of the unit square (index = attribute - 1): right side x = 1, left side x = 0
+constexpr int kRight = 1;
+constexpr int kLeft = 3;
+
+/// @brief Coefficient attached to one boundary (as given by the user in SLOTH)
+Coefficient on_boundary(Coefficient c, const int bdr) {
+  c.set_bdr_index_coef({bdr});
+  return c;
+}
+
+/// @brief Builds a boundary integrator of block 0 on boundary bdr
+template <template <class> class INTEGRATOR>
+std::function<SlothNLFormIntegrator<VARS2D>*()> boundary_maker(
+    const std::vector<mfem::ParGridFunction>& u_old, const std::vector<mfem::ParGridFunction>& aux,
+    const std::vector<VARS2D*>& auxvars, const std::vector<Coefficients>& coefficients,
+    const int bdr) {
+  return [&u_old, &aux, auxvars, coefficients, bdr]() {
+    SlothNLFormIntegrator<VARS2D>* integrator =
+        new INTEGRATOR<VARS2D>(Geometry::Cartesian, 0.1, u_old, aux, kNoParameters, auxvars,
+                               coefficients, 0, static_cast<unsigned int>(bdr));
+    integrator->init();
+    return integrator;
+  };
+}
+}  // namespace
+
+TEST_CASE_METHOD(AuxiliarySquare,
+                 "Boundary integrators: same residual and Jacobian with the coefficients prepared "
+                 "on the boundary",
+                 "[Integrators][coefficients]") {
+  // Auxiliary field b = 1 + x y (velocity v = (b, 0.5))
+  VARS2D b = aux_variable("b", {"b"}, Glossary::Default,
+                          [](const mfem::Vector& p, double) { return 1. + p[0] * p[1]; });
+  const std::vector<VARS2D*> auxvars{&b};
+  const std::vector<mfem::ParGridFunction> aux_old{b.getVariables()[0].get_gf()};
+  const std::vector<VARS2D*> no_auxvars;
+  const std::vector<mfem::ParGridFunction> no_aux;
+  const std::vector<mfem::ParGridFunction> u_old{project(phi0_old)};
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+
+  const auto robin = [](const Coefficient& a, const Coefficient& b_coef) {
+    return Coefficients(on_boundary(a, kRight), on_boundary(b_coef, kRight));
+  };
+  const auto velocity = [](const Coefficient& vx, const Coefficient& inflow, const int bdr) {
+    return Coefficients(vx, Coefficient(Glossary::Velocity_Y, 0.5), on_boundary(inflow, bdr));
+  };
+  const Coefficient vx_constant(Glossary::Velocity_X, 1.);
+  const Coefficient vx_aux(Glossary::Velocity_X, Scheme::Implicit, FirstAuxiliary());
+  const Coefficient inflow_constant(Glossary::Inflow, 3.);
+  const Coefficient inflow_h(Glossary::Inflow, Scheme::Implicit, H(2.));
+
+  SECTION("Robin, a and b constant") {
+    check_same_assembly(spaces,
+                        boundary_maker<RobinNLFormIntegrator>(
+                            u_old, no_aux, no_auxvars,
+                            {robin(Coefficient(Glossary::Robin_a, 2.),
+                                   Coefficient(Glossary::Robin_b, 3.))},
+                            kRight),
+                        kRight);
+  }
+  SECTION("Robin, a(u) and b(u)") {
+    check_same_assembly(
+        spaces,
+        boundary_maker<RobinNLFormIntegrator>(
+            u_old, no_aux, no_auxvars,
+            {robin(Coefficient(Glossary::Robin_a, Scheme::Implicit, MobilityPhi()),
+                   Coefficient(Glossary::Robin_b, Scheme::Implicit, W(3.)))},
+            kRight),
+        kRight);
+  }
+  SECTION("AdvectionBoundary, constant velocity, outflow") {
+    check_same_assembly(spaces,
+                        boundary_maker<AdvectionBoundaryNLFormIntegrator>(
+                            u_old, no_aux, no_auxvars,
+                            {velocity(vx_constant, inflow_constant, kRight)}, kRight),
+                        kRight);
+  }
+  SECTION("AdvectionBoundary, velocity from an auxiliary field, inflow H(u)") {
+    check_same_assembly(spaces,
+                        boundary_maker<AdvectionBoundaryNLFormIntegrator>(
+                            u_old, aux_old, auxvars, {velocity(vx_aux, inflow_h, kLeft)}, kLeft),
+                        kLeft);
+  }
+  SECTION("AdvectionBoundary, velocity from an auxiliary field, outflow") {
+    check_same_assembly(spaces,
+                        boundary_maker<AdvectionBoundaryNLFormIntegrator>(
+                            u_old, aux_old, auxvars, {velocity(vx_aux, inflow_h, kRight)}, kRight),
+                        kRight);
+  }
 }
