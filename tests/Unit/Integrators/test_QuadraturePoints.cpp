@@ -403,6 +403,29 @@ std::vector<AssemblyCase> assembly_cases() {
        maker<BlockAllenCahnNLFormIntegrator>(
            {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.)),
             phase_field_coefficients(mobility_phi)})},
+      {"SourceTerm, implicit W(u)", 1,
+       maker<SourceTermNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, W(4.)))})},
+      {"SourceTerm, 2 blocks, H(u_b) and constant", 2,
+       maker<SourceTermNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, H(4.))),
+            Coefficients(Coefficient(Glossary::SourceTerm, 2.))})},
+      {"SourceTerm, 2 blocks, f(u_0, u_1) implicit and explicit", 2,
+       maker<SourceTermNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, MobilityCross())),
+            Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Explicit, MobilityCross()))})},
+      {"SourceTerm, coordinates", 2,
+       maker<SourceTermNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::SourceTerm, Scheme::Implicit, MobilityX())),
+            Coefficients(Coefficient(Glossary::SourceTerm, 0.))})},
+      {"Advection, constant velocity", 1,
+       maker<AdvectionNLFormIntegrator>({Coefficients(Coefficient(Glossary::Velocity_X, 1.),
+                                                      Coefficient(Glossary::Velocity_Y, 0.5))})},
+      {"SplitAdvection, constant velocity", 2,
+       maker<SplitAdvectionNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Velocity_X, 1.),
+                         Coefficient(Glossary::Velocity_Y, 0.5)),
+            Coefficients()})},
       {"SplitTimeDerivative, implicit A(phi)", 2,
        maker<TimeCHNLFormIntegrator>(
            {Coefficients(),
@@ -541,4 +564,27 @@ TEST_CASE_METHOD(AuxiliarySquare,
       return integrator;
     });
   }
+}
+
+// Advection with a velocity depending on an auxiliary field: v = (b, 0.5), b = x y
+TEST_CASE_METHOD(AuxiliarySquare,
+                 "Advection: same residual and Jacobian with the velocity prepared on the mesh",
+                 "[Integrators][coefficients]") {
+  VARS2D b = aux_variable("b", {"b"}, Glossary::Default,
+                          [](const mfem::Vector& p, double) { return p[0] * p[1]; });
+  const std::vector<VARS2D*> auxvars{&b};
+  const std::vector<mfem::ParGridFunction> aux_old{b.getVariables()[0].get_gf()};
+  const std::vector<mfem::ParGridFunction> u_old{project(phi0_old)};
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+  const Coefficients velocity(
+      Coefficient(Glossary::Velocity_X, Scheme::Implicit, FirstAuxiliary()),
+      Coefficient(Glossary::Velocity_Y, 0.5));
+
+  check_same_assembly(spaces, [&]() {
+    SlothNLFormIntegrator<VARS2D>* integrator = new AdvectionNLFormIntegrator<VARS2D>(
+        Geometry::Cartesian, 0.1, u_old, aux_old, kNoParameters, auxvars, {velocity});
+    integrator->init();
+    return integrator;
+  });
 }
