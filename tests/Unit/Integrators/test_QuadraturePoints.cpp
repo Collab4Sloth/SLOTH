@@ -28,7 +28,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <functional>
+#include <memory>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "Sloth/sloth.hpp"
@@ -287,6 +290,38 @@ std::function<SlothNLFormIntegrator<VARS2D>*(const std::vector<mfem::ParGridFunc
   };
 }
 
+/**
+ * @brief Assembles the integrators built by make with mfem::ParBlockNonlinearForm (evaluation
+ * element by element: the hook is not called) and with SlothParBlockNonlinearForm (coefficients
+ * prepared on the local mesh), and checks that the residuals and the products J v are identical.
+ */
+void check_same_assembly(mfem::Array<mfem::ParFiniteElementSpace*>& spaces,
+                         const std::function<SlothNLFormIntegrator<VARS2D>*()>& make) {
+  mfem::ParBlockNonlinearForm reference(spaces);
+  reference.AddDomainIntegrator(make());
+  SlothParBlockNonlinearForm<VARS2D> form(spaces);
+  form.AddDomainIntegrator(make());
+
+  // Values in [0.2, 0.8]
+  int size = 0;
+  for (int b = 0; b < spaces.Size(); ++b) size += spaces[b]->GetTrueVSize();
+  mfem::Vector x(size), v(size);
+  x.Randomize(5);
+  x *= 0.6;
+  x += 0.2;
+  v.Randomize(7);
+
+  mfem::Vector y_reference(size), y(size);
+  reference.Mult(x, y_reference);
+  form.Mult(x, y);
+  CHECK(max_difference(y_reference, y) == 0.);
+
+  mfem::Vector jv_reference(size), jv(size);
+  reference.GetGradient(x).Mult(v, jv_reference);
+  form.GetGradient(x).Mult(v, jv);
+  CHECK(max_difference(jv_reference, jv) == 0.);
+}
+
 std::vector<AssemblyCase> assembly_cases() {
   const Coefficient mobility_phi(Glossary::Mobility, Scheme::Implicit, MobilityPhi());
   const Coefficient mobility_cross(Glossary::Mobility, Scheme::Implicit, MobilityCross());
@@ -338,28 +373,77 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
     if (nb == 2) u_old.push_back(project(phi1_old));
     mfem::Array<mfem::ParFiniteElementSpace*> spaces(nb);
     for (int b = 0; b < nb; ++b) spaces[b] = fes.get();
+    check_same_assembly(spaces, [&c, &u_old]() { return c.make(u_old); });
+  }
+}
 
-    // Evaluation element by element: the hook is not called by mfem::ParBlockNonlinearForm
-    mfem::ParBlockNonlinearForm reference(spaces);
-    reference.AddDomainIntegrator(c.make(u_old));
-    SlothParBlockNonlinearForm<VARS2D> form(spaces);
-    form.AddDomainIntegrator(c.make(u_old));
+// -----------------------------------------------------------------------------
+// Integrators with auxiliary variables: SLOTH Variables recognised by their additional
+// information, built on the mesh of a SpatialDiscretization
+// -----------------------------------------------------------------------------
+namespace {
+struct AuxiliarySquare {
+  using SPA2D = Sloth2D::SPA;
+  using BCS2D = Sloth2D::BCS;
+  using VAR2D = Sloth2D::VAR;
+  static constexpr int DIM2 = 2;
 
-    // Values in [0.2, 0.8]
-    mfem::Vector x(nb * fes->GetTrueVSize()), v(x.Size());
-    x.Randomize(5);
-    x *= 0.6;
-    x += 0.2;
-    v.Randomize(7);
+  std::unique_ptr<SPA2D> spatial =
+      std::make_unique<SPA2D>("InlineSquareWithQuadrangles", 1, 0, std::make_tuple(4, 4, 1., 1.));
+  std::unique_ptr<BCS2D> bcs = std::make_unique<BCS2D>(
+      spatial.get(), Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+      Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
 
-    mfem::Vector y_reference(x.Size()), y(x.Size());
-    reference.Mult(x, y_reference);
-    form.Mult(x, y);
-    CHECK(max_difference(y_reference, y) == 0.);
+  mfem::ParFiniteElementSpace* fes() const { return spatial->get_finite_element_space(); }
 
-    mfem::Vector jv_reference(x.Size()), jv(x.Size());
-    reference.GetGradient(x).Mult(v, jv_reference);
-    form.GetGradient(x).Mult(v, jv);
-    CHECK(max_difference(jv_reference, jv) == 0.);
+  mfem::ParGridFunction project(double (*f)(const mfem::Vector&)) const {
+    mfem::ParGridFunction gf(fes());
+    mfem::FunctionCoefficient c(f);
+    gf.ProjectCoefficient(c);
+    return gf;
+  }
+
+  /// @brief Auxiliary variable with its additional informations (e.g. {"U", "mu"})
+  VARS2D aux_variable(const std::string& name, const std::vector<std::string>& infos,
+                      GlossaryQuantity qty,
+                      std::function<double(const mfem::Vector&, double)> f) const {
+    auto v = VAR2D(spatial.get(), *bcs, name, qty, 2, AnalyticalFunctions<DIM2>(f));
+    for (const auto& info : infos) v.set_additional_information(info);
+    return VARS2D(v);
+  }
+};
+}  // namespace
+
+// Mass diffusion flux M grad(mu) with a stabilisation coefficient D (prepared on the mesh)
+TEST_CASE_METHOD(AuxiliarySquare,
+                 "MassDiffusionFlux: same residual and Jacobian with the coefficients prepared on "
+                 "the mesh",
+                 "[Integrators][coefficients]") {
+  VARS2D mu = aux_variable("mu_U", {"U", "mu"}, Glossary::ChemicalPotential,
+                           [](const mfem::Vector& p, double) { return p[0] * p[1]; });
+  VARS2D mob = aux_variable("M_U", {"U", "inter_mob"}, Glossary::InterDiffusionMobility,
+                            [](const mfem::Vector& p, double) { return 2. + p[0]; });
+  const std::vector<VARS2D*> auxvars{&mu, &mob};
+  const std::vector<mfem::ParGridFunction> aux_old{mu.getVariables()[0].get_gf(),
+                                                   mob.getVariables()[0].get_gf()};
+  const std::vector<mfem::ParGridFunction> u_old{project(phi0_old)};
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+
+  const std::vector<std::pair<std::string, Coefficient>> stabilisations{
+      {"D constant", Coefficient(Glossary::Diffusivity, 1.)},
+      {"D = H(u)", Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(3.))},
+      {"D(u) generated", Coefficient(Glossary::Diffusivity, Scheme::Implicit, MobilityPhi())},
+  };
+  for (const auto& stabilisation : stabilisations) {
+    INFO(stabilisation.first);
+    const Coefficient& diffusivity = stabilisation.second;
+    check_same_assembly(spaces, [&]() {
+      SlothNLFormIntegrator<VARS2D>* integrator = new MassDiffusionFluxNLFormIntegrator<VARS2D>(
+          Geometry::Cartesian, 0.1, u_old, aux_old, kNoParameters, auxvars,
+          {Coefficients(diffusivity)});
+      integrator->init();
+      return integrator;
+    });
   }
 }
