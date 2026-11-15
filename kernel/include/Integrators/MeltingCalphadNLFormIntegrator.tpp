@@ -227,10 +227,16 @@ void MeltingCalphadNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(el, Tr, elfun, elvect);
 
+  // {u, u_old} and auxiliary fields at the integration points, read below (values_at_ip): not
+  // computed by MeltingBaseNLFormIntegrator when the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
+
   for (int blk = 0; blk < el.Size(); ++blk) {
     Psi_.SetSize(el[blk]->GetDof());
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi_);

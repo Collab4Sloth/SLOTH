@@ -495,3 +495,50 @@ TEST_CASE_METHOD(AuxiliarySquare,
     });
   }
 }
+
+// Melting: mobility, phase change and interpolation function prepared on the mesh
+TEST_CASE_METHOD(AuxiliarySquare,
+                 "Melting: same residual and Jacobian with the coefficients prepared on the mesh",
+                 "[Integrators][coefficients]") {
+  const std::vector<mfem::ParGridFunction> u_old{project(phi0_old)};
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = fes();
+  const auto melting_coefficients = [](const Coefficient& mobility) {
+    return Coefficients(mobility,
+                        Coefficient(Glossary::InterpolationFunction, Scheme::Implicit, H()));
+  };
+  const std::vector<std::pair<std::string, Coefficient>> mobilities{
+      {"M constant", Coefficient(Glossary::Mobility, 3.)},
+      {"M(phi)", Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi())},
+  };
+
+  // T = 1000 + 200 x: melting (T > 1100) on half of the domain
+  VARS2D temperature =
+      aux_variable("T", {"T"}, Glossary::Temperature,
+                   [](const mfem::Vector& p, double) { return 1000. + 200. * p[0]; });
+  const std::vector<VARS2D*> auxvars{&temperature};
+  const std::vector<mfem::ParGridFunction> aux_old{temperature.getVariables()[0].get_gf()};
+  const Parameters constant_params(Parameter("melting_factor", 2.));
+  const Parameters temperature_params(Parameter("melting_temperature", 1100.),
+                                      Parameter("melting_enthalpy", 5.));
+
+  for (const auto& m : mobilities) {
+    const Coefficient& mobility = m.second;
+    INFO("MeltingConstant, " << m.first);
+    check_same_assembly(spaces, [&]() {
+      SlothNLFormIntegrator<VARS2D>* integrator = new MeltingConstantNLFormIntegrator<VARS2D>(
+          Geometry::Cartesian, 0.1, u_old, {}, constant_params, {},
+          {melting_coefficients(mobility)});
+      integrator->init();
+      return integrator;
+    });
+    INFO("MeltingTemperature, " << m.first);
+    check_same_assembly(spaces, [&]() {
+      SlothNLFormIntegrator<VARS2D>* integrator = new MeltingTemperatureNLFormIntegrator<VARS2D>(
+          Geometry::Cartesian, 0.1, u_old, aux_old, temperature_params, auxvars,
+          {melting_coefficients(mobility)});
+      integrator->init();
+      return integrator;
+    });
+  }
+}

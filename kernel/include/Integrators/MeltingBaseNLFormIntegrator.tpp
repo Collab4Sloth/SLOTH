@@ -72,6 +72,7 @@ MeltingBaseNLFormIntegrator<VARS>::MeltingBaseNLFormIntegrator(
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the coefficients evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -89,6 +90,18 @@ void MeltingBaseNLFormIntegrator<VARS>::init() {
 
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
+
+  // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
+  // with the outputs of the residual and of the Jacobian
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  const unsigned int second = SlothNLBase::CoefSecondDerivative;
+  for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
+    this->prepare_on_mesh(this->mobility[blk], blk, value, value | first, this->vaux_gf_);
+    this->prepare_on_mesh(*this->phase_change_, blk, value, value, this->vaux_gf_);
+    this->prepare_on_mesh(this->interpolation_potential[blk], blk, first, first | second,
+                          this->vaux_gf_);
   }
 }
 
@@ -123,10 +136,12 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not needed if
+  // the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("MeltingBaseNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -138,8 +153,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // M(u), h'(u) and phase change at all the integration points of the element
     this->eval_coefficient_at_points(mobility[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                      elfun, this->vaux_gf_, this->mobility_at_points_);
@@ -192,10 +206,12 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   // Catch_Time_Section("MeltingBaseNLFormIntegrator::AssembleElementGrad");
   int num_blocks = el.Size();
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not needed if
+  // the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
@@ -206,8 +222,7 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
     elmats(blk, blk)->SetSize(nd);
     *elmats(blk, blk) = 0.0;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // M(u), dM/du, h'(u), h''(u) and phase change at all the integration points of the element
     this->eval_coefficient_at_points(
         mobility[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk], Tr,
