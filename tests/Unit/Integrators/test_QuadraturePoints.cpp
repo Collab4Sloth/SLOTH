@@ -263,50 +263,87 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   CHECK(!probe.at_element(coef, 0, first | second, no_aux, unknowns, *fes, u, 0, true, out));
 }
 
-// Allen-Cahn assembled by SlothParBlockNonlinearForm (coefficients prepared on the local mesh):
+// -----------------------------------------------------------------------------
+// Integrators assembled by SlothParBlockNonlinearForm (coefficients prepared on the local mesh):
 // same residual and Jacobian as with mfem::ParBlockNonlinearForm (evaluation element by element)
-TEST_CASE_METHOD(sloth_unit::UnitSquare,
-                 "AllenCahn: same residual and Jacobian with the coefficients prepared on the mesh",
-                 "[Integrators][coefficients]") {
-  struct AllenCahnCase {
-    std::string name;
-    std::vector<Coefficients> coefficients;
+// -----------------------------------------------------------------------------
+namespace {
+/// @brief One integrator to assemble: name, number of blocks, how to build it
+struct AssemblyCase {
+  std::string name;
+  int nb_blocks;
+  std::function<SlothNLFormIntegrator<VARS2D>*(const std::vector<mfem::ParGridFunction>&)> make;
+};
+
+/// @brief Builds an integrator with its coefficients (one Coefficients per block)
+template <template <class> class INTEGRATOR>
+std::function<SlothNLFormIntegrator<VARS2D>*(const std::vector<mfem::ParGridFunction>&)> maker(
+    std::vector<Coefficients> coefficients) {
+  return [coefficients](const std::vector<mfem::ParGridFunction>& u_old) {
+    SlothNLFormIntegrator<VARS2D>* integrator = new INTEGRATOR<VARS2D>(
+        Geometry::Cartesian, 0.1, u_old, {}, kNoParameters, {}, coefficients);
+    integrator->init();
+    return integrator;
   };
+}
+
+std::vector<AssemblyCase> assembly_cases() {
   const Coefficient mobility_phi(Glossary::Mobility, Scheme::Implicit, MobilityPhi());
   const Coefficient mobility_cross(Glossary::Mobility, Scheme::Implicit, MobilityCross());
-  const Coefficients coupled(
-      Coefficient(Glossary::FreeEnergy, Scheme::Implicit, CoupledEnergy()),
-      Coefficient(Glossary::Capillary, 0.15), mobility_cross,
-      Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(0.15)));
-  const std::vector<AllenCahnCase> cases{
-      {"1 phase, M constant", {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))}},
-      {"1 phase, M(phi)", {phase_field_coefficients(mobility_phi)}},
-      {"2 phases, M(phi0, phi1), coupled energy", {coupled, coupled}},
-      {"2 phases, W(phi_b) and M = H(phi_b)",
-       {phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(2.))),
-        phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(2.)))}},
+  const Coefficients coupled(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, CoupledEnergy()),
+                             Coefficient(Glossary::Capillary, 0.15), mobility_cross,
+                             Coefficient(Glossary::GradEnergy, Scheme::Implicit,
+                                         GradientEnergy(0.15)));
+  const auto h_mobility = [](const double p) {
+    return phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(p)));
   };
+  const auto diffusivity = [](const Coefficient& d) { return Coefficients(d); };
+  return {
+      {"AllenCahn, 1 phase, M constant", 1,
+       maker<AllenCahnNLFormIntegrator>(
+           {phase_field_coefficients(Coefficient(Glossary::Mobility, 1.))})},
+      {"AllenCahn, 1 phase, M(phi)", 1,
+       maker<AllenCahnNLFormIntegrator>({phase_field_coefficients(mobility_phi)})},
+      {"AllenCahn, 2 phases, M(phi0, phi1), coupled energy", 2,
+       maker<AllenCahnNLFormIntegrator>({coupled, coupled})},
+      {"AllenCahn, 2 phases, W(phi_b) and M = H(phi_b)", 2,
+       maker<AllenCahnNLFormIntegrator>({h_mobility(2.), h_mobility(2.)})},
+      {"Fick, D constant", 1,
+       maker<FickNLFormIntegrator>({diffusivity(Coefficient(Glossary::Diffusivity, 2.))})},
+      {"Fick, D(u)", 1,
+       maker<FickNLFormIntegrator>(
+           {diffusivity(Coefficient(Glossary::Diffusivity, Scheme::Implicit, MobilityPhi()))})},
+      {"Fick, 2 blocks, D = H(u_b) per block", 2,
+       maker<FickNLFormIntegrator>(
+           {diffusivity(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.))),
+            diffusivity(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.)))})},
+      {"Fick, 2 blocks, D(u_0, u_1) explicit", 2,
+       maker<FickNLFormIntegrator>(
+           {diffusivity(Coefficient(Glossary::Diffusivity, Scheme::Explicit, MobilityCross())),
+            diffusivity(Coefficient(Glossary::Diffusivity, Scheme::Implicit, MobilityCross()))})},
+      {"Fourier, lambda(T)", 1,
+       maker<FourierNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Conductivity, Scheme::Implicit, H(3.)))})},
+  };
+}
+}  // namespace
 
-  for (const AllenCahnCase& c : cases) {
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "Integrators: same residual and Jacobian with the coefficients prepared on the mesh",
+                 "[Integrators][coefficients]") {
+  for (const AssemblyCase& c : assembly_cases()) {
     INFO(c.name);
-    const int nb = static_cast<int>(c.coefficients.size());
+    const int nb = c.nb_blocks;
     std::vector<mfem::ParGridFunction> u_old{project(phi0_old)};
     if (nb == 2) u_old.push_back(project(phi1_old));
     mfem::Array<mfem::ParFiniteElementSpace*> spaces(nb);
     for (int b = 0; b < nb; ++b) spaces[b] = fes.get();
 
+    // Evaluation element by element: the hook is not called by mfem::ParBlockNonlinearForm
     mfem::ParBlockNonlinearForm reference(spaces);
-    auto* by_element = new AllenCahnNLFormIntegrator<VARS2D>(Geometry::Cartesian, 0.1, u_old, {},
-                                                             kNoParameters, {}, c.coefficients);
-    by_element->init();
-    reference.AddDomainIntegrator(by_element);
-
+    reference.AddDomainIntegrator(c.make(u_old));
     SlothParBlockNonlinearForm<VARS2D> form(spaces);
-    auto* on_mesh = new AllenCahnNLFormIntegrator<VARS2D>(Geometry::Cartesian, 0.1, u_old, {},
-                                                          kNoParameters, {}, c.coefficients);
-    on_mesh->init();
-    REQUIRE(on_mesh->uses_quadrature_points());
-    form.AddDomainIntegrator(on_mesh);
+    form.AddDomainIntegrator(c.make(u_old));
 
     // Values in [0.2, 0.8]
     mfem::Vector x(nb * fes->GetTrueVSize()), v(x.Size());
