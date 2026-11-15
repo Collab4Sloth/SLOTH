@@ -359,6 +359,35 @@ std::vector<AssemblyCase> assembly_cases() {
       {"Fourier, lambda(T)", 1,
        maker<FourierNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Conductivity, Scheme::Implicit, H(3.)))})},
+      // Time-derivative integrators: the unknown is k = du/dt, implicit coefficients evaluated
+      // at the end of the step u = u_old + dt k
+      {"TimeDerivative, A = B = 1", 1, maker<TimeNLFormIntegrator>({Coefficients()})},
+      {"TimeDerivative, 2 blocks, implicit A(u_b) and B(u_b)", 2,
+       maker<TimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(2.)),
+                         Coefficient(Glossary::ExplicitTime_B, Scheme::Implicit, W(5.))),
+            Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(3.)),
+                         Coefficient(Glossary::ExplicitTime_B, 2.))})},
+      {"TimeDerivative, 2 blocks, A(u_0, u_1) implicit", 2,
+       maker<TimeNLFormIntegrator>(
+           {Coefficients(
+                Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, MobilityCross())),
+            Coefficients(
+                Coefficient(Glossary::ExplicitTime_A, Scheme::Explicit, MobilityCross()))})},
+      {"HeatTimeDerivative, explicit Cp(T)", 1,
+       maker<HeatTimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Concentration, 2.),
+                         Coefficient(Glossary::Cp, Scheme::Explicit, W(5.)))})},
+      {"HeatTimeDerivative, implicit rho(T) and Cp(T)", 1,
+       maker<HeatTimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::Concentration, Scheme::Implicit, H(2.)),
+                         Coefficient(Glossary::Cp, Scheme::Implicit, W(5.)))})},
+      {"SplitTimeDerivative, A = 1", 2,
+       maker<TimeCHNLFormIntegrator>({Coefficients(), Coefficients()})},
+      {"SplitTimeDerivative, implicit A(phi)", 2,
+       maker<TimeCHNLFormIntegrator>(
+           {Coefficients(),
+            Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(2.)))})},
   };
 }
 }  // namespace

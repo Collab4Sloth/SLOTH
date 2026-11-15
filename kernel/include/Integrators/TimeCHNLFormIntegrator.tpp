@@ -76,6 +76,7 @@ TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the coefficients evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -96,6 +97,14 @@ void TimeCHNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
   }
+
+  // A of the equation of mu (block 1, variable of block 0) evaluated at the end of the step at all
+  // the quadrature points of the local mesh before each assembly, with the outputs of the residual
+  // and of the Jacobian
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  this->prepare_on_mesh(this->coefficient_A[1], 0, value, value | first, this->vaux_gf_,
+                        SlothNLBase::ValuesAt::EndOfStep);
 }
 
 /**
@@ -168,10 +177,12 @@ template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not
+  // needed if the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   //////////////////////
   // Block 0 R(phi) on mu term
   {
@@ -197,8 +208,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Implicit coefficient: evaluated at the end of the step (phi = phi_old + dt dphi/dt), at all
     // the integration points of the element
     this->eval_coefficient_at_points(this->coefficient_A[blk], 0, SlothNLBase::CoefValue, *el[blk],
@@ -243,10 +253,12 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below): not
+  // needed if the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < 2; ++blk) {
     for (int jblk = 0; jblk < 2; ++jblk) {
       elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
@@ -261,8 +273,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
   const int blk = 1;
   const int off_blk = 0;
   Psi.SetSize(el[blk]->GetDof());
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+  const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
   // A and its derivatives at all the integration points of the element, at the end of the step
   this->eval_coefficient_at_points(this->coefficient_A[blk], 0,
                                    SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,

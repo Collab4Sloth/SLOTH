@@ -77,6 +77,7 @@ TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(Geometry geometry, const double
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the coefficients evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -96,6 +97,18 @@ void TimeNLFormIntegrator<VARS>::init() {
 
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
+  }
+
+  // A and B evaluated at the end of the step at all the quadrature points of the local mesh before
+  // each assembly, with the outputs of the residual and of the Jacobian
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  const auto end_of_step = SlothNLBase::ValuesAt::EndOfStep;
+  for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
+    this->prepare_on_mesh(this->coefficient_A[blk], blk, value, value | first, this->vaux_gf_,
+                          end_of_step);
+    this->prepare_on_mesh(this->coefficient_B[blk], blk, value, value | first, this->vaux_gf_,
+                          end_of_step);
   }
 }
 
@@ -165,18 +178,19 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   const int num_blocks = el.Size();
-  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below): not
+  // needed if the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     const int nd = el[blk]->GetDof();
     Psi.SetSize(nd);
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // A and B at all the integration points of the element, at the end of the step
     this->eval_coefficient_at_points(this->coefficient_A[blk], blk, SlothNLBase::CoefValue,
                                      *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
@@ -217,10 +231,12 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   const int num_blocks = el.Size();
-  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below): not
+  // needed if the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     for (int jblk = 0; jblk < num_blocks; ++jblk) {
       elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
@@ -231,8 +247,7 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
   mfem::Vector shape_j;
   for (int blk = 0; blk < num_blocks; ++blk) {
     Psi.SetSize(el[blk]->GetDof());
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // A, B and their derivatives at all the integration points of the element, at the end of
     // the step
     this->eval_coefficient_at_points(this->coefficient_A[blk], blk,
