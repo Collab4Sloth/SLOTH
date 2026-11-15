@@ -244,6 +244,20 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                   CoefficientAtPoints& out,
                                   const ValuesAt values_at = ValuesAt::Unknowns);
 
+  /// Integration rule of the element: the one of the assembly, used to prepare the coefficients
+  /// on the local mesh (default: order 2 p + order of the transformation)
+  virtual const mfem::IntegrationRule& integration_rule(const mfem::FiniteElement& fe,
+                                                        mfem::ElementTransformation& Tr) const;
+  void prepare_on_mesh(Coefficient& coef, const int var_blk, const unsigned int residual_outputs,
+                       const unsigned int jacobian_outputs,
+                       const std::vector<mfem::ParGridFunction>& aux_gf,
+                       const ValuesAt values_at = ValuesAt::Unknowns);
+  bool read_prepared_coefficient(const Coefficient& coef, const int var_blk,
+                                 const unsigned int outputs,
+                                 const std::vector<mfem::ParGridFunction>& aux_gf,
+                                 const ValuesAt values_at, const int elem,
+                                 const mfem::IntegrationRule& ir, CoefficientAtPoints& out) const;
+
  private:
   // Steps of eval_coefficient_at_points
   /// Values {u, u_old} and auxiliary fields at the integration points of an element
@@ -269,13 +283,42 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                  const std::vector<mfem::ParGridFunction>& aux_gf,
                                  const ValuesAt values_at);
   bool eval_by_batch(const Coefficient& coef, const int var_blk, const unsigned int outputs,
-                     mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
-                     const ElementValues& values, CoefficientAtPoints& out);
+                     const int npts, const ElementValues& values,
+                     const std::span<const double>& coordinates, CoefficientAtPoints& out);
   void eval_point_by_point(Coefficient& coef, const int var_blk, const unsigned int outputs,
                            mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
                            const ElementValues& values, CoefficientAtPoints& out);
   void eval_file_at_points(const Coefficient& coef, mfem::ElementTransformation& Tr,
                            const mfem::IntegrationRule& ir, CoefficientAtPoints& out);
+
+  // Evaluation at all the quadrature points of the local mesh (see prepare_quadrature_points)
+  /// Coefficient declared with prepare_on_mesh and its values at the points of the local mesh
+  struct MeshCoefficient {
+    const Coefficient* coef = nullptr;
+    int var_blk = 0;
+    unsigned int residual_outputs = 0;
+    unsigned int jacobian_outputs = 0;
+    const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
+    ValuesAt values_at = ValuesAt::Unknowns;
+    unsigned int prepared_outputs = 0;  ///< outputs available in at_points (0: not prepared)
+    CoefficientAtPoints at_points;      ///< values at all the points of the local mesh
+  };
+  /// {u, u_old} and auxiliary fields at all the points of the local mesh (layout of ElementValues)
+  struct MeshValues {
+    const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
+    ValuesAt values_at = ValuesAt::Unknowns;
+    std::vector<double> u_uold;
+    std::vector<double> aux;
+  };
+  std::vector<MeshCoefficient> mesh_coefficients_;
+  std::vector<MeshValues> mesh_values_;
+  std::vector<const mfem::IntegrationRule*> mesh_rules_;  ///< rule of each element (nullptr: none)
+  std::vector<std::size_t> mesh_offsets_;  ///< first point of each element (size: elements + 1)
+  std::vector<double> mesh_coordinates_;   ///< physical coordinates of the points (dim per point)
+  mfem::Array<int> mesh_vdofs_;            ///< work data of prepare_quadrature_points
+  std::vector<mfem::Vector> mesh_elfun_;   ///< element dofs of each block
+  std::span<const double> element_coordinates(mfem::ElementTransformation& Tr,
+                                              const mfem::IntegrationRule& ir);
 
  protected:
   // Integrators of the time derivative: their unknown is k = du/dt, and u at the end of the
@@ -290,15 +333,19 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   double get_physical_time_step() const;
 
   //////////////////////////////////////////////////////////////////////////////
-  // Values at all the quadrature points of the mesh, prepared before the assembly
+  // Coefficients evaluated at all the quadrature points of the local mesh, before the assembly
   //////////////////////////////////////////////////////////////////////////////
-  /// True if the integrator prepares values at the quadrature points of the mesh before each
-  /// assembly (see prepare_quadrature_points). False by default: nothing is prepared.
-  virtual bool uses_quadrature_points() const { return false; }
-  /// Called by SlothParBlockNonlinearForm before each assembly (Mult, GetGradient) if
-  /// uses_quadrature_points() is true. x: current values at the local dofs of each block (same
-  /// values as the element vectors elfun of the assembly).
-  virtual void prepare_quadrature_points(const mfem::BlockVector& /*x*/) {}
+  /// Assembly for which the coefficients are prepared
+  enum class Assembly {
+    Residual,  ///< Mult: outputs of the residual
+    Jacobian   ///< GetGradient: outputs of the Jacobian
+  };
+  /// True if values are prepared at the quadrature points of the local mesh before each assembly:
+  /// by default, if coefficients are declared with prepare_on_mesh
+  virtual bool uses_quadrature_points() const { return !this->mesh_coefficients_.empty(); }
+  virtual void prepare_quadrature_points(const mfem::Array<mfem::FiniteElementSpace*>& fes,
+                                         const mfem::BlockVector& x, const Assembly assembly);
+  virtual void clear_quadrature_points();
 
   virtual std::vector<std::pair<int, int>> time_derivative_map() const { return {}; }
   virtual void init() = 0;

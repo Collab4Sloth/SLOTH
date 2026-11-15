@@ -47,13 +47,18 @@ class PreparedFourier : public FourierNLFormIntegrator<VARS2D> {
         uses_(uses) {}
 
   bool uses_quadrature_points() const override { return uses_; }
-  void prepare_quadrature_points(const mfem::BlockVector& x) override {
+  void prepare_quadrature_points(const mfem::Array<mfem::FiniteElementSpace*>& /*fes*/,
+                                 const mfem::BlockVector& x, const Assembly assembly) override {
     ++calls;
     prepared = x;
+    last_assembly = assembly;
   }
+  void clear_quadrature_points() override { ++clears; }
 
   int calls = 0;
+  int clears = 0;
   mfem::Vector prepared;  ///< values received by the last call
+  Assembly last_assembly = Assembly::Residual;
 
  private:
   bool uses_;
@@ -106,8 +111,8 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   CHECK(max_difference(jv_reference, jv) == 0.);
 }
 
-// prepare_quadrature_points is called before each assembly with the local dofs of x, only for
-// the integrators using the quadrature points
+// prepare_quadrature_points is called before each assembly with the local dofs of x and
+// clear_quadrature_points after it, only for the integrators using the quadrature points
 TEST_CASE_METHOD(sloth_unit::UnitSquare,
                  "SlothParBlockNonlinearForm: integrators prepared before each assembly",
                  "[Operators]") {
@@ -129,13 +134,18 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
 
   form.Mult(x, y);
   CHECK(prepared->calls == 1);
+  CHECK(prepared->clears == 1);
+  CHECK(prepared->last_assembly == PreparedFourier::Assembly::Residual);
   CHECK(max_difference(prepared->prepared, x_local) == 0.);
 
   x *= 0.5;
   x_local.SetFromTrueDofs(x);
   form.GetGradient(x);
   CHECK(prepared->calls == 2);
+  CHECK(prepared->clears == 2);
+  CHECK(prepared->last_assembly == PreparedFourier::Assembly::Jacobian);
   CHECK(max_difference(prepared->prepared, x_local) == 0.);
 
   CHECK(not_prepared->calls == 0);
+  CHECK(not_prepared->clears == 0);
 }

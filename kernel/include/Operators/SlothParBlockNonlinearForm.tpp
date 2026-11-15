@@ -57,12 +57,12 @@ void SlothParBlockNonlinearForm<VARS>::AddBoundaryIntegrator(SlothNLFormIntegrat
 
 /**
  * @brief Residual: integrators prepared at x, then assembly of mfem::ParBlockNonlinearForm
- *
  */
 template <class VARS>
 void SlothParBlockNonlinearForm<VARS>::Mult(const mfem::Vector& x, mfem::Vector& y) const {
-  this->prepare_quadrature_points(x);
+  const bool prepared = this->prepare_quadrature_points(x, Assembly::Residual);
   mfem::ParBlockNonlinearForm::Mult(x, y);
+  if (prepared) this->clear_quadrature_points();
 }
 
 /**
@@ -70,8 +70,10 @@ void SlothParBlockNonlinearForm<VARS>::Mult(const mfem::Vector& x, mfem::Vector&
  */
 template <class VARS>
 mfem::BlockOperator& SlothParBlockNonlinearForm<VARS>::GetGradient(const mfem::Vector& x) const {
-  this->prepare_quadrature_points(x);
-  return mfem::ParBlockNonlinearForm::GetGradient(x);
+  const bool prepared = this->prepare_quadrature_points(x, Assembly::Jacobian);
+  mfem::BlockOperator& gradient = mfem::ParBlockNonlinearForm::GetGradient(x);
+  if (prepared) this->clear_quadrature_points();
+  return gradient;
 }
 
 /**
@@ -79,14 +81,17 @@ mfem::BlockOperator& SlothParBlockNonlinearForm<VARS>::GetGradient(const mfem::V
  * assembly) to the integrators using the quadrature points of the mesh.
  *
  * @param x True dofs of each block
+ * @param assembly Residual or Jacobian
+ * @return false if no integrator uses the quadrature points (nothing is done)
  */
 template <class VARS>
-void SlothParBlockNonlinearForm<VARS>::prepare_quadrature_points(const mfem::Vector& x) const {
+bool SlothParBlockNonlinearForm<VARS>::prepare_quadrature_points(const mfem::Vector& x,
+                                                                 const Assembly assembly) const {
   const auto uses_quadrature_points = [](const SlothNLFormIntegrator<VARS>* nlfi) {
     return nlfi->uses_quadrature_points();
   };
   if (std::ranges::none_of(this->integrators_, uses_quadrature_points)) {
-    return;
+    return false;
   }
 
   // As in mfem::ParBlockNonlinearForm::Mult: x is not modified
@@ -98,7 +103,20 @@ void SlothParBlockNonlinearForm<VARS>::prepare_quadrature_points(const mfem::Vec
   }
   for (auto* nlfi : this->integrators_) {
     if (uses_quadrature_points(nlfi)) {
-      nlfi->prepare_quadrature_points(this->x_local_);
+      nlfi->prepare_quadrature_points(this->fes, this->x_local_, assembly);
+    }
+  }
+  return true;
+}
+
+/**
+ * @brief End of the assembly: the prepared values are no longer used by the integrators
+ */
+template <class VARS>
+void SlothParBlockNonlinearForm<VARS>::clear_quadrature_points() const {
+  for (auto* nlfi : this->integrators_) {
+    if (nlfi->uses_quadrature_points()) {
+      nlfi->clear_quadrature_points();
     }
   }
 }

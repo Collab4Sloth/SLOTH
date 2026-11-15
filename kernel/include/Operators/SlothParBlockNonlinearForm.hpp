@@ -36,8 +36,9 @@
  *
  * Before the assembly of the residual (Mult) and of the Jacobian (GetGradient), the integrators
  * whose uses_quadrature_points() is true receive the current values of the unknowns at the local
- * dofs of each block (SlothNLFormIntegrator::prepare_quadrature_points). The assembly itself is
- * the one of mfem::ParBlockNonlinearForm.
+ * dofs of each block (SlothNLFormIntegrator::prepare_quadrature_points), and the prepared values
+ * are released at the end of the assembly (SlothNLFormIntegrator::clear_quadrature_points). The
+ * assembly itself is the one of mfem::ParBlockNonlinearForm.
  *
  * GetLocalGradient (not virtual in MFEM, not used in SLOTH) does not prepare the integrators.
  *
@@ -57,7 +58,9 @@ class SlothParBlockNonlinearForm : public mfem::ParBlockNonlinearForm {
   mfem::BlockOperator& GetGradient(const mfem::Vector& x) const override;
 
  private:
-  void prepare_quadrature_points(const mfem::Vector& x) const;
+  using Assembly = typename SlothNLFormIntegrator<VARS>::Assembly;
+  bool prepare_quadrature_points(const mfem::Vector& x, const Assembly assembly) const;
+  void clear_quadrature_points() const;
 
   std::vector<SlothNLFormIntegrator<VARS>*> integrators_;  ///< domain and boundary (not owned)
   mutable mfem::BlockVector x_true_;   ///< true dofs of each block (view on x)
