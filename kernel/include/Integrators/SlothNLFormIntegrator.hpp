@@ -289,6 +289,17 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   void set_physical_time_step(const double dt);
   double get_physical_time_step() const;
 
+  //////////////////////////////////////////////////////////////////////////////
+  // Values at all the quadrature points of the mesh, prepared before the assembly
+  //////////////////////////////////////////////////////////////////////////////
+  /// True if the integrator prepares values at the quadrature points of the mesh before each
+  /// assembly (see prepare_quadrature_points). False by default: nothing is prepared.
+  virtual bool uses_quadrature_points() const { return false; }
+  /// Called by SlothParBlockNonlinearForm before each assembly (Mult, GetGradient) if
+  /// uses_quadrature_points() is true. x: current values at the local dofs of each block (same
+  /// values as the element vectors elfun of the assembly).
+  virtual void prepare_quadrature_points(const mfem::BlockVector& /*x*/) {}
+
   virtual std::vector<std::pair<int, int>> time_derivative_map() const { return {}; }
   virtual void init() = 0;
   SlothNLFormIntegrator(Geometry geometry, const double time_step,

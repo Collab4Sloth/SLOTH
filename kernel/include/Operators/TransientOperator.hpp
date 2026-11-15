@@ -151,7 +151,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   std::vector<std::shared_ptr<LSolver>> mass_solvers_;  // one mass solver per block
   std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix M
   /// Left-Hand-Side
-  mfem::ParBlockNonlinearForm* LHS;
+  SlothParBlockNonlinearForm<Variables<T, DIM>>* LHS;
 
   std::vector<mfem::HypreParMatrix*> Mmat_;
 

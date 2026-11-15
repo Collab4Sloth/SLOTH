@@ -422,7 +422,7 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
   if (this->RHS != nullptr) {
     delete this->RHS;
   }
-  this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
+  this->RHS = new SlothParBlockNonlinearForm<Variables<T, DIM>>(this->fes_);
   for (const auto& integrator : this->rhs_integrators_) {
     auto integrator_ptr = this->set_nlfi_ptr(dt, integrator, u_vect);
     this->RHS->AddDomainIntegrator(integrator_ptr);

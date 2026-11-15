@@ -430,7 +430,7 @@ void TransientOperator<T, DIM>::build_lhs_nonlinear_form(const double dt,
   if (LHS != nullptr) {
     delete LHS;
   }
-  LHS = new mfem::ParBlockNonlinearForm(this->fes_);
+  LHS = new SlothParBlockNonlinearForm<Variables<T, DIM>>(this->fes_);
   auto integrator_ptr = this->set_lhs_nlfi_ptr(dt, u_vect);
   this->LHS->AddDomainIntegrator(integrator_ptr);
 }

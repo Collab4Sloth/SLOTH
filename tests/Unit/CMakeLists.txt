@@ -158,7 +158,8 @@ sloth_add_unit_test(NAME Integrators
 sloth_add_unit_test(NAME Operators
                     SOURCES Operators/test_ReducedOperators.cpp
                             Operators/test_UserIntegrator.cpp
-                            Operators/test_CustomQuantity.cpp)
+                            Operators/test_CustomQuantity.cpp
+                            Operators/test_SlothParBlockNonlinearForm.cpp)
 
 sloth_add_unit_test(NAME Options
                     SOURCES Options/test_Options.cpp
