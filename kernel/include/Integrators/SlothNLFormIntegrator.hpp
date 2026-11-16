@@ -298,7 +298,9 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                            const mfem::IntegrationRule& ir, CoefficientAtPoints& out);
 
   // Evaluation at all the quadrature points of the local mesh (see prepare_quadrature_points)
-  /// Coefficient declared with prepare_on_mesh and its values at the points of the local mesh
+  /// Coefficient declared with prepare_on_mesh and its values at the points of the local mesh.
+  /// Vectors on the host or on the device (mfem::Vector), point by point: value F[q], derivatives
+  /// with respect to the blocks dF[q nb + b], d2F[(q nb + i) nb + j] (see CoefficientAtPoints).
   struct MeshCoefficient {
     const Coefficient* coef = nullptr;
     int var_blk = 0;
@@ -306,17 +308,23 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
     unsigned int jacobian_outputs = 0;
     const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
     ValuesAt values_at = ValuesAt::Unknowns;
-    unsigned int prepared_outputs = 0;  ///< outputs available in at_points (0: not prepared)
-    CoefficientAtPoints at_points;      ///< values at all the points of the local mesh
+    unsigned int prepared_outputs = 0;  ///< outputs available (0: not prepared)
+    int nb = 0;                         ///< number of blocks
+    bool is_explicit = false;           ///< explicit coefficient
+    mfem::Vector values, explicit_values;  ///< variables given to the coefficient at the points
+    mfem::Vector F;                        ///< value at the points
+    mfem::Vector gradient, hessian;        ///< derivatives with respect to its variables
+    mfem::Vector dF, d2F;                  ///< derivatives with respect to the blocks
   };
-  /// {u, u_old} and auxiliary fields at all the points of the local mesh (layout of ElementValues)
+  /// {u, u_old} and auxiliary fields at all the points of the local mesh (layout of ElementValues),
+  /// on the host or on the device (mfem::Vector)
   struct MeshValues {
     const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
     ValuesAt values_at = ValuesAt::Unknowns;
     std::size_t nb = 0;  ///< number of blocks
     bool used = false;   ///< used by a coefficient for the current assembly (prepared)
-    std::vector<double> u_uold;
-    std::vector<double> aux;
+    mfem::Vector u_uold;
+    mfem::Vector aux;
   };
   std::vector<MeshCoefficient> mesh_coefficients_;
   bool mesh_prepared_ = false;  ///< values prepared for the current assembly
@@ -326,7 +334,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::vector<MeshValues> mesh_values_;
   std::vector<const mfem::IntegrationRule*> mesh_rules_;  ///< rule of each element (nullptr: none)
   std::vector<std::size_t> mesh_offsets_;  ///< first point of each element (size: elements + 1)
-  std::vector<double> mesh_coordinates_;   ///< physical coordinates of the points (dim per point)
+  mfem::Vector mesh_coordinates_;          ///< physical coordinates of the points (dim per point)
   mfem::Array<int> mesh_vdofs_;            ///< work data of prepare_quadrature_points
   std::vector<mfem::Vector> mesh_elfun_;   ///< element dofs of each block
   // Work data of values_by_interpolation
@@ -340,6 +348,7 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                          const bool coordinates);
   bool values_by_interpolation(const mfem::Array<mfem::FiniteElementSpace*>& fes,
                                const mfem::BlockVector& x, const bool coordinates);
+  void eval_on_mesh(MeshCoefficient& m, const unsigned int outputs, const MeshValues& values);
   std::span<const double> element_coordinates(mfem::ElementTransformation& Tr,
                                               const mfem::IntegrationRule& ir);
 

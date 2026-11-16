@@ -1147,8 +1147,8 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
              m.values_at == mesh_values.values_at;
     });
     mesh_values.nb = static_cast<std::size_t>(nb);
-    mesh_values.u_uold.clear();
-    mesh_values.aux.clear();
+    mesh_values.u_uold.SetSize(0);
+    mesh_values.aux.SetSize(0);
   }
   if (std::ranges::none_of(this->mesh_values_, [](const MeshValues& v) { return v.used; })) {
     return;  // nothing to prepare for this assembly
@@ -1159,33 +1159,14 @@ void SlothNLFormIntegrator<VARS>::prepare_quadrature_points(
     this->values_by_element(fes, x, bdr_marker, coordinates);
   }
 
-  // Each coefficient at all the points of the local mesh, in one call
-  const std::size_t np = this->mesh_offsets_.back();
-  const auto unb = static_cast<std::size_t>(nb);
+  // Each coefficient at all the points of the local mesh, in one call (host or device)
   for (auto& m : this->mesh_coefficients_) {
     const unsigned int outputs = outputs_of(m);
     if (outputs == 0u) continue;  // not used by this assembly
     const auto it = std::ranges::find_if(this->mesh_values_, [&m](const MeshValues& v) {
       return v.aux_gf == m.aux_gf && v.values_at == m.values_at;
     });
-    ElementValues values;
-    values.nb = unb;
-    values.naux = m.aux_gf->size();
-    values.u_uold = it->u_uold;
-    values.aux = it->aux;
-
-    CoefficientAtPoints& out = m.at_points;
-    out.nb = nb;
-    out.is_explicit = m.coef->is_explicit();
-    out.F.assign((outputs & CoefValue) != 0u ? np : 0, 0.);
-    out.dF.assign((outputs & CoefFirstDerivative) != 0u ? np * unb : 0, 0.);
-    out.d2F.assign((outputs & CoefSecondDerivative) != 0u ? np * unb * unb : 0, 0.);
-    const std::span<const double> points = m.coef->uses_coordinates()
-                                               ? std::span<const double>(this->mesh_coordinates_)
-                                               : std::span<const double>();
-    out.by_batch =
-        this->eval_by_batch(*m.coef, m.var_blk, outputs, static_cast<int>(np), values, points, out);
-    m.prepared_outputs = out.by_batch ? outputs : 0u;
+    this->eval_on_mesh(m, outputs, *it);
   }
   this->mesh_prepared_ = true;
 }
@@ -1206,7 +1187,10 @@ void SlothNLFormIntegrator<VARS>::values_by_element(
 
   this->mesh_rules_.assign(static_cast<std::size_t>(ne), nullptr);
   this->mesh_offsets_.assign(static_cast<std::size_t>(ne) + 1, 0);
-  this->mesh_coordinates_.clear();
+  // Values appended element by element on the host, then copied in the tables
+  std::vector<std::vector<double>> u_uold(this->mesh_values_.size());
+  std::vector<std::vector<double>> aux(this->mesh_values_.size());
+  std::vector<double> points_coordinates;
   this->mesh_elfun_.resize(static_cast<std::size_t>(nb));
   mfem::Array<const mfem::FiniteElement*> el(nb);
   mfem::Array<const mfem::Vector*> elfun(nb);
@@ -1237,7 +1221,8 @@ void SlothNLFormIntegrator<VARS>::values_by_element(
 
     // {u, u_old} and auxiliary fields at the points, as during the assembly: element tables in
     // the domain, point by point on the boundary
-    for (auto& mesh_values : this->mesh_values_) {
+    for (std::size_t k = 0; k < this->mesh_values_.size(); ++k) {
+      const MeshValues& mesh_values = this->mesh_values_[k];
       if (!mesh_values.used) continue;
       if (boundary) {
         this->ipv_ir_ = nullptr;
@@ -1246,17 +1231,27 @@ void SlothNLFormIntegrator<VARS>::values_by_element(
       }
       const ElementValues values =
           this->values_at_points(*el[0], Tr, ir, elfun, *mesh_values.aux_gf, mesh_values.values_at);
-      mesh_values.u_uold.insert(mesh_values.u_uold.end(), values.u_uold.begin(),
-                                values.u_uold.end());
-      mesh_values.aux.insert(mesh_values.aux.end(), values.aux.begin(), values.aux.end());
+      u_uold[k].insert(u_uold[k].end(), values.u_uold.begin(), values.u_uold.end());
+      aux[k].insert(aux[k].end(), values.aux.begin(), values.aux.end());
     }
     if (coordinates) {
       const std::span<const double> points = this->element_coordinates(Tr, ir);
-      this->mesh_coordinates_.insert(this->mesh_coordinates_.end(), points.begin(), points.end());
+      points_coordinates.insert(points_coordinates.end(), points.begin(), points.end());
     }
     this->mesh_rules_[ue] = &ir;
     this->mesh_offsets_[ue + 1] += static_cast<std::size_t>(ir.GetNPoints());
   }
+
+  const auto copy = [](const std::vector<double>& from, mfem::Vector& to) {
+    to.SetSize(static_cast<int>(from.size()));
+    to.UseDevice(true);  // read where the loops run (host or device)
+    std::ranges::copy(from, to.HostWrite());
+  };
+  for (std::size_t k = 0; k < this->mesh_values_.size(); ++k) {
+    copy(u_uold[k], this->mesh_values_[k].u_uold);
+    copy(aux[k], this->mesh_values_[k].aux);
+  }
+  copy(points_coordinates, this->mesh_coordinates_);
 }
 
 /**
@@ -1318,8 +1313,10 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
                                                   : mfem::ElementDofOrdering::NATIVE;
     const mfem::Operator& restriction = *space.GetElementRestriction(ordering);
     this->mesh_e_vec_.SetSize(restriction.Height());
+    this->mesh_e_vec_.UseDevice(true);
     restriction.Mult(local, this->mesh_e_vec_);
     at_points.SetSize(space.GetNE() * ir.GetNPoints());
+    at_points.UseDevice(true);
     space.GetQuadratureInterpolator(ir)->Values(this->mesh_e_vec_, at_points);
   };
 
@@ -1335,33 +1332,37 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
     this->mesh_q_uold_ir_ = &ir;
   }
 
-  // Tables of the coefficients, point by point (layout of ElementValues)
+  // Tables of the coefficients, point by point (layout of ElementValues), where the loops run
+  // (host or device)
+  const int npts = static_cast<int>(np);
+  const double dt = this->time_step_;
   for (auto& mesh_values : this->mesh_values_) {
     if (!mesh_values.used) continue;
-    const std::size_t width = 2 * unb;
-    mesh_values.u_uold.resize(np * width);
-    for (std::size_t b = 0; b < unb; ++b) {
-      const double* u = this->mesh_q_u_[b].HostRead();
-      const double* u_old = this->mesh_q_uold_[b].HostRead();
-      for (std::size_t q = 0; q < np; ++q) {
-        double* u_uold = mesh_values.u_uold.data() + q * width;
-        // Integrators of the time derivative: {u_old + dt k, u_old} (see values_at_end_of_step)
-        u_uold[b] = mesh_values.values_at == ValuesAt::EndOfStep
-                        ? u_old[q] + this->time_step_ * u[q]
-                        : u[q];
-        u_uold[unb + b] = u_old[q];
-      }
+    // Integrators of the time derivative: {u_old + dt k, u_old} (see values_at_end_of_step)
+    const bool end_of_step = mesh_values.values_at == ValuesAt::EndOfStep;
+    const int width = 2 * nb;
+    mesh_values.u_uold.SetSize(npts * width);
+    mesh_values.u_uold.UseDevice(true);
+    double* u_uold = mesh_values.u_uold.Write();
+    for (int b = 0; b < nb; ++b) {
+      const double* u = this->mesh_q_u_[static_cast<std::size_t>(b)].Read();
+      const double* u_old = this->mesh_q_uold_[static_cast<std::size_t>(b)].Read();
+      mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
+        u_uold[q * width + b] = end_of_step ? u_old[q] + dt * u[q] : u[q];
+        u_uold[q * width + nb + b] = u_old[q];
+      });
     }
     const std::vector<mfem::ParGridFunction>& aux_gf = *mesh_values.aux_gf;
-    const std::size_t naux = aux_gf.size();
-    mesh_values.aux.resize(np * naux);
-    this->mesh_q_aux_.resize(naux);
-    for (std::size_t k = 0; k < naux; ++k) {
-      interpolate(*aux_gf[k].FESpace(), aux_gf[k], this->mesh_q_aux_[k]);
-      const double* aux = this->mesh_q_aux_[k].HostRead();
-      for (std::size_t q = 0; q < np; ++q) {
-        mesh_values.aux[q * naux + k] = aux[q];
-      }
+    const int naux = static_cast<int>(aux_gf.size());
+    mesh_values.aux.SetSize(npts * naux);
+    mesh_values.aux.UseDevice(true);
+    double* aux = mesh_values.aux.Write();
+    this->mesh_q_aux_.resize(aux_gf.size());
+    for (int k = 0; k < naux; ++k) {
+      const auto uk = static_cast<std::size_t>(k);
+      interpolate(*aux_gf[uk].FESpace(), aux_gf[uk], this->mesh_q_aux_[uk]);
+      const double* aux_k = this->mesh_q_aux_[uk].Read();
+      mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) { aux[q * naux + k] = aux_k[q]; });
     }
   }
 
@@ -1370,12 +1371,16 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
   for (std::size_t e = 0; e <= static_cast<std::size_t>(ne); ++e) {
     this->mesh_offsets_[e] = e * static_cast<std::size_t>(nq);
   }
-  this->mesh_coordinates_.clear();
+  this->mesh_coordinates_.SetSize(0);
   if (coordinates) {
+    const int dim = mesh->SpaceDimension();
+    this->mesh_coordinates_.SetSize(npts * dim);
+    this->mesh_coordinates_.UseDevice(true);
+    double* x_points = this->mesh_coordinates_.HostWrite();
     for (int e = 0; e < ne; ++e) {
       const std::span<const double> points =
           this->element_coordinates(*fes[0]->GetElementTransformation(e), ir);
-      this->mesh_coordinates_.insert(this->mesh_coordinates_.end(), points.begin(), points.end());
+      std::ranges::copy(points, x_points + static_cast<std::ptrdiff_t>(e) * nq * dim);
     }
   }
   return true;
@@ -1440,9 +1445,11 @@ SlothNLFormIntegrator<VARS>::prepared_values(const int elem, const mfem::Integra
   values.naux = aux_gf.size();
   const std::size_t first = this->mesh_offsets_[ue];
   const auto np = static_cast<std::size_t>(ir.GetNPoints());
-  values.u_uold =
-      std::span<const double>(it->u_uold).subspan(first * 2 * values.nb, np * 2 * values.nb);
-  values.aux = std::span<const double>(it->aux).subspan(first * values.naux, np * values.naux);
+  // Read on the host (copied from the device once per preparation, if needed)
+  values.u_uold = std::span<const double>(it->u_uold.HostRead() + first * 2 * values.nb,
+                                          np * 2 * values.nb);
+  values.aux = std::span<const double>(
+      values.naux > 0 ? it->aux.HostRead() + first * values.naux : nullptr, np * values.naux);
   return values;
 }
 
@@ -1472,15 +1479,16 @@ bool SlothNLFormIntegrator<VARS>::read_prepared_coefficient(
     return false;
   }
 
-  // Points of the element: [first, first + np) in the tables of the local mesh
-  const CoefficientAtPoints& prepared = it->at_points;
+  // Points of the element: [first, first + np) in the tables of the local mesh, read on the host
+  // (copied from the device once per preparation, if needed)
+  const MeshCoefficient& prepared = *it;
   const std::size_t first = this->mesh_offsets_[ue];
   const auto np = static_cast<std::size_t>(ir.GetNPoints());
   const auto nb = static_cast<std::size_t>(prepared.nb);
-  const auto copy = [](const std::vector<double>& from, const std::size_t begin,
-                       const std::size_t size, std::vector<double>& to) {
-    const auto b = from.begin() + static_cast<std::ptrdiff_t>(begin);
-    to.assign(b, b + static_cast<std::ptrdiff_t>(size));
+  const auto copy = [](const mfem::Vector& from, const std::size_t begin, const std::size_t size,
+                       std::vector<double>& to) {
+    const double* b = from.HostRead() + begin;
+    to.assign(b, b + size);
   };
   out.nb = prepared.nb;
   out.is_explicit = prepared.is_explicit;
@@ -1501,4 +1509,108 @@ bool SlothNLFormIntegrator<VARS>::read_prepared_coefficient(
     out.d2F.clear();
   }
   return true;
+}
+
+/**
+ * @brief Evaluates a declared coefficient at all the points of the local mesh (see
+ * prepare_quadrature_points), with the same rules as eval_by_batch, where the loops run (host or
+ * device): selection of the values given to the coefficient (scheme, block of a coefficient of one
+ * variable), one call of its evaluation structure (FunctionCoefficient::eval_batch), derivatives
+ * stored with respect to the blocks.
+ *
+ * @param m Declared coefficient (outputs stored in m)
+ * @param outputs Requested outputs: CoefValue, CoefFirstDerivative, CoefSecondDerivative (with |)
+ * @param values {u, u_old} and auxiliary fields at the points
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::eval_on_mesh(MeshCoefficient& m, const unsigned int outputs,
+                                               const MeshValues& values) {
+  const Coefficient& coef = *m.coef;
+  const int nb = static_cast<int>(values.nb);
+  const int npts = this->mesh_offsets_.empty() ? 0 : static_cast<int>(this->mesh_offsets_.back());
+  const bool want_value = (outputs & CoefValue) != 0u;
+  const bool want_first_derivative = (outputs & CoefFirstDerivative) != 0u;
+  // Second derivatives of an explicit coefficient: zero, not computed
+  const bool want_second_derivative = (outputs & CoefSecondDerivative) != 0u;
+
+  const bool single = coef.is_single_variable();
+  const int var_blk = m.var_blk;
+  MFEM_VERIFY(!single || (var_blk >= 0 && var_blk < nb),
+              "Error in " + this->integrator_name_ +
+                  ": coefficient of one variable evaluated for block " + std::to_string(var_blk) +
+                  ", which does not exist.");
+  // n values per point; derivatives with respect to the nc first variables of the coefficient
+  const int n = single ? 1 : nb;
+  const int nc = coef.batch_nb_variables();
+  MFEM_VERIFY(nc <= n, "Error in " + this->integrator_name_ + ": coefficient of " +
+                           std::to_string(nc) + " variables evaluated with " + std::to_string(n) +
+                           " values.");
+  const bool semi = coef.is_semi_implicit();
+  const bool previous = coef.is_explicit();
+  m.nb = nb;
+  m.is_explicit = previous;
+
+  // Values given to the coefficient, selected from {u, u_old}
+  const int width = 2 * nb;
+  values.u_uold.UseDevice(true);
+  const double* u_uold = values.u_uold.Read();
+  m.values.SetSize(npts * n);
+  m.values.UseDevice(true);
+  double* v = m.values.Write();
+  m.explicit_values.SetSize(semi ? npts * n : 0);
+  m.explicit_values.UseDevice(true);
+  double* v_explicit = semi ? m.explicit_values.Write() : nullptr;
+  mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
+    for (int k = 0; k < n; ++k) {
+      const int b = single ? var_blk : k;
+      v[q * n + k] = previous ? u_uold[q * width + nb + b] : u_uold[q * width + b];
+      if (semi) v_explicit[q * n + k] = u_uold[q * width + nb + b];
+    }
+  });
+
+  const bool batch_second_derivative = want_second_derivative && !previous;
+  m.F.SetSize(want_value ? npts : 0);
+  m.gradient.SetSize(want_first_derivative ? npts * nc : 0);
+  m.hessian.SetSize(batch_second_derivative ? npts * nc * nc : 0);
+  const mfem::Vector none;
+  MFEM_VERIFY(coef.eval_batch(npts, m.values, m.explicit_values, values.aux,
+                              coef.uses_coordinates() ? this->mesh_coordinates_ : none,
+                              want_value ? &m.F : nullptr,
+                              want_first_derivative ? &m.gradient : nullptr,
+                              batch_second_derivative ? &m.hessian : nullptr),
+              "Error in " + this->integrator_name_ + ": evaluation of a coefficient on the mesh.");
+
+  // Derivatives with respect to the blocks (zero for the blocks the coefficient does not depend on)
+  m.dF.SetSize(want_first_derivative ? npts * nb : 0);
+  m.d2F.SetSize(want_second_derivative ? npts * nb * nb : 0);
+  m.dF.UseDevice(true);
+  m.d2F.UseDevice(true);
+  if (want_first_derivative) {
+    m.dF = 0.;
+    const double* gradient = m.gradient.Read();
+    double* dF = m.dF.ReadWrite();
+    mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
+      for (int k = 0; k < nc; ++k) {
+        const int b = single ? var_blk : k;
+        dF[q * nb + b] = gradient[q * nc + k];
+      }
+    });
+  }
+  if (want_second_derivative) {
+    m.d2F = 0.;
+    if (batch_second_derivative) {
+      const double* hessian = m.hessian.Read();
+      double* d2F = m.d2F.ReadWrite();
+      mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
+        for (int k = 0; k < nc; ++k) {
+          const int bk = single ? var_blk : k;
+          for (int l = 0; l < nc; ++l) {
+            const int bl = single ? var_blk : l;
+            d2F[(q * nb + bk) * nb + bl] = hessian[(q * nc + k) * nc + l];
+          }
+        }
+      });
+    }
+  }
+  m.prepared_outputs = outputs;
 }
