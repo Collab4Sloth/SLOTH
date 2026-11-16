@@ -37,8 +37,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  mfem::Mpi::Init(argc, argv);
-  mfem::Hypre::Init();
+  Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   using namespace Sloth2D;
 
   // ##############################
