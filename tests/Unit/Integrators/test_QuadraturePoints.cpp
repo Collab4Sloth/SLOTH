@@ -61,21 +61,34 @@ double phi1_old(const mfem::Vector& p) {
 double phi0_now(const mfem::Vector& p) { return 0.3 + 0.2 * p[0] * p[1]; }
 double phi1_now(const mfem::Vector& p) { return 0.6 - 0.25 * p[0] + 0.1 * p[1]; }
 
-/// @brief Largest absolute difference between two vectors of values
-double max_difference(const std::vector<double>& a, const std::vector<double>& b) {
+/// Relative tolerance of the comparisons with the evaluation element by element: the values at
+/// the points interpolated on the whole mesh (mfem::QuadratureInterpolator) differ from those of
+/// the assembly by rounding errors only
+constexpr double kRoundOff = 1.e-12;
+
+/// @brief Same values up to the rounding errors: max |a - b| <= kRoundOff max |b|
+bool same_up_to_rounding(const std::vector<double>& a, const std::vector<double>& b) {
   REQUIRE(a.size() == b.size());
-  double d = 0.;
-  for (std::size_t i = 0; i < a.size(); ++i) d = std::max(d, std::abs(a[i] - b[i]));
-  return d;
+  double difference = 0., scale = 0.;
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    difference = std::max(difference, std::abs(a[i] - b[i]));
+    scale = std::max(scale, std::abs(b[i]));
+  }
+  CAPTURE(difference, scale);
+  return difference <= kRoundOff * scale;
 }
 
-/// @brief Largest absolute difference between two vectors of true dofs (all ranks)
-double max_difference(const mfem::Vector& a, const mfem::Vector& b) {
+/// @brief Same vectors of true dofs up to the rounding errors (all ranks)
+bool same_up_to_rounding(const mfem::Vector& a, const mfem::Vector& b) {
   REQUIRE(a.Size() == b.Size());
-  double local = 0., global = 0.;
-  for (int i = 0; i < a.Size(); ++i) local = std::max(local, std::abs(a(i) - b(i)));
-  MPI_Allreduce(&local, &global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-  return global;
+  double local[2] = {0., 0.}, global[2] = {0., 0.};
+  for (int i = 0; i < a.Size(); ++i) {
+    local[0] = std::max(local[0], std::abs(a(i) - b(i)));
+    local[1] = std::max(local[1], std::abs(b(i)));
+  }
+  MPI_Allreduce(local, global, 2, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  CAPTURE(global[0], global[1]);
+  return global[0] <= kRoundOff * global[1];
 }
 
 /// @brief Integrator declaring no coefficient on the local mesh (Fourier), giving access to the
@@ -147,8 +160,9 @@ Coefficients phase_field_coefficients(Coefficient mobility) {
 }
 }  // namespace
 
-// Values prepared on the local mesh = values evaluated element by element (identical), for the
-// residual and the Jacobian outputs, the values of the unknowns and at the end of the step
+// Values prepared on the local mesh = values evaluated element by element (up to the rounding
+// errors of the interpolation on the whole mesh), for the residual and the Jacobian outputs, the
+// values of the unknowns and at the end of the step
 TEST_CASE_METHOD(sloth_unit::UnitSquare,
                  "prepare_quadrature_points: same values as the evaluation element by element",
                  "[Integrators][coefficients]") {
@@ -229,9 +243,9 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
             probe.at_element(coef, c.var_blk, all, a, values_at, *fes, u, e, false, by_element));
         CHECK(prepared.nb == by_element.nb);
         CHECK(prepared.is_explicit == by_element.is_explicit);
-        CHECK(max_difference(prepared.F, by_element.F) == 0.);
-        CHECK(max_difference(prepared.dF, by_element.dF) == 0.);
-        CHECK(max_difference(prepared.d2F, by_element.d2F) == 0.);
+        CHECK(same_up_to_rounding(prepared.F, by_element.F));
+        CHECK(same_up_to_rounding(prepared.dF, by_element.dF));
+        CHECK(same_up_to_rounding(prepared.d2F, by_element.d2F));
       }
     }
   }
@@ -293,7 +307,8 @@ std::function<SlothNLFormIntegrator<VARS2D>*(const std::vector<mfem::ParGridFunc
 /**
  * @brief Assembles the integrators built by make with mfem::ParBlockNonlinearForm (evaluation
  * element by element: the hook is not called) and with SlothParBlockNonlinearForm (coefficients
- * prepared on the local mesh), and checks that the residuals and the products J v are identical.
+ * prepared on the local mesh), and checks that the residuals and the products J v are the same up
+ * to the rounding errors.
  *
  * @param bdr Boundary index (attribute - 1) of a boundary integrator, -1 for a domain integrator
  */
@@ -325,12 +340,12 @@ void check_same_assembly(mfem::Array<mfem::ParFiniteElementSpace*>& spaces,
   mfem::Vector y_reference(size), y(size);
   reference.Mult(x, y_reference);
   form.Mult(x, y);
-  CHECK(max_difference(y_reference, y) == 0.);
+  CHECK(same_up_to_rounding(y, y_reference));
 
   mfem::Vector jv_reference(size), jv(size);
   reference.GetGradient(x).Mult(v, jv_reference);
   form.GetGradient(x).Mult(v, jv);
-  CHECK(max_difference(jv_reference, jv) == 0.);
+  CHECK(same_up_to_rounding(jv, jv_reference));
 }
 
 std::vector<AssemblyCase> assembly_cases() {

@@ -329,6 +329,17 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   std::vector<double> mesh_coordinates_;   ///< physical coordinates of the points (dim per point)
   mfem::Array<int> mesh_vdofs_;            ///< work data of prepare_quadrature_points
   std::vector<mfem::Vector> mesh_elfun_;   ///< element dofs of each block
+  // Work data of values_by_interpolation
+  mfem::Vector mesh_e_vec_;                ///< dofs element by element (E-vector)
+  std::vector<mfem::Vector> mesh_q_u_;     ///< u of each block at the points
+  std::vector<mfem::Vector> mesh_q_uold_;  ///< u_old of each block at the points (once)
+  const mfem::IntegrationRule* mesh_q_uold_ir_ = nullptr;  ///< rule of mesh_q_uold_
+  std::vector<mfem::Vector> mesh_q_aux_;   ///< auxiliary fields at the points
+  void values_by_element(const mfem::Array<mfem::FiniteElementSpace*>& fes,
+                         const mfem::BlockVector& x, const mfem::Array<int>* bdr_marker,
+                         const bool coordinates);
+  bool values_by_interpolation(const mfem::Array<mfem::FiniteElementSpace*>& fes,
+                               const mfem::BlockVector& x, const bool coordinates);
   std::span<const double> element_coordinates(mfem::ElementTransformation& Tr,
                                               const mfem::IntegrationRule& ir);
 
