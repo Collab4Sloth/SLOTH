@@ -1258,8 +1258,9 @@ void SlothNLFormIntegrator<VARS>::values_by_element(
  * @brief {u, u_old} and auxiliary fields at all the points of the local mesh (domain), by
  * interpolation of the local dofs: element restriction (local dofs element by element), then
  * mfem::QuadratureInterpolator, on the host or on the device. u_old is interpolated once (it does
- * not change during the life of the integrator). Same values as element by element (see
- * values_by_element) up to the rounding errors.
+ * not change during the life of the integrator). The coordinates of the points, if needed, are
+ * the geometric factors of the mesh (mfem::Mesh::GetGeometricFactors). Same values as element by
+ * element (see values_by_element) up to the rounding errors.
  *
  * Requires a mesh with one type of element, the same finite element for all the blocks, and
  * scalar spaces supported by mfem::QuadratureInterpolator: the same integration rule is then used
@@ -1273,7 +1274,7 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
     const bool coordinates) {
   const int nb = fes.Size();
   const auto unb = static_cast<std::size_t>(nb);
-  const mfem::Mesh* mesh = fes[0]->GetMesh();
+  mfem::Mesh* mesh = fes[0]->GetMesh();
   const int ne = fes[0]->GetNE();
   if (ne == 0 || mesh->GetNumGeometries(mesh->Dimension()) != 1 || this->u_old_.size() < unb) {
     return false;
@@ -1373,15 +1374,23 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
   }
   this->mesh_coordinates_.SetSize(0);
   if (coordinates) {
+    // Physical coordinates of the points: geometric factors of the mesh (computed once by MFEM for
+    // a mesh and a rule; layout NQ x SDIM x NE), arranged point by point
     const int dim = mesh->SpaceDimension();
+    const mfem::Vector& x_by_nodes =
+        mesh->GetGeometricFactors(ir, mfem::GeometricFactors::COORDINATES)->X;
+    x_by_nodes.UseDevice(true);
+    const double* x = x_by_nodes.Read();
     this->mesh_coordinates_.SetSize(npts * dim);
     this->mesh_coordinates_.UseDevice(true);
-    double* x_points = this->mesh_coordinates_.HostWrite();
-    for (int e = 0; e < ne; ++e) {
-      const std::span<const double> points =
-          this->element_coordinates(*fes[0]->GetElementTransformation(e), ir);
-      std::ranges::copy(points, x_points + static_cast<std::ptrdiff_t>(e) * nq * dim);
-    }
+    double* x_points = this->mesh_coordinates_.Write();
+    mfem::forall(npts, [=] MFEM_HOST_DEVICE(int p) {
+      const int e = p / nq;
+      const int q = p % nq;
+      for (int d = 0; d < dim; ++d) {
+        x_points[p * dim + d] = x[q + nq * (d + dim * e)];
+      }
+    });
   }
   return true;
 }
