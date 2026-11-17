@@ -54,6 +54,7 @@ class BoundaryConditions {
   mfem::Array<int> Robin_bdr_;
   mfem::Array<int> ess_tdof_list_;
   std::initializer_list<Boundary> boundaries_;
+  std::map<std::string, std::vector<int>> bdr_indices_by_name_;
 
  public:
   template <class... Args>
@@ -64,6 +65,8 @@ class BoundaryConditions {
   void UpdateEssentialDofs();
   ~BoundaryConditions();
   mfem::Array<int> get_marker_array(const std::string& boundary_type);
+  const std::vector<int>& get_boundary_indices(const std::string& boundary_name) const;
+  void resolve_coefficient_boundaries(Coefficients& coefficients) const;
 };
 
 #include "BCs/BoundaryConditions.tpp"

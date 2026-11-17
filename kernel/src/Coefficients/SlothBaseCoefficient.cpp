@@ -33,6 +33,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Coefficients/ConstantCoefficient.hpp"
@@ -441,6 +442,28 @@ void SlothBaseCoefficient::set_bdr_index_coef(std::vector<int> ids) { this->bdr_
  * @return Vector of boundary ids where the coefficient is applied.
  */
 std::vector<int> SlothBaseCoefficient::get_bdr_index_coef() const { return this->bdr_index_; }
+
+/**
+ * @brief Set the names of the boundaries where the coefficient applies.
+ *
+ * The names are those of the Boundary objects of the BoundaryConditions of the variable. They are
+ * converted into boundary indices, added to the ones given by set_bdr_index_coef(), when the
+ * operator is initialized (BoundaryConditions::resolve_coefficient_boundaries()).
+ *
+ * @param names Names of the boundaries.
+ */
+void SlothBaseCoefficient::set_bdr_names_coef(std::vector<std::string> names) {
+  this->bdr_names_ = std::move(names);
+}
+
+/**
+ * @brief Get the names of the boundaries where the coefficient applies.
+ *
+ * @return Names given by set_bdr_names_coef().
+ */
+const std::vector<std::string>& SlothBaseCoefficient::get_bdr_names_coef() const {
+  return this->bdr_names_;
+}
 
 /**
  * @brief Get the name of the coefficient

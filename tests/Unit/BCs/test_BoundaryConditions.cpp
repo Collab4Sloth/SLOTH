@@ -26,6 +26,7 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include <functional>
+#include <memory>
 #include <span>
 #include <string>
 #include <tuple>
@@ -50,32 +51,68 @@ Coefficient on_boundaries(Coefficient c, const std::vector<int>& bdr) {
   return c;
 }
 
+/// @brief Coefficient attached to some boundaries given by their names
+Coefficient on_named_boundaries(Coefficient c, const std::vector<std::string>& names) {
+  c.set_bdr_names_coef(names);
+  return c;
+}
+
 /**
- * @brief Steady heat conduction - div(grad T) = 0 on the unit square
- * (4 x 4 quadrangles, Q1), solved with the boundary conditions and the
- * coefficients given (conductivity 1 included in them). Every expected solution below is affine,
- * hence exact in Q1. Boundaries: 0 lower (y = 0), 1 right (x = 1), 2 upper (y = 1), 3 left (x = 0).
+ * @brief Steady heat conduction - div(grad T) = 0, solved with the boundary conditions and the
+ * coefficients given (conductivity 1 included in them).
+ * @return L2 error of the solution against exact (all ranks)
+ */
+double solve_heat(SPA& spatial, BCS& bcs, const Coefficients& coefs,
+                  double (*exact)(const mfem::Vector&)) {
+  std::vector<SPA*> spatials{&spatial};
+  auto vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 1.5));
+  SteadyOPE oper(spatials, {"Fourier"});
+  oper.overload_nl_solver(NLSolverType::NEWTON,
+                          Parameters(Parameter("description", std::string("Newton")),
+                                     Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
+  SteadyPB problem("Heat", oper, vars, {coefs});
+  auto coupling = Coupling("Heat", problem);
+  auto time =
+      TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 1.),
+                                    Parameter("time_step", 1.)),
+                         coupling);
+  time.solve();
+  mfem::FunctionCoefficient ex(exact);
+  return vars[0].get_ref_gf().ComputeL2Error(ex);
+}
+
+/**
+ * @brief Unit square (4 x 4 quadrangles, Q1). Every expected solution below is affine, hence exact
+ * in Q1. Boundaries: 0 lower (y = 0), 1 right (x = 1), 2 upper (y = 1), 3 left (x = 0).
  */
 struct HeatSquare {
   SPA spatial{"InlineSquareWithQuadrangles", 1, 0, std::make_tuple(4, 4, 1., 1.)};
-  std::vector<SPA*> spatials{&spatial};
 
-  /// @brief L2 error of the solution against exact (all ranks)
   double solve(BCS& bcs, const Coefficients& coefs, double (*exact)(const mfem::Vector&)) {
-    auto vars = VARS(VAR(&spatial, bcs, "T", Glossary::Temperature, 2, 1.5));
-    SteadyOPE oper(spatials, {"Fourier"});
-    oper.overload_nl_solver(NLSolverType::NEWTON,
-                            Parameters(Parameter("description", std::string("Newton")),
-                                       Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
-    SteadyPB problem("Heat", oper, vars, {coefs});
-    auto coupling = Coupling("Heat", problem);
-    auto time =
-        TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 1.),
-                                      Parameter("time_step", 1.)),
-                           coupling);
-    time.solve();
-    mfem::FunctionCoefficient ex(exact);
-    return vars[0].get_ref_gf().ComputeL2Error(ex);
+    return solve_heat(spatial, bcs, coefs, exact);
+  }
+};
+
+/**
+ * @brief Unit square (4 x 4 quadrangles, Q1) whose boundary attributes are named with
+ * bdr_attribute_sets: lower {1}, right {2}, upper {3}, left {4}, horizontal {1, 3}.
+ */
+struct HeatNamedSquare {
+  static mfem::ParMesh* make_mesh() {
+    mfem::Mesh mesh =
+        mfem::Mesh::MakeCartesian2D(4, 4, mfem::Element::QUADRILATERAL, false, 1., 1.);
+    mesh.bdr_attribute_sets.SetAttributeSet("lower", mfem::Array<int>({1}));
+    mesh.bdr_attribute_sets.SetAttributeSet("right", mfem::Array<int>({2}));
+    mesh.bdr_attribute_sets.SetAttributeSet("upper", mfem::Array<int>({3}));
+    mesh.bdr_attribute_sets.SetAttributeSet("left", mfem::Array<int>({4}));
+    mesh.bdr_attribute_sets.SetAttributeSet("horizontal", mfem::Array<int>({1, 3}));
+    return new mfem::ParMesh(MPI_COMM_WORLD, mesh);
+  }
+  std::unique_ptr<mfem::ParMesh> pmesh{make_mesh()};
+  SPA spatial{pmesh.get(), 1};
+
+  double solve(BCS& bcs, const Coefficients& coefs, double (*exact)(const mfem::Vector&)) {
+    return solve_heat(spatial, bcs, coefs, exact);
   }
 };
 
@@ -134,4 +171,105 @@ TEST_CASE_METHOD(HeatSquare, "BoundaryConditions: time-dependent Dirichlet value
       conductivity,
       on_boundaries(Coefficient(Glossary::Dirichlet, Scheme::Implicit, StepInTime()), {3}));
   CHECK(solve(bcs, coefs, two_times_one_minus_x) < 1.e-10);
+}
+
+TEST_CASE_METHOD(HeatNamedSquare, "BoundaryConditions: boundaries given by bdr_attribute_sets",
+                 "[BCs][Problems]") {
+  REQUIRE(spatial.get_bdr_attribute_sets().AttributeSetExists("horizontal"));
+
+  SECTION("names only, one set gathering two attributes: T = 1 + x") {
+    BCS bcs(&spatial, Boundary("horizontal", "Neumann"), Boundary("right", "Dirichlet", 2.),
+            Boundary("left", "Dirichlet", 1.));
+    Coefficients coefs(conductivity);
+    CHECK(solve(bcs, coefs, one_plus_x) < 1.e-10);
+  }
+  SECTION("names and indices mixed, consistent with the sets: T = 1 + x") {
+    BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", "Dirichlet", 2.),
+            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 1.));
+    Coefficients coefs(conductivity);
+    CHECK(solve(bcs, coefs, one_plus_x) < 1.e-10);
+  }
+  SECTION("Neumann coefficient on the attribute of a named set: T = 1 + 2x") {
+    BCS bcs(&spatial, Boundary("horizontal", "Neumann"), Boundary("right", "Neumann"),
+            Boundary("left", "Dirichlet", 1.));
+    Coefficients coefs(conductivity, on_boundaries(Coefficient(Glossary::Neumann, 2.), {1}));
+    CHECK(solve(bcs, coefs, one_plus_2x) < 1.e-10);
+  }
+}
+
+TEST_CASE_METHOD(HeatNamedSquare, "BoundaryConditions: inconsistent bdr_attribute_sets", "[BCs]") {
+  SECTION("unknown name without index") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        BCS(&spatial, Boundary("horizontal", "Neumann"), Boundary("right", "Dirichlet", 2.),
+            Boundary("west", "Dirichlet", 1.)),
+        "not a boundary attribute set");
+  }
+  SECTION("index inconsistent with the set of the same name") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        BCS(&spatial, Boundary("horizontal", "Neumann"), Boundary("right", 3, "Dirichlet", 2.),
+            Boundary("left", "Dirichlet", 1.)),
+        "make it consistent");
+  }
+  SECTION("attribute shared by two boundaries") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        BCS(&spatial, Boundary("horizontal", "Neumann"), Boundary("lower", "Neumann"),
+            Boundary("right", "Dirichlet", 2.)),
+        "duplicated index");
+  }
+  SECTION("attribute not covered") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        BCS(&spatial, Boundary("horizontal", "Neumann"), Boundary("right", "Dirichlet", 2.)),
+        "inconsistent with the total number");
+  }
+}
+
+// Names of boundaries given without attribute set in the mesh (built-in mesh): the names of the
+// Boundary objects are used by the coefficients.
+TEST_CASE_METHOD(HeatSquare, "BoundaryConditions: coefficients attached to boundary names",
+                 "[BCs][Problems][Operators]") {
+  SECTION("Neumann g = 2 on 'right', T = 1 on x = 0: T = 1 + 2x") {
+    BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 1.));
+    Coefficients coefs(conductivity,
+                       on_named_boundaries(Coefficient(Glossary::Neumann, 2.), {"right"}));
+    CHECK(solve(bcs, coefs, one_plus_2x) < 1.e-10);
+  }
+  SECTION("Dirichlet coefficient on 'left' replaces the value given with the boundary") {
+    BCS bcs(&spatial, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Dirichlet", 2.),
+            Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Dirichlet", 5.));
+    Coefficients coefs(conductivity,
+                       on_named_boundaries(Coefficient(Glossary::Dirichlet, 1.), {"left"}));
+    CHECK(solve(bcs, coefs, one_plus_x) < 1.e-10);
+  }
+}
+
+TEST_CASE_METHOD(HeatNamedSquare,
+                 "BoundaryConditions: indices of the boundaries named in coefficients", "[BCs]") {
+  BCS bcs(&spatial, Boundary("horizontal", "Neumann"), Boundary("right", "Dirichlet", 2.),
+          Boundary("left", 3, "Dirichlet", 1.));
+
+  SECTION("indices of a boundary") {
+    CHECK(bcs.get_boundary_indices("horizontal") == std::vector<int>{0, 2});
+    CHECK(bcs.get_boundary_indices("left") == std::vector<int>{3});
+    SLOTH_CHECK_MFEM_ERROR_WITH(bcs.get_boundary_indices("west"), "unknown boundary 'west'");
+  }
+  SECTION("names only, names and indices, no name") {
+    Coefficients coefs(
+        on_named_boundaries(Coefficient(Glossary::Neumann, 2.), {"horizontal"}),
+        on_boundaries(on_named_boundaries(Coefficient(Glossary::Dirichlet, 1.), {"left"}), {1}),
+        on_boundaries(Coefficient(Glossary::Robin_a, 1.), {2}));
+    bcs.resolve_coefficient_boundaries(coefs);
+    CHECK(coefs[0].get_bdr_index_coef() == std::vector<int>{0, 2});
+    CHECK(coefs[1].get_bdr_index_coef() == std::vector<int>{1, 3});
+    CHECK(coefs[2].get_bdr_index_coef() == std::vector<int>{2});
+
+    // A second resolution gives the same indices
+    bcs.resolve_coefficient_boundaries(coefs);
+    CHECK(coefs[1].get_bdr_index_coef() == std::vector<int>{1, 3});
+  }
+  SECTION("unknown name") {
+    Coefficients coefs(on_named_boundaries(Coefficient(Glossary::Neumann, 2.), {"west"}));
+    SLOTH_CHECK_MFEM_ERROR_WITH(bcs.resolve_coefficient_boundaries(coefs),
+                                "unknown boundary 'west'");
+  }
 }

@@ -24,6 +24,7 @@
  *
  */
 #include <catch2/catch_test_macros.hpp>
+#include <vector>
 
 #include "BCs/Boundary.hpp"
 #include "sloth_unit.hpp"
@@ -58,5 +59,49 @@ TEST_CASE("Boundary: Dirichlet with a constant value", "[BCs]") {
   SECTION("only Dirichlet boundaries take a value") {
     SLOTH_CHECK_MFEM_ERROR_WITH(Boundary("left", 1, "Neumann", 1.), "only Dirichlet");
     SLOTH_CHECK_MFEM_ERROR_WITH(Boundary("left", 1, "Periodic", 1.), "only Dirichlet");
+  }
+}
+
+TEST_CASE("Boundary: identified by a boundary attribute set", "[BCs]") {
+  const mfem::Array<int> attributes({1, 2, 3, 4});
+  mfem::AttributeSets sets(attributes);
+  sets.SetAttributeSet("left", mfem::Array<int>({4}));
+  sets.SetAttributeSet("horizontal", mfem::Array<int>({3, 1}));
+
+  SECTION("name only: one attribute") {
+    Boundary b("left", "Dirichlet", 1.);
+    CHECK_FALSE(b.has_user_index());
+    CHECK(b.get_boundary_indices().empty());
+    b.resolve_indices(sets);
+    CHECK(b.get_boundary_indices() == std::vector<int>{3});
+    CHECK(b.get_boundary_value() == 1.);
+  }
+  SECTION("name only: several attributes, sorted indices") {
+    Boundary b("horizontal", "Neumann");
+    b.resolve_indices(sets);
+    CHECK(b.get_boundary_indices() == std::vector<int>{0, 2});
+  }
+  SECTION("name and index consistent with the set") {
+    Boundary b("left", 3, "Neumann");
+    b.resolve_indices(sets);
+    CHECK(b.get_boundary_indices() == std::vector<int>{3});
+  }
+  SECTION("name and index inconsistent with the set") {
+    Boundary b("left", 0, "Neumann");
+    SLOTH_CHECK_MFEM_ERROR_WITH(b.resolve_indices(sets), "make it consistent");
+    Boundary h("horizontal", 0, "Neumann");
+    SLOTH_CHECK_MFEM_ERROR_WITH(h.resolve_indices(sets), "make it consistent");
+  }
+  SECTION("name without set: the index given is used") {
+    Boundary b("upper", 2, "Neumann");
+    b.resolve_indices(sets);
+    CHECK(b.get_boundary_indices() == std::vector<int>{2});
+  }
+  SECTION("name without set and without index") {
+    Boundary b("upper", "Neumann");
+    SLOTH_CHECK_MFEM_ERROR_WITH(b.resolve_indices(sets), "'horizontal' 'left'");
+  }
+  SECTION("only Dirichlet boundaries take a value") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(Boundary("left", "Robin", 1.), "only Dirichlet");
   }
 }
