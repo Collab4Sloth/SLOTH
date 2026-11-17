@@ -48,6 +48,7 @@ class SlothBaseCoefficient {
   GlossaryQuantity coefficient_quantity_;
   std::shared_ptr<FunctionCoefficient> coefficient_;
   std::vector<int> bdr_index_;
+  std::vector<std::string> bdr_names_;
 
   Scheme scheme_;
 
@@ -135,4 +136,6 @@ class SlothBaseCoefficient {
   void set_name(const std::string& name);
   void set_bdr_index_coef(std::vector<int> ids);
   std::vector<int> get_bdr_index_coef() const;
+  void set_bdr_names_coef(std::vector<std::string> names);
+  const std::vector<std::string>& get_bdr_names_coef() const;
 };

@@ -313,6 +313,8 @@ void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_tim
     auto u = vv.get_unknown();
 
     this->bcs_.emplace_back(vv.get_boundary_conditions());
+    // Boundaries named in the coefficients: indices given by the boundary conditions
+    this->bcs_[iv]->resolve_coefficient_boundaries(this->coefficients_[iv]);
     // The mesh may have changed since the boundary conditions were built (e.g. pre-refinement
     // by the AMR of a Problem initialized before this one): essential dofs on the current mesh
     this->bcs_[iv]->UpdateEssentialDofs();
