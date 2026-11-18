@@ -53,7 +53,7 @@
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
 
 /**
@@ -70,8 +70,8 @@ TransientOperator<T, DIM>::TransientOperator(
     const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators, TimeScheme::value ode,
     const IntegratorEntry<Variables<T, DIM>>& lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials),
-      mfem::TimeDependentOperator(this->compute_total_height(spatials),
-                                  this->compute_total_width(spatials), 0.0),
+      SlothTimeDependentOperator(this->compute_total_height(spatials),
+                                 this->compute_total_width(spatials), 0.0),
       lhs_integrator_(lhs_integrator),
       M(NULL),
       LHS(NULL),
@@ -96,8 +96,8 @@ TransientOperator<T, DIM>::TransientOperator(
     const Parameters& params, TimeScheme::value ode,
     const IntegratorEntry<Variables<T, DIM>>& lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials, params),
-      mfem::TimeDependentOperator(this->compute_total_height(spatials),
-                                  this->compute_total_width(spatials), 0.0),
+      SlothTimeDependentOperator(this->compute_total_height(spatials),
+                                 this->compute_total_width(spatials), 0.0),
       lhs_integrator_(lhs_integrator),
       M(NULL),
       LHS(NULL),
@@ -222,8 +222,8 @@ template <class T, int DIM>
 bool TransientOperator<T, DIM>::sync_with_mesh() {
   if (!OperatorBase<T, DIM>::sync_with_mesh()) return false;
   // The other height/width copy, inherited via mfem::TimeDependentOperator
-  this->mfem::TimeDependentOperator::height = this->OperatorBase<T, DIM>::height;
-  this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
+  this->set_time_dependent_size(this->OperatorBase<T, DIM>::height,
+                                this->OperatorBase<T, DIM>::width);
   // Work vectors of the ODE solver
   this->ode_solver_->Init(*this);
   // Mass matrices, lumped masses, last projected state and constraint solvers of split systems
@@ -259,6 +259,8 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
     mfem::Vector& bb = block_unk.GetBlock(static_cast<int>(i));
     bb = unk_i;
   }
+  block_unk.SyncFromBlocks();  // blocks written: the whole vector is up to date
+
   //// Other schemes: lagged auxiliary variables of a partitioned coupling reported once (BDF2
   //// extrapolates them, see SlothBDF2Solver)
   this->report_lagged_auxiliary_variables();
@@ -270,7 +272,7 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   // Throws TimeStepFailure if a nonlinear solve fails (see ImplicitSolve): vect_unk is then left
   // unchanged
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
-
+  block_unk.SyncToBlocks();  // whole vector written by the ODE solver: blocks up to date
   // The last stage of a Runge-Kutta scheme is not necessarily at the end of the step (e.g.
   // SDIRK23): coefficients at the end of the step for the post-processing
   this->SetTime(next_time);
@@ -283,7 +285,8 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
     views.reserve(unk_size);
     for (size_t i = 0; i < unk_size; i++) {
       mfem::Vector& bi = block_unk.GetBlock(static_cast<int>(i));
-      views.emplace_back(bi.GetData(), bi.Size());
+      views.emplace_back();
+      views.back().MakeRef(bi, 0, bi.Size());
     }
     this->build_rhs_nonlinear_form(current_time_step, views);
     this->project_algebraic_variables(block_unk);
@@ -736,6 +739,7 @@ void TransientOperator<T, DIM>::project_algebraic_variables(mfem::BlockVector& u
   const double min_reduction = 0.1;  // refresh the Jacobian if norm > 0.1 * previous norm
   for (int it = 0; it < max_iter; ++it) {
     this->RHS->Mult(ub, res);
+    res.SyncToBlocks();
     double norm2 = 0.;
     for (const auto& [r, c] : this->alg_) {
       norm2 += mfem::InnerProduct(comm, res.GetBlock(r), res.GetBlock(r));
@@ -763,6 +767,7 @@ void TransientOperator<T, DIM>::project_algebraic_variables(mfem::BlockVector& u
       apply_solver(this->constraint_solvers_[k]->get_solver(), res.GetBlock(r), d);
       ub.GetBlock(c) -= d;
     }
+    ub.SyncFromBlocks();  // after the loop on the corrections, before the next RHS->Mult(ub)
   }
   // Same decision on every rank (norms reduced over all the ranks)
   throw TimeStepFailure("Split system: projection of the algebraic variables did not converge.");
@@ -829,13 +834,16 @@ mfem::Vector TransientOperator<T, DIM>::projection_signature(const mfem::Vector&
     }
   }
   mfem::Vector sig(size);
+  mfem::real_t* h_sig = sig.HostWrite();
   int k = 0;
-  for (int i = 0; i < u.Size(); ++i) sig[k++] = u[i];
+  const mfem::real_t* h_u = u.HostRead();
+  for (int i = 0; i < u.Size(); ++i) h_sig[k++] = h_u[i];
   for (const auto& a : aux) {
-    for (int i = 0; i < a.Size(); ++i) sig[k++] = a[i];
+    const mfem::real_t* h_a = a.HostRead();
+    for (int i = 0; i < a.Size(); ++i) h_sig[k++] = h_a[i];
   }
-  sig[k++] = this->mfem::TimeDependentOperator::GetTime();
-  sig[k++] = this->solve_time_step_;
+  h_sig[k++] = this->mfem::TimeDependentOperator::GetTime();
+  h_sig[k++] = this->solve_time_step_;
   return sig;
 }
 
@@ -856,8 +864,10 @@ bool TransientOperator<T, DIM>::is_already_projected(const mfem::Vector& u) cons
   if (this->last_projection_signature_.Size() > 0) {
     const mfem::Vector sig = this->projection_signature(u);
     local_same = (sig.Size() == this->last_projection_signature_.Size()) ? 1 : 0;
+    const mfem::real_t* h_sig = sig.HostRead();
+    const mfem::real_t* h_last = this->last_projection_signature_.HostRead();
     for (int k = 0; local_same && k < sig.Size(); ++k) {
-      if (sig[k] != this->last_projection_signature_[k]) local_same = 0;
+      if (h_sig[k] != h_last[k]) local_same = 0;
     }
   }
   int global_same = 0;
@@ -886,13 +896,15 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   // Working copy of the state (the algebraic variables of a split system may be projected)
   mfem::BlockVector ub(this->block_trueOffsets_);
   static_cast<mfem::Vector&>(ub) = u;
+  ub.SyncToBlocks();
 
   // One vector per block (non-owning views, split along the block offsets)
   std::vector<mfem::Vector> v_vect;
   v_vect.reserve(static_cast<size_t>(fes_size));  // no reallocation -> views are not deep-copied
   for (int i = 0; i < fes_size; ++i) {
     mfem::Vector& bi = ub.GetBlock(i);
-    v_vect.emplace_back(bi.GetData(), bi.Size());
+    v_vect.emplace_back();
+    v_vect.back().MakeRef(bi, 0, bi.Size());
   }
 
   // Todo(cci) : try to do different because of not satisfying
@@ -902,6 +914,7 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
   mfem::BlockVector bb(this->block_trueOffsets_);
   mfem::BlockVector sol(this->block_trueOffsets_);
   sol = 0.;
+  sol.SyncToBlocks();  // whole vector written: blocks up to date
 
   if (this->split_explicit_) {
     // 1) algebraic variables consistent with the differential ones at this stage
@@ -914,18 +927,22 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
     // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
     this->RHS->Mult(ub, bb);
     bb.Neg();
+    bb.SyncToBlocks();
     for (size_t p = 0; p < this->evol_.size(); ++p) {
       const auto [r, c] = this->evol_[p];
       const mfem::Vector& in = bb.GetBlock(r);
       const mfem::Vector& m = this->lumped_[p];
       mfem::Vector& out = sol.GetBlock(c);
+      const mfem::real_t* h_in = in.HostRead();
+      const mfem::real_t* h_m = m.HostRead();
+      mfem::real_t* h_out = out.HostWrite();
       for (int k = 0; k < out.Size(); ++k) {
-        out[k] = in[k] / m[k];
+        h_out[k] = h_in[k] / h_m[k];
       }
       // Essential dofs of the differential variable: no evolution
       const auto& ess = this->ess_tdof_list_[static_cast<size_t>(c)];
       for (int k = 0; k < ess.Size(); ++k) {
-        out[ess[k]] = 0.;
+        h_out[ess[k]] = 0.;
       }
     }
     // 3) algebraic variables: d/dt = 0 (sol already set to zero)
@@ -933,11 +950,13 @@ void TransientOperator<T, DIM>::Mult(const mfem::Vector& u, mfem::Vector& du_dt)
     // Source terms are part of the RHS nonlinear form (SourceTerm integrator)
     this->RHS->Mult(ub, bb);
     bb.Neg();
+    bb.SyncToBlocks();
 
     for (int i = 0; i < fes_size; ++i) {
       apply_solver(this->M_solver_[static_cast<size_t>(i)], bb.GetBlock(i), sol.GetBlock(i));
     }
   }
+  sol.SyncFromBlocks();
   du_dt = sol;
 }
 
@@ -952,10 +971,15 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vector& u,
                                               mfem::Vector& du_dt) {
   Catch_Time_Section("TransientOperator::ImplicitSolve");
+  MFEM_VERIFY(u.Size() == this->height_ && du_dt.Size() == this->height_,
+              "TransientOperator::ImplicitSolve: wrong vector sizes (u "
+                  << u.Size() << ", du_dt " << du_dt.Size() << ", height " << this->height_ << ")");
 
-  const auto sc = this->height_;
-  mfem::Vector v(u.GetData(), sc);
-  mfem::Vector dv_dt(du_dt.GetData(), sc);
+  MFEM_ASSERT(u.Size() == this->height_ && du_dt.Size() == this->height_,
+              "TransientOperator::ImplicitSolve: wrong vector sizes");
+  // The Dirichlet values of the current stage are written into u
+  auto& u_bc = const_cast<mfem::Vector&>(u);
+
   const int fes_size = this->block_trueOffsets_.Size() - 1;
 
   // Apply BCs first: the forms below are then built (and their coefficients evaluated) with the
@@ -968,9 +992,11 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     for (int i = 0; i < fes_size; ++i) {
       const int off = this->block_trueOffsets_[i];
       const int sz = this->block_trueOffsets_[i + 1] - off;
-      mfem::Vector v_i(u.GetData() + off, sz);
+      mfem::Vector v_i;
+      v_i.MakeRef(u_bc, off, sz);
       this->bcs_[static_cast<size_t>(i)]->SetDirichletBoundaryConditions(
           v_i, this->coefficients_[static_cast<size_t>(i)], auxvars_unk);
+      v_i.SyncAliasMemory(u_bc);  // u sees the Dirichlet values written into v_i
     }
     MATools::MATrace::stop("ApplyBCs");
   }
@@ -983,10 +1009,11 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     for (int i = 0; i < fes_size; ++i) {
       const int off = this->block_trueOffsets_[i];
       const int sz = this->block_trueOffsets_[i + 1] - off;
-      v_vect.emplace_back(u.GetData() + off, sz);
+      v_vect.emplace_back();
+      v_vect.back().MakeRef(u_bc, off, sz);
     }
     this->SetTransientParameters(dt, v_vect);
-    reduced_oper->SetParameters(dt, &v);
+    reduced_oper->SetParameters(dt, &u);
   }
   MATools::MATrace::stop("SetTransientParams");
 
@@ -1003,7 +1030,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     // - with MFEM_USE_EXCEPTIONS, any MFEM error (e.g. non-finite residual norm, MFEM_VERIFY).
     //   Without MFEM_USE_EXCEPTIONS, MFEM aborts the computation.
     try {
-      this->newton_solver_->Mult(zero_rhs, dv_dt);
+      this->newton_solver_->Mult(zero_rhs, du_dt);
     } catch (const TimeStepFailure&) {
       MATools::MATrace::stop("Solve");
       this->free_memory();

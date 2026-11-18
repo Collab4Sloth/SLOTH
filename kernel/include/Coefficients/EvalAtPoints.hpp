@@ -71,7 +71,10 @@ void eval_at_points(const EVAL& eval, const int npts, const double time, const m
   constexpr int n_exp = EVAL::nb_explicit_variables;
   constexpr int n_aux = EVAL::nb_auxiliary_variables;
   constexpr int n_coord = EVAL::nb_coordinates;
-
+  // No point (e.g. MPI rank without element on a boundary): nothing to evaluate
+  if (npts == 0) {
+    return;
+  }
   // Number of components per point of an input, at least the number read by the structure
   auto components = [npts](const mfem::Vector& v, const int required, const char* what) {
     const int m = npts > 0 ? v.Size() / npts : 0;

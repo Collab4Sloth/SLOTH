@@ -27,6 +27,7 @@
  *
  */
 #pragma once
+
 #include <algorithm>
 #include <cstddef>
 #include <list>
@@ -40,6 +41,7 @@
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
+#include "Integrators/QuadraturePointsKernels.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameters.hpp"
@@ -1348,10 +1350,7 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
     for (int b = 0; b < nb; ++b) {
       const double* u = this->mesh_q_u_[static_cast<std::size_t>(b)].Read();
       const double* u_old = this->mesh_q_uold_[static_cast<std::size_t>(b)].Read();
-      mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
-        u_uold[q * width + b] = end_of_step ? u_old[q] + dt * u[q] : u[q];
-        u_uold[q * width + nb + b] = u_old[q];
-      });
+      QuadraturePointsKernels::fill_u_uold(npts, nb, b, end_of_step, dt, u, u_old, u_uold);
     }
     const std::vector<mfem::ParGridFunction>& aux_gf = *mesh_values.aux_gf;
     const int naux = static_cast<int>(aux_gf.size());
@@ -1363,7 +1362,7 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
       const auto uk = static_cast<std::size_t>(k);
       interpolate(*aux_gf[uk].FESpace(), aux_gf[uk], this->mesh_q_aux_[uk]);
       const double* aux_k = this->mesh_q_aux_[uk].Read();
-      mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) { aux[q * naux + k] = aux_k[q]; });
+      QuadraturePointsKernels::fill_component(npts, naux, k, aux_k, aux);
     }
   }
 
@@ -1384,13 +1383,7 @@ bool SlothNLFormIntegrator<VARS>::values_by_interpolation(
     this->mesh_coordinates_.SetSize(npts * dim);
     this->mesh_coordinates_.UseDevice(true);
     double* x_points = this->mesh_coordinates_.Write();
-    mfem::forall(npts, [=] MFEM_HOST_DEVICE(int p) {
-      const int e = p / nq;
-      const int q = p % nq;
-      for (int d = 0; d < dim; ++d) {
-        x_points[p * dim + d] = x[q + nq * (d + dim * e)];
-      }
-    });
+    QuadraturePointsKernels::coordinates_by_points(npts, nq, dim, x, x_points);
   }
   return true;
 }
@@ -1455,8 +1448,8 @@ SlothNLFormIntegrator<VARS>::prepared_values(const int elem, const mfem::Integra
   const std::size_t first = this->mesh_offsets_[ue];
   const auto np = static_cast<std::size_t>(ir.GetNPoints());
   // Read on the host (copied from the device once per preparation, if needed)
-  values.u_uold = std::span<const double>(it->u_uold.HostRead() + first * 2 * values.nb,
-                                          np * 2 * values.nb);
+  values.u_uold =
+      std::span<const double>(it->u_uold.HostRead() + first * 2 * values.nb, np * 2 * values.nb);
   values.aux = std::span<const double>(
       values.naux > 0 ? it->aux.HostRead() + first * values.naux : nullptr, np * values.naux);
   return values;
@@ -1560,7 +1553,6 @@ void SlothNLFormIntegrator<VARS>::eval_on_mesh(MeshCoefficient& m, const unsigne
   m.is_explicit = previous;
 
   // Values given to the coefficient, selected from {u, u_old}
-  const int width = 2 * nb;
   values.u_uold.UseDevice(true);
   const double* u_uold = values.u_uold.Read();
   m.values.SetSize(npts * n);
@@ -1569,25 +1561,20 @@ void SlothNLFormIntegrator<VARS>::eval_on_mesh(MeshCoefficient& m, const unsigne
   m.explicit_values.SetSize(semi ? npts * n : 0);
   m.explicit_values.UseDevice(true);
   double* v_explicit = semi ? m.explicit_values.Write() : nullptr;
-  mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
-    for (int k = 0; k < n; ++k) {
-      const int b = single ? var_blk : k;
-      v[q * n + k] = previous ? u_uold[q * width + nb + b] : u_uold[q * width + b];
-      if (semi) v_explicit[q * n + k] = u_uold[q * width + nb + b];
-    }
-  });
+  QuadraturePointsKernels::select_values(npts, nb, n, single, var_blk, previous, semi, u_uold, v,
+                                         v_explicit);
 
   const bool batch_second_derivative = want_second_derivative && !previous;
   m.F.SetSize(want_value ? npts : 0);
   m.gradient.SetSize(want_first_derivative ? npts * nc : 0);
   m.hessian.SetSize(batch_second_derivative ? npts * nc * nc : 0);
   const mfem::Vector none;
-  MFEM_VERIFY(coef.eval_batch(npts, m.values, m.explicit_values, values.aux,
-                              coef.uses_coordinates() ? this->mesh_coordinates_ : none,
-                              want_value ? &m.F : nullptr,
-                              want_first_derivative ? &m.gradient : nullptr,
-                              batch_second_derivative ? &m.hessian : nullptr),
-              "Error in " + this->integrator_name_ + ": evaluation of a coefficient on the mesh.");
+  MFEM_VERIFY(
+      coef.eval_batch(npts, m.values, m.explicit_values, values.aux,
+                      coef.uses_coordinates() ? this->mesh_coordinates_ : none,
+                      want_value ? &m.F : nullptr, want_first_derivative ? &m.gradient : nullptr,
+                      batch_second_derivative ? &m.hessian : nullptr),
+      "Error in " + this->integrator_name_ + ": evaluation of a coefficient on the mesh.");
 
   // Derivatives with respect to the blocks (zero for the blocks the coefficient does not depend on)
   m.dF.SetSize(want_first_derivative ? npts * nb : 0);
@@ -1598,27 +1585,15 @@ void SlothNLFormIntegrator<VARS>::eval_on_mesh(MeshCoefficient& m, const unsigne
     m.dF = 0.;
     const double* gradient = m.gradient.Read();
     double* dF = m.dF.ReadWrite();
-    mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
-      for (int k = 0; k < nc; ++k) {
-        const int b = single ? var_blk : k;
-        dF[q * nb + b] = gradient[q * nc + k];
-      }
-    });
+    QuadraturePointsKernels::scatter_first_derivatives(npts, nb, nc, single, var_blk, gradient, dF);
   }
   if (want_second_derivative) {
     m.d2F = 0.;
     if (batch_second_derivative) {
       const double* hessian = m.hessian.Read();
       double* d2F = m.d2F.ReadWrite();
-      mfem::forall(npts, [=] MFEM_HOST_DEVICE(int q) {
-        for (int k = 0; k < nc; ++k) {
-          const int bk = single ? var_blk : k;
-          for (int l = 0; l < nc; ++l) {
-            const int bl = single ? var_blk : l;
-            d2F[(q * nb + bk) * nb + bl] = hessian[(q * nc + k) * nc + l];
-          }
-        }
-      });
+      QuadraturePointsKernels::scatter_second_derivatives(npts, nb, nc, single, var_blk, hessian,
+                                                          d2F);
     }
   }
   m.prepared_outputs = outputs;

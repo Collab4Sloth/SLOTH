@@ -14,8 +14,8 @@
 # Without CUDA, nothing is done.
 # ##############################################################################
 if(MFEM_USE_CUDA)
-  if(CMAKE_VERSION VERSION_LESS 3.18)
-    message(FATAL_ERROR "MFEM is built with CUDA: CMake 3.18 or newer is required to build SLOTH "
+  if(CMAKE_VERSION VERSION_LESS 3.25)
+    message(FATAL_ERROR "MFEM is built with CUDA: CMake 3.25 or newer is required to build SLOTH "
                         "(found ${CMAKE_VERSION}).")
   endif()
 
@@ -33,6 +33,13 @@ if(MFEM_USE_CUDA)
   endif()
 
   enable_language(CUDA)
+    
+  # Run-time path of the CUDA libraries used by MFEM (cuSPARSE, cuBLAS...): the executables find
+  # them without LD_LIBRARY_PATH (the libraries of the stubs directory are for linking only)
+  find_package(CUDAToolkit REQUIRED)
+  target_link_options(SlothMFEM INTERFACE "LINKER:-rpath,${CUDAToolkit_LIBRARY_DIR}")
+
+
   set(CMAKE_CUDA_STANDARD 20)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
   set(CMAKE_CUDA_EXTENSIONS OFF)

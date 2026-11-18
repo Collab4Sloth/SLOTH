@@ -191,7 +191,6 @@ int main(int argc, char* argv[]) {
   const std::vector<double> times_list = {0.35, 0.45};
 
   std::string calculation_path = "CahnHilliard";
-  const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {{"phi", {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;
   auto ch_p_pst =

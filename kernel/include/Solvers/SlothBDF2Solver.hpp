@@ -26,6 +26,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -90,12 +91,15 @@ class SlothBDF2Solver : public BDF2Solver {
   /// u^{n-1}: second-to-last entry of the history of the variables, in the block layout of x
   void set_previous_state_from_variables(const int size) {
     this->u_prev_.SetSize(size);
+    // Copy on the host (once per step): the history is copied from the device if needed
+    mfem::real_t* h_u_prev = this->u_prev_.HostWrite();
     int offset = 0;
     for (size_t i = 0; i < this->vars_->get_variables_number(); i++) {
       const mfem::Vector prev = (*this->vars_)[i].get_second_to_last();
       MFEM_VERIFY(offset + prev.Size() <= size,
                   "SlothBDF2Solver: history of the variables inconsistent with the state.");
-      for (int j = 0; j < prev.Size(); j++) this->u_prev_(offset + j) = prev(j);
+      const mfem::real_t* h_prev = prev.HostRead();
+      std::copy(h_prev, h_prev + prev.Size(), h_u_prev + offset);
       offset += prev.Size();
     }
     MFEM_VERIFY(offset == size,

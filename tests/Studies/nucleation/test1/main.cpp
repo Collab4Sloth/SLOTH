@@ -81,10 +81,6 @@ int main(int argc, char* argv[]) {
     const double rstar = 5.0;
     const double rro = rstar * std::get<1>(tup_radius);
     const double DeltaF = -std::sqrt(2.0) / (6.0 * rstar);
-    //  Interface thickness
-    const double epsilon(1.);
-    // Interfacial energy
-    const double sigma(1.);
     // Two-phase mobility
     const double mob(1.);
     const double lambda = 1.;

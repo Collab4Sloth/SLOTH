@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   // Initialize MPI and HYPRE
   //---------------------------------------
-  setVerbosity(Verbosity::Quiet);
+  setVerbosity(Verbosity::Debug);
   Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   //
   //---------------------------------------

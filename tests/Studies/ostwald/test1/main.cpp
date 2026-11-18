@@ -165,7 +165,6 @@ int main(int argc, char* argv[]) {
       });
 
   auto ch_initial_condition_1 = AnalyticalFunctions<DIM>(ch_initial_condition);
-  double mu_initial_condition = 0.0;
 
   auto ch_v1 = VAR(&spatial, ch_bcs, "c", Glossary::PhaseField, 2, ch_initial_condition);
   if (p.control_restart) {
@@ -331,7 +330,6 @@ int main(int argc, char* argv[]) {
   }
 
   std::string calculation_path = "CahnHilliard";
-  const double threshold = 10.;
   std::map<std::string, std::tuple<double, double>> map_threshold_integral = {{"phi", {-1.1, 1.1}}};
   bool enable_save_specialized_at_iter = true;
   auto ch_p_pst = Parameters(

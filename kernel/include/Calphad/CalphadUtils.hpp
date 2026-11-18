@@ -42,12 +42,13 @@ class CalphadUtils {
  public:
   CalphadUtils();
 
-  std::vector<int> sort_nodes(const T &temp, const T &press,
-                              const std::string &temperature_sort_method,
-                              const std::string &pressure_sort_method);
+  std::vector<int> sort_nodes(const T& temp, const T& press,
+                              const std::string& temperature_sort_method,
+                              const std::string& pressure_sort_method);
 
-  size_t get_size(const T &v);
-
+  size_t get_size(const T& v);
+  /// Data of v read on the host (MFEM vectors are copied from the device if needed)
+  static const double* host_data(const T& v);
   ~CalphadUtils();
 };
 

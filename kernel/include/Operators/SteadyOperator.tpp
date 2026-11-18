@@ -139,6 +139,7 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
     bb = unk_i;
     u_vect.emplace_back(unk_i);
   }
+  block_unk.SyncFromBlocks();  // blocks written: the whole vector is up to date
 
   this->SetTransientParameters(dt, u_vect);
 
@@ -151,6 +152,7 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
     sloth_newton->set_divergence_factor(0.);
   }
   this->newton_solver_->Mult(zero_rhs, block_unk);
+  block_unk.SyncToBlocks();  // whole vector written by the Newton solver: blocks up to date
 
   this->free_memory();
 
@@ -159,6 +161,7 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
     const mfem::Vector& bb = block_unk.GetBlock(i);
     unk_i = bb;
   }
+
   next_time = current_time + static_cast<double>(iter) * dt;
 }
 

@@ -176,6 +176,11 @@ separate_arguments(_ext UNIX_COMMAND "${_mfem_ext_libs}")
 set(SLOTHMFEM_LINK "${_mfem_lib_file}")
 set(_seen_dirs "")
 foreach(_f IN LISTS _ext)
+  # MFEM built with nvcc: linker options in the nvcc syntax (-Xlinker=<opt>), given here to the
+  # C++ compiler (-Wl,<opt>)
+  if(_f MATCHES "^-Xlinker=(.+)$")
+    set(_f "-Wl,${CMAKE_MATCH_1}")
+  endif()
   # Stable Homebrew paths for -L<dir>, -Wl,-rpath,<dir> and full library paths
   if(_f MATCHES "^-L(.+)$")
     _slothmfem_stable_path(_d "${CMAKE_MATCH_1}")

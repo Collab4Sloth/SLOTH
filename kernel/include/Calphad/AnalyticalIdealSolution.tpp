@@ -130,11 +130,16 @@ void AnalyticalIdealSolution<T>::compute(
                      [&list_nodes](int node) { return list_nodes.find(node) == list_nodes.end(); }),
       sorted_n_t_p.end());
 
+  // Values of the fields read on the host (MFEM vectors copied from the device if needed)
+  std::vector<const double*> h_tp_gf(tp_gf.size());
+  std::transform(tp_gf.begin(), tp_gf.end(), h_tp_gf.begin(),
+                 [](const T& vec) { return CalphadUtils<T>::host_data(vec); });
+
   // Process CALPHAD calculations for each node
   for (const auto& id : sorted_n_t_p) {
     // Populate tp_gf_at_node for the current node
-    std::transform(tp_gf.begin(), tp_gf.end(), tp_gf_at_node.begin(),
-                   [&id](const T& vec) { return vec[id]; });
+    std::transform(h_tp_gf.begin(), h_tp_gf.end(), tp_gf_at_node.begin(),
+                   [&id](const double* vec) { return vec[id]; });
     const auto Temp = tp_gf_at_node[0];
     const auto& epsilon = 1.e-10;
     const auto x = std::max(epsilon, std::min(1. - epsilon, tp_gf_at_node[2]));

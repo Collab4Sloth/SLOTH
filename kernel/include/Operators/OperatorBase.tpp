@@ -698,11 +698,20 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
   mfem::ParGridFunction gf(this->fes_[0]);
   const bool semi_implicit_coef = (*this->energy_coefficient_).is_semi_implicit();
 
+  // Values read and written on the host (copied from the device if needed)
+  std::vector<const mfem::real_t*> h_vun(static_cast<size_t>(m));
+  std::vector<const mfem::real_t*> h_vaux(static_cast<size_t>(l));
+  for (int j = 0; j < m; ++j)
+    h_vun[static_cast<size_t>(j)] = vun[static_cast<size_t>(j)].HostRead();
+  for (int j = 0; j < l; ++j)
+    h_vaux[static_cast<size_t>(j)] = vaux[static_cast<size_t>(j)].HostRead();
+  mfem::real_t* h_gf = gf.HostWrite();
+
   for (int i = 0; i < gf.Size(); ++i) {
-    for (int j = 0; j < m; ++j) v1[j] = vun[j][i];
-    for (int j = 0; j < l; ++j) v2[j] = vaux[j][i];
-    gf[i] = semi_implicit_coef ? (*this->energy_coefficient_).compute(v1, v1, v2, -1)
-                               : (*this->energy_coefficient_).compute(v1, v2, -1);
+    for (int j = 0; j < m; ++j) v1[static_cast<size_t>(j)] = h_vun[static_cast<size_t>(j)][i];
+    for (int j = 0; j < l; ++j) v2[static_cast<size_t>(j)] = h_vaux[static_cast<size_t>(j)][i];
+    h_gf[i] = semi_implicit_coef ? (*this->energy_coefficient_).compute(v1, v1, v2, -1)
+                                 : (*this->energy_coefficient_).compute(v1, v2, -1);
   }
 
   // Gradients of the variables and of the auxiliary variables, interpolated with the finite
@@ -825,8 +834,10 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
     variable_time_iso_specialized.merge(this->time_iso_specialized_[var_name]);
   }
 
+  // Values at the local dofs (element dofs are local indices), read on the host
   mfem::ParGridFunction gf(this->fes_[var_id]);
   gf.SetFromTrueDofs(u);
+  const mfem::real_t* h_gf = gf.HostRead();
   std::vector<mfem::Vector> iso_points;
 
   for (int i = 0; i < this->fes_[var_id]->GetNE(); i++) {
@@ -840,7 +851,7 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
     std::vector<double> dof_val;
     dof_val.reserve(dofs.Size());
     for (int j = 0; j < dofs.Size(); j++) {
-      dof_val.emplace_back(u(dofs[j]) - iso_value);
+      dof_val.emplace_back(h_gf[dofs[j]] - iso_value);
     }
 
     // At least one positive and one negative value

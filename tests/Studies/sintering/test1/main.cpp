@@ -18,7 +18,7 @@
 ///---------------
 int main(int argc, char* argv[]) {
   setVerbosity(Verbosity::Verbose);   // output level
-  Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
+  Sloth::Init(argc, argv);            // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   Profiling::getInstance().enable();  // Profiling
   using namespace Sloth2D;            // dim., aliases
 
@@ -177,7 +177,6 @@ int main(int argc, char* argv[]) {
       Parameter("specialized_frequency", specialized_frequency),
       Parameter("enable_compute_energies", true),
       Parameter("integral_to_compute", map_threshold_integral));
-  bool vtk_unified = false;
 
   // Post-processing object (unified) associated with a mesh
   auto unified_pst = PST(&spatial, param_unified_pst);
