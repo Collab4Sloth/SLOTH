@@ -12,7 +12,8 @@ import sympy as sp
 import shutil
 import logging
 import sys
-from typing import List, Tuple, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, Optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1200,6 +1201,121 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
 ########################################################################################
 ########################################################################################
 
+
+# ==========================================================
+#  Reading of the JSON file
+# ==========================================================
+
+@dataclass
+class CoefficientSpec:
+    """
+    Description of one coefficient read from the JSON file.
+
+    expressions: list of tuples (expression, range_variable, lower, lower_strict, upper,
+                 upper_strict). A single tuple with None bounds for a standard expression.
+    """
+    expressions: List[Tuple]
+    variables: str
+    explicit_variables: str
+    auxiliary_variables: str
+    constants: str
+    class_name: str
+    output_file: str
+    is_gradient: bool
+    is_conditional: bool
+    coordinates: str
+    bounds: Dict[str, Any] = field(default_factory=dict)
+
+
+def read_coefficient(item) -> CoefficientSpec:
+    """
+    Check one item of the JSON file and return the associated CoefficientSpec.
+    """
+    gradient = bool(item.get("gradient", False))
+    auxiliaries = item.get("auxiliary_variables", "")
+    explicit = item.get("explicit_variables", "")
+    constants = item.get("constants", "")
+    coordinates = item.get("coordinates", "")
+    bounds = item.get("bounds", {})
+
+    expressions = []
+
+    cond_var = item.get("range_variable")
+    is_conditional_expression = False
+    if "expression" in item:
+        expressions.append((item["expression"], None, None, None, None, None))
+    elif "expressions" in item:
+        is_conditional_expression = True
+        found_default = False
+        if cond_var is None:
+            raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")
+        if gradient:
+            raise ValueError("Error: conditional expression not extended to gradient expression.")
+        nb_expression = 0
+        nb_range = 0
+        for expr_item in item["expressions"]:
+            expr = expr_item.get("expression")
+            if expr is not None:
+                nb_expression = nb_expression + 1
+            lower = expr_item.get("lower")
+            upper = expr_item.get("upper")
+            lower_strict = expr_item.get("lower_strict")
+            upper_strict = expr_item.get("upper_strict")
+
+            if expr is None:
+                raise ValueError("Error: expression is expected.")
+            if not expr_item.get("default"):
+                if (lower is not None) and (lower_strict is not None):
+                    raise ValueError("Error: either lower or lower_strict must be defined. Please make a choice.")
+                if (lower is None) and (lower_strict is None):
+                    raise ValueError("Error: either lower or lower_strict must be defined.")
+                if (upper is not None) and (upper_strict is not None):
+                    raise ValueError("Error: either upper or upper_strict must be defined. Please make a choice.")
+                if (upper is None) and (upper_strict is None):
+                    raise ValueError("Error: either upper or upper_strict must be defined.")
+                nb_range = nb_range + 1
+            else:
+                found_default = True
+
+            expressions.append((expr, cond_var, lower, lower_strict, upper, upper_strict))
+
+        if not found_default:
+            raise ValueError("Error: a default expression must be defined for each conditional expression .Use the 'default' attribute in the JSON file.")
+
+        if nb_expression < 2:
+            raise ValueError("Error: at least two expression expressions are expected.")
+
+        if nb_range != nb_expression - 1:
+            raise ValueError("Error: the number of ranges must be equal to the number of expressions - 1")
+
+        check_bounds_consistency(expressions)
+
+    else:
+        raise ValueError("Error: either expression or expressions must be defined.")
+
+    return CoefficientSpec(expressions, item["variables"], explicit, auxiliaries, constants,
+                           item["class_name"], item["outputfile"], gradient,
+                           is_conditional_expression, coordinates, bounds)
+
+
+def read_coefficients(input_file) -> List[CoefficientSpec]:
+    """
+    Read the JSON file and return the list of CoefficientSpec, in the order of the file.
+    """
+    coefficients = []
+    try:
+        with open(input_file, 'r') as file:
+            data = json.load(file)
+        for item in data:
+            coefficients.append(read_coefficient(item))
+    except json.JSONDecodeError:
+        print("Error: Failed to decode JSON from the file.")
+    return coefficients
+
+
+########################################################################################
+########################################################################################
+
 def parse_args() -> Namespace:
     """
     Parse and validate command-line arguments for GenerateCoefficient.py.
@@ -1232,7 +1348,20 @@ def parse_args() -> Namespace:
 
     parser.add_argument("-r", "--remove", dest="remove", help="Remove output cpp files is already exist\n", action="store_true")
 
+    group2 = parser.add_argument_group('Report (LaTeX description of the coefficients)')
+    group2.add_argument(
+        "--report", dest="report", nargs="?", const="", default=None, metavar="TEX_FILE",
+        help="Write a LaTeX report of the coefficients (default: <json name>_report.tex in the "
+             "current directory) and compile it with pdflatex if available"
+    )
+    group2.add_argument("--report-only", dest="report_only", action="store_true",
+                        help="Write the report without generating the C++ files")
+
     args = parser.parse_args()
+    if args.report_only and args.report is None:
+        args.report = ""
+    if args.report is not None and args.input_file is None:
+        parser.error("--report requires an input file (-f)")
 
 
     return args
@@ -1249,11 +1378,9 @@ if __name__ == "__main__":
     1. Loads coefficient definitions from a JSON file (via `-f`)
     2. Optionally removes previously generated C++ output files (flag `-r`).
     3. Generates C++ classes using the `generate_class_with_functions` function.
+    4. Optionally writes a LaTeX report of the coefficients (`--report`, see CoefficientReport.py).
+    """
 
-    Each coefficient is expected to be a quadruplet:
-        (expression, variables, class_name, output_cpp_file)
-    """ 
- 
     logging.basicConfig(
         level=logging.INFO,
         format="[%(asctime)s][%(levelname)s] %(message)s",
@@ -1261,104 +1388,31 @@ if __name__ == "__main__":
     )
     args = parse_args()
 
-    
     # Read data
     coefficients = []
-    if args.input_file is not None:       
-        try:
-            with open(args.input_file, 'r') as file:
-                data = json.load(file)
-            for item in data:
-                if "gradient" in item and item["gradient"]:
-                    gradient=True
-                else:
-                    gradient=False
-                if "auxiliary_variables" in item:
-                    auxiliaries = item["auxiliary_variables"]
-                else:
-                    auxiliaries = ""
-                if "explicit_variables" in item:
-                    explicit = item["explicit_variables"]
-                else:
-                    explicit = ""
-                if "constants" in item:
-                    constants = item["constants"]
-                else:
-                    constants = ""
-                coordinates = item.get("coordinates", "")
-                bounds = item.get("bounds", {})
+    if args.input_file is not None:
+        coefficients = read_coefficients(args.input_file)
 
-                expressions = []
-                
-                cond_var = item.get("range_variable")
-                is_conditional_expression = False
-                if "expression" in item:
-                    expressions.append( (item["expression"], None, None, None, None, None) )
-                elif "expressions" in item:
-                    is_conditional_expression = True
-                    found_default = False
-                    if cond_var is None:
-                        raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")   
-                    if gradient:
-                        raise ValueError("Error: conditional expression not extended to gradient expression.")   
-                    nb_expression = 0
-                    nb_range = 0
-                    for expr_item in item["expressions"]:
-                        expr = expr_item.get("expression")
-                        if expr is not None:
-                            nb_expression= nb_expression +1
-                        lower = expr_item.get("lower")
-                        upper = expr_item.get("upper")
-                        lower_strict = expr_item.get("lower_strict")
-                        upper_strict = expr_item.get("upper_strict")
-                        
-                        if expr is None:
-                            raise ValueError("Error: expression is expected.")    
-                        if not expr_item.get("default"):                  
-                            if (lower is not None) and (lower_strict is not None):
-                                raise ValueError("Error: either lower or lower_strict must be defined. Please make a choice.")
-                            if (lower is None) and (lower_strict is None):
-                                raise ValueError("Error: either lower or lower_strict must be defined.")
-                            if (upper is not None) and (upper_strict is not None):
-                                raise ValueError("Error: either upper or upper_strict must be defined. Please make a choice.")
-                            if (upper is None) and (upper_strict is None):
-                                raise ValueError("Error: either upper or upper_strict must be defined.")
-                            nb_range= nb_range +1
-                        else:
-                            found_default = True
-
-                        expressions.append( (expr, cond_var, lower, lower_strict, upper, upper_strict) )
-                     
-                    if not found_default:
-                        raise ValueError("Error: a default expression must be defined for each conditional expression .Use the 'default' attribute in the JSON file.")
-
-                    if nb_expression < 2:
-                        raise ValueError("Error: at least two expression expressions are expected.")  
-                        
-                    if nb_range != nb_expression - 1:
-                        raise ValueError("Error: the number of ranges must be equal to the number of expressions - 1")
-
-                    check_bounds_consistency(expressions)
-
-                else:
-                    raise ValueError("Error: either expression or expressions must be defined.")
-
-                coefficients.append((expressions, item["variables"], explicit, auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression, coordinates, bounds))
-            
-        except json.JSONDecodeError:
-            print("Error: Failed to decode JSON from the file.")         
+    # LaTeX report
+    if args.report is not None:
+        from CoefficientReport import write_report, compile_report
+        tex_file = args.report or f"{Path(args.input_file).stem}_report.tex"
+        tex_file = write_report(coefficients, tex_file, args.input_file)
+        compile_report(tex_file)
+        if args.report_only:
+            sys.exit(0)
 
     # Remove existing Cpp files
     if args.remove:
         for coef in coefficients:
-            output_cpp_file = coef[6]        
-            cpp_file = f"{output_cpp_file}.hpp"
+            cpp_file = f"{coef.output_file}.hpp"
             path = Path(cpp_file).resolve()
             if path.is_file():
                 os.remove(cpp_file)
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression, coordinate_names, bounds] = coef
-        generate_class_with_functions(expr_str, var_names, explicit_var_names,auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression, coordinate_names, bounds)
-        
+        generate_class_with_functions(coef.expressions, coef.variables, coef.explicit_variables,
+                                      coef.auxiliary_variables, coef.constants, coef.class_name,
+                                      coef.output_file, coef.is_gradient, coef.is_conditional,
+                                      coef.coordinates, coef.bounds)
