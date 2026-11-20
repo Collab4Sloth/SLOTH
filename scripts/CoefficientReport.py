@@ -238,29 +238,83 @@ def visible_width(tex: str) -> int:
     return len(tex)
 
 
-def equation(lhs: str, expr) -> List[str]:
+def split_expression(expr) -> List[str]:
     """
-    Displayed equation lhs = expr (eqnarray). A long sum is split over several lines, each
-    line being filled with terms up to MAX_LINE_WIDTH.
+    LaTeX of expr split in lines of visible width up to MAX_LINE_WIDTH (as far as possible):
+        - sum: lines filled with terms; a term too long alone is itself split,
+        - product: split inside its longest factor which is a sum, with the delimiters
+          \left( ... \right. and \left. ... \right) around the lines.
+    Other expressions are not split.
     """
-    body = to_latex(expr)
-    if not (isinstance(expr, sp.Add) and visible_width(body) > MAX_LINE_WIDTH):
-        return ["\\begin{eqnarray*}", f"  {lhs} &=& {body}", "\\end{eqnarray*}"]
+    tex = to_latex(expr)
+    if visible_width(tex) <= MAX_LINE_WIDTH:
+        return [tex]
+    if isinstance(expr, sp.Add):
+        return split_sum(expr)
+    if isinstance(expr, sp.Mul):
+        return split_product(expr)
+    return [tex]
 
+
+def split_sum(expr) -> List[str]:
     lines, current, width = [], "", 0
-    for k, term in enumerate(to_latex(t) for t in expr.args):
+    for k, t in enumerate(expr.args):
+        term = to_latex(t)
         negative = term.lstrip().startswith("-")
-        piece = term if k == 0 else (f" {term}" if negative else f" + {term}")
+        sign = "" if (k == 0 or negative) else "+ "
+        if visible_width(term) > MAX_LINE_WIDTH:
+            # term too long alone: on its own lines
+            if current:
+                lines.append(current)
+                current, width = "", 0
+            sub = split_expression(t)
+            lines += [sign + sub[0]] + sub[1:]
+            continue
+        piece = f"{sign}{term}" if k == 0 else f" {sign}{term}"
         w = visible_width(piece)
         if current and width + w > MAX_LINE_WIDTH:
             lines.append(current)
             current, width = "", 0
+            piece = piece.lstrip()
         current += piece
         width += w
-    lines.append(current)
+    if current:
+        lines.append(current)
+    return [line.strip() for line in lines]
 
-    rows = [f"  {lhs} &=& {lines[0].strip()}"]
-    rows += [f"  && \\quad {{}} {line.strip()}" for line in lines[1:]]
+
+def split_product(expr) -> List[str]:
+    coeff, rest = expr.as_coeff_Mul()
+    factors = sp.Mul.make_args(rest)
+    sums = [f for f in factors if isinstance(f, sp.Add)]
+    if not sums:
+        return [to_latex(expr)]
+    longest = max(sums, key=lambda f: visible_width(to_latex(f)))
+    inner = split_expression(longest)
+    if len(inner) == 1:
+        return [to_latex(expr)]
+    others = [f for f in factors if f is not longest]
+    prefix = to_latex(coeff * sp.Mul(*others, evaluate=False)) if (others or coeff != 1) else ""
+    if prefix == "1":
+        prefix = ""
+    elif prefix == "-1":
+        prefix = "-"
+    if prefix and prefix != "-":
+        prefix += r"\,"
+    lines = [f"{prefix}\\left({inner[0]}\\right."]
+    lines += [f"\\left.{{}} {line}\\right." for line in inner[1:-1]]
+    lines.append(f"\\left.{{}} {inner[-1]}\\right)")
+    return lines
+
+
+def equation(lhs: str, expr) -> List[str]:
+    """
+    Displayed equation lhs = expr (eqnarray). A long expression is split over several lines
+    (see split_expression).
+    """
+    lines = split_expression(expr)
+    rows = [f"  {lhs} &=& {lines[0]}"]
+    rows += [f"  && \\quad {{}} {line}" for line in lines[1:]]
     return ["\\begin{eqnarray*}", " \\\\\n".join(rows), "\\end{eqnarray*}"]
 
 
