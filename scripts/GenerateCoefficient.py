@@ -1347,6 +1347,9 @@ def parse_args() -> Namespace:
     )
 
     parser.add_argument("-r", "--remove", dest="remove", help="Remove output cpp files is already exist\n", action="store_true")
+    parser.add_argument("--check", dest="check", action="store_true",
+                        help="Only check the consistency of the JSON file (see CoefficientChecker.py);\n"
+                             "the check is always done before the generation")
 
     group2 = parser.add_argument_group('Report (LaTeX description of the coefficients)')
     group2.add_argument(
@@ -1362,6 +1365,8 @@ def parse_args() -> Namespace:
         args.report = ""
     if args.report is not None and args.input_file is None:
         parser.error("--report requires an input file (-f)")
+    if args.check and args.input_file is None:
+        parser.error("--check requires an input file (-f)")
 
 
     return args
@@ -1375,7 +1380,8 @@ if __name__ == "__main__":
     """
     The script GenerateCoefficient.py performs the following tasks:
 
-    1. Loads coefficient definitions from a JSON file (via `-f`)
+    1. Loads coefficient definitions from a JSON file (via `-f`) and checks their consistency
+       (see CoefficientChecker.py): errors stop the script, `--check` stops after the check.
     2. Optionally removes previously generated C++ output files (flag `-r`).
     3. Generates C++ classes using the `generate_class_with_functions` function.
     4. Optionally writes a LaTeX report of the coefficients (`--report`, see CoefficientReport.py).
@@ -1388,9 +1394,15 @@ if __name__ == "__main__":
     )
     args = parse_args()
 
-    # Read data
+    # Check and read data
     coefficients = []
     if args.input_file is not None:
+        from CoefficientChecker import check_file, log_issues
+        if not log_issues(check_file(args.input_file), args.input_file):
+            sys.exit(1)
+        if args.check:
+            logging.info(f"{args.input_file}: no error found.")
+            sys.exit(0)
         coefficients = read_coefficients(args.input_file)
 
     # LaTeX report
