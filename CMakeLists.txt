@@ -118,7 +118,8 @@ endif(SLOTH_USE_LIBTORCH)
 # Script
 # ########################
 set(SCRIPT_FILE ${CMAKE_SOURCE_DIR}/scripts/GenerateCoefficient.py
-                ${CMAKE_SOURCE_DIR}/scripts/CoefficientReport.py)
+                ${CMAKE_SOURCE_DIR}/scripts/CoefficientReport.py
+                ${CMAKE_SOURCE_DIR}/scripts/CoefficientChecker.py)
 set(BUILD_SCRIPT_DIR ${CMAKE_BINARY_DIR}/scripts)
 file(COPY ${SCRIPT_FILE} DESTINATION ${BUILD_SCRIPT_DIR})
 
