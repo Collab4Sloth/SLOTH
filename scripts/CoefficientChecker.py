@@ -38,11 +38,16 @@ from sympy.core.function import AppliedUndef
 from GenerateCoefficient import (EVAL_RESERVED_NAMES, expand_ranges, get_bounds,
                                  get_coordinates, read_coefficient)
 from CoefficientReport import Dot, ExpressionParser, TIME_VALUE
+from VariationalForm import (GRADIENT_PREFIX, VARIATIONAL_CLASSES, VARIATIONAL_FUNCTIONS,
+                             VariationalError, to_components)
 
 # Attributes of a coefficient, and of a piece of a conditional expression
 KNOWN_KEYS = {"class_name", "outputfile", "variables", "explicit_variables",
               "auxiliary_variables", "constants", "coordinates", "bounds", "gradient",
-              "expression", "expressions", "range_variable"}
+              "expression", "expressions", "range_variable", "variational", "dimension",
+              "regularization"}
+# Attributes only used by a variational coefficient
+VARIATIONAL_KEYS = ("dimension", "regularization")
 REQUIRED_KEYS = ("class_name", "outputfile", "variables")
 STRING_KEYS = {"class_name", "outputfile", "variables", "explicit_variables",
                "auxiliary_variables", "constants", "coordinates", "range_variable", "expression"}
@@ -133,6 +138,7 @@ def _check_structure(item, out: _Collector):
             out.error(f"'{key}' must be a string")
     if "gradient" in item and not isinstance(item["gradient"], bool):
         out.error("'gradient' must be true or false")
+    _check_variational_structure(item, out)
     if "bounds" in item and not isinstance(item["bounds"], dict):
         out.error("'bounds' must be an object {variable: [lower, upper]}")
     if "expressions" in item:
@@ -148,6 +154,32 @@ def _check_structure(item, out: _Collector):
                     if key not in PIECE_KEYS:
                         out.error(f"unknown attribute '{key}' in 'expressions'"
                                   f"{_suggest(key, PIECE_KEYS)}")
+
+
+def _check_variational_structure(item, out: _Collector):
+    if "variational" in item and not isinstance(item["variational"], bool):
+        out.error("'variational' must be true or false")
+        return
+    if not item.get("variational", False):
+        for key in VARIATIONAL_KEYS:
+            if key in item:
+                out.error(f"'{key}' is only used by a variational coefficient "
+                          "(\"variational\": true)")
+        return
+    if item.get("gradient", False):
+        out.error("a coefficient cannot be both 'gradient' and 'variational'")
+    if "expressions" in item:
+        out.error("conditional expressions ('expressions') are not extended to variational "
+                  "coefficients")
+    dimension = item.get("dimension")
+    if dimension is None:
+        out.error("'dimension' (1, 2 or 3) must be defined for a variational coefficient")
+    elif isinstance(dimension, bool) or dimension not in (1, 2, 3):
+        out.error(f"'dimension' must be 1, 2 or 3, not {dimension!r}")
+    if "regularization" in item:
+        eps = item["regularization"]
+        if isinstance(eps, bool) or not isinstance(eps, (int, float)) or not eps > 0:
+            out.error(f"'regularization' must be a positive number, not {eps!r}")
 
 
 def _names(text: str) -> List[str]:
@@ -229,6 +261,7 @@ def _check_names(item, out: _Collector) -> Dict[str, List[str]]:
     if not categories["variable"]:
         out.error("at least one variable must be declared in 'variables'")
 
+    variational = item.get("variational", False)
     counts = Counter(n for names in categories.values() for n in names)
     for name, count in counts.items():
         if count > 1:
@@ -241,6 +274,11 @@ def _check_names(item, out: _Collector) -> Dict[str, List[str]]:
                 out.error(f"invalid {category} name '{name}'")
             elif name in CPP_RESERVED or keyword.iskeyword(name):
                 out.error(f"{category} name '{name}' is reserved in the generated C++ code")
+            elif variational and (name in VARIATIONAL_FUNCTIONS
+                                  or name.startswith(GRADIENT_PREFIX)):
+                out.error(f"{category} name '{name}' is reserved in a variational coefficient "
+                          f"(functions {', '.join(VARIATIONAL_FUNCTIONS)}, components "
+                          f"{GRADIENT_PREFIX}<name>_<k> of the gradients)")
             elif name in EVAL_RESERVED_NAMES:
                 out.warning(f"{category} name '{name}' is an argument of the evaluation "
                             "structure: the coefficient is generated without it (no evaluation "
@@ -269,26 +307,37 @@ def _check_expressions(item, spec, categories, out: _Collector) -> set:
         if re.search(r"\bsum\s*\(", expression):
             out.error("sums are written Sum(...), not sum(...)")
             continue
-        if not spec.is_gradient and re.search(r"\b(s?dot)\s*\(", expression):
+        if not (spec.is_gradient or spec.is_variational) \
+                and re.search(r"\b(s?dot)\s*\(", expression):
             out.error("dot() and sdot() are only allowed in a gradient coefficient "
-                      "(\"gradient\": true)")
+                      "(\"gradient\": true) or in a variational coefficient "
+                      "(\"variational\": true)")
+            continue
+        if not spec.is_variational and re.search(r"\b(grad|n)\s*\(", expression):
+            out.error("grad() and n() are only allowed in a variational coefficient "
+                      "(\"variational\": true)")
             continue
         try:
             expr = parser.expanded(expression)
         except Exception as e:
             out.error(f"expression '{expression}' cannot be read: {e}")
             continue
+        unknown_function = False
         for f in expr.atoms(sp.Function):
             name = type(f).__name__
-            if isinstance(f, Dot):
+            if isinstance(f, Dot) or (spec.is_variational and isinstance(f, VARIATIONAL_CLASSES)):
                 continue
             if isinstance(f, AppliedUndef) or name not in ALLOWED_FUNCTIONS:
                 out.error(f"unknown function '{name}' in '{expression}'")
+                unknown_function = True
         symbols = {str(s) for s in expr.free_symbols}
-        for name in sorted(symbols - declared):
+        undeclared = sorted(symbols - declared)
+        for name in undeclared:
             out.error(f"'{name}' is used in '{expression}' but is not declared (check also the "
                       "bounds of the sums and the ranges a(i..j))")
         used |= symbols
+        if spec.is_variational and not unknown_function and not undeclared:
+            _check_gradient_terms(expr, expression, spec, parser, out)
 
     range_variable = item.get("range_variable")
     if range_variable is not None:
@@ -296,6 +345,24 @@ def _check_expressions(item, spec, categories, out: _Collector) -> set:
             out.error(f"range_variable '{range_variable}' is not declared")
         used.add(range_variable)
     return used
+
+
+def _check_gradient_terms(expr, expression: str, spec, parser, out: _Collector):
+    """
+    Gradient terms of a variational coefficient: grad(.) and n(.) applied to a variable, an
+    explicit or an auxiliary variable, used in dot(.,.) or with a component [k] in the range
+    of the dimension.
+    """
+    try:
+        _density, used = to_components(expr, spec.dimension, spec.regularization,
+                                      parser.variables + parser.explicit_variables
+                                      + parser.auxiliary_variables)
+    except VariationalError as e:
+        out.error(f"{e} (in '{expression}')")
+        return
+    if not used & set(parser.variables):
+        out.warning(f"variational coefficient whose expression '{expression}' does not depend "
+                    "on the gradient of any variable")
 
 
 def _check_bounds(item, categories, out: _Collector) -> set:

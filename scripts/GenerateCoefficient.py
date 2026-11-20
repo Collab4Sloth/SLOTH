@@ -8,6 +8,7 @@ import os
 import re
 import sympy as sp
 
+from VariationalForm import DEFAULT_REGULARIZATION
 
 import shutil
 import logging
@@ -1225,6 +1226,10 @@ class CoefficientSpec:
     is_conditional: bool
     coordinates: str
     bounds: Dict[str, Any] = field(default_factory=dict)
+    # Variational coefficient: energy density f(u, grad(u)) (see VariationalForm.py)
+    is_variational: bool = False
+    dimension: Optional[int] = None
+    regularization: float = DEFAULT_REGULARIZATION
 
 
 def read_coefficient(item) -> CoefficientSpec:
@@ -1232,6 +1237,12 @@ def read_coefficient(item) -> CoefficientSpec:
     Check one item of the JSON file and return the associated CoefficientSpec.
     """
     gradient = bool(item.get("gradient", False))
+    variational = bool(item.get("variational", False))
+    if variational and gradient:
+        raise ValueError("Error: a coefficient cannot be both 'gradient' and 'variational'.")
+    if variational and item.get("dimension") is None:
+        raise ValueError("Error: 'dimension' (1, 2 or 3) must be defined for a variational "
+                         "coefficient.")
     auxiliaries = item.get("auxiliary_variables", "")
     explicit = item.get("explicit_variables", "")
     constants = item.get("constants", "")
@@ -1251,6 +1262,9 @@ def read_coefficient(item) -> CoefficientSpec:
             raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")
         if gradient:
             raise ValueError("Error: conditional expression not extended to gradient expression.")
+        if variational:
+            raise ValueError("Error: conditional expression not extended to variational "
+                             "coefficients.")
         nb_expression = 0
         nb_range = 0
         for expr_item in item["expressions"]:
@@ -1295,7 +1309,9 @@ def read_coefficient(item) -> CoefficientSpec:
 
     return CoefficientSpec(expressions, item["variables"], explicit, auxiliaries, constants,
                            item["class_name"], item["outputfile"], gradient,
-                           is_conditional_expression, coordinates, bounds)
+                           is_conditional_expression, coordinates, bounds,
+                           is_variational=variational, dimension=item.get("dimension"),
+                           regularization=item.get("regularization", DEFAULT_REGULARIZATION))
 
 
 def read_coefficients(input_file) -> List[CoefficientSpec]:
@@ -1413,6 +1429,14 @@ if __name__ == "__main__":
         compile_report(tex_file)
         if args.report_only:
             sys.exit(0)
+
+    # C++ classes of variational coefficients are not generated: only the check (--check) and
+    # the report (--report-only) apply to them
+    variational = [coef.class_name for coef in coefficients if coef.is_variational]
+    if variational:
+        logging.error(f"{args.input_file}: C++ generation not available for variational "
+                      f"coefficients ({', '.join(variational)}). Use --check or --report-only.")
+        sys.exit(1)
 
     # Remove existing Cpp files
     if args.remove:
