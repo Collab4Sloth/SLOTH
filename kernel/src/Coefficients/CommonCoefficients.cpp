@@ -259,14 +259,16 @@ Log::HessianF() {
  *
  * @brief C++ function of the expression: 0.5*dot(x,x)
  *
- * @return std::function<double(const std::span<const double>&,const std::span<const double>&)>
+ * @return std::function<double(const std::span<const double>&,const std::span<const double>&, const
+ * std::span<const double>&, const unsigned int dimension)>
  */
 std::function<double(const std::span<const double>&, const std::span<const double>&,
                      const std::span<const double>&, const unsigned int dimension)>
 GradientEnergy::F() {
   auto func = [&](const std::span<const double>& input_vector,
                   [[maybe_unused]] const std::span<const double>&,
-                  [[maybe_unused]] const std::span<const double>&, const unsigned int dimension) {
+                  [[maybe_unused]] const std::span<const double>&,
+                  [[maybe_unused]] const unsigned int dimension) {
     std::vector<double> x;
     for (unsigned int i = 0; i < dimension; i++) x.push_back(input_vector[0 * dimension + i]);
     double F = 0.5 * std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
@@ -301,7 +303,7 @@ GradientEnergy::GradientF() {
  * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)
  *
  * @return std::function<std::vector<double>(const std::span<const double>&,const std::span<const
- * double>&, const unsigned int dimension)>
+ * double>&, const std::span<const double>&, const unsigned int dimension)>
  */
 std::function<std::vector<double>(const std::span<const double>&, const std::span<const double>&,
                                   const std::span<const double>&, const unsigned int dimension)>
