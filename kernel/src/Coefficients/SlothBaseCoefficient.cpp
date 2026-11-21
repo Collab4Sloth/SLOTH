@@ -430,6 +430,57 @@ int SlothBaseCoefficient::batch_nb_variables() const {
 }
 
 /**
+ * @brief True if the coefficient is variational: energy density f(u, grad u), evaluated by
+ * eval_variational_batch only (see FunctionCoefficient::is_variational).
+ */
+bool SlothBaseCoefficient::is_variational() const {
+  return this->coefficient_ != nullptr && this->coefficient_->is_variational();
+}
+
+/**
+ * @brief Dimension of the gradients of a variational coefficient, 0 otherwise
+ */
+int SlothBaseCoefficient::variational_dimension() const {
+  return this->coefficient_ != nullptr ? this->coefficient_->variational_dimension() : 0;
+}
+
+/**
+ * @brief True if a variational coefficient reads the gradients of its explicit variables
+ */
+bool SlothBaseCoefficient::uses_explicit_gradients() const {
+  return this->coefficient_ != nullptr && this->coefficient_->uses_explicit_gradients();
+}
+
+/**
+ * @brief True if a variational coefficient reads the gradients of its auxiliary variables
+ */
+bool SlothBaseCoefficient::uses_auxiliary_gradients() const {
+  return this->coefficient_ != nullptr && this->coefficient_->uses_auxiliary_gradients();
+}
+
+/**
+ * @brief Evaluation of a variational coefficient at a set of points.
+ *
+ * Same arguments and layout as eval_variational_at_points (Coefficients/VariationalEval.hpp).
+ * The values and gradients are those of the variables of the coefficient: the caller selects
+ * them according to the scheme.
+ *
+ * @return false if the coefficient is not variational: nothing is computed.
+ */
+bool SlothBaseCoefficient::eval_variational_batch(
+    const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+    const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,
+    const mfem::Vector& explicit_gradients, const mfem::Vector& auxiliary_gradients,
+    const mfem::Vector& coordinates, const VariationalBatch& outputs) const {
+  if (this->coefficient_ == nullptr || this->is_scalar()) {
+    return false;
+  }
+  return this->coefficient_->eval_variational_batch(npts, values, explicit_values, auxiliary_values,
+                                                    gradients, explicit_gradients,
+                                                    auxiliary_gradients, coordinates, outputs);
+}
+
+/**
  * @brief Set the boundary index for a coefficient.
  *
  * @param ids Vector of boundary ids where the coefficient should apply.

@@ -261,6 +261,10 @@ class TestChecker(unittest.TestCase):
                          "is reserved in a variational coefficient")
         self.assertError(coefficient("dot(grad(phi), grad(phi))", constants="(grad_x:1.0)"),
                          "is reserved in a variational coefficient")
+        self.assertError(coefficient("dot(grad(phi), grad(phi))", auxiliary_variables="gradients"),
+                         "evaluation structure")
+        self.assertError(coefficient("dot(grad(phi), grad(phi))", constants="(cse_0:1.0)"),
+                         "evaluation structure")
 
     def test_gradient_terms(self):
         self.assertError(coefficient("2*grad(phi)"), "must be used in dot(.,.) or with a component")
@@ -303,8 +307,8 @@ class TestExistingFiles(unittest.TestCase):
 
 class TestCommandLine(unittest.TestCase):
     """
-    GenerateCoefficient.py on a file with a variational coefficient: the check succeeds, the
-    C++ generation stops with an error.
+    GenerateCoefficient.py on a file with a variational coefficient: check, report and C++
+    generation.
     """
 
     def run_script(self, *args, items=None):
@@ -319,6 +323,8 @@ class TestCommandLine(unittest.TestCase):
                                     capture_output=True, text=True)
             report = Path(tmp) / "coefficients_report.tex"
             result.report = report.read_text() if report.is_file() else None
+            header = Path(tmp) / "Test.hpp"
+            result.header = header.read_text() if header.is_file() else None
             return result
 
     def test_check(self):
@@ -359,11 +365,25 @@ class TestCommandLine(unittest.TestCase):
         self.assertIn("$9 \\times 9$ matrix (symmetric), not written", report)
         self.assertNotIn("varepsilon \\to 0", report)
 
-    def test_generation_not_available(self):
-        result = self.run_script()
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("C++ generation not available for variational coefficients",
-                      result.stderr)
+    def test_generation(self):
+        items = [coefficient("0.5*(1 + c**2)*dot(grad(phi), grad(phi)) + phi*dot(grad(c), grad(c))",
+                             auxiliary_variables="c")]
+        result = self.run_script(items=items)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        header = result.header
+        self.assertIsNotNone(header)
+        for text in ("struct TestVariationalEval", "static constexpr int dimension = 2",
+                     "static constexpr bool uses_auxiliary_gradients = true",
+                     "static constexpr bool uses_explicit_gradients = false",
+                     "const double grad_phi_1 = gradients[1]",
+                     "const double grad_c_0 = auxiliary_gradients[0]",
+                     "bool is_variational() const final { return true; }",
+                     "eval_variational_at_points(eval_", "throw std::runtime_error"):
+            self.assertIn(text, header)
+        # all the outputs, a symmetric second derivative copied from its upper triangle
+        for output in ("F", "df_dvar", "df_dgrad", "d2f_dvar2", "d2f_dvar_dgrad", "d2f_dgrad2"):
+            self.assertIn(f"if (out.{output} != nullptr)", header)
+        self.assertIn("out.d2f_dgrad2[2] = out.d2f_dgrad2[1];", header)
 
 
 if __name__ == "__main__":

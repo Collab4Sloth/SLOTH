@@ -36,6 +36,14 @@ GRADIENT_PREFIX = "grad_"
 # Names of the components k = 0, 1, 2 in the LaTeX report
 AXES = ("x", "y", "z")
 
+# Names used by the generated evaluation structure <class_name>VariationalEval (arguments,
+# members) and prefix of its temporary variables: not allowed as names of a variational
+# coefficient
+VARIATIONAL_EVAL_RESERVED = {"values", "explicit_values", "auxiliary_values", "gradients",
+                             "explicit_gradients", "auxiliary_gradients", "coordinates", "time",
+                             "out", "prefactor_", "eval_"}
+TEMPORARY_PREFIX = "cse_"
+
 # Names of the functions available in the expressions of a variational coefficient
 VARIATIONAL_FUNCTIONS = ("grad", "n", "dot", "sdot")
 

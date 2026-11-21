@@ -29,6 +29,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 #include "Coefficients/Coefficients.hpp"
@@ -44,6 +45,8 @@
 #include "EvalCases.hpp"
 #include "Function.hpp"
 #include "OtherFunction.hpp"
+// EnergySemiImplicit = (1 + c^2)/2 grad u . grad ue + k/2 u |grad c|^2 + 1e-3 T X u,  k = 3
+#include "VariationalCases.hpp"
 
 using Catch::Matchers::WithinAbs;
 using Catch::Matchers::WithinRel;
@@ -571,4 +574,53 @@ TEST_CASE("Bounds of variables: evaluation at a set of points (eval_at_points)",
       CHECK_THAT(gradient(n * q + i), WithinAbs(g, tol * (1. + std::abs(g))));
     }
   }
+}
+
+TEST_CASE("Generated coefficients: variational coefficient in a Coefficient",
+          "[Coefficients][generated][variational]") {
+  Coefficient c(Glossary::Temperature, Scheme::Implicit, EnergySemiImplicit());
+  CHECK(c.is_variational());
+  CHECK(c.variational_dimension() == 2);
+  CHECK(c.uses_explicit_gradients());
+  CHECK(c.uses_auxiliary_gradients());
+  CHECK(c.uses_coordinates());
+  CHECK(c.batch_nb_variables() == 0);
+
+  // Point by point evaluation not available: no access to the gradients
+  const std::vector<double> u{0.5};
+  CHECK_THROWS_AS(c.compute(u), std::runtime_error);
+
+  // Evaluation by batch forwarded to the generated class
+  constexpr double time = 2.;
+  c.set_time(time);
+  mfem::Vector values(1), explicit_values(1), auxiliary_values(1);
+  mfem::Vector gradients(2), explicit_gradients(2), auxiliary_gradients(2), coordinates(2);
+  values(0) = 0.5;
+  explicit_values(0) = 0.4;
+  auxiliary_values(0) = 0.2;
+  gradients(0) = 1.;
+  gradients(1) = -2.;
+  explicit_gradients(0) = 0.5;
+  explicit_gradients(1) = 0.25;
+  auxiliary_gradients(0) = 3.;
+  auxiliary_gradients(1) = 4.;
+  coordinates(0) = 5.;
+  coordinates(1) = 0.;
+  mfem::Vector F(1);
+  VariationalBatch outputs;
+  outputs.F = &F;
+  REQUIRE(c.eval_variational_batch(1, values, explicit_values, auxiliary_values, gradients,
+                                   explicit_gradients, auxiliary_gradients, coordinates, outputs));
+  F.HostRead();
+  // (1 + 0.04)/2 (0.5 - 0.5) + 3/2 0.5 (9 + 16) + 1e-3 2 5 0.5
+  const double expected = 18.75 + 0.005;
+  CHECK_THAT(F(0), WithinAbs(expected, tol * (1. + expected)));
+
+  // Coefficient which is not variational: nothing is computed
+  const Coefficient a(Glossary::Temperature, Scheme::Implicit, FunctionA());
+  CHECK_FALSE(a.is_variational());
+  CHECK(a.variational_dimension() == 0);
+  CHECK_FALSE(a.eval_variational_batch(1, values, explicit_values, auxiliary_values, gradients,
+                                       explicit_gradients, auxiliary_gradients, coordinates,
+                                       outputs));
 }

@@ -38,8 +38,9 @@ from sympy.core.function import AppliedUndef
 from GenerateCoefficient import (EVAL_RESERVED_NAMES, expand_ranges, get_bounds,
                                  get_coordinates, read_coefficient)
 from CoefficientReport import Dot, ExpressionParser, TIME_VALUE
-from VariationalForm import (GRADIENT_PREFIX, VARIATIONAL_CLASSES, VARIATIONAL_FUNCTIONS,
-                             VariationalError, to_components)
+from VariationalForm import (GRADIENT_PREFIX, TEMPORARY_PREFIX, VARIATIONAL_CLASSES,
+                             VARIATIONAL_EVAL_RESERVED, VARIATIONAL_FUNCTIONS, VariationalError,
+                             to_components)
 
 # Attributes of a coefficient, and of a piece of a conditional expression
 KNOWN_KEYS = {"class_name", "outputfile", "variables", "explicit_variables",
@@ -279,6 +280,11 @@ def _check_names(item, out: _Collector) -> Dict[str, List[str]]:
                 out.error(f"{category} name '{name}' is reserved in a variational coefficient "
                           f"(functions {', '.join(VARIATIONAL_FUNCTIONS)}, components "
                           f"{GRADIENT_PREFIX}<name>_<k> of the gradients)")
+            elif variational and (name in VARIATIONAL_EVAL_RESERVED
+                                  or name.startswith(TEMPORARY_PREFIX)):
+                out.error(f"{category} name '{name}' is reserved in a variational coefficient "
+                          "(arguments and temporary variables cse_<k> of the evaluation "
+                          "structure)")
             elif name in EVAL_RESERVED_NAMES:
                 out.warning(f"{category} name '{name}' is an argument of the evaluation "
                             "structure: the coefficient is generated without it (no evaluation "

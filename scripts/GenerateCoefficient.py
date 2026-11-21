@@ -1204,6 +1204,250 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
 
 
 # ==========================================================
+#  Variational coefficients (see VariationalForm.py)
+# ==========================================================
+#
+# A variational coefficient ("variational": true) is an energy density f(u, grad u). Two C++
+# objects are written:
+#   - the structure <class_name>VariationalEval: f and its derivatives with respect to the
+#     variables and to the components of their gradients at one point, on the host or on the
+#     device (see Coefficients/VariationalEval.hpp),
+#   - the class <class_name>, evaluated by eval_variational_batch only: its point by point
+#     evaluation (F, GradientF, HessianF) throws an exception, as it has no access to the
+#     gradients.
+
+FUNCTION_ARGS = ("const std::span<const double>&, const std::span<const double>&, "
+                 "const std::span<const double>&, const unsigned int dimension")
+
+
+def write_variational_block(f, pointer: str, entries, copies, indent: str):
+    """
+    Write the computation of one output of the variational evaluation structure, if its pointer
+    is not null: out.<pointer>[index] = prefactor_ * (expression) for each (index, expression)
+    of entries, then out.<pointer>[dst] = out.<pointer>[src] for each (dst, src) of copies.
+    Common subexpressions are computed once (temporary variables cse_<k>).
+    """
+    from VariationalForm import TEMPORARY_PREFIX
+    f.write(f"{indent}if (out.{pointer} != nullptr) {{\n")
+    nonzero = [(index, expr) for index, expr in entries if sp.S(expr) != 0]
+    temporaries, reduced = sp.cse([expr for _, expr in nonzero],
+                                  symbols=sp.numbered_symbols(TEMPORARY_PREFIX))
+    for symbol, expr in temporaries:
+        f.write(f"{indent}  const double {symbol} = {sp.ccode(expr)};\n")
+    values = dict(zip([index for index, _ in nonzero], reduced))
+    for index, _ in entries:
+        if index in values:
+            f.write(f"{indent}  out.{pointer}[{index}] = prefactor_ * ({sp.ccode(values[index])});\n")
+        else:
+            f.write(f"{indent}  out.{pointer}[{index}] = 0.0;\n")
+    for dst, src in copies:
+        f.write(f"{indent}  out.{pointer}[{dst}] = out.{pointer}[{src}];\n")
+    f.write(f"{indent}}}\n")
+
+
+def symmetric_entries(matrix, size: int):
+    """
+    Entries (index, expression) of the upper triangle of a symmetric matrix stored row by row,
+    and copies (dst, src) of its lower triangle.
+    """
+    entries = [(r * size + c, matrix[r, c]) for r in range(size) for c in range(r, size)]
+    copies = [(r * size + c, c * size + r) for r in range(size) for c in range(r)]
+    return entries, copies
+
+
+def write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_constants, coord_vars,
+                                  bounds):
+    """
+    Write the structure <class_name>VariationalEval (see the comment above FUNCTION_ARGS).
+    """
+    class_name = spec.class_name
+    n, d = form.nb_variables, form.dimension
+    nd = n * d
+    variables = [str(v) for v in form.variables]
+    uses_explicit = any(v in form.data_gradients for v in explicit)
+    uses_auxiliary = any(v in form.data_gradients for v in auxiliary)
+    time_constants = [k for k, v in dict_constants.items() if v == "this->time_"]
+    member_constants = {k: v for k, v in dict_constants.items() if v != "this->time_"}
+
+    f.write("/**\n")
+    f.write(f" * @brief Evaluation of the variational coefficient {class_name} at one point, on the\n")
+    f.write(" * host or on the device: energy density f and its derivatives with respect to the\n")
+    f.write(" * variables and to the components of their gradients (see VariationalOutputs).\n")
+    f.write(" *\n")
+    f.write(f" *   f = {spec.expressions[0][0]}\n")
+    f.write(" *\n")
+    f.write(f" * Gradient of the variable i, component k: gradients[i*{d} + k].\n")
+    if bounds:
+        f.write(" * Bounded variables (f and its derivatives evaluated at the clamped values):\n")
+        for v, (lower, upper) in bounds.items():
+            lo = lower if lower is not None else "-inf"
+            up = upper if upper is not None else "+inf"
+            f.write(f" *   {v} in [{lo}, {up}]\n")
+    f.write(" */\n")
+    f.write(f"struct {class_name}VariationalEval {{\n")
+    f.write(f"  static constexpr int nb_variables = {n};\n")
+    f.write(f"  static constexpr int dimension = {d};\n")
+    f.write(f"  static constexpr int nb_explicit_variables = {len(explicit)};\n")
+    f.write(f"  static constexpr int nb_auxiliary_variables = {len(auxiliary)};\n")
+    f.write(f"  static constexpr int nb_coordinates = {len(coord_vars)};\n")
+    f.write(f"  static constexpr bool uses_explicit_gradients = {str(uses_explicit).lower()};\n")
+    f.write(f"  static constexpr bool uses_auxiliary_gradients = {str(uses_auxiliary).lower()};\n\n")
+    f.write("  double prefactor_ = 1.0;\n")
+    for k, v in member_constants.items():
+        f.write(f"  double {k} = {v};\n")
+    f.write("\n")
+    f.write("  MFEM_HOST_DEVICE void operator()(\n")
+    f.write("      [[maybe_unused]] const double* values, [[maybe_unused]] const double* explicit_values,\n")
+    f.write("      [[maybe_unused]] const double* auxiliary_values,\n")
+    f.write("      [[maybe_unused]] const double* gradients,\n")
+    f.write("      [[maybe_unused]] const double* explicit_gradients,\n")
+    f.write("      [[maybe_unused]] const double* auxiliary_gradients,\n")
+    f.write("      [[maybe_unused]] const double* coordinates, [[maybe_unused]] const double time,\n")
+    f.write("      const VariationalOutputs& out) const {\n")
+    for i, v in enumerate(variables):
+        value = bounded_value(f"values[{i}]", bounds.get(v))
+        f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+    for i, v in enumerate(explicit):
+        value = bounded_value(f"explicit_values[{i}]", bounds.get(v))
+        f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+    for i, v in enumerate(auxiliary):
+        value = bounded_value(f"auxiliary_values[{i}]", bounds.get(v))
+        f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+    for i, p in enumerate(form.gradients):
+        f.write(f"    [[maybe_unused]] const double {p} = gradients[{i}];\n")
+    for source, names in (("explicit_gradients", explicit), ("auxiliary_gradients", auxiliary)):
+        for i, v in enumerate(names):
+            for k, p in enumerate(form.data_gradients.get(v, [])):
+                f.write(f"    [[maybe_unused]] const double {p} = {source}[{i * d + k}];\n")
+    for i, c in enumerate(coord_vars):
+        f.write(f"    [[maybe_unused]] const double {c} = coordinates[{i}];\n")
+    for k in time_constants:
+        f.write(f"    [[maybe_unused]] const double {k} = time;\n")
+
+    indent = "    "
+    write_variational_block(f, "F", [(0, form.density)], [], indent)
+    write_variational_block(f, "df_dvar", list(enumerate(form.df_dvar)), [], indent)
+    write_variational_block(f, "df_dgrad", list(enumerate(form.df_dgrad)), [], indent)
+    entries, copies = symmetric_entries(form.d2f_dvar2, n)
+    write_variational_block(f, "d2f_dvar2", entries, copies, indent)
+    entries = [(r * nd + c, form.d2f_dvar_dgrad[r, c]) for r in range(n) for c in range(nd)]
+    write_variational_block(f, "d2f_dvar_dgrad", entries, [], indent)
+    entries, copies = symmetric_entries(form.d2f_dgrad2, nd)
+    write_variational_block(f, "d2f_dgrad2", entries, copies, indent)
+    f.write("  }\n")
+    f.write("};\n\n")
+
+
+def write_variational_class(f, spec, form, explicit, auxiliary, coord_vars):
+    """
+    Write the class <class_name> of a variational coefficient, evaluated with the structure
+    <class_name>VariationalEval by eval_variational_batch.
+    """
+    class_name = spec.class_name
+    uses_explicit = any(v in form.data_gradients for v in explicit)
+    uses_auxiliary = any(v in form.data_gradients for v in auxiliary)
+    message = (f"{class_name}: variational coefficient, evaluated by eval_variational_batch "
+               "only (use it in an integrator taking variational coefficients)")
+
+    f.write("/**\n")
+    f.write(f" * @brief Variational coefficient {class_name}: energy density\n")
+    f.write(" *\n")
+    f.write(f" *   f = {spec.expressions[0][0]}\n")
+    f.write(" *\n")
+    f.write(f" * Evaluated with {class_name}VariationalEval by eval_variational_batch only: the point\n")
+    f.write(" * by point evaluation (F, GradientF, HessianF) throws an exception, as it has no access\n")
+    f.write(" * to the gradients.\n")
+    f.write(" */\n")
+    f.write(f"class {class_name} : public FunctionCoefficient {{\n")
+    f.write(" private:\n")
+    f.write(f"  {class_name}VariationalEval eval_;  ///< f and its derivatives (host and device)\n\n")
+    f.write(" protected:\n")
+    for method, result in (("F", "double"), ("GradientF", "std::vector<double>"),
+                           ("HessianF", "std::vector<double>")):
+        f.write(f"  std::function<{result}({FUNCTION_ARGS})> {method}() final {{\n")
+        f.write(f"    throw std::runtime_error(\"{message}\");\n")
+        f.write("  }\n")
+    f.write("\n public:\n")
+    f.write(f"  {class_name}() = default;\n")
+    f.write(f"  explicit {class_name}(const double prefactor) {{ eval_.prefactor_ = prefactor; }}\n")
+    f.write(f"  virtual ~{class_name}() = default;\n")
+    f.write("  /// Evaluation structure (constants, prefactor)\n")
+    f.write(f"  const {class_name}VariationalEval& get_eval() const {{ return eval_; }}\n")
+    f.write("  bool is_variational() const final { return true; }\n")
+    f.write(f"  int variational_dimension() const final {{ return {form.dimension}; }}\n")
+    f.write(f"  bool uses_explicit_gradients() const final {{ return {str(uses_explicit).lower()}; }}\n")
+    f.write(f"  bool uses_auxiliary_gradients() const final {{ return {str(uses_auxiliary).lower()}; }}\n")
+    if coord_vars:
+        f.write("  bool uses_coordinates() const final { return true; }\n")
+    f.write("  bool eval_variational_batch(const int npts, const mfem::Vector& values,\n")
+    f.write("                              const mfem::Vector& explicit_values,\n")
+    f.write("                              const mfem::Vector& auxiliary_values,\n")
+    f.write("                              const mfem::Vector& gradients,\n")
+    f.write("                              const mfem::Vector& explicit_gradients,\n")
+    f.write("                              const mfem::Vector& auxiliary_gradients,\n")
+    f.write("                              const mfem::Vector& coordinates,\n")
+    f.write("                              const VariationalBatch& outputs) const final {\n")
+    f.write("    eval_variational_at_points(eval_, npts, this->time_, values, explicit_values,\n")
+    f.write("                               auxiliary_values, gradients, explicit_gradients,\n")
+    f.write("                               auxiliary_gradients, coordinates, outputs);\n")
+    f.write("    return true;\n")
+    f.write("  }\n")
+    f.write("};\n\n")
+
+
+def format_cpp(cpp_file):
+    """
+    Format the C++ file with clang-format, if found.
+    """
+    options = ["clang-format", "-i",
+               "-style={BasedOnStyle: Google, ColumnLimit: 100, Cpp11BracedListStyle: true, "
+               "IncludeBlocks: Preserve}", cpp_file]
+    try:
+        subprocess.run(options, check=True)
+        print(f"{cpp_file} is formatted with clang-format")
+    except subprocess.CalledProcessError as e:
+        print(f"Error when running clang-format: {e}")
+    except FileNotFoundError:
+        print("clang-format is not found. C++ file not formatted.")
+
+
+def generate_variational_class(spec):
+    """
+    Write the structure <class_name>VariationalEval and the class <class_name> of a variational
+    coefficient in <outputfile>.hpp.
+    """
+    from CoefficientReport import ExpressionParser
+    from VariationalForm import (TEMPORARY_PREFIX, VARIATIONAL_EVAL_RESERVED,
+                                 variational_form_of)
+    class_name = spec.class_name
+    parser = ExpressionParser(spec)
+    explicit, auxiliary = parser.explicit_variables, parser.auxiliary_variables
+    dict_constants = get_constants(spec.constants) if spec.constants else {}
+    coord_vars = get_coordinates(spec.coordinates)
+    names = set(parser.variables) | set(explicit) | set(auxiliary) | set(dict_constants) \
+        | set(coord_vars)
+    clash = sorted(name for name in names if name in VARIATIONAL_EVAL_RESERVED
+                   or name.startswith(TEMPORARY_PREFIX))
+    if clash:
+        raise ValueError(f"Error ({class_name}): names {clash} are reserved in a variational "
+                         "coefficient. Please rename them.")
+    constant_names = [k for k, v in dict_constants.items() if v != "this->time_"]
+    bounds = get_bounds(spec.bounds, parser.variables + explicit + auxiliary, constant_names,
+                        class_name)
+    form = variational_form_of(spec)
+
+    cpp_file = f"{spec.output_file}.hpp"
+    if not Path(cpp_file).resolve().exists():
+        prepare_output_file(cpp_file, False)
+    with open(cpp_file, "a") as f:
+        write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_constants,
+                                      coord_vars, bounds)
+        write_variational_class(f, spec, form, explicit, auxiliary, coord_vars)
+    logging.info(f"Variational class {class_name} generated in {cpp_file}")
+    format_cpp(cpp_file)
+
+
+# ==========================================================
 #  Reading of the JSON file
 # ==========================================================
 
@@ -1430,14 +1674,6 @@ if __name__ == "__main__":
         if args.report_only:
             sys.exit(0)
 
-    # C++ classes of variational coefficients are not generated: only the check (--check) and
-    # the report (--report-only) apply to them
-    variational = [coef.class_name for coef in coefficients if coef.is_variational]
-    if variational:
-        logging.error(f"{args.input_file}: C++ generation not available for variational "
-                      f"coefficients ({', '.join(variational)}). Use --check or --report-only.")
-        sys.exit(1)
-
     # Remove existing Cpp files
     if args.remove:
         for coef in coefficients:
@@ -1448,6 +1684,9 @@ if __name__ == "__main__":
 
     # Generate Cpp files
     for coef in coefficients:
+        if coef.is_variational:
+            generate_variational_class(coef)
+            continue
         generate_class_with_functions(coef.expressions, coef.variables, coef.explicit_variables,
                                       coef.auxiliary_variables, coef.constants, coef.class_name,
                                       coef.output_file, coef.is_gradient, coef.is_conditional,
