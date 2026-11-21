@@ -19,6 +19,8 @@ Errors (the generation is stopped):
 Warnings:
     - names of the arguments of the evaluation structure (values, time, F...): the coefficient
       is generated without this structure (no evaluation by batch nor on the device),
+    - ranges a(i..j) of variables (explicit, auxiliary) partially used: some of their names are
+      not used in the expressions, often sums whose bounds differ from the range,
     - constants, explicit and auxiliary variables which are not used in the expressions (nor in
       the bounds). Variables and coordinates are not concerned: they may be declared without
       being used (e.g. a source term independent of the unknown).
@@ -37,7 +39,7 @@ from sympy.core.function import AppliedUndef
 
 from GenerateCoefficient import (EVAL_RESERVED_NAMES, expand_ranges, get_bounds,
                                  get_coordinates, read_coefficient)
-from CoefficientReport import Dot, ExpressionParser, TIME_VALUE
+from CoefficientReport import Dot, ExpressionParser, RANGE_PATTERN, TIME_VALUE, split_names
 from VariationalForm import (GRADIENT_PREFIX, TEMPORARY_PREFIX, VARIATIONAL_CLASSES,
                              VARIATIONAL_EVAL_RESERVED, VARIATIONAL_FUNCTIONS, VariationalError,
                              to_components)
@@ -371,6 +373,35 @@ def _check_gradient_terms(expr, expression: str, spec, parser, out: _Collector):
                     "on the gradient of any variable")
 
 
+def _ranges(item) -> List[tuple]:
+    """
+    Ranges a(i..j) declared in the variables: list of (range as written, names a_i, ..., a_j).
+    """
+    ranges = []
+    for key in ("variables", "explicit_variables", "auxiliary_variables"):
+        for token in split_names(item.get(key, "")):
+            match = RANGE_PATTERN.match(token)
+            if match:
+                name, start, end = match.groups()
+                ranges.append((token, [f"{name}{i}" for i in range(int(start), int(end) + 1)]))
+    return ranges
+
+
+def _check_ranges(item, used: set, out: _Collector) -> set:
+    """
+    Warn about the ranges a(i..j) partially used and return their names (not reported again as
+    unused names).
+    """
+    reported = set()
+    for token, names in _ranges(item):
+        unused = [n for n in names if n not in used]
+        if unused and len(unused) < len(names):
+            out.warning(f"{token}: {', '.join(unused)} not used in the expressions (check the "
+                        "bounds of the sums)")
+            reported |= set(unused)
+    return reported
+
+
 def _check_bounds(item, categories, out: _Collector) -> set:
     bounds = item.get("bounds")
     if not bounds:
@@ -416,9 +447,10 @@ def check_coefficient(item, index: int) -> List[Issue]:
     used |= _check_bounds(item, categories, out)
 
     if not out.has_errors:
+        reported = _check_ranges(item, used, out)
         for category in WARN_IF_UNUSED:
             for n in dict.fromkeys(categories[category]):
-                if n not in used:
+                if n not in used and n not in reported:
                     out.warning(f"{category} '{n}' is declared but not used")
     return out.issues
 
