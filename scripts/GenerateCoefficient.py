@@ -1375,6 +1375,7 @@ def write_variational_class(f, spec, form, explicit, auxiliary, coord_vars):
     f.write(f"  const {class_name}VariationalEval& get_eval() const {{ return eval_; }}\n")
     f.write("  bool is_variational() const final { return true; }\n")
     f.write(f"  int variational_dimension() const final {{ return {form.dimension}; }}\n")
+    f.write(f"  int variational_nb_variables() const final {{ return {form.nb_variables}; }}\n")
     f.write(f"  bool uses_explicit_gradients() const final {{ return {str(uses_explicit).lower()}; }}\n")
     f.write(f"  bool uses_auxiliary_gradients() const final {{ return {str(uses_auxiliary).lower()}; }}\n")
     if coord_vars:

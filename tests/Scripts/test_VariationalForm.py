@@ -378,6 +378,7 @@ class TestCommandLine(unittest.TestCase):
                      "const double grad_phi_1 = gradients[1]",
                      "const double grad_c_0 = auxiliary_gradients[0]",
                      "bool is_variational() const final { return true; }",
+                     "int variational_nb_variables() const final { return 1; }",
                      "eval_variational_at_points(eval_", "throw std::runtime_error"):
             self.assertIn(text, header)
         # all the outputs, a symmetric second derivative copied from its upper triangle

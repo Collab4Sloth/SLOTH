@@ -48,6 +48,16 @@
 //   MobilityX = m0 (1 + X phi0 phi1)        (first coordinate only, X)
 //   SemiImplicitEnergy = phi0^2 phi1e + phi1^2 phi0e^2  (explicit variables phi0e, phi1e)
 //   FirstAuxiliary = a                      (first auxiliary variable)
+// Variational free energies f(phi, grad phi) (VariationalEnergies.hpp), W = omega phi^2 (1 -
+// phi)^2:
+//   VariationalDoubleWell   = kappa/2 |grad phi|^2 + W,  kappa = 0.15, omega = 120
+//   VariationalKappaPhi     = (k0 + k1 phi)/2 |grad phi|^2 + W
+//   VariationalAnisotropic  = 1/2 (W0 (1 + e4 cos 4 theta))^2 |grad phi|^2 + W  (PFHub 3)
+//   VariationalTwoPhases    = 1/2 (k11 |grad phi0|^2 + 2 k12 grad phi0 . grad phi1
+//                             + k22 |grad phi1|^2) + w0 phi0^2 phi1^2
+//   VariationalSemiImplicit = kappa/2 grad phi . grad phie + omega phi^2 (1 - phie)^2,
+//                             phie explicit variable
+//   VariationalGradientOnly = kappa/2 |grad phi|^2
 #include "CoupledEnergy.hpp"
 #include "FirstAuxiliary.hpp"
 #include "MobilityCross.hpp"
@@ -55,6 +65,7 @@
 #include "MobilityPhi.hpp"
 #include "MobilityX.hpp"
 #include "SemiImplicitEnergy.hpp"
+#include "VariationalEnergies.hpp"
 
 using Catch::Matchers::WithinAbs;
 
@@ -104,6 +115,12 @@ Coefficients coupled_energy_coefficients(double mobility) {
                       Coefficient(Glossary::Capillary, lambda),
                       Coefficient(Glossary::Mobility, mobility),
                       Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda)));
+}
+
+/// @brief Coefficients of AllenCahnVariational: variational free energy and mobility
+Coefficients variational_coefficients(Coefficient energy,
+                                      Coefficient mobility = Coefficient(Glossary::Mobility, 1.)) {
+  return Coefficients(energy, mobility);
 }
 
 template <template <class> class INTEGRATOR>
@@ -183,6 +200,37 @@ std::vector<Case> all_cases() {
        maker<AllenCahnNLFormIntegrator>(
            {phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(2.))),
             phase_field_coefficients(Coefficient(Glossary::Mobility, Scheme::Implicit, H(2.)))})},
+      // Variational free energy f(u, grad u): the Jacobian gets the second derivatives of f with
+      // respect to the variables and to the components of their gradients
+      {"AllenCahnVariational, isotropic energy", 1,
+       maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+           Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell()))})},
+      {"AllenCahnVariational, kappa(phi) and M(phi)", 1,
+       maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+           Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalKappaPhi()),
+           Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})},
+      {"AllenCahnVariational, anisotropic energy", 1,
+       maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+           Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalAnisotropic()))})},
+      // Energy of the first block used for the two blocks, cross gradient term, mobility
+      // depending on the two phases
+      {"AllenCahnVariational, 2 phases, cross gradient term and M(phi0, phi1)", 2,
+       maker<AllenCahnVariationalNLFormIntegrator>(
+           {variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalTwoPhases()),
+                Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityCross())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalTwoPhases()),
+                Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityCross()))})},
+      // Explicit energy (u_old): no contribution to the Jacobian
+      {"AllenCahnVariational, explicit energy and M(phi)", 1,
+       maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+           Coefficient(Glossary::FreeEnergy, Scheme::Explicit, VariationalDoubleWell()),
+           Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})},
+      // Semi-implicit energy: derivatives with respect to u, explicit variables u_old
+      {"AllenCahnVariational, semi-implicit energy", 1,
+       maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+           Coefficient(Glossary::FreeEnergy, Scheme::SemiImplicit, VariationalSemiImplicit()))})},
       {"CahnHilliard", 2,
        maker<CahnHilliardNLFormIntegrator>(
            {phase_field_coefficients(), phase_field_coefficients()})},
@@ -852,6 +900,115 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnNLFormIntegrator: residual",
     const BlockResidual r(*this, maker<AllenCahnNLFormIntegrator>({pf_coefficients(0.)})(ctx),
                           {x_of});
     CHECK_THAT(r.moment_x(*this, 0), Catch::Matchers::WithinRel(kM * kLambda, 1.e-12));
+  }
+}
+
+// AllenCahnVariational with f = lambda/2 |grad u|^2 + W(u) and AllenCahn with the capillary
+// coefficient lambda and the free energy W: same residual and same Jacobian.
+namespace {
+/// @brief Residual F(x) and product J(x) v of a one-block form on the unit square
+std::pair<mfem::Vector, mfem::Vector> residual_and_jacobian(
+    const sloth_unit::UnitSquare& sq, mfem::BlockNonlinearFormIntegrator* integ,
+    const mfem::Vector& x, const mfem::Vector& v) {
+  mfem::Array<mfem::ParFiniteElementSpace*> spaces(1);
+  spaces[0] = sq.fes.get();
+  mfem::ParBlockNonlinearForm form(spaces);
+  form.AddDomainIntegrator(integ);
+  mfem::Vector F(x.Size()), Jv(x.Size());
+  form.Mult(x, F);
+  form.GetGradient(x).Mult(v, Jv);
+  return {F, Jv};
+}
+
+/// @brief max |a - b| <= tol max |a| over all the ranks
+void check_same(const mfem::Vector& a, const mfem::Vector& b, const double tol) {
+  mfem::Vector diff(a);
+  diff -= b;
+  double local[2] = {diff.Normlinf(), a.Normlinf()}, global[2] = {0., 0.};
+  MPI_Allreduce(local, global, 2, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  REQUIRE(global[1] > 0.);
+  CHECK(global[0] <= tol * global[1]);
+}
+}  // namespace
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "AllenCahnVariationalNLFormIntegrator: same residual and Jacobian as AllenCahn",
+                 "[Integrators][variational]") {
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  mfem::Vector x(fes->GetTrueVSize()), v(fes->GetTrueVSize());
+  x.Randomize(5);
+  x *= 0.6;
+  x += 0.2;
+  v.Randomize(11);
+
+  const auto [F, Jv] = residual_and_jacobian(
+      *this, maker<AllenCahnNLFormIntegrator>({pf_coefficients(kOmega)})(ctx), x, v);
+  // VariationalDoubleWell: kappa = lambda = 0.15, omega = 120
+  const auto [F_var, Jv_var] = residual_and_jacobian(
+      *this,
+      maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+          Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell()),
+          Coefficient(Glossary::Mobility, kM))})(ctx),
+      x, v);
+  check_same(F, F_var, 1.e-12);
+  check_same(Jv, Jv_var, 1.e-12);
+}
+
+// AllenCahnVariational with the sum of kappa/2 |grad u|^2 (implicit) and W (explicit) and
+// AllenCahn with the capillary coefficient lambda and the explicit free energy W: same residual and
+// same Jacobian.
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "AllenCahnVariationalNLFormIntegrator: sum of an implicit gradient term and an "
+                 "explicit double well, same residual and Jacobian as AllenCahn",
+                 "[Integrators][variational]") {
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  mfem::Vector x(fes->GetTrueVSize()), v(fes->GetTrueVSize());
+  x.Randomize(5);
+  x *= 0.6;
+  x += 0.2;
+  v.Randomize(11);
+
+  const Coefficients ac_coefficients(
+      Coefficient(Glossary::FreeEnergy, Scheme::Explicit, W(kOmega)),
+      Coefficient(Glossary::Capillary, kLambda), Coefficient(Glossary::Mobility, kM),
+      Coefficient(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(kLambda)));
+  const auto [F, Jv] =
+      residual_and_jacobian(*this, maker<AllenCahnNLFormIntegrator>({ac_coefficients})(ctx), x, v);
+  // VariationalGradientOnly: kappa = lambda = 0.15
+  VariationalGradientOnly gradient_term;
+  W double_well(kOmega);
+  const auto [F_var, Jv_var] = residual_and_jacobian(
+      *this,
+      maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+          Coefficient(Glossary::FreeEnergy, Scheme::SemiImplicit,
+                      SumCoefficient({{&gradient_term, Scheme::Implicit},
+                                      {&double_well, Scheme::Explicit}})),
+          Coefficient(Glossary::Mobility, kM))})(ctx),
+      x, v);
+  check_same(F, F_var, 1.e-12);
+  check_same(Jv, Jv_var, 1.e-12);
+}
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnVariationalNLFormIntegrator: invalid data",
+                 "[Integrators][variational][errors]") {
+  Context ctx;
+  ctx.u_old.push_back(project(phi_old));
+  SECTION("free energy which is not variational") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+            Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(kOmega)))})(ctx),
+        "must be a variational coefficient");
+  }
+  SECTION("free energy of one variable for two blocks") {
+    ctx.u_old.push_back(project(phi_old));
+    const Coefficients coefs = variational_coefficients(
+        Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell()));
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        BlockResidual(*this, maker<AllenCahnVariationalNLFormIntegrator>({coefs, coefs})(ctx),
+                      {c03, c07}),
+        "free energy of 1 variables for 2 blocks");
   }
 }
 

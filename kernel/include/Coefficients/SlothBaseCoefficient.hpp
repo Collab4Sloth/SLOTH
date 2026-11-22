@@ -135,6 +135,7 @@ class SlothBaseCoefficient {
   // Variational coefficient: energy density f(u, grad u) (see FunctionCoefficient)
   bool is_variational() const;
   int variational_dimension() const;
+  int variational_nb_variables() const;
   bool uses_explicit_gradients() const;
   bool uses_auxiliary_gradients() const;
   bool eval_variational_batch(const int npts, const mfem::Vector& values,

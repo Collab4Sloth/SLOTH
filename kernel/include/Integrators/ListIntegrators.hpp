@@ -30,6 +30,7 @@
 #include "Integrators/AdvectionBoundaryNLFormIntegrator.hpp"
 #include "Integrators/AdvectionNLFormIntegrator.hpp"
 #include "Integrators/AllenCahnNLFormIntegrator.hpp"
+#include "Integrators/AllenCahnVariationalNLFormIntegrator.hpp"
 #include "Integrators/BlockAllenCahnNLFormIntegrator.hpp"
 #include "Integrators/CahnHilliardNLFormIntegrator.hpp"
 #include "Integrators/FickNLFormIntegrator.hpp"

@@ -42,6 +42,7 @@ Integrators::value Integrators::from(const std::string& v) {
       {"Fourier", Integrators::Fourier},
       {"CahnHilliard", Integrators::CahnHilliard},
       {"AllenCahn", Integrators::AllenCahn},
+      {"AllenCahnVariational", Integrators::AllenCahnVariational},
       {"SplitAllenCahn", Integrators::SplitAllenCahn},
       {"MeltingTemperature", Integrators::MeltingTemperature},
       {"MeltingCalphad", Integrators::MeltingCalphad},

@@ -39,17 +39,39 @@
 #include <vector>
 
 #include "Coefficients/FunctionCoefficient.hpp"
+#include "Options/TimeOptions.hpp"
+
+/**
+ * @brief Term of a SumCoefficient with its own scheme
+ *
+ * - Scheme::Implicit (default): the term is evaluated with the values given to the sum.
+ * - Scheme::Explicit: the term is evaluated with the explicit values given to the sum (values at
+ *   the beginning of the time step): the scheme applies to its derivatives, its second derivatives
+ *   are zero. The sum must then be wrapped in a semi-implicit Coefficient.
+ * - Scheme::SemiImplicit: same as Scheme::Implicit, the term reads the explicit values itself.
+ */
+struct SumTerm {
+  FunctionCoefficient* coefficient = nullptr;
+  Scheme scheme = Scheme::Implicit;
+};
 
 /**
  * @brief Define a summation of FunctionCoefficient objects as a FunctionCoefficient
- * @remark This suggest that all FunctionCoefficient share the same variables...
+ * @remark All the terms share the same variables. Each term has its own scheme (see SumTerm).
+ * Variational and non-variational terms can be summed: the sum is then variational, the
+ * non-variational terms only contribute to f, df/du and d2f/du2.
  *
  */
 class SumCoefficient : public FunctionCoefficient {
  private:
   std::vector<FunctionCoefficient*> vect_coefficients_;
-  // Work arrays of eval_batch
+  std::vector<Scheme> vect_schemes_;  ///< scheme of each term
+  // Work arrays of eval_batch and eval_variational_batch
   mutable mfem::Vector term_F_, term_gradient_, term_hessian_;  ///< outputs of one term
+  mutable mfem::Vector term_df_dgrad_, term_d2f_dvar_dgrad_, term_d2f_dgrad2_;
+
+  bool is_explicit_term(std::size_t k) const;
+  void check_terms() const;
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -64,6 +86,7 @@ class SumCoefficient : public FunctionCoefficient {
 
  public:
   explicit SumCoefficient(std::initializer_list<FunctionCoefficient*> coeffs);
+  explicit SumCoefficient(std::initializer_list<SumTerm> terms);
   SumCoefficient() = default;
 
   virtual ~SumCoefficient() = default;
@@ -77,4 +100,17 @@ class SumCoefficient : public FunctionCoefficient {
                   const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
                   mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const override;
   int batch_nb_variables() const override;
+
+  bool is_variational() const override;
+  int variational_dimension() const override;
+  int variational_nb_variables() const override;
+  bool uses_explicit_gradients() const override;
+  bool uses_auxiliary_gradients() const override;
+  bool eval_variational_batch(const int npts, const mfem::Vector& values,
+                              const mfem::Vector& explicit_values,
+                              const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,
+                              const mfem::Vector& explicit_gradients,
+                              const mfem::Vector& auxiliary_gradients,
+                              const mfem::Vector& coordinates,
+                              const VariationalBatch& outputs) const override;
 };

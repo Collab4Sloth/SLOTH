@@ -170,7 +170,8 @@ sloth_add_unit_test(NAME Parameters
                             Parameters/test_Parameters.cpp)
 
 sloth_add_unit_test(NAME PostProcessing
-                    SOURCES PostProcessing/test_PostProcessing.cpp)
+                    SOURCES PostProcessing/test_PostProcessing.cpp
+                    COEFFICIENTS_JSON PostProcessing/PostProcessingCoefficients.json)
 
 sloth_add_unit_test(NAME PreProcessing
                     SOURCES PreProcessing/test_TabulatedFunction.cpp

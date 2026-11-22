@@ -445,6 +445,13 @@ int SlothBaseCoefficient::variational_dimension() const {
 }
 
 /**
+ * @brief Number of variables of a variational coefficient, 0 otherwise
+ */
+int SlothBaseCoefficient::variational_nb_variables() const {
+  return this->coefficient_ != nullptr ? this->coefficient_->variational_nb_variables() : 0;
+}
+
+/**
  * @brief True if a variational coefficient reads the gradients of its explicit variables
  */
 bool SlothBaseCoefficient::uses_explicit_gradients() const {

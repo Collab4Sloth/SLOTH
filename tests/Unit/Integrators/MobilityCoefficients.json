@@ -55,4 +55,64 @@
 	"class_name":"FirstAuxiliary",
 	"outputfile":"FirstAuxiliary"
 	}
+	,
+	{
+	"expression":"0.5*kappa*dot(grad(phi),grad(phi)) + omega*phi**2*(1-phi)**2",
+	"variables":"phi",
+	"constants":"(kappa:0.15),(omega:120.0)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"VariationalDoubleWell",
+	"outputfile":"VariationalEnergies"
+	}
+	,
+	{
+	"expression":"0.5*(k0 + k1*phi)*dot(grad(phi),grad(phi)) + omega*phi**2*(1-phi)**2",
+	"variables":"phi",
+	"constants":"(k0:0.15),(k1:0.1),(omega:120.0)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"VariationalKappaPhi",
+	"outputfile":"VariationalEnergies"
+	}
+	,
+	{
+	"expression":"0.5*(W0*(1 + e4*(n(phi)[0]**4 - 6*n(phi)[0]**2*n(phi)[1]**2 + n(phi)[1]**4)))**2*dot(grad(phi),grad(phi)) + omega*phi**2*(1-phi)**2",
+	"variables":"phi",
+	"constants":"(W0:0.4),(e4:0.05),(omega:120.0)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"VariationalAnisotropic",
+	"outputfile":"VariationalEnergies"
+	}
+	,
+	{
+	"expression":"0.5*(k11*dot(grad(phi0),grad(phi0)) + 2*k12*dot(grad(phi0),grad(phi1)) + k22*dot(grad(phi1),grad(phi1))) + w0*phi0**2*phi1**2",
+	"variables":"phi0,phi1",
+	"constants":"(k11:0.15),(k12:0.05),(k22:0.2),(w0:50.0)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"VariationalTwoPhases",
+	"outputfile":"VariationalEnergies"
+	}
+	,
+	{
+	"expression":"0.5*kappa*dot(grad(phi),grad(phie)) + omega*phi**2*(1-phie)**2",
+	"variables":"phi",
+	"explicit_variables":"phie",
+	"constants":"(kappa:0.15),(omega:120.0)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"VariationalSemiImplicit",
+	"outputfile":"VariationalEnergies"
+	},
+    {
+    "expression":"0.5*kappa*dot(grad(phi),grad(phi))",
+    "variables":"phi",
+    "constants":"(kappa:0.15)",
+    "variational":true,
+    "dimension":2,
+    "class_name":"VariationalGradientOnly",
+    "outputfile":"VariationalEnergies"
+    }
 ]

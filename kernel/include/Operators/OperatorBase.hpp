@@ -40,6 +40,7 @@
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/Coefficients.hpp"
+#include "Coefficients/FieldsAtPoints.hpp"
 #include "Extensions/UserIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -159,6 +160,9 @@ class OperatorBase : public mfem::Operator {
                        const double upper_bound);
   void ComputeEnergies(const int& it, const double& t, const double& dt,
                        const std::vector<mfem::Vector>& u);
+  void ComputeVariationalEnergies(const int& it, const double& t, const double& dt,
+                                  const std::vector<mfem::ParGridFunction>& vun,
+                                  const std::vector<mfem::ParGridFunction>& vaux);
 
   void ComputeIsoVal(const int& it, const double& t, const double& dt, const int var_id,
                      const std::string& var_name, const mfem::Vector& u, const double& iso_value);

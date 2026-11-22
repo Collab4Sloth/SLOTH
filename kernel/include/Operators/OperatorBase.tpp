@@ -206,6 +206,10 @@ void OperatorBase<T, DIM>::set_coefficients(const std::vector<Coefficients>& coe
     MFEM_VERIFY(
         this->energy_coefficient_.has_value(),
         "Error: FreeEnergy coefficient is required for computing energy density of the system.");
+    MFEM_VERIFY(!(this->energy_coefficient_->is_variational() &&
+                  this->grad_energy_coefficient_.has_value()),
+                "Error: a variational FreeEnergy coefficient already contains the gradient terms: "
+                "a GradientEnergy coefficient must not be given.");
   }
 }
 
@@ -692,6 +696,12 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
       vaux.emplace_back(auxvar.get_gf());
     }
   }
+  // Variational FreeEnergy coefficient f(u, grad u): evaluated at the integration points
+  if (this->energy_coefficient_->is_variational()) {
+    this->ComputeVariationalEnergies(it, t, dt, vun, vaux);
+    return;
+  }
+
   const int m = vun.size();
   const int l = vaux.size();
   std::vector<mfem::real_t> v1(m);
@@ -805,6 +815,101 @@ void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const
     this->time_specialized_.emplace(IterationKey(it, dt, t),
                                     SpecializedValue("Sigma[J.m-3]", sigma));
   }
+}
+
+/**
+ * @brief Energies of the system with a variational FreeEnergy coefficient f(u, grad u),
+ * evaluated at the integration points by evaluation by batch (eval_variational_batch):
+ *   Density = int f(u, grad u),   Sigma = 2 int (f(u, grad u) - f(u, 0))
+ * f(u, 0) gathers the terms which do not depend on the gradients (bulk energy): Sigma is twice
+ * the energy of the gradient terms, as with a GradientEnergy coefficient.
+ *
+ * The fields (variables and auxiliary variables) are interpolated with the finite elements of
+ * fes_[0]. A semi-implicit coefficient is evaluated with the explicit variables equal to the
+ * variables, and their gradients equal to the gradients of the variables.
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::ComputeVariationalEnergies(
+    const int& it, const double& t, const double& dt, const std::vector<mfem::ParGridFunction>& vun,
+    const std::vector<mfem::ParGridFunction>& vaux) {
+  const Coefficient& coef = *this->energy_coefficient_;
+  mfem::ParFiniteElementSpace* fes = this->fes_[0];
+  const int sdim = fes->GetMesh()->SpaceDimension();
+  MFEM_VERIFY(coef.variational_dimension() == sdim,
+              "Error: dimension of the variational FreeEnergy coefficient (" +
+                  std::to_string(coef.variational_dimension()) +
+                  ") different from the dimension of the mesh (" + std::to_string(sdim) + ").");
+  const bool semi = coef.is_semi_implicit();
+  const bool with_aux_gradients = coef.uses_auxiliary_gradients();
+  const bool with_exp_gradients = semi && coef.uses_explicit_gradients();
+
+  std::vector<mfem::Vector> dofs_un(vun.size());
+  std::vector<mfem::Vector> dofs_aux(vaux.size());
+  mfem::Array<int> el_vdofs;
+  mfem::Vector values, aux_values, gradients, aux_gradients, coordinates, none;
+  mfem::Vector zero_gradients, zero_aux_gradients, F, F0;
+  mfem::DenseMatrix points;
+
+  mfem::real_t integral = 0.0;
+  mfem::real_t sigma = 0.0;
+  for (int e = 0; e < fes->GetNE(); ++e) {
+    const mfem::FiniteElement* fe = fes->GetFE(e);
+    mfem::ElementTransformation* Tr = fes->GetElementTransformation(e);
+    const mfem::IntegrationRule& ir = mfem::IntRules.Get(fe->GetGeomType(), 2 * fe->GetOrder() + 3);
+    const int nip = ir.GetNPoints();
+
+    // Values and gradients of the fields at the integration points
+    fes->GetElementVDofs(e, el_vdofs);
+    for (std::size_t k = 0; k < vun.size(); ++k) vun[k].GetSubVector(el_vdofs, dofs_un[k]);
+    for (std::size_t k = 0; k < vaux.size(); ++k) vaux[k].GetSubVector(el_vdofs, dofs_aux[k]);
+    fields_at_points(*fe, *Tr, ir, dofs_un, values, &gradients);
+    fields_at_points(*fe, *Tr, ir, dofs_aux, aux_values,
+                     with_aux_gradients ? &aux_gradients : nullptr);
+    if (!with_aux_gradients) aux_gradients.SetSize(0);
+    if (coef.uses_coordinates()) {
+      Tr->Transform(ir, points);  // sdim x nip, column q = point q
+      coordinates.SetSize(points.Height() * nip);
+      std::copy(points.GetData(), points.GetData() + coordinates.Size(), coordinates.HostWrite());
+    } else {
+      coordinates.SetSize(0);
+    }
+
+    // f(u, grad u), then f(u, 0): gradients set to zero
+    F.SetSize(nip);
+    F0.SetSize(nip);
+    VariationalBatch outputs;
+    outputs.F = &F;
+    coef.eval_variational_batch(nip, values, semi ? values : none, aux_values, gradients,
+                                with_exp_gradients ? gradients : none, aux_gradients, coordinates,
+                                outputs);
+    zero_gradients.SetSize(gradients.Size());
+    zero_gradients = 0.0;
+    zero_aux_gradients.SetSize(aux_gradients.Size());
+    zero_aux_gradients = 0.0;
+    outputs.F = &F0;
+    coef.eval_variational_batch(nip, values, semi ? values : none, aux_values, zero_gradients,
+                                with_exp_gradients ? zero_gradients : none, zero_aux_gradients,
+                                coordinates, outputs);
+
+    const double* f = F.HostRead();
+    const double* f0 = F0.HostRead();
+    for (int q = 0; q < nip; ++q) {
+      const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+      Tr->SetIntPoint(&ip);
+      const mfem::real_t w = ip.weight * Tr->Weight();
+      integral += f[q] * w;
+      sigma += 2.0 * (f[q] - f0[q]) * w;
+    }
+  }
+
+  mfem::real_t global[2] = {0.0, 0.0};
+  mfem::real_t local[2] = {integral, sigma};
+  MPI_Allreduce(local, global, 2, mfem::MPITypeMap<mfem::real_t>::mpi_type, MPI_SUM,
+                MPI_COMM_WORLD);
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("Density[J.m-3]", global[0]));
+  this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                  SpecializedValue("Sigma[J.m-3]", global[1]));
 }
 
 /**
@@ -991,6 +1096,10 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
     }
     case Integrators::AllenCahn: {
       return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+    }
+    case Integrators::AllenCahnVariational: {
+      return new AllenCahnVariationalNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
     case Integrators::SplitAllenCahn: {

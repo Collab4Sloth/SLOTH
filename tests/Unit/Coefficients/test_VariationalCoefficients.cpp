@@ -38,6 +38,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "Coefficients/CommonCoefficients.hpp"
+#include "Coefficients/SumFunctionCoefficients.hpp"
 #include "Coefficients/VariationalEval.hpp"
 #include "sloth_unit.hpp"
 
@@ -291,6 +293,7 @@ TEST_CASE("Variational coefficients: class and evaluation by batch",
   FunctionCoefficient& base = coef;
   CHECK(base.is_variational());
   CHECK(base.variational_dimension() == 2);
+  CHECK(base.variational_nb_variables() == 1);
   CHECK(base.uses_explicit_gradients());
   CHECK(base.uses_auxiliary_gradients());
   CHECK(base.uses_coordinates());
@@ -347,5 +350,158 @@ TEST_CASE("Variational coefficients: class and evaluation by batch",
       check_close(df_dgrad(2 * q), v.df_dgrad[0]);
       check_close(df_dgrad(2 * q + 1), v.df_dgrad[1]);
     }
+  }
+}
+
+// SumCoefficient: each term with its own scheme. An explicit term is evaluated with the explicit
+// values (beginning of the time step) and has no second derivative.
+TEST_CASE("SumCoefficient: terms with their own scheme", "[Coefficients][variational]") {
+  W w(2.);
+  H h;
+  SumCoefficient sum({{&w, Scheme::Implicit}, {&h, Scheme::Explicit}});
+  FunctionCoefficient& base = sum;
+  CHECK_FALSE(base.is_variational());
+  CHECK(base.batch_nb_variables() == 1);
+
+  constexpr int npts = 4;
+  mfem::Vector values(npts), explicit_values(npts), none;
+  for (int q = 0; q < npts; ++q) {
+    values(q) = 0.1 + 0.2 * q;
+    explicit_values(q) = 0.3 + 0.1 * q;
+  }
+
+  SECTION("evaluation by batch and point by point") {
+    mfem::Vector F(npts), gradient(npts), hessian(npts);
+    REQUIRE(base.eval_batch(npts, values, explicit_values, none, none, &F, &gradient, &hessian));
+    F.HostRead();
+    gradient.HostRead();
+    hessian.HostRead();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const std::vector<double> u{values(q)}, u_old{explicit_values(q)}, aux;
+      const double expected_F = w.eval_f(u) + h.eval_f(u_old);
+      const double expected_gradient = w.eval_gradient(0, u) + h.eval_gradient(0, u_old);
+      const double expected_hessian = w.eval_hessian(0, 0, u);
+      check_close(F(q), expected_F);
+      check_close(gradient(q), expected_gradient);
+      check_close(hessian(q), expected_hessian);
+      check_close(base.eval_f(u, u_old, aux), expected_F);
+      check_close(base.eval_gradient(0, u, u_old, aux), expected_gradient);
+      check_close(base.eval_hessian(0, 0, u, u_old, aux), expected_hessian);
+    }
+  }
+
+  SECTION("explicit term without explicit values") {
+    mfem::Vector F(npts);
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        base.eval_batch(npts, values, none, none, none, &F, nullptr, nullptr),
+        "Scheme::SemiImplicit");
+  }
+
+  SECTION("invalid scheme of a term") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(SumCoefficient({{&w, Scheme::Constant}}), "scheme of a term");
+  }
+}
+
+// Variational sum: EnergyKappa (variational) + W (non-variational, contributes to F, df/du and
+// d2f/du2 only)
+TEST_CASE("SumCoefficient: variational sum", "[Coefficients][variational]") {
+  EnergyKappa energy;
+  W w(1.5);
+  constexpr int npts = 3;
+  mfem::Vector values(npts), explicit_values(npts), none;
+  mfem::Vector gradients(2 * npts), explicit_gradients(2 * npts);
+  for (int q = 0; q < npts; ++q) {
+    values(q) = 0.2 + 0.25 * q;
+    explicit_values(q) = 0.25 + 0.2 * q;
+    for (int k = 0; k < 2; ++k) {
+      gradients(2 * q + k) = 0.4 * q - 0.3 * k + 0.1;
+      explicit_gradients(2 * q + k) = -0.2 * q + 0.5 * k + 0.2;
+    }
+  }
+  mfem::Vector F(npts), df_dvar(npts), df_dgrad(2 * npts), d2f_dvar2(npts), d2f_dvar_dgrad(2 * npts),
+      d2f_dgrad2(4 * npts);
+  VariationalBatch outputs;
+  outputs.F = &F;
+  outputs.df_dvar = &df_dvar;
+  outputs.df_dgrad = &df_dgrad;
+  outputs.d2f_dvar2 = &d2f_dvar2;
+  outputs.d2f_dvar_dgrad = &d2f_dvar_dgrad;
+  outputs.d2f_dgrad2 = &d2f_dgrad2;
+  auto read_outputs = [&]() {
+    F.HostRead();
+    df_dvar.HostRead();
+    df_dgrad.HostRead();
+    d2f_dvar2.HostRead();
+    d2f_dvar_dgrad.HostRead();
+    d2f_dgrad2.HostRead();
+  };
+  auto point = [&](const int q, const bool previous) {
+    const mfem::Vector& v = previous ? explicit_values : values;
+    const mfem::Vector& g = previous ? explicit_gradients : gradients;
+    return phi_point(v(q), g(2 * q), g(2 * q + 1));
+  };
+
+  SECTION("implicit variational term, explicit double well") {
+    SumCoefficient sum({{&energy, Scheme::Implicit}, {&w, Scheme::Explicit}});
+    FunctionCoefficient& base = sum;
+    CHECK(base.is_variational());
+    CHECK(base.variational_dimension() == 2);
+    CHECK(base.variational_nb_variables() == 1);
+    CHECK_FALSE(base.uses_explicit_gradients());
+    CHECK(base.batch_nb_variables() == 0);
+    REQUIRE(base.eval_variational_batch(npts, values, explicit_values, none, gradients, none, none,
+                                        none, outputs));
+    read_outputs();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const Values v = evaluate(EnergyKappaVariationalEval{}, point(q, false));
+      const std::vector<double> u_old{explicit_values(q)};
+      check_close(F(q), v.F + w.eval_f(u_old));
+      check_close(df_dvar(q), v.df_dvar[0] + w.eval_gradient(0, u_old));
+      check_close(d2f_dvar2(q), v.d2f_dvar2[0]);
+      for (int k = 0; k < 2; ++k) {
+        check_close(df_dgrad(2 * q + k), v.df_dgrad[k]);
+        check_close(d2f_dvar_dgrad(2 * q + k), v.d2f_dvar_dgrad[k]);
+      }
+      for (int k = 0; k < 4; ++k) check_close(d2f_dgrad2(4 * q + k), v.d2f_dgrad2[k]);
+    }
+  }
+
+  SECTION("explicit variational term, implicit double well") {
+    SumCoefficient sum({{&energy, Scheme::Explicit}, {&w, Scheme::Implicit}});
+    FunctionCoefficient& base = sum;
+    CHECK(base.uses_explicit_gradients());
+    REQUIRE(base.eval_variational_batch(npts, values, explicit_values, none, gradients,
+                                        explicit_gradients, none, none, outputs));
+    read_outputs();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const Values v = evaluate(EnergyKappaVariationalEval{}, point(q, true));
+      const std::vector<double> u{values(q)};
+      check_close(F(q), v.F + w.eval_f(u));
+      check_close(df_dvar(q), v.df_dvar[0] + w.eval_gradient(0, u));
+      check_close(d2f_dvar2(q), w.eval_hessian(0, 0, u));
+      for (int k = 0; k < 2; ++k) {
+        check_close(df_dgrad(2 * q + k), v.df_dgrad[k]);
+        check_close(d2f_dvar_dgrad(2 * q + k), 0.);
+      }
+      for (int k = 0; k < 4; ++k) check_close(d2f_dgrad2(4 * q + k), 0.);
+    }
+  }
+
+  SECTION("explicit variational term without explicit gradients") {
+    SumCoefficient sum({{&energy, Scheme::Explicit}, {&w, Scheme::Implicit}});
+    FunctionCoefficient& base = sum;
+    SLOTH_CHECK_MFEM_ERROR_WITH(base.eval_variational_batch(npts, values, explicit_values, none,
+                                                            gradients, none, none, none, outputs),
+                                "gradients at the beginning of the time step");
+  }
+
+  SECTION("non-variational sum") {
+    SumCoefficient sum({{&w, Scheme::Implicit}});
+    FunctionCoefficient& base = sum;
+    CHECK_FALSE(base.eval_variational_batch(npts, values, none, none, gradients, none, none, none,
+                                            outputs));
   }
 }

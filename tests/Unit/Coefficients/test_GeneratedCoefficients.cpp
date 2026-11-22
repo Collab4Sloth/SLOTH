@@ -581,6 +581,7 @@ TEST_CASE("Generated coefficients: variational coefficient in a Coefficient",
   Coefficient c(Glossary::Temperature, Scheme::Implicit, EnergySemiImplicit());
   CHECK(c.is_variational());
   CHECK(c.variational_dimension() == 2);
+  CHECK(c.variational_nb_variables() == 1);
   CHECK(c.uses_explicit_gradients());
   CHECK(c.uses_auxiliary_gradients());
   CHECK(c.uses_coordinates());
@@ -620,6 +621,7 @@ TEST_CASE("Generated coefficients: variational coefficient in a Coefficient",
   const Coefficient a(Glossary::Temperature, Scheme::Implicit, FunctionA());
   CHECK_FALSE(a.is_variational());
   CHECK(a.variational_dimension() == 0);
+  CHECK(a.variational_nb_variables() == 0);
   CHECK_FALSE(a.eval_variational_batch(1, values, explicit_values, auxiliary_values, gradients,
                                        explicit_gradients, auxiliary_gradients, coordinates,
                                        outputs));

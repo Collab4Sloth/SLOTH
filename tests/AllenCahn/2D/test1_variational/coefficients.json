@@ -1,0 +1,11 @@
+[
+    {
+    "expression":"0.5*kappa*dot(grad(phi),grad(phi))",
+    "variables":"phi",
+    "constants":"(kappa:0.15)",
+    "variational":true,
+    "dimension":2,
+    "class_name":"GradientTerm",
+    "outputfile":"AllenCahnVariationalCoefficients"
+    }
+]

@@ -141,6 +141,9 @@ class FunctionCoefficient {
   virtual bool is_variational() const { return false; }
   /// Dimension of the gradients of a variational coefficient, 0 otherwise
   virtual int variational_dimension() const { return 0; }
+  /// Number of variables of a variational coefficient (derivatives given by
+  /// eval_variational_batch), 0 otherwise
+  virtual int variational_nb_variables() const { return 0; }
   /// True if a variational coefficient reads the gradients of its explicit variables
   virtual bool uses_explicit_gradients() const { return false; }
   /// True if a variational coefficient reads the gradients of its auxiliary variables
