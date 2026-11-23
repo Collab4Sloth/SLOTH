@@ -188,29 +188,8 @@ int OperatorBase<T, DIM>::compute_total_width(
  * @param coefficients
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::set_coefficients(const std::vector<Coefficients>& coefficients,
-                                            bool enable_compute_energies) {
+void OperatorBase<T, DIM>::set_coefficients(const std::vector<Coefficients>& coefficients) {
   this->coefficients_ = coefficients;
-
-  if (enable_compute_energies) {
-    Coefficients coefs = this->coefficients_[0];
-    for (unsigned int i = 0; i < coefs.size(); i++) {
-      if (coefs[i].get_type() == GlossaryType::FreeEnergy) {
-        this->energy_coefficient_ = coefs[i];
-      }
-      if (coefs[i].get_type() == GlossaryType::GradientEnergy) {
-        this->grad_energy_coefficient_ = coefs[i];
-      }
-    }
-
-    MFEM_VERIFY(
-        this->energy_coefficient_.has_value(),
-        "Error: FreeEnergy coefficient is required for computing energy density of the system.");
-    MFEM_VERIFY(!(this->energy_coefficient_->is_variational() &&
-                  this->grad_energy_coefficient_.has_value()),
-                "Error: a variational FreeEnergy coefficient already contains the gradient terms: "
-                "a GradientEnergy coefficient must not be given.");
-  }
 }
 
 /**
@@ -668,248 +647,71 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
   this->time_specialized_.emplace(IterationKey(it, dt, t),
                                   SpecializedValue(name + "_average[-]", average));
 }
+
 /**
- * @brief Compute energy density
+ * @brief Energies of the system with the current values of the variables u, from the
+ * coefficients of the operator (FreeEnergy and, if given, GradientEnergy of block 0):
+ *   Density = int (f + g),  Sigma = 2 int g             (FreeEnergy f(u), GradientEnergy g)
+ *   Density = int f,        Sigma = 2 int (f - f(u, 0))  (variational FreeEnergy f(u, grad u))
+ * Computed element by element by SlothNLFormIntegrator::system_energies (evaluation by batch at
+ * the integration points). Sigma is saved if the energies
+ * have an interface part (GradientEnergy given or variational FreeEnergy).
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
- * @param it
- * @param t
- * @param dt
- * @param u
+ * @param it Current iteration
+ * @param t Current time
+ * @param dt Current time step
+ * @param u Current values of the variables (true dofs)
  */
 template <class T, int DIM>
 void OperatorBase<T, DIM>::ComputeEnergies(const int& it, const double& t, const double& dt,
                                            const std::vector<mfem::Vector>& u) {
   Catch_Time_Section("OperatorBase::ComputeEnergies");
+  const std::size_t nb = u.size();
   std::vector<mfem::ParGridFunction> vun;
-  vun.reserve(u.size());
-  for (size_t j = 0; j < u.size(); ++j) {
-    mfem::ParGridFunction un(this->fes_[j]);
-    un.SetFromTrueDofs(u[j]);
+  vun.reserve(nb);
+  for (std::size_t b = 0; b < nb; ++b) {
+    mfem::ParGridFunction un(this->fes_[b]);
+    un.SetFromTrueDofs(u[b]);
     vun.emplace_back(std::move(un));
   }
 
-  std::vector<mfem::ParGridFunction> vaux;
-  for (const auto& auxvar_vec : this->auxvariables_) {
-    for (const auto& auxvar : auxvar_vec->getVariables()) {
-      vaux.emplace_back(auxvar.get_gf());
+  SystemEnergyNLFormIntegrator<Variables<T, DIM>> energies(
+      this->geometry_, vun, this->params_ - this->default_p_, this->auxvariables_,
+      this->coefficients_);
+  MFEM_VERIFY(
+      energies.prepare_system_energies(),
+      "Error: FreeEnergy coefficient is required for computing energy density of the system.");
+
+  mfem::Array<const mfem::FiniteElement*> el(static_cast<int>(nb));
+  mfem::Array<const mfem::Vector*> elfun(static_cast<int>(nb));
+  std::vector<mfem::Vector> el_dofs(nb);
+  mfem::Array<int> vdofs;
+  mfem::real_t local[2] = {0.0, 0.0};
+  for (int e = 0; e < this->fes_[0]->GetNE(); ++e) {
+    for (std::size_t b = 0; b < nb; ++b) {
+      const auto ib = static_cast<int>(b);
+      el[ib] = this->fes_[b]->GetFE(e);
+      this->fes_[b]->GetElementVDofs(e, vdofs);
+      vun[b].GetSubVector(vdofs, el_dofs[b]);
+      elfun[ib] = &el_dofs[b];
     }
-  }
-  // Variational FreeEnergy coefficient f(u, grad u): evaluated at the integration points
-  if (this->energy_coefficient_->is_variational()) {
-    this->ComputeVariationalEnergies(it, t, dt, vun, vaux);
-    return;
-  }
-
-  const int m = vun.size();
-  const int l = vaux.size();
-  std::vector<mfem::real_t> v1(m);
-  std::vector<mfem::real_t> v2(l);
-
-  mfem::ParGridFunction gf(this->fes_[0]);
-  const bool semi_implicit_coef = (*this->energy_coefficient_).is_semi_implicit();
-
-  for (int i = 0; i < gf.Size(); ++i) {
-    for (int j = 0; j < m; ++j) v1[j] = vun[j][i];
-    for (int j = 0; j < l; ++j) v2[j] = vaux[j][i];
-    gf[i] = semi_implicit_coef ? (*this->energy_coefficient_).compute(v1, v1, v2, -1)
-                               : (*this->energy_coefficient_).compute(v1, v2, -1);
-  }
-
-  // Gradients of the variables and of the auxiliary variables, interpolated with the finite
-  // elements of fes_[0]. Same computation as GridFunction::GetGradient on copies of the fields
-  // defined on fes_[0] (reference gradients of the shape functions, then inverse Jacobian), but
-  // the element dofs of each field are extracted once per element instead of once per field and
-  // integration point, and the shape function gradients once per integration point.
-  const bool with_gradient = this->grad_energy_coefficient_.has_value();
-  std::vector<mfem::Vector> el_dofs_un(static_cast<size_t>(m));
-  std::vector<mfem::Vector> el_dofs_aux(static_cast<size_t>(l));
-  std::vector<mfem::real_t> grad_vun_ip;
-  std::vector<mfem::real_t> grad_vaux_ip;
-  mfem::Array<int> el_vdofs;
-  mfem::DenseMatrix dshape;
-  mfem::Vector grad_ref;
-  mfem::Vector grad_tmp;
-
-  mfem::real_t integral = 0.0;
-  mfem::real_t sigma = 0.0;
-  const mfem::FiniteElement* fe;
-  mfem::ElementTransformation* Tr;
-  mfem::Vector vals;
-
-  for (int i = 0; i < this->fes_[0]->GetNE(); i++) {
-    fe = this->fes_[0]->GetFE(i);
-
-    unsigned int dim = fe->GetDim();
-    grad_vun_ip.assign(static_cast<size_t>(m) * dim, 0.0);
-    grad_vaux_ip.assign(static_cast<size_t>(l) * dim, 0.0);
-    const mfem::IntegrationRule* ir;
-
-    int intorder = 2 * fe->GetOrder() + 3;  // <----------
-    ir = &(mfem::IntRules.Get(fe->GetGeomType(), intorder));
-
-    mfem::real_t int_fo = 0.0;
-    mfem::real_t int_grad = 0.0;
-
-    gf.GetValues(i, *ir, vals);
-
-    Tr = this->fes_[0]->GetElementTransformation(i);
-
-    if (with_gradient) {
-      // Element dofs (indices of fes_[0]) of each field
-      this->fes_[0]->GetElementVDofs(i, el_vdofs);
-      for (int k = 0; k < m; ++k)
-        vun[static_cast<size_t>(k)].GetSubVector(el_vdofs, el_dofs_un[static_cast<size_t>(k)]);
-      for (int k = 0; k < l; ++k)
-        vaux[static_cast<size_t>(k)].GetSubVector(el_vdofs, el_dofs_aux[static_cast<size_t>(k)]);
-      dshape.SetSize(fe->GetDof(), static_cast<int>(dim));
-      grad_ref.SetSize(static_cast<int>(dim));
-      grad_tmp.SetSize(this->fes_[0]->GetMesh()->SpaceDimension());
-    }
-
-    for (int j = 0; j < ir->GetNPoints(); j++) {
-      const mfem::IntegrationPoint& ip = ir->IntPoint(j);
-      Tr->SetIntPoint(&ip);
-
-      // CCI Grad contrib
-      if (with_gradient) {
-        fe->CalcDShape(ip, dshape);
-        const mfem::DenseMatrix& inv_jac = Tr->InverseJacobian();
-        for (int k = 0; k < m; ++k) {
-          dshape.MultTranspose(el_dofs_un[static_cast<size_t>(k)], grad_ref);
-          inv_jac.MultTranspose(grad_ref, grad_tmp);
-          for (unsigned int ii = 0; ii < dim; ii++)
-            grad_vun_ip[static_cast<size_t>(k) * dim + ii] = grad_tmp[static_cast<int>(ii)];
-        }
-        for (int k = 0; k < l; ++k) {
-          dshape.MultTranspose(el_dofs_aux[static_cast<size_t>(k)], grad_ref);
-          inv_jac.MultTranspose(grad_ref, grad_tmp);
-          for (unsigned int ii = 0; ii < dim; ii++)
-            grad_vaux_ip[static_cast<size_t>(k) * dim + ii] = grad_tmp[static_cast<int>(ii)];
-        }
-        int_grad += (*this->grad_energy_coefficient_).compute(grad_vun_ip, grad_vaux_ip, dim) *
-                    ip.weight * Tr->Weight();
-      }
-      int_fo += vals(j) * ip.weight * Tr->Weight();
-    }
-    integral += int_fo + int_grad;
-    sigma += 2.0 * int_grad;
-  }
-
-  mfem::real_t global_integral = 0.0;
-
-  MPI_Allreduce(&integral, &global_integral, 1, mfem::MPITypeMap<mfem::real_t>::mpi_type, MPI_SUM,
-                MPI_COMM_WORLD);
-
-  integral = global_integral;
-
-  this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                  SpecializedValue("Density[J.m-3]", integral));
-  if (this->grad_energy_coefficient_.has_value()) {
-    mfem::real_t global_sigma = 0.0;
-    MPI_Allreduce(&sigma, &global_sigma, 1, mfem::MPITypeMap<mfem::real_t>::mpi_type, MPI_SUM,
-                  MPI_COMM_WORLD);
-
-    sigma = global_sigma;
-    this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                    SpecializedValue("Sigma[J.m-3]", sigma));
-  }
-}
-
-/**
- * @brief Energies of the system with a variational FreeEnergy coefficient f(u, grad u),
- * evaluated at the integration points by evaluation by batch (eval_variational_batch):
- *   Density = int f(u, grad u),   Sigma = 2 int (f(u, grad u) - f(u, 0))
- * f(u, 0) gathers the terms which do not depend on the gradients (bulk energy): Sigma is twice
- * the energy of the gradient terms, as with a GradientEnergy coefficient.
- *
- * The fields (variables and auxiliary variables) are interpolated with the finite elements of
- * fes_[0]. A semi-implicit coefficient is evaluated with the explicit variables equal to the
- * variables, and their gradients equal to the gradients of the variables.
- */
-template <class T, int DIM>
-void OperatorBase<T, DIM>::ComputeVariationalEnergies(
-    const int& it, const double& t, const double& dt, const std::vector<mfem::ParGridFunction>& vun,
-    const std::vector<mfem::ParGridFunction>& vaux) {
-  const Coefficient& coef = *this->energy_coefficient_;
-  mfem::ParFiniteElementSpace* fes = this->fes_[0];
-  const int sdim = fes->GetMesh()->SpaceDimension();
-  MFEM_VERIFY(coef.variational_dimension() == sdim,
-              "Error: dimension of the variational FreeEnergy coefficient (" +
-                  std::to_string(coef.variational_dimension()) +
-                  ") different from the dimension of the mesh (" + std::to_string(sdim) + ").");
-  const bool semi = coef.is_semi_implicit();
-  const bool with_aux_gradients = coef.uses_auxiliary_gradients();
-  const bool with_exp_gradients = semi && coef.uses_explicit_gradients();
-
-  std::vector<mfem::Vector> dofs_un(vun.size());
-  std::vector<mfem::Vector> dofs_aux(vaux.size());
-  mfem::Array<int> el_vdofs;
-  mfem::Vector values, aux_values, gradients, aux_gradients, coordinates, none;
-  mfem::Vector zero_gradients, zero_aux_gradients, F, F0;
-  mfem::DenseMatrix points;
-
-  mfem::real_t integral = 0.0;
-  mfem::real_t sigma = 0.0;
-  for (int e = 0; e < fes->GetNE(); ++e) {
-    const mfem::FiniteElement* fe = fes->GetFE(e);
-    mfem::ElementTransformation* Tr = fes->GetElementTransformation(e);
-    const mfem::IntegrationRule& ir = mfem::IntRules.Get(fe->GetGeomType(), 2 * fe->GetOrder() + 3);
-    const int nip = ir.GetNPoints();
-
-    // Values and gradients of the fields at the integration points
-    fes->GetElementVDofs(e, el_vdofs);
-    for (std::size_t k = 0; k < vun.size(); ++k) vun[k].GetSubVector(el_vdofs, dofs_un[k]);
-    for (std::size_t k = 0; k < vaux.size(); ++k) vaux[k].GetSubVector(el_vdofs, dofs_aux[k]);
-    fields_at_points(*fe, *Tr, ir, dofs_un, values, &gradients);
-    fields_at_points(*fe, *Tr, ir, dofs_aux, aux_values,
-                     with_aux_gradients ? &aux_gradients : nullptr);
-    if (!with_aux_gradients) aux_gradients.SetSize(0);
-    if (coef.uses_coordinates()) {
-      Tr->Transform(ir, points);  // sdim x nip, column q = point q
-      coordinates.SetSize(points.Height() * nip);
-      std::copy(points.GetData(), points.GetData() + coordinates.Size(), coordinates.HostWrite());
-    } else {
-      coordinates.SetSize(0);
-    }
-
-    // f(u, grad u), then f(u, 0): gradients set to zero
-    F.SetSize(nip);
-    F0.SetSize(nip);
-    VariationalBatch outputs;
-    outputs.F = &F;
-    coef.eval_variational_batch(nip, values, semi ? values : none, aux_values, gradients,
-                                with_exp_gradients ? gradients : none, aux_gradients, coordinates,
-                                outputs);
-    zero_gradients.SetSize(gradients.Size());
-    zero_gradients = 0.0;
-    zero_aux_gradients.SetSize(aux_gradients.Size());
-    zero_aux_gradients = 0.0;
-    outputs.F = &F0;
-    coef.eval_variational_batch(nip, values, semi ? values : none, aux_values, zero_gradients,
-                                with_exp_gradients ? zero_gradients : none, zero_aux_gradients,
-                                coordinates, outputs);
-
-    const double* f = F.HostRead();
-    const double* f0 = F0.HostRead();
-    for (int q = 0; q < nip; ++q) {
-      const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-      Tr->SetIntPoint(&ip);
-      const mfem::real_t w = ip.weight * Tr->Weight();
-      integral += f[q] * w;
-      sigma += 2.0 * (f[q] - f0[q]) * w;
-    }
+    mfem::ElementTransformation* Tr = this->fes_[0]->GetElementTransformation(e);
+    const auto element = energies.system_energies(el, *Tr, elfun);
+    local[0] += element.density;
+    local[1] += element.interface;
   }
 
   mfem::real_t global[2] = {0.0, 0.0};
-  mfem::real_t local[2] = {integral, sigma};
   MPI_Allreduce(local, global, 2, mfem::MPITypeMap<mfem::real_t>::mpi_type, MPI_SUM,
                 MPI_COMM_WORLD);
   this->time_specialized_.emplace(IterationKey(it, dt, t),
                                   SpecializedValue("Density[J.m-3]", global[0]));
-  this->time_specialized_.emplace(IterationKey(it, dt, t),
-                                  SpecializedValue("Sigma[J.m-3]", global[1]));
+  if (energies.has_interface_energy()) {
+    this->time_specialized_.emplace(IterationKey(it, dt, t),
+                                    SpecializedValue("Sigma[J.m-3]", global[1]));
+  }
 }
 
 /**
@@ -1279,12 +1081,6 @@ template <class T, int DIM>
 void OperatorBase<T, DIM>::set_time_coefficients(double time) {
   for (auto& coefs : this->coefficients_) {
     coefs.set_time(time);
-  }
-  if (this->energy_coefficient_.has_value()) {
-    (*this->energy_coefficient_).set_time(time);
-  }
-  if (this->grad_energy_coefficient_.has_value()) {
-    (*this->grad_energy_coefficient_).set_time(time);
   }
 }
 

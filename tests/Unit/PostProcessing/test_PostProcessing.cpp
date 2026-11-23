@@ -227,7 +227,7 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: complete problem (ParaView, errors, 
 // Energies of a phase-field problem (enable_compute_energies, true by default),
 // written in time_specialized.csv:
 //   Density = int (W(u) + lambda |grad u|^2 / 2),   Sigma = int lambda |grad u|^2
-// with W(u) = omega u^2 (1 - u)^2 interpolated from its nodal values.
+// with W(u) = omega u^2 (1 - u)^2, evaluated at the integration points (order 2 p + 3).
 // Zero mobility: u keeps its initial value during the time step.
 // -----------------------------------------------------------------------------
 TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
@@ -282,6 +282,16 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
       CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
     }
   }
+  SECTION("u = x: Density = omega / 30 + lambda / 2, Sigma = lambda") {
+    // W(x) of degree 4 integrated exactly at the integration points
+    const double omega = 120.;
+    const auto [density, sigma] =
+        energies(omega, [](const mfem::Vector& p, double) { return p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(omega / 30. + lambda / 2., 1.e-11));
+      CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -333,6 +343,15 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: energies with a variational coeffici
     if (mfem::Mpi::Root()) {
       CHECK_THAT(density, WithinAbs(120. * 0.09 * 0.49, 1.e-10));
       CHECK_THAT(sigma, WithinAbs(0., 1.e-12));
+    }
+  }
+  SECTION("u = x with the double well: Density = 120 / 30 + lambda / 2, Sigma = lambda") {
+    const Coefficient energy(Glossary::FreeEnergy, Scheme::Implicit, EnergyDoubleWell());
+    const auto [density, sigma] =
+        energies(spatial, energy, [](const mfem::Vector& p, double) { return p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(120. / 30. + lambda / 2., 1.e-11));
+      CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
     }
   }
   SECTION("u = x: Density = lambda / 2, Sigma = lambda") {

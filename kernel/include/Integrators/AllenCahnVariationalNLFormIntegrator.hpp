@@ -76,7 +76,7 @@ class AllenCahnVariationalNLFormIntegrator : public SlothNLFormIntegrator<VARS> 
   std::vector<CoefficientAtPoints> mobility_at_points_;
 
   // Inputs of the evaluation of the free energy at the integration points of the current element
-  std::vector<mfem::Vector> dofs_u_, dofs_u_old_, dofs_aux_;
+  std::vector<mfem::Vector> dofs_u_, dofs_u_old_;
   mfem::Vector values_, explicit_values_, auxiliary_values_;
   mfem::Vector gradients_, explicit_gradients_, auxiliary_gradients_, coordinates_;
   mfem::DenseMatrix points_;

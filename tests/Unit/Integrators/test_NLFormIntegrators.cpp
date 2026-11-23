@@ -991,6 +991,75 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
   check_same(Jv, Jv_var, 1.e-12);
 }
 
+// Energies of the system (SlothNLFormIntegrator::system_energies) on a non-uniform field: the
+// same with W and GradientEnergy(lambda), with W explicit (evaluated with the current values) and
+// with the variational energies lambda/2 |grad u|^2 + W and the sum of an implicit gradient term
+// and an explicit double well.
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "SystemEnergyNLFormIntegrator: same energies with the classic and the variational "
+                 "coefficients",
+                 "[Integrators][variational]") {
+  const mfem::ParGridFunction u = project(phi_old);
+  struct Energies {
+    double density = 0.;
+    double interface = 0.;
+    bool with_interface = false;
+  };
+  auto energies = [&](const Coefficients& coefficients) {
+    SystemEnergyNLFormIntegrator<VARS2D> integ(Geometry::Cartesian, {u},
+                                               Parameters(std::vector<Parameter>{}), {},
+                                               {coefficients});
+    REQUIRE(integ.prepare_system_energies());
+    Energies result;
+    result.with_interface = integ.has_interface_energy();
+    mfem::Array<const mfem::FiniteElement*> el(1);
+    mfem::Array<const mfem::Vector*> elfun(1);
+    mfem::Array<int> vdofs;
+    mfem::Vector dofs;
+    for (int e = 0; e < fes->GetNE(); ++e) {
+      el[0] = fes->GetFE(e);
+      fes->GetElementVDofs(e, vdofs);
+      u.GetSubVector(vdofs, dofs);
+      elfun[0] = &dofs;
+      const auto element = integ.system_energies(el, *fes->GetElementTransformation(e), elfun);
+      result.density += element.density;
+      result.interface += element.interface;
+    }
+    return result;
+  };
+  auto check_same_energies = [](const Energies& a, const Energies& b) {
+    CHECK(b.with_interface);
+    CHECK_THAT(b.density, Catch::Matchers::WithinRel(a.density, 1.e-12));
+    CHECK_THAT(b.interface, Catch::Matchers::WithinRel(a.interface, 1.e-12));
+  };
+
+  const Energies classic = energies(pf_coefficients(kOmega));
+  REQUIRE(classic.with_interface);
+  REQUIRE(classic.interface > 0.);
+  check_same_energies(
+      classic, energies(Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Explicit, W(kOmega)),
+                                     Coefficient(Glossary::GradEnergy, Scheme::Implicit,
+                                                 GradientEnergy(kLambda)))));
+  check_same_energies(classic, energies(Coefficients(Coefficient(
+                                   Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell()))));
+  VariationalGradientOnly gradient_term;
+  W double_well(kOmega);
+  check_same_energies(classic,
+                      energies(Coefficients(Coefficient(
+                          Glossary::FreeEnergy, Scheme::SemiImplicit,
+                          SumCoefficient({{&gradient_term, Scheme::Implicit},
+                                          {&double_well, Scheme::Explicit}})))));
+
+  SECTION("no interface energy without GradientEnergy") {
+    const Energies bulk =
+        energies(Coefficients(Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(kOmega))));
+    CHECK_FALSE(bulk.with_interface);
+    CHECK(bulk.interface == 0.);
+    CHECK_THAT(bulk.density, Catch::Matchers::WithinRel(classic.density - classic.interface / 2.,
+                                                        1.e-12));
+  }
+}
+
 TEST_CASE_METHOD(sloth_unit::UnitSquare, "AllenCahnVariationalNLFormIntegrator: invalid data",
                  "[Integrators][variational][errors]") {
   Context ctx;

@@ -40,7 +40,6 @@
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/Coefficients.hpp"
-#include "Coefficients/FieldsAtPoints.hpp"
 #include "Extensions/UserIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -75,8 +74,6 @@ class OperatorBase : public mfem::Operator {
  protected:
   Geometry geometry_ = Geometry::Cartesian;
   Parameters nl_solver_params_;
-  std::optional<Coefficient> energy_coefficient_;
-  std::optional<Coefficient> grad_energy_coefficient_;
   std::vector<Coefficients> coefficients_;
   std::vector<Variables<T, DIM>*> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
@@ -138,8 +135,7 @@ class OperatorBase : public mfem::Operator {
   OperatorBase(const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params);
 
-  void set_coefficients(const std::vector<Coefficients>& coefficients,
-                        bool enable_compute_energies);
+  void set_coefficients(const std::vector<Coefficients>& coefficients);
 
   inline double get_current_time_step() const { return current_dt_; }
   inline int get_newton_iterations() const { return newton_iterations_; }
@@ -160,9 +156,6 @@ class OperatorBase : public mfem::Operator {
                        const double upper_bound);
   void ComputeEnergies(const int& it, const double& t, const double& dt,
                        const std::vector<mfem::Vector>& u);
-  void ComputeVariationalEnergies(const int& it, const double& t, const double& dt,
-                                  const std::vector<mfem::ParGridFunction>& vun,
-                                  const std::vector<mfem::ParGridFunction>& vaux);
 
   void ComputeIsoVal(const int& it, const double& t, const double& dt, const int var_id,
                      const std::string& var_name, const mfem::Vector& u, const double& iso_value);

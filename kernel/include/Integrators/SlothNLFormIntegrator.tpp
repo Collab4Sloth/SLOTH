@@ -38,6 +38,7 @@
 #include <vector>
 
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
+#include "Coefficients/FieldsAtPoints.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -765,7 +766,8 @@ void SlothNLFormIntegrator<VARS>::eval_coefficient_at_points(
  * Tables of prepare_element_values if they are prepared for this element and this rule (same
  * layout, no copy), computed point by point with values_at_ip otherwise. For the integrators of
  * the time derivative (ValuesAt::EndOfStep), {k, u_old} is replaced by {u_old + dt k, u_old}, as
- * in values_at_end_of_step.
+ * in values_at_end_of_step. For the energies of the system (ValuesAt::Current), {u, u_old} is
+ * replaced by {u, u}.
  *
  * @return Views on the values: valid until the next evaluation
  */
@@ -815,6 +817,20 @@ typename SlothNLFormIntegrator<VARS>::ElementValues SlothNLFormIntegrator<VARS>:
       for (std::size_t b = 0; b < nb; ++b) {
         u_end_of_step[b] = k_uold[nb + b] + this->time_step_ * k_uold[b];
         u_end_of_step[nb + b] = k_uold[nb + b];
+      }
+    }
+    values.u_uold = this->cap_u_end_of_step_;
+  } else if (values_at == ValuesAt::Current) {
+    // [u, u_old] -> [u, u] (same work array as the end of the step)
+    this->cap_u_end_of_step_.resize(np * width);
+    const std::size_t nb = values.nb;
+    for (std::size_t q = 0; q < np; ++q) {
+      const std::span<const double> u_uold = values.u_uold_at(q);
+      const std::span<double> u_u =
+          std::span<double>(this->cap_u_end_of_step_).subspan(q * width, width);
+      for (std::size_t b = 0; b < nb; ++b) {
+        u_u[b] = u_uold[b];
+        u_u[nb + b] = u_uold[b];
       }
     }
     values.u_uold = this->cap_u_end_of_step_;
@@ -997,5 +1013,245 @@ void SlothNLFormIntegrator<VARS>::eval_point_by_point(Coefficient& coef, const i
             this->eval_hessian_coefficient(coef, i, j, u_uold, aux, var_blk);
       }
     }
+  }
+}
+
+/**
+ * @brief Values and physical gradients of the auxiliary fields at the integration points of an
+ * element, with the layout of fields_at_points (Coefficients/FieldsAtPoints.hpp)
+ *
+ * From their element dofs if all of them share the finite element fe, point by point otherwise.
+ *
+ * @param fe Finite element of the element
+ * @param Tr Transformation of the element
+ * @param ir Integration rule
+ * @param aux_gf Auxiliary fields
+ * @param values Values at the points (resized to nip * naux)
+ * @param gradients Gradients at the points (resized to nip * naux * dim), or nullptr if they are
+ *        not needed
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::auxiliary_fields_at_points(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const std::vector<mfem::ParGridFunction>& aux_gf, mfem::Vector& values,
+    mfem::Vector* gradients) {
+  const int elem = Tr.ElementNo;
+  const std::size_t naux = aux_gf.size();
+  this->afp_dofs_.resize(naux);
+  bool aux_dofs = true;
+  for (std::size_t k = 0; k < naux && aux_dofs; ++k) {
+    const mfem::FiniteElementSpace* fes = aux_gf[k].FESpace();
+    aux_dofs = elem < fes->GetNE() && this->same_finite_element(*fes->GetFE(elem), fe);
+    if (aux_dofs) aux_gf[k].GetElementDofValues(elem, this->afp_dofs_[k]);
+  }
+  if (aux_dofs) {
+    fields_at_points(fe, Tr, ir, this->afp_dofs_, values, gradients);
+    return;
+  }
+  const int nip = ir.GetNPoints();
+  const int sdim = Tr.GetSpaceDim();
+  const auto unip = static_cast<std::size_t>(nip);
+  const auto usdim = static_cast<std::size_t>(sdim);
+  values.SetSize(static_cast<int>(unip * naux));
+  if (gradients != nullptr) gradients->SetSize(static_cast<int>(unip * naux * usdim));
+  double* v = values.HostWrite();
+  double* g = gradients != nullptr ? gradients->HostWrite() : nullptr;
+  this->afp_grad_.SetSize(sdim);
+  for (int q = 0; q < nip; ++q) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+    this->set_int_point(Tr, ip);
+    const auto uq = static_cast<std::size_t>(q);
+    for (std::size_t k = 0; k < naux; ++k) {
+      v[uq * naux + k] = aux_gf[k].GetValue(Tr, ip);
+      if (g == nullptr) continue;
+      aux_gf[k].GetGradient(Tr, this->afp_grad_);
+      for (std::size_t c = 0; c < usdim; ++c) {
+        g[(uq * naux + k) * usdim + c] = this->afp_grad_(static_cast<int>(c));
+      }
+    }
+  }
+}
+
+/**
+ * @brief Coefficients of the energies of the system: FreeEnergy and, if given, GradientEnergy of
+ * block 0. Must be called before system_energies.
+ *
+ * @return false if there is no FreeEnergy coefficient
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::prepare_system_energies() {
+  this->system_free_energy_.reset();
+  this->system_gradient_energy_.reset();
+  if (this->coefficients_.empty()) return false;
+  this->system_free_energy_ = this->get_coefficient(0, GlossaryType::FreeEnergy, 0);
+  this->system_gradient_energy_ = this->get_coefficient(0, GlossaryType::GradientEnergy, 0);
+  if (!this->system_free_energy_.has_value()) return false;
+  MFEM_VERIFY(!(this->system_free_energy_->is_variational() &&
+                this->system_gradient_energy_.has_value()),
+              "Error: a variational FreeEnergy coefficient already contains the gradient terms: a "
+              "GradientEnergy coefficient must not be given.");
+  return true;
+}
+
+/**
+ * @brief True if the energies of the system have an interface part: variational FreeEnergy, or
+ * GradientEnergy given
+ */
+template <class VARS>
+bool SlothNLFormIntegrator<VARS>::has_interface_energy() const {
+  return this->system_gradient_energy_.has_value() ||
+         (this->system_free_energy_.has_value() && this->system_free_energy_->is_variational());
+}
+
+/**
+ * @brief Energies of the system on an element, from the coefficients of block 0 (see
+ * prepare_system_energies), with the current values of the variables (elfun) and of the
+ * auxiliary fields:
+ *
+ * - FreeEnergy f(u) and GradientEnergy g(grad u):
+ *     density = int (f + g),        interface = 2 int g
+ * - variational FreeEnergy f(u, grad u):
+ *     density = int f(u, grad u),   interface = 2 int (f(u, grad u) - f(u, 0))
+ *
+ * Explicit and semi-implicit coefficients are evaluated with the current values (explicit
+ * variables equal to the variables). Integration rule of order 2 p + 3.
+ */
+template <class VARS>
+typename SlothNLFormIntegrator<VARS>::SystemEnergies SlothNLFormIntegrator<VARS>::system_energies(
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun) {
+  MFEM_VERIFY(this->system_free_energy_.has_value(),
+              "Error: energies of the system without FreeEnergy coefficient (see "
+              "prepare_system_energies).");
+  MFEM_VERIFY(same_finite_elements(el),
+              "Error: energies of the system: the variables must share the same finite element.");
+  const mfem::FiniteElement& fe = *el[0];
+  const mfem::IntegrationRule& ir = mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + 3);
+  // Tables of prepare_element_values: values of the assembly, not valid here
+  this->ipv_ir_ = nullptr;
+  this->ipv_element_ = -1;
+
+  const auto nb = static_cast<std::size_t>(elfun.Size());
+  this->se_dofs_.resize(nb);
+  for (std::size_t b = 0; b < nb; ++b) this->se_dofs_[b] = *elfun[static_cast<int>(b)];
+
+  SystemEnergies energies;
+  if (this->system_free_energy_->is_variational()) {
+    this->variational_system_energies(fe, Tr, ir, energies.density, energies.interface);
+  } else {
+    this->classic_system_energies(fe, Tr, ir, elfun, energies.density, energies.interface);
+  }
+  return energies;
+}
+
+/**
+ * @brief Energies of the system with a FreeEnergy f(u) and, if given, a GradientEnergy g(grad u)
+ * (see system_energies)
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::classic_system_energies(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, double& density, double& interface) {
+  this->eval_coefficient_at_points(*this->system_free_energy_, 0, CoefValue, fe, Tr, ir, elfun,
+                                   this->aux_gf_, this->se_free_energy_, ValuesAt::Current);
+
+  const bool with_gradient = this->system_gradient_energy_.has_value();
+  const int dim = Tr.GetSpaceDim();
+  const auto ud = static_cast<std::size_t>(dim);
+  const std::size_t nb = this->se_dofs_.size();
+  const std::size_t naux = this->aux_gf_.size();
+  if (with_gradient) {
+    fields_at_points(fe, Tr, ir, this->se_dofs_, this->se_values_, &this->se_gradients_);
+    this->auxiliary_fields_at_points(fe, Tr, ir, this->aux_gf_, this->se_aux_values_,
+                                     &this->se_aux_gradients_);
+  }
+  const double* grad = with_gradient ? this->se_gradients_.HostRead() : nullptr;
+  const double* aux_grad =
+      with_gradient && naux > 0 ? this->se_aux_gradients_.HostRead() : nullptr;
+
+  for (int q = 0; q < ir.GetNPoints(); ++q) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+    Tr.SetIntPoint(&ip);
+    const double w = ip.weight * Tr.Weight();
+    double g = 0.;
+    if (with_gradient) {
+      const auto uq = static_cast<std::size_t>(q);
+      const std::span<const double> grad_q(grad + uq * nb * ud, nb * ud);
+      const std::span<const double> aux_grad_q(
+          aux_grad != nullptr ? aux_grad + uq * naux * ud : nullptr, naux * ud);
+      g = this->system_gradient_energy_->compute(grad_q, aux_grad_q, dim);
+    }
+    density += (this->se_free_energy_.value(q) + g) * w;
+    interface += 2. * g * w;
+  }
+}
+
+/**
+ * @brief Energies of the system with a variational FreeEnergy f(u, grad u) (see
+ * system_energies). f(u, 0) gathers the terms which do not depend on the gradients: the
+ * interface energy is twice the energy of the gradient terms, as with a GradientEnergy
+ * coefficient.
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::variational_system_energies(const mfem::FiniteElement& fe,
+                                                              mfem::ElementTransformation& Tr,
+                                                              const mfem::IntegrationRule& ir,
+                                                              double& density, double& interface) {
+  const Coefficient& coef = *this->system_free_energy_;
+  const int sdim = Tr.GetSpaceDim();
+  MFEM_VERIFY(coef.variational_dimension() == sdim,
+              "Error: dimension of the variational FreeEnergy coefficient (" +
+                  std::to_string(coef.variational_dimension()) +
+                  ") different from the dimension of the mesh (" + std::to_string(sdim) + ").");
+  const bool semi = coef.is_semi_implicit();
+  const bool with_aux_gradients = coef.uses_auxiliary_gradients();
+  const bool with_exp_gradients = semi && coef.uses_explicit_gradients();
+  const int nip = ir.GetNPoints();
+
+  fields_at_points(fe, Tr, ir, this->se_dofs_, this->se_values_, &this->se_gradients_);
+  this->auxiliary_fields_at_points(fe, Tr, ir, this->aux_gf_, this->se_aux_values_,
+                                   with_aux_gradients ? &this->se_aux_gradients_ : nullptr);
+  if (!with_aux_gradients) this->se_aux_gradients_.SetSize(0);
+  if (coef.uses_coordinates()) {
+    Tr.Transform(ir, this->se_points_);  // sdim x nip, column q = point q
+    this->se_coordinates_.SetSize(this->se_points_.Height() * nip);
+    std::copy(this->se_points_.GetData(),
+              this->se_points_.GetData() + this->se_coordinates_.Size(),
+              this->se_coordinates_.HostWrite());
+  } else {
+    this->se_coordinates_.SetSize(0);
+  }
+
+  // f(u, grad u), then f(u, 0): gradients set to zero
+  const mfem::Vector none;
+  this->se_F_.SetSize(nip);
+  this->se_F0_.SetSize(nip);
+  VariationalBatch outputs;
+  outputs.F = &this->se_F_;
+  MFEM_VERIFY(coef.eval_variational_batch(nip, this->se_values_, semi ? this->se_values_ : none,
+                                          this->se_aux_values_, this->se_gradients_,
+                                          with_exp_gradients ? this->se_gradients_ : none,
+                                          this->se_aux_gradients_, this->se_coordinates_, outputs),
+              "Error: evaluation of the variational FreeEnergy coefficient.");
+  this->se_zero_gradients_.SetSize(this->se_gradients_.Size());
+  this->se_zero_gradients_ = 0.0;
+  this->se_zero_aux_gradients_.SetSize(this->se_aux_gradients_.Size());
+  this->se_zero_aux_gradients_ = 0.0;
+  outputs.F = &this->se_F0_;
+  MFEM_VERIFY(coef.eval_variational_batch(nip, this->se_values_, semi ? this->se_values_ : none,
+                                          this->se_aux_values_, this->se_zero_gradients_,
+                                          with_exp_gradients ? this->se_zero_gradients_ : none,
+                                          this->se_zero_aux_gradients_, this->se_coordinates_,
+                                          outputs),
+              "Error: evaluation of the variational FreeEnergy coefficient.");
+
+  const double* f = this->se_F_.HostRead();
+  const double* f0 = this->se_F0_.HostRead();
+  for (int q = 0; q < nip; ++q) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+    Tr.SetIntPoint(&ip);
+    const double w = ip.weight * Tr.Weight();
+    density += f[q] * w;
+    interface += 2. * (f[q] - f0[q]) * w;
   }
 }

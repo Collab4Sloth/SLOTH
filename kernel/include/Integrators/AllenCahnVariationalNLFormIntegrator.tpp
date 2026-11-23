@@ -207,42 +207,9 @@ void AllenCahnVariationalNLFormIntegrator<VARS>::energy_at_points(
   }
   if (!explicit_gradients) this->explicit_gradients_.SetSize(0);
 
-  // Auxiliary variables with their gradients: from their element dofs if they share the finite
-  // element of the blocks, point by point otherwise
-  const std::size_t naux = this->vaux_gf_.size();
-  this->dofs_aux_.resize(naux);
-  bool aux_dofs = true;
-  for (std::size_t k = 0; k < naux && aux_dofs; ++k) {
-    const mfem::FiniteElementSpace* fes = this->vaux_gf_[k].FESpace();
-    aux_dofs = elem < fes->GetNE() && this->same_finite_element(*fes->GetFE(elem), fe);
-    if (aux_dofs) this->vaux_gf_[k].GetElementDofValues(elem, this->dofs_aux_[k]);
-  }
-  if (aux_dofs) {
-    fields_at_points(fe, Tr, ir, this->dofs_aux_, this->auxiliary_values_,
-                     auxiliary_gradients ? &this->auxiliary_gradients_ : nullptr);
-  } else {
-    const auto unip = static_cast<std::size_t>(nip);
-    const auto usdim = static_cast<std::size_t>(sdim);
-    this->auxiliary_values_.SetSize(static_cast<int>(unip * naux));
-    this->auxiliary_gradients_.SetSize(auxiliary_gradients ? static_cast<int>(unip * naux * usdim)
-                                                           : 0);
-    double* v = this->auxiliary_values_.HostWrite();
-    double* g = auxiliary_gradients ? this->auxiliary_gradients_.HostWrite() : nullptr;
-    mfem::Vector grad(sdim);
-    for (int q = 0; q < nip; ++q) {
-      const mfem::IntegrationPoint& ip = ir.IntPoint(q);
-      this->set_int_point(Tr, ip);
-      const auto uq = static_cast<std::size_t>(q);
-      for (std::size_t k = 0; k < naux; ++k) {
-        v[uq * naux + k] = this->vaux_gf_[k].GetValue(Tr, ip);
-        if (g == nullptr) continue;
-        this->vaux_gf_[k].GetGradient(Tr, grad);
-        for (std::size_t c = 0; c < usdim; ++c) {
-          g[(uq * naux + k) * usdim + c] = grad(static_cast<int>(c));
-        }
-      }
-    }
-  }
+  // Auxiliary variables with their gradients
+  this->auxiliary_fields_at_points(fe, Tr, ir, this->vaux_gf_, this->auxiliary_values_,
+                                   auxiliary_gradients ? &this->auxiliary_gradients_ : nullptr);
   if (!auxiliary_gradients) this->auxiliary_gradients_.SetSize(0);
 
   // Physical coordinates of the points

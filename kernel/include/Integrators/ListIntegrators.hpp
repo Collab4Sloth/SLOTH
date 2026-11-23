@@ -45,6 +45,7 @@
 #include "Integrators/RobinNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "Integrators/SourceTermNLFormIntegrator.hpp"
+#include "Integrators/SystemEnergyNLFormIntegrator.hpp"
 #include "Integrators/SplitAdvectionNLFormIntegrator.hpp"
 #include "Integrators/TimeCHNLFormIntegrator.hpp"
 #include "Integrators/TimeNLFormIntegrator.hpp"
