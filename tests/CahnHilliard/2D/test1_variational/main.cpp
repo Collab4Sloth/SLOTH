@@ -1,0 +1,201 @@
+/**
+ * @file main.cpp
+ * @author ci230846  (clement.introini@cea.fr)
+ * @brief 2D coalescence bubbles solved by Cahn-Hilliard equations with a variational free energy
+ * @version 0.1
+ * @date 2026-11-23
+ *
+ * Copyright CEA (c) 2026
+ *
+ */
+#include <iostream>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include "Sloth/sloth.hpp"
+#include "Sloth/tests.hpp"
+#include "./CahnHilliardVariationalCoefficients.hpp"
+
+///---------------
+/// Main program
+///---------------
+int main(int argc, char* argv[]) {
+  //---------------------------------------
+  // Initialize MPI and HYPRE
+  //---------------------------------------
+  setVerbosity(Verbosity::Verbose);
+
+  mfem::Mpi::Init(argc, argv);
+  mfem::Hypre::Init();
+  //
+  //---------------------------------------
+  // Profiling start
+  Profiling::getInstance().enable();
+  //---------------------------------------
+  /////////////////////////
+  using namespace Sloth2D;
+  // ###########################################
+  // ###########################################
+  //         Spatial Discretization           //
+  // ###########################################
+  // ###########################################
+  // ##############################
+  //           Meshing           //
+  // ##############################
+  const std::string mesh_type =
+      "InlineSquareWithQuadrangles";  // type of mesh // "InlineSquareWithTriangles"
+  const int order_fe = 1;             // finite element order
+
+  const int refinement_level = 0;  // number of levels of uniform refinement
+  const int nx = 128;
+  const int ny = 128;
+  const double lx = 2. * M_PI;
+  const double ly = 2. * M_PI;
+  const std::tuple<int, int, double, double>& tuple_of_dimensions =
+      std::make_tuple(nx, ny, lx, ly);  // Number of elements and maximum length in each direction
+
+  SPA spatial(mesh_type, order_fe, refinement_level, tuple_of_dimensions);
+  // ##############################
+  //     Boundary conditions     //
+  // ##############################
+  auto boundaries = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                     Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
+  auto bcs_phi = BCS(&spatial, boundaries);
+  auto boundaries_mu = {Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                        Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann")};
+  auto bcs_mu = BCS(&spatial, boundaries_mu);
+
+  // ###########################################
+  // ###########################################
+  //            Physical models               //
+  // ###########################################
+  // ###########################################
+  // ####################
+  //     parameters    //
+  // ####################
+  //  Interface thickness
+  const double epsilon(0.02);
+  // Interfacial energy
+  const double sigma(1.);
+  // Two-phase mobility
+  const double mob(1.);
+  const double lambda = (epsilon * epsilon);
+  const double omega = 1.;
+  auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
+                           Parameter("lambda", lambda), Parameter("omega", omega));
+  // ####################
+  //     coefficients  //
+  // ####################
+
+  // Free energy: sum of the gradient term kappa/2 |grad phi|^2 (coefficients.json, kappa = lambda)
+  // and of the double well Fw, both implicit. Isotropic energy: same operations as test1.
+  GradientTerm gradient_term;
+  Fw double_well(omega);
+  Coefficient free_energy(Glossary::FreeEnergy, Scheme::Implicit,
+                          SumCoefficient({{&gradient_term, Scheme::Implicit},
+                                          {&double_well, Scheme::Implicit}}));
+  Coefficient mobility(Glossary::Mobility, mob);
+  // ####################
+  //     variables     //
+  // ####################
+
+  auto user_func_solution = std::function<double(const mfem::Vector&, double)>(
+      [](const mfem::Vector& x, [[maybe_unused]] double time) {
+        const double xx = x[0];
+        const double yy = x[1];
+        const double r1 = (xx - M_PI + 1) * (xx - M_PI + 1) + (yy - M_PI) * (yy - M_PI);
+        const double r2 = (xx - M_PI - 1) * (xx - M_PI - 1) + (yy - M_PI) * (yy - M_PI);
+        double sol = 0.;
+        if (r1 < 1 || r2 < 1) {
+          sol = 1.;
+        } else {
+          sol = -1.;
+        }
+        return sol;
+      });
+
+  auto phi_initial_condition = AnalyticalFunctions<DIM>(user_func_solution);
+  double mu_initial_condition = 0.0;
+  const std::string& var_name_1 = "phi";
+  const std::string& var_name_2 = "mu";
+  auto v1 = VAR(&spatial, bcs_phi, var_name_1, Glossary::PhaseField, 2, phi_initial_condition);
+  auto v2 = VAR(&spatial, bcs_mu, var_name_2, Glossary::ChemicalPotential, 2, mu_initial_condition);
+  auto vars = VARS(v1, v2);
+
+  // ###########################################
+  // ###########################################
+  //      Post-processing                     //
+  // ###########################################
+  // ###########################################
+
+  const std::string& main_folder_path = "Saves";
+  const int level_of_detail = 1;
+
+  const std::vector<int> iterations_list = {1, 3, 5};
+  const std::vector<double> times_list = {0.35, 0.45};
+
+  std::string calculation_path = "CahnHilliard";
+  std::map<std::string, std::tuple<double, double>> map_threshold_integral = {
+      {var_name_1, {-1.1, 1.1}}};
+  bool enable_save_specialized_at_iter = true;
+  auto p_pst =
+      Parameters(Parameter("main_folder_path", main_folder_path),
+                 Parameter("calculation_path", calculation_path),
+                 Parameter("iterations_list", iterations_list), Parameter("times_list", times_list),
+
+                 Parameter("level_of_detail", level_of_detail),
+                 Parameter("integral_to_compute", map_threshold_integral),
+                 Parameter("enable_save_specialized_at_iter", enable_save_specialized_at_iter));
+  // ####################
+  //     operators     //
+  // ####################
+
+  // Problem 1:
+  Coefficients coef_pb1(free_energy, mobility);
+  std::vector<SPA*> spatials{&spatial, &spatial};
+  TransientOPE oper(spatials, {"CahnHilliard"}, params, TimeScheme::EulerImplicit,
+                    "SplitTimeDerivative");
+  oper.overload_nl_solver(
+      NLSolverType::NEWTON,
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
+                 Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+  const auto& solver = HypreSolverType::HYPRE_GMRES;
+  const auto& precond = HyprePreconditionerType::HYPRE_ILU;
+  oper.overload_solver(solver);
+  oper.overload_preconditioner(precond);
+
+  auto pst = PST(&spatial, p_pst);
+  TransientPB problem1(oper, vars, {coef_pb1, coef_pb1}, pst);
+
+  // Coupling 1
+  auto cc = Coupling("CahnHilliard Coupling", problem1);
+
+  // ###########################################
+  // ###########################################
+  //            Time-integration              //
+  // ###########################################
+  // ###########################################
+  const double t_initial = 0.0;
+  const double t_final = 0.5;
+  const double dt = 5.e-2;
+  auto time_params = Parameters(Parameter("initial_time", t_initial),
+                                Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time = TimeDiscretization(time_params, cc);
+
+  time.solve();
+  //---------------------------------------
+  // Profiling stop
+  //---------------------------------------
+  Profiling::getInstance().print();
+
+  //---------------------------------------
+  // Finalize MPI
+  //---------------------------------------
+  MPI_Finalize();
+  //---------------------------------------
+  return 0;
+}

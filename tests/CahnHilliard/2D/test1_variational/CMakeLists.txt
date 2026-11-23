@@ -1,0 +1,4 @@
+execute_process(COMMAND ${Python3_EXECUTABLE} ${BUILD_SCRIPT_DIR}/GenerateCoefficient.py -r  -f  ${CMAKE_CURRENT_SOURCE_DIR}/coefficients.json
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+create_test("CahnHilliard2Dtest1Variational" "CahnHilliard2Dtest1Variational" FALSE "2D EXE CH" 1)
+create_col_comparison("CompareCahnHilliard2Dtest1Variational" "time_specialized.csv" "Saves/CahnHilliard/time_specialized.csv" -1 relativeEpsilon 1e-12 FALSE "CahnHilliard2Dtest1Variational" "2D CH")

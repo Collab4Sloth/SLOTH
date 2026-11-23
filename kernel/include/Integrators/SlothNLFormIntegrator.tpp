@@ -1131,7 +1131,16 @@ typename SlothNLFormIntegrator<VARS>::SystemEnergies SlothNLFormIntegrator<VARS>
   this->ipv_ir_ = nullptr;
   this->ipv_element_ = -1;
 
-  const auto nb = static_cast<std::size_t>(elfun.Size());
+  // Variables of a variational free energy: the first blocks (Cahn-Hilliard: the concentrations)
+  auto nb = static_cast<std::size_t>(elfun.Size());
+  if (this->system_free_energy_->is_variational()) {
+    const int nb_variables = this->system_free_energy_->variational_nb_variables();
+    MFEM_VERIFY(nb_variables >= 1 && nb_variables <= elfun.Size(),
+                "Error: energies of the system: variational FreeEnergy of " +
+                    std::to_string(nb_variables) + " variables for " +
+                    std::to_string(elfun.Size()) + " blocks.");
+    nb = static_cast<std::size_t>(nb_variables);
+  }
   this->se_dofs_.resize(nb);
   for (std::size_t b = 0; b < nb; ++b) this->se_dofs_[b] = *elfun[static_cast<int>(b)];
 

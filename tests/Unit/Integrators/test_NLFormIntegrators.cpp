@@ -1064,22 +1064,26 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
     double interface = 0.;
     bool with_interface = false;
   };
-  auto energies = [&](const Coefficients& coefficients) {
-    SystemEnergyNLFormIntegrator<VARS2D> integ(Geometry::Cartesian, {u},
-                                               Parameters(std::vector<Parameter>{}), {},
-                                               {coefficients});
+  // nb_blocks > 1: Cahn-Hilliard layout, the free energy is a function of block 0 only
+  auto energies = [&](const Coefficients& coefficients, const int nb_blocks = 1) {
+    SystemEnergyNLFormIntegrator<VARS2D> integ(
+        Geometry::Cartesian, std::vector<mfem::ParGridFunction>(nb_blocks, u),
+        Parameters(std::vector<Parameter>{}), {},
+        std::vector<Coefficients>(nb_blocks, coefficients));
     REQUIRE(integ.prepare_system_energies());
     Energies result;
     result.with_interface = integ.has_interface_energy();
-    mfem::Array<const mfem::FiniteElement*> el(1);
-    mfem::Array<const mfem::Vector*> elfun(1);
+    mfem::Array<const mfem::FiniteElement*> el(nb_blocks);
+    mfem::Array<const mfem::Vector*> elfun(nb_blocks);
     mfem::Array<int> vdofs;
     mfem::Vector dofs;
     for (int e = 0; e < fes->GetNE(); ++e) {
-      el[0] = fes->GetFE(e);
       fes->GetElementVDofs(e, vdofs);
       u.GetSubVector(vdofs, dofs);
-      elfun[0] = &dofs;
+      for (int b = 0; b < nb_blocks; ++b) {
+        el[b] = fes->GetFE(e);
+        elfun[b] = &dofs;
+      }
       const auto element = integ.system_energies(el, *fes->GetElementTransformation(e), elfun);
       result.density += element.density;
       result.interface += element.interface;
@@ -1109,6 +1113,13 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
                           Glossary::FreeEnergy, Scheme::SemiImplicit,
                           SumCoefficient({{&gradient_term, Scheme::Implicit},
                                           {&double_well, Scheme::Explicit}})))));
+
+  SECTION("variational free energy of the concentration only, with the potential (2 blocks)") {
+    check_same_energies(classic, energies(Coefficients(Coefficient(Glossary::FreeEnergy,
+                                                                   Scheme::Implicit,
+                                                                   VariationalDoubleWell())),
+                                          2));
+  }
 
   SECTION("no interface energy without GradientEnergy") {
     const Energies bulk =
