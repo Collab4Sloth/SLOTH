@@ -39,7 +39,6 @@ struct Integrators {
     Fourier,
     CahnHilliard,
     AllenCahn,
-    AllenCahnVariational,
     TimeDerivative,
     HeatTimeDerivative,
     SplitTimeDerivative,

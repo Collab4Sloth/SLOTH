@@ -420,8 +420,8 @@ TEST_CASE("SumCoefficient: variational sum", "[Coefficients][variational]") {
       explicit_gradients(2 * q + k) = -0.2 * q + 0.5 * k + 0.2;
     }
   }
-  mfem::Vector F(npts), df_dvar(npts), df_dgrad(2 * npts), d2f_dvar2(npts), d2f_dvar_dgrad(2 * npts),
-      d2f_dgrad2(4 * npts);
+  mfem::Vector F(npts), df_dvar(npts), df_dgrad(2 * npts), d2f_dvar2(npts);
+  mfem::Vector d2f_dvar_dgrad(2 * npts), d2f_dgrad2(4 * npts);
   VariationalBatch outputs;
   outputs.F = &F;
   outputs.df_dvar = &df_dvar;
@@ -616,8 +616,8 @@ TEST_CASE("ProductCoefficient: variational product", "[Coefficients][variational
     values(q) = 0.2 + 0.25 * q;
     for (int k = 0; k < 2; ++k) gradients(2 * q + k) = 0.4 * q - 0.3 * k + 0.1;
   }
-  mfem::Vector F(npts), df_dvar(npts), df_dgrad(2 * npts), d2f_dvar2(npts), d2f_dvar_dgrad(2 * npts),
-      d2f_dgrad2(4 * npts);
+  mfem::Vector F(npts), df_dvar(npts), df_dgrad(2 * npts), d2f_dvar2(npts);
+  mfem::Vector d2f_dvar_dgrad(2 * npts), d2f_dgrad2(4 * npts);
   VariationalBatch outputs;
   outputs.F = &F;
   outputs.df_dvar = &df_dvar;

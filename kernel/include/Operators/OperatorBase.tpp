@@ -900,10 +900,6 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::get_rhs_integrat
       return new AllenCahnNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
     }
-    case Integrators::AllenCahnVariational: {
-      return new AllenCahnVariationalNLFormIntegrator<Variables<T, DIM>>(
-          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
-    }
     case Integrators::SplitAllenCahn: {
       return new BlockAllenCahnNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);

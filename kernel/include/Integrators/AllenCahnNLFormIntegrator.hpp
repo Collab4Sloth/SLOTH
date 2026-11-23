@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <tuple>
@@ -42,8 +43,22 @@
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
- * @brief Class dedicated to the VF of the RHS of the AllenCahn equation (see TimeDerivative
- * integrator for the LHS)
+ * @brief Right-hand side of the Allen-Cahn equations (see the TimeDerivative integrator for the
+ * left-hand side), with the free energy given in one of two ways:
+ *
+ * - classic: Capillary coefficient lambda_b and FreeEnergy W_b(u) of each block,
+ *     R_b(psi) = int M_b (lambda_b grad u_b . grad psi + dW_b/du_b psi);
+ * - variational: FreeEnergy f(u, grad u) of the first block, variational coefficient
+ *   ("variational": true in the JSON file) of the n blocks and of their gradients, without
+ *   Capillary coefficient (the gradient terms are part of f),
+ *     R_b(psi) = int M_b (df/du_b psi + df/d(grad u_b) . grad psi).
+ *   An isotropic f (sum_b kappa_b/2 |grad u_b|^2 + g(u), not explicit) is assembled with the
+ *   operations of the classic form (kappa_b in place of lambda_b), the other ones with all the
+ *   derivatives of f with respect to the blocks and to their gradients.
+ *
+ * Coefficients of each block: Mobility M_b, FreeEnergy and, in the classic form, Capillary.
+ * Scheme of a variational free energy: implicit, explicit (values and gradients of u_old, no
+ * contribution to the Jacobian) or semi-implicit.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -56,6 +71,9 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility, GlossaryType::Capillary,
                                          GlossaryType::FreeEnergy};
+  /// Expected coefficients with a variational free energy (no Capillary)
+  std::list<GlossaryType> expected_variational_list_{GlossaryType::Mobility,
+                                                     GlossaryType::FreeEnergy};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
@@ -70,14 +88,47 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<CoefficientAtPoints> energy_at_points_;
   mfem::Vector grad_u_mob_, g_mob_;  ///< work vectors of add_mobility_derivative
 
+  // Variational free energy
+  bool variational_ = false;  ///< FreeEnergy of the first block variational
+  /// Variational free energy isotropic and not explicit: classic assembly, kappa_b in kappa_
+  bool isotropic_ = false;
+  // Inputs of the evaluation of the free energy at the integration points of the current element
+  std::vector<mfem::Vector> dofs_u_, dofs_u_old_;
+  mfem::Vector values_, explicit_values_, auxiliary_values_;
+  mfem::Vector gradients_, explicit_gradients_, auxiliary_gradients_, coordinates_;
+  mfem::DenseMatrix points_;
+  // Derivatives of the free energy at the integration points of the current element (layout of
+  // VariationalBatch: values of one point contiguous); kappa_b at point q: kappa_[q nb + b]
+  mfem::Vector df_dvar_, df_dgrad_, d2f_dvar2_, d2f_dvar_dgrad_, d2f_dgrad2_, kappa_;
+  bool with_second_derivatives_ = false;  ///< second derivatives computed (energy not explicit)
+  // Work data of the generic variational assembly
+  mfem::Vector flux_, row_, column_;
+  mfem::DenseMatrix block_hessian_, gradPsi_hessian_;
+  std::vector<mfem::Vector> residual_integrand_;  ///< integrand of R_b at one point (each block)
+
   void coefficients_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
                               const mfem::IntegrationRule& ir,
                               const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian);
+  void mobility_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                          const mfem::IntegrationRule& ir,
+                          const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian);
+  void variational_energy_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                    const mfem::IntegrationRule& ir,
+                                    const mfem::Array<const mfem::Vector*>& elfun,
+                                    const bool jacobian);
+  double integration_weight(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
+  void variational_element_vector(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                  const mfem::IntegrationRule& ir,
+                                  const mfem::Array<mfem::Vector*>& elvect);
+  void variational_element_grad(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                const mfem::IntegrationRule& ir,
+                                const mfem::Array2D<mfem::DenseMatrix*>& elmats);
 
  protected:
   Coefficients lambda;
   Coefficients mobility;
   Coefficients double_well_energy;
+  std::optional<Coefficient> free_energy;  ///< variational free energy
 
   std::vector<mfem::ParGridFunction> vaux_gf_;
 

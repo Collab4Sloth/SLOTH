@@ -1,7 +1,7 @@
 /**
  * @file main.cpp
  * @author ci230846 (clement.introini@cea.fr)
- * @brief  Steady solution of the Allen-Cahn equations with the variational integrator
+ * @brief  Steady solution of the Allen-Cahn equations with a variational free energy
  * @version 0.1
  * @date 2026-11-22
  *
@@ -139,8 +139,7 @@ int main(int argc, char* argv[]) {
 
         // Problem 1:
         std::vector<SPA*> spatials{&spatial};
-        TransientOPE oper(spatials, {"AllenCahnVariational"}, TimeScheme::EulerImplicit,
-                          "TimeDerivative");
+        TransientOPE oper(spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
         oper.overload_nl_solver(
             NLSolverType::NEWTON,
             Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
