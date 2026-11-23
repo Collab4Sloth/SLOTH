@@ -189,13 +189,12 @@ if(NOT TARGET lint)
   find_program(CPP_LINT cpplint)
 
   # Add a custom target for linting
+  # Filters and line length: CPPLINT.cfg (root of the sources, and tests/CPPLINT.cfg)
   add_custom_target(lint
     COMMAND ${CPP_LINT}
-    --filter=-runtime/references,-build/header_guard,-runtime/string,-build/include
     --counting=total
     --extensions=cpp,cxx,hpp,h,hxx,tpp
-    --linelength=100
-    --exclude ${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling
+    --exclude=${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling
     --recursive ${CMAKE_SOURCE_DIR}/kernel ${CMAKE_SOURCE_DIR}/tests
     COMMENT "Linting source files"
   )

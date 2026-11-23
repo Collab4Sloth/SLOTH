@@ -1,6 +1,7 @@
 /**
  * @file SingleVariableAMR.tpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief AMR strategy driven by a single, designated variable: error
  *        estimation, refinement and derefinement decisions are all based
  *        exclusively on that one variable's field, using
@@ -16,7 +17,6 @@
  * @version 0.1
  * @date 2026-08-04
  *
- * @copyright CEA (C) 2026
  *
  * This file is part of SLOTH.
  *

@@ -206,7 +206,7 @@ class ProblemBase {
 
   bool need_to_be_saved(const int iteration, const double time) {
     return this->pst_->get().need_to_be_saved(iteration, time);
-  };
+  }
 };
 
 #include "Problems/ProblemBase.tpp"

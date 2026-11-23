@@ -1,6 +1,7 @@
 /**
  * @file AMRBase.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief Base class orchestrating adaptive mesh refinement (AMR): defines
  *        the common criteria (error estimator integrator, thresholds,
  *        NC limit) and the shared refine/derefine/update orchestration
@@ -10,7 +11,6 @@
  * @version 0.1
  * @date 2026-08-04
  *
- * @copyright CEA (C) 2026
  *
  * @anchor AMR
  *

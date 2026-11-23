@@ -1,6 +1,7 @@
 /**
  * @file TabulatedFunction.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief Reads a CSV table (t, x1..xN, F) sampled on a structured grid
  *        and provides fast (multi)linear interpolation on it.
  *        The number of inputs N (1, 2 or 3) is auto-detected from the CSV.
@@ -8,7 +9,6 @@
  * @version 0.1
  * @date 2026-09-22
  *
- * @copyright CEA (C) 2026
  *
  * This file is part of SLOTH.
  *

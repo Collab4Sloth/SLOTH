@@ -1,6 +1,7 @@
 /**
  * @file main.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief MMS convergence test in time for a partitioned coupling Allen-Cahn / Cahn-Hilliard
  *        (implicit Euler vs BDF2), with the structure of Studies/ostwald and Studies/sintering:
  *        each problem sees the variable of the other one as an auxiliary variable.
@@ -25,7 +26,6 @@
  * @version 0.1
  * @date 2026-10-29
  *
- * Copyright CEA (c) 2026
  */
 #include <iomanip>
 #include <map>

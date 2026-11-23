@@ -109,7 +109,8 @@ class OperatorBase : public mfem::Operator {
   std::vector<IntegratorEntry<Variables<T, DIM>>> rhs_integrators_;
 
   /// Mesh change detection (AMR): FE space sequence numbers at last synchronization
-  std::vector<long> fes_sequence_;
+  /// (long: type of FiniteElementSpace::GetSequence())
+  std::vector<long> fes_sequence_;  // NOLINT(runtime/int)
   void record_fes_sequence();
   bool mesh_has_changed() const;
   virtual bool sync_with_mesh();
