@@ -38,9 +38,9 @@
 #include <vector>
 
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
-#include "Coefficients/FieldsAtPoints.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
+#include "Coefficients/FieldsAtPoints.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/ProblemsOptions.hpp"
 #include "Parameters/Parameters.hpp"
@@ -1086,10 +1086,10 @@ bool SlothNLFormIntegrator<VARS>::prepare_system_energies() {
   this->system_free_energy_ = this->get_coefficient(0, GlossaryType::FreeEnergy, 0);
   this->system_gradient_energy_ = this->get_coefficient(0, GlossaryType::GradientEnergy, 0);
   if (!this->system_free_energy_.has_value()) return false;
-  MFEM_VERIFY(!(this->system_free_energy_->is_variational() &&
-                this->system_gradient_energy_.has_value()),
-              "Error: a variational FreeEnergy coefficient already contains the gradient terms: a "
-              "GradientEnergy coefficient must not be given.");
+  MFEM_VERIFY(
+      !(this->system_free_energy_->is_variational() && this->system_gradient_energy_.has_value()),
+      "Error: a variational FreeEnergy coefficient already contains the gradient terms: a "
+      "GradientEnergy coefficient must not be given.");
   return true;
 }
 
@@ -1166,8 +1166,7 @@ void SlothNLFormIntegrator<VARS>::classic_system_energies(
                                      &this->se_aux_gradients_);
   }
   const double* grad = with_gradient ? this->se_gradients_.HostRead() : nullptr;
-  const double* aux_grad =
-      with_gradient && naux > 0 ? this->se_aux_gradients_.HostRead() : nullptr;
+  const double* aux_grad = with_gradient && naux > 0 ? this->se_aux_gradients_.HostRead() : nullptr;
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
     const mfem::IntegrationPoint& ip = ir.IntPoint(q);
@@ -1215,8 +1214,7 @@ void SlothNLFormIntegrator<VARS>::variational_system_energies(const mfem::Finite
   if (coef.uses_coordinates()) {
     Tr.Transform(ir, this->se_points_);  // sdim x nip, column q = point q
     this->se_coordinates_.SetSize(this->se_points_.Height() * nip);
-    std::copy(this->se_points_.GetData(),
-              this->se_points_.GetData() + this->se_coordinates_.Size(),
+    std::copy(this->se_points_.GetData(), this->se_points_.GetData() + this->se_coordinates_.Size(),
               this->se_coordinates_.HostWrite());
   } else {
     this->se_coordinates_.SetSize(0);
@@ -1238,11 +1236,10 @@ void SlothNLFormIntegrator<VARS>::variational_system_energies(const mfem::Finite
   this->se_zero_aux_gradients_.SetSize(this->se_aux_gradients_.Size());
   this->se_zero_aux_gradients_ = 0.0;
   outputs.F = &this->se_F0_;
-  MFEM_VERIFY(coef.eval_variational_batch(nip, this->se_values_, semi ? this->se_values_ : none,
-                                          this->se_aux_values_, this->se_zero_gradients_,
-                                          with_exp_gradients ? this->se_zero_gradients_ : none,
-                                          this->se_zero_aux_gradients_, this->se_coordinates_,
-                                          outputs),
+  MFEM_VERIFY(coef.eval_variational_batch(
+                  nip, this->se_values_, semi ? this->se_values_ : none, this->se_aux_values_,
+                  this->se_zero_gradients_, with_exp_gradients ? this->se_zero_gradients_ : none,
+                  this->se_zero_aux_gradients_, this->se_coordinates_, outputs),
               "Error: evaluation of the variational FreeEnergy coefficient.");
 
   const double* f = this->se_F_.HostRead();
@@ -1254,4 +1251,215 @@ void SlothNLFormIntegrator<VARS>::variational_system_energies(const mfem::Finite
     density += f[q] * w;
     interface += 2. * (f[q] - f0[q]) * w;
   }
+}
+
+/**
+ * @brief Derivatives of a variational free energy f at all the integration points of an element,
+ * by batch (eval_variational_batch). The variables of f are the first nb_variables blocks:
+ * first derivatives with respect to the variables and to the components of their gradients and,
+ * for the Jacobian of an energy which is not explicit, second derivatives. Isotropic energy
+ * (isotropic true): kappa_b in place of the derivatives with respect to the gradients
+ * (kappa_b grad u_b and kappa_b I).
+ *
+ * Values given to the energy: values and gradients of u (implicit energy) or of u_old (explicit
+ * energy); for a semi-implicit energy, variables u and explicit variables u_old. Auxiliary
+ * variables: values and gradients of the auxiliary fields.
+ *
+ * @param f Variational free energy
+ * @param nb_variables Number of variables of f (first blocks)
+ * @param isotropic Isotropic energy: kappa_b computed in place of the derivatives with respect
+ *        to the gradients
+ * @param fe Finite element of the blocks
+ * @param Tr Transformation of the element
+ * @param ir Integration rule
+ * @param elfun Values of the dofs of each block
+ * @param aux_gf Auxiliary fields
+ * @param jacobian Second derivatives required by the Jacobian
+ * @param v Derivatives at the points
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::variational_at_points(
+    const Coefficient& f, const int nb_variables, const bool isotropic,
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const std::vector<mfem::ParGridFunction>& aux_gf,
+    const bool jacobian, VariationalAtPoints& v) {
+  const int nb = nb_variables;
+  const auto unb = static_cast<std::size_t>(nb);
+  const int nip = ir.GetNPoints();
+  const int sdim = Tr.GetSpaceDim();
+  const int elem = Tr.ElementNo;
+  MFEM_VERIFY(f.variational_dimension() == sdim,
+              "Error in " + this->integrator_name_ + ": dimension of the free energy (" +
+                  std::to_string(f.variational_dimension()) +
+                  ") different from the dimension of the mesh (" + std::to_string(sdim) + ").");
+  MFEM_VERIFY(f.variational_nb_variables() == nb,
+              "Error in " + this->integrator_name_ + ": free energy of " +
+                  std::to_string(f.variational_nb_variables()) + " variables for " +
+                  std::to_string(nb) + " blocks: the variables of the free energy are the blocks.");
+  MFEM_VERIFY(nb <= elfun.Size(), "Error in " + this->integrator_name_ +
+                                      ": more variables of the free energy than blocks.");
+  const bool explicit_energy = f.is_explicit();
+  const bool semi_implicit = f.is_semi_implicit();
+  const bool explicit_gradients = semi_implicit && f.uses_explicit_gradients();
+  const bool auxiliary_gradients = f.uses_auxiliary_gradients();
+  v.nb = nb;
+  v.dim = sdim;
+  v.isotropic = isotropic;
+
+  // Element dofs of u and, if needed, of u_old
+  v.dofs_u.resize(unb);
+  for (std::size_t b = 0; b < unb; ++b) {
+    v.dofs_u[b] = *elfun[static_cast<int>(b)];
+  }
+  if (explicit_energy || semi_implicit) {
+    v.dofs_u_old.resize(unb);
+    for (std::size_t b = 0; b < unb; ++b) {
+      const mfem::FiniteElementSpace* fes = this->u_old_[b].FESpace();
+      MFEM_VERIFY(elem < fes->GetNE() && this->same_finite_element(*fes->GetFE(elem), fe),
+                  "Error in " + this->integrator_name_ +
+                      ": the previous values of the blocks must be on the finite element space of "
+                      "the blocks.");
+      this->u_old_[b].GetElementDofValues(elem, v.dofs_u_old[b]);
+    }
+  }
+
+  // Variables (u or u_old) and explicit variables (u_old) with their gradients
+  fields_at_points(fe, Tr, ir, explicit_energy ? v.dofs_u_old : v.dofs_u, v.values, &v.gradients);
+  if (semi_implicit) {
+    fields_at_points(fe, Tr, ir, v.dofs_u_old, v.explicit_values,
+                     explicit_gradients ? &v.explicit_gradients : nullptr);
+  } else {
+    v.explicit_values.SetSize(0);
+  }
+  if (!explicit_gradients) v.explicit_gradients.SetSize(0);
+
+  // Auxiliary variables with their gradients
+  this->auxiliary_fields_at_points(fe, Tr, ir, aux_gf, v.auxiliary_values,
+                                   auxiliary_gradients ? &v.auxiliary_gradients : nullptr);
+  if (!auxiliary_gradients) v.auxiliary_gradients.SetSize(0);
+
+  // Physical coordinates of the points
+  if (f.uses_coordinates()) {
+    Tr.Transform(ir, v.points);  // sdim x nip, column q = point q
+    v.coordinates.SetSize(v.points.Height() * nip);
+    std::copy(v.points.GetData(), v.points.GetData() + v.coordinates.Size(),
+              v.coordinates.HostWrite());
+  } else {
+    v.coordinates.SetSize(0);
+  }
+
+  // Derivatives of the free energy (second ones: no contribution of an explicit energy)
+  const int nd = nb * sdim;
+  v.with_second_derivatives = jacobian && !explicit_energy;
+  v.df_dvar.SetSize(nip * nb);
+  VariationalBatch outputs;
+  outputs.df_dvar = &v.df_dvar;
+  if (isotropic) {
+    v.kappa.SetSize(nip * nb);
+    outputs.d2f_dgrad2_isotropic = &v.kappa;
+  } else {
+    v.df_dgrad.SetSize(nip * nd);
+    outputs.df_dgrad = &v.df_dgrad;
+  }
+  if (v.with_second_derivatives) {
+    v.d2f_dvar2.SetSize(nip * nb * nb);
+    outputs.d2f_dvar2 = &v.d2f_dvar2;
+    if (!isotropic) {
+      v.d2f_dvar_dgrad.SetSize(nip * nb * nd);
+      v.d2f_dgrad2.SetSize(nip * nd * nd);
+      outputs.d2f_dvar_dgrad = &v.d2f_dvar_dgrad;
+      outputs.d2f_dgrad2 = &v.d2f_dgrad2;
+    }
+  }
+  MFEM_VERIFY(
+      f.eval_variational_batch(nip, v.values, v.explicit_values, v.auxiliary_values, v.gradients,
+                               v.explicit_gradients, v.auxiliary_gradients, v.coordinates, outputs),
+      "Error in " + this->integrator_name_ + ": evaluation of the free energy.");
+}
+
+/**
+ * @brief Adds to elvect the derivative of int f in the direction of the test functions psi of
+ * the variable b of a variational free energy, at the point q, multiplied by a:
+ *   a (df/du_b psi + df/d(grad u_b) . grad psi)
+ * (derivatives of variational_at_points, energy which is not isotropic).
+ *
+ * @param v Derivatives of the free energy at the points
+ * @param q Integration point
+ * @param b Variable of f (block)
+ * @param a Factor (mobility, integration weight, sign...)
+ * @param Psi Shape functions at the point
+ * @param gradPsi Physical gradients of the shape functions at the point
+ * @param elvect Element vector
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::add_variational_vector(VariationalAtPoints& v, const int q,
+                                                         const int b, const double a,
+                                                         const mfem::Vector& Psi,
+                                                         const mfem::DenseMatrix& gradPsi,
+                                                         mfem::Vector& elvect) {
+  const int sdim = v.dim;
+  const int ng = v.nb * sdim;  // components of the gradients of the variables
+  const double* df_dvar = v.df_dvar.HostRead();
+  const double* df_dgrad = v.df_dgrad.HostRead();
+  v.flux.SetSize(sdim);
+  // (df/d(grad u_b), grad psi)
+  for (int k = 0; k < sdim; ++k) v.flux(k) = df_dgrad[q * ng + b * sdim + k];
+  gradPsi.AddMult_a(a, v.flux, elvect);
+  // (df/du_b, psi)
+  elvect.Add(a * df_dvar[q * v.nb + b], Psi);
+}
+
+/**
+ * @brief Adds to mat the second derivative of int f in the directions of the test functions psi
+ * of the variable b and psi_j of the variable j, at the point q, multiplied by a:
+ *   a (d2f/du_b du_j psi psi_j + (d2f/du_b d(grad u_j) . grad psi_j) psi
+ *      + (d2f/d(grad u_b) du_j . grad psi) psi_j
+ *      + grad psi . d2f/d(grad u_b) d(grad u_j) grad psi_j)
+ * (second derivatives of variational_at_points, energy which is not isotropic nor explicit).
+ *
+ * @param v Derivatives of the free energy at the points
+ * @param q Integration point
+ * @param b Variable of f of the test functions (row block)
+ * @param j Variable of f of the trial functions (column block)
+ * @param a Factor (mobility, integration weight, sign...)
+ * @param Psi Shape functions at the point
+ * @param gradPsi Physical gradients of the shape functions at the point
+ * @param mat Element matrix of the blocks (b, j)
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::add_variational_grad(VariationalAtPoints& v, const int q,
+                                                       const int b, const int j, const double a,
+                                                       const mfem::Vector& Psi,
+                                                       const mfem::DenseMatrix& gradPsi,
+                                                       mfem::DenseMatrix& mat) {
+  const int nb = v.nb;
+  const int sdim = v.dim;
+  const int nd = gradPsi.Height();
+  const int ng = nb * sdim;  // components of the gradients of the variables
+  const double* d2f_dvar2 = v.d2f_dvar2.HostRead();
+  const double* d2f_dvar_dgrad = v.d2f_dvar_dgrad.HostRead();
+  const double* d2f_dgrad2 = v.d2f_dgrad2.HostRead();
+  v.flux.SetSize(sdim);
+  v.row.SetSize(nd);
+  v.column.SetSize(nd);
+  v.block_hessian.SetSize(sdim, sdim);
+  v.gradPsi_hessian.SetSize(nd, sdim);
+  // d2f/du_b du_j psi psi_j
+  mfem::AddMult_a_VVt(a * d2f_dvar2[(q * nb + b) * nb + j], Psi, mat);
+  // (d2f/du_b d(grad u_j) . grad psi_j) psi
+  for (int k = 0; k < sdim; ++k) v.flux(k) = d2f_dvar_dgrad[(q * nb + b) * ng + j * sdim + k];
+  gradPsi.Mult(v.flux, v.column);
+  mfem::AddMult_a_VWt(a, Psi, v.column, mat);
+  // (d2f/d(grad u_b) du_j . grad psi) psi_j
+  for (int k = 0; k < sdim; ++k) v.flux(k) = d2f_dvar_dgrad[(q * nb + j) * ng + b * sdim + k];
+  gradPsi.Mult(v.flux, v.row);
+  mfem::AddMult_a_VWt(a, v.row, Psi, mat);
+  // grad psi . d2f/d(grad u_b) d(grad u_j) grad psi_j
+  for (int k = 0; k < sdim; ++k) {
+    for (int l = 0; l < sdim; ++l) {
+      v.block_hessian(k, l) = d2f_dgrad2[(q * ng + b * sdim + k) * ng + j * sdim + l];
+    }
+  }
+  mfem::Mult(gradPsi, v.block_hessian, v.gradPsi_hessian);
+  mfem::AddMult_a_ABt(a, v.gradPsi_hessian, gradPsi, mat);
 }

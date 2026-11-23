@@ -251,6 +251,38 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                   const std::vector<mfem::ParGridFunction>& aux_gf,
                                   mfem::Vector& values, mfem::Vector* gradients);
 
+  /// Variational free energy f(u, grad u) at the integration points of an element (see
+  /// variational_at_points): derivatives with the layout of VariationalBatch (values of one
+  /// point contiguous), inputs and work data
+  struct VariationalAtPoints {
+    int nb = 0;                            ///< number of variables of f: the first nb blocks
+    int dim = 0;                           ///< dimension of the gradients
+    bool isotropic = false;                ///< kappa in place of the derivatives w.r.t. gradients
+    bool with_second_derivatives = false;  ///< second derivatives computed (energy not explicit)
+    mfem::Vector df_dvar, df_dgrad, d2f_dvar2, d2f_dvar_dgrad, d2f_dgrad2;
+    mfem::Vector kappa;  ///< isotropic energy: kappa_b at point q, kappa[q nb + b]
+    // Inputs of the energy
+    std::vector<mfem::Vector> dofs_u, dofs_u_old;
+    mfem::Vector values, explicit_values, auxiliary_values;
+    mfem::Vector gradients, explicit_gradients, auxiliary_gradients, coordinates;
+    mfem::DenseMatrix points;
+    // Work data of add_variational_vector and add_variational_grad
+    mfem::Vector flux, row, column;
+    mfem::DenseMatrix block_hessian, gradPsi_hessian;
+  };
+  void variational_at_points(const Coefficient& f, const int nb_variables, const bool isotropic,
+                             const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                             const mfem::IntegrationRule& ir,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const std::vector<mfem::ParGridFunction>& aux_gf, const bool jacobian,
+                             VariationalAtPoints& v);
+  void add_variational_vector(VariationalAtPoints& v, const int q, const int b, const double a,
+                              const mfem::Vector& Psi, const mfem::DenseMatrix& gradPsi,
+                              mfem::Vector& elvect);
+  void add_variational_grad(VariationalAtPoints& v, const int q, const int b, const int j,
+                            const double a, const mfem::Vector& Psi,
+                            const mfem::DenseMatrix& gradPsi, mfem::DenseMatrix& mat);
+
  private:
   // Steps of eval_coefficient_at_points
   /// Values {u, u_old} and auxiliary fields at the integration points of an element

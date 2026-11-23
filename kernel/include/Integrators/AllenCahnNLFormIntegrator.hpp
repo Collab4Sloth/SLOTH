@@ -90,20 +90,10 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
   // Variational free energy
   bool variational_ = false;  ///< FreeEnergy of the first block variational
-  /// Variational free energy isotropic and not explicit: classic assembly, kappa_b in kappa_
+  /// Variational free energy isotropic and not explicit: classic assembly with kappa_b
   bool isotropic_ = false;
-  // Inputs of the evaluation of the free energy at the integration points of the current element
-  std::vector<mfem::Vector> dofs_u_, dofs_u_old_;
-  mfem::Vector values_, explicit_values_, auxiliary_values_;
-  mfem::Vector gradients_, explicit_gradients_, auxiliary_gradients_, coordinates_;
-  mfem::DenseMatrix points_;
-  // Derivatives of the free energy at the integration points of the current element (layout of
-  // VariationalBatch: values of one point contiguous); kappa_b at point q: kappa_[q nb + b]
-  mfem::Vector df_dvar_, df_dgrad_, d2f_dvar2_, d2f_dvar_dgrad_, d2f_dgrad2_, kappa_;
-  bool with_second_derivatives_ = false;  ///< second derivatives computed (energy not explicit)
-  // Work data of the generic variational assembly
-  mfem::Vector flux_, row_, column_;
-  mfem::DenseMatrix block_hessian_, gradPsi_hessian_;
+  /// Derivatives of the variational free energy at the points of the current element
+  typename SlothNLBase::VariationalAtPoints energy_;
   std::vector<mfem::Vector> residual_integrand_;  ///< integrand of R_b at one point (each block)
 
   void coefficients_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
@@ -112,10 +102,6 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   void mobility_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
                           const mfem::IntegrationRule& ir,
                           const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian);
-  void variational_energy_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
-                                    const mfem::IntegrationRule& ir,
-                                    const mfem::Array<const mfem::Vector*>& elfun,
-                                    const bool jacobian);
   double integration_weight(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
   void variational_element_vector(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
                                   const mfem::IntegrationRule& ir,

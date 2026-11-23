@@ -176,6 +176,9 @@ std::vector<Case> all_cases() {
   return {
       {"TimeDerivative", 1, maker<TimeNLFormIntegrator>({none})},
       {"SplitTimeDerivative", 2, maker<TimeCHNLFormIntegrator>({none, none})},
+      // Two concentrations and two chemical potentials (c0, c1, mu0, mu1)
+      {"SplitTimeDerivative, 2 concentrations", 4,
+       maker<TimeCHNLFormIntegrator>({none, none, none, none})},
       {"AllenCahn", 1, maker<AllenCahnNLFormIntegrator>({phase_field_coefficients()})},
       {"AllenCahn, mobility M(phi)", 1,
        maker<AllenCahnNLFormIntegrator>({phase_field_coefficients(
@@ -240,6 +243,46 @@ std::vector<Case> all_cases() {
            {phase_field_coefficients(),
             phase_field_coefficients(
                 Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})},
+      // Variational free energy f(phi, grad phi) of block 0 (phi), no Capillary
+      {"CahnHilliard variational, isotropic energy", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell()))})},
+      {"CahnHilliard variational, kappa(phi) and M(phi)", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalKappaPhi())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalKappaPhi()),
+                Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityPhi()))})},
+      {"CahnHilliard variational, anisotropic energy", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalAnisotropic())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalAnisotropic()))})},
+      {"CahnHilliard variational, explicit energy", 2,
+       maker<CahnHilliardNLFormIntegrator>(
+           {variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Explicit, VariationalKappaPhi())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Explicit, VariationalKappaPhi()))})},
+      // Two concentrations (c0, c1, mu0, mu1): energy of the two concentrations with a cross
+      // gradient term, mobilities of mu0 and mu1 depending on c0 and c1
+      {"CahnHilliard variational, 2 concentrations, cross gradient term and M(c0, c1)", 4,
+       maker<CahnHilliardNLFormIntegrator>(
+           {variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalTwoPhases())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalTwoPhases())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalTwoPhases()),
+                Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityCross())),
+            variational_coefficients(
+                Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalTwoPhases()),
+                Coefficient(Glossary::Mobility, Scheme::Implicit, MobilityCross()))})},
       {"Fick", 1,
        maker<FickNLFormIntegrator>(
            {Coefficients(Coefficient(Glossary::Diffusivity, Scheme::Implicit, H(2.)))})},
@@ -1075,6 +1118,52 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
     CHECK_THAT(bulk.density, Catch::Matchers::WithinRel(classic.density - classic.interface / 2.,
                                                         1.e-12));
   }
+}
+
+// CahnHilliard with the variational energies lambda/2 |grad phi|^2 + W(phi) (sympy) and
+// SumCoefficient(lambda/2 |grad phi|^2, W), and with the capillary coefficient lambda and the free
+// energy W: same residual and Jacobian, to the bit with the sum (isotropic gradient term: same
+// operations as the classic form, W evaluated by the same structure).
+TEST_CASE_METHOD(sloth_unit::UnitSquare,
+                 "CahnHilliardNLFormIntegrator, variational free energy: same residual and "
+                 "Jacobian as the classic form",
+                 "[Integrators][variational]") {
+  Context ctx;
+  ctx.u_old = {project(phi_old), project(phi_old)};
+  mfem::Array<int> offsets({0, fes->GetTrueVSize(), 2 * fes->GetTrueVSize()});
+  mfem::BlockVector x(offsets), v(offsets);
+  x.Randomize(5);
+  x *= 0.6;
+  x += 0.2;
+  v.Randomize(11);
+  auto residual_and_jacobian_2 = [&](mfem::BlockNonlinearFormIntegrator* integ) {
+    mfem::Array<mfem::ParFiniteElementSpace*> spaces({fes.get(), fes.get()});
+    mfem::ParBlockNonlinearForm form(spaces);
+    form.AddDomainIntegrator(integ);
+    mfem::Vector F(x.Size()), Jv(x.Size());
+    form.Mult(x, F);
+    form.GetGradient(x).Mult(v, Jv);
+    return std::make_pair(F, Jv);
+  };
+
+  const auto [F, Jv] = residual_and_jacobian_2(maker<CahnHilliardNLFormIntegrator>(
+      {phase_field_coefficients(), phase_field_coefficients()})(ctx));
+  // VariationalDoubleWell: kappa = lambda = 0.15, omega = 120
+  const Coefficients variational = variational_coefficients(
+      Coefficient(Glossary::FreeEnergy, Scheme::Implicit, VariationalDoubleWell()));
+  const auto [F_var, Jv_var] = residual_and_jacobian_2(
+      maker<CahnHilliardNLFormIntegrator>({variational, variational})(ctx));
+  check_same(F, F_var, 1.e-12);
+  check_same(Jv, Jv_var, 1.e-12);
+
+  VariationalGradientOnly gradient_term;
+  W double_well(kOmega);
+  const Coefficients sum = variational_coefficients(Coefficient(
+      Glossary::FreeEnergy, Scheme::Implicit, SumCoefficient({&gradient_term, &double_well})));
+  const auto [F_sum, Jv_sum] =
+      residual_and_jacobian_2(maker<CahnHilliardNLFormIntegrator>({sum, sum})(ctx));
+  check_same(F, F_sum, 0.);
+  check_same(Jv, Jv_sum, 0.);
 }
 
 TEST_CASE_METHOD(sloth_unit::UnitSquare,
