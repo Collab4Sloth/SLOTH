@@ -106,9 +106,9 @@ void SumCoefficient::check_terms() const {
   for (std::size_t k = 0; k < this->vect_coefficients_.size(); ++k) {
     MFEM_VERIFY(this->vect_coefficients_[k] != nullptr, "SumCoefficient: null term.");
     const Scheme scheme = this->vect_schemes_[k];
-    MFEM_VERIFY(scheme == Scheme::Implicit || scheme == Scheme::Explicit ||
-                    scheme == Scheme::SemiImplicit,
-                "SumCoefficient: the scheme of a term must be Implicit, Explicit or SemiImplicit.");
+    MFEM_VERIFY(
+        scheme == Scheme::Implicit || scheme == Scheme::Explicit || scheme == Scheme::SemiImplicit,
+        "SumCoefficient: the scheme of a term must be Implicit, Explicit or SemiImplicit.");
   }
 }
 
@@ -287,7 +287,8 @@ bool SumCoefficient::eval_batch(const int npts, const mfem::Vector& values,
     MFEM_VERIFY(!explicit_term || npts == 0 || explicit_values.Size() > 0, explicit_term_error);
     mfem::Vector* term_F = term_output(F, this->term_F_);
     mfem::Vector* term_gradient = term_output(gradient, this->term_gradient_);
-    mfem::Vector* term_hessian = explicit_term ? nullptr : term_output(hessian, this->term_hessian_);
+    mfem::Vector* term_hessian =
+        explicit_term ? nullptr : term_output(hessian, this->term_hessian_);
     if (!this->vect_coefficients_[k]->eval_batch(npts, explicit_term ? explicit_values : values,
                                                  explicit_values, auxiliary_values, coordinates,
                                                  term_F, term_gradient, term_hessian)) {
@@ -352,6 +353,20 @@ bool SumCoefficient::uses_auxiliary_gradients() const {
 }
 
 /**
+ * @brief True if the sum is variational and all its variational terms are isotropic and not
+ * explicit (non-variational terms: no gradient term)
+ */
+bool SumCoefficient::is_isotropic() const {
+  if (!this->is_variational()) return false;
+  for (std::size_t k = 0; k < this->vect_coefficients_.size(); ++k) {
+    const auto* coef = this->vect_coefficients_[k];
+    if (!coef->is_variational()) continue;
+    if (this->is_explicit_term(k) || !coef->is_isotropic()) return false;
+  }
+  return true;
+}
+
+/**
  * @brief Evaluation of a variational sum (see FunctionCoefficient::eval_variational_batch)
  *
  * - variational term: all the outputs;
@@ -388,6 +403,7 @@ bool SumCoefficient::eval_variational_batch(
   reset(outputs.d2f_dvar2);
   reset(outputs.d2f_dvar_dgrad);
   reset(outputs.d2f_dgrad2);
+  reset(outputs.d2f_dgrad2_isotropic);
   for (std::size_t k = 0; k < this->vect_coefficients_.size(); ++k) {
     const auto* coef = this->vect_coefficients_[k];
     const bool explicit_term = this->is_explicit_term(k);
@@ -406,6 +422,8 @@ bool SumCoefficient::eval_variational_batch(
       if (!explicit_term) {
         term.d2f_dvar_dgrad = term_output(outputs.d2f_dvar_dgrad, this->term_d2f_dvar_dgrad_);
         term.d2f_dgrad2 = term_output(outputs.d2f_dgrad2, this->term_d2f_dgrad2_);
+        term.d2f_dgrad2_isotropic =
+            term_output(outputs.d2f_dgrad2_isotropic, this->term_d2f_dgrad2_isotropic_);
       }
       if (!coef->eval_variational_batch(npts, term_values, explicit_values, auxiliary_values,
                                         explicit_term ? explicit_gradients : gradients,
@@ -413,8 +431,8 @@ bool SumCoefficient::eval_variational_batch(
                                         term)) {
         return false;
       }
-    } else if (!coef->eval_batch(npts, term_values, explicit_values, auxiliary_values,
-                                 coordinates, term.F, term.df_dvar, term.d2f_dvar2)) {
+    } else if (!coef->eval_batch(npts, term_values, explicit_values, auxiliary_values, coordinates,
+                                 term.F, term.df_dvar, term.d2f_dvar2)) {
       return false;
     }
     accumulate(outputs.F, term.F);
@@ -423,6 +441,7 @@ bool SumCoefficient::eval_variational_batch(
     accumulate(outputs.d2f_dvar2, term.d2f_dvar2);
     accumulate(outputs.d2f_dvar_dgrad, term.d2f_dvar_dgrad);
     accumulate(outputs.d2f_dgrad2, term.d2f_dgrad2);
+    accumulate(outputs.d2f_dgrad2_isotropic, term.d2f_dgrad2_isotropic);
   }
   return true;
 }

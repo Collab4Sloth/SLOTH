@@ -43,6 +43,8 @@
  *   d2f_dvar2       d2f/du_i du_j            n*n          (row i, column j)
  *   d2f_dvar_dgrad  d2f/du_i dp_{j,k}        n*(n*d)      (row i, column j*d + k)
  *   d2f_dgrad2      d2f/dp_{i,k} dp_{j,l}    (n*d)*(n*d)  (row i*d + k, column j*d + l)
+ *   d2f_dgrad2_isotropic  kappa_i            n            isotropic coefficient only:
+ *                   d2f/dp_{i,k} dp_{j,l} = kappa_i delta_ij delta_kl, d2f/du dp = 0
  */
 struct VariationalOutputs {
   double* F = nullptr;
@@ -51,6 +53,7 @@ struct VariationalOutputs {
   double* d2f_dvar2 = nullptr;
   double* d2f_dvar_dgrad = nullptr;
   double* d2f_dgrad2 = nullptr;
+  double* d2f_dgrad2_isotropic = nullptr;
 };
 
 /**
@@ -66,6 +69,7 @@ struct VariationalBatch {
   mfem::Vector* d2f_dvar2 = nullptr;
   mfem::Vector* d2f_dvar_dgrad = nullptr;
   mfem::Vector* d2f_dgrad2 = nullptr;
+  mfem::Vector* d2f_dgrad2_isotropic = nullptr;
 };
 
 /**
@@ -139,6 +143,10 @@ void eval_variational_at_points(const EVAL& eval, const int npts, const double t
   check_output(outputs.d2f_dvar2, n * n, "d2f_dvar2");
   check_output(outputs.d2f_dvar_dgrad, n * nd, "d2f_dvar_dgrad");
   check_output(outputs.d2f_dgrad2, nd * nd, "d2f_dgrad2");
+  check_output(outputs.d2f_dgrad2_isotropic, n, "d2f_dgrad2_isotropic");
+  MFEM_VERIFY(outputs.d2f_dgrad2_isotropic == nullptr || EVAL::is_isotropic,
+              "eval_variational_at_points: d2f_dgrad2_isotropic requested for a coefficient "
+              "which is not isotropic");
 
   // Data are read and written where the loop runs (host or device). An empty vector (no
   // explicit variable, no point...) is not accessed: nullptr.
@@ -165,6 +173,7 @@ void eval_variational_at_points(const EVAL& eval, const int npts, const double t
   double* d_d2f_dvar2 = write(outputs.d2f_dvar2);
   double* d_d2f_dvar_dgrad = write(outputs.d2f_dvar_dgrad);
   double* d_d2f_dgrad2 = write(outputs.d2f_dgrad2);
+  double* d_d2f_dgrad2_isotropic = write(outputs.d2f_dgrad2_isotropic);
 
   // Copied by value in the loop (host or device)
   const EVAL e = eval;
@@ -176,6 +185,7 @@ void eval_variational_at_points(const EVAL& eval, const int npts, const double t
     out.d2f_dvar2 = d_d2f_dvar2 ? d_d2f_dvar2 + q * n * n : nullptr;
     out.d2f_dvar_dgrad = d_d2f_dvar_dgrad ? d_d2f_dvar_dgrad + q * n * nd : nullptr;
     out.d2f_dgrad2 = d_d2f_dgrad2 ? d_d2f_dgrad2 + q * nd * nd : nullptr;
+    out.d2f_dgrad2_isotropic = d_d2f_dgrad2_isotropic ? d_d2f_dgrad2_isotropic + q * n : nullptr;
     e(d_values + q * m_values, d_explicit + q * m_exp, d_auxiliary + q * m_aux,
       d_gradients + q * m_grad, d_explicit_gradients + q * m_exp_grad,
       d_auxiliary_gradients + q * m_aux_grad, d_coordinates + q * dim, time, out);

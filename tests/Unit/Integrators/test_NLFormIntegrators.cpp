@@ -957,7 +957,8 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
 
 // AllenCahnVariational with the sum of kappa/2 |grad u|^2 (implicit) and W (explicit) and
 // AllenCahn with the capillary coefficient lambda and the explicit free energy W: same residual and
-// same Jacobian.
+// same Jacobian, to the bit (isotropic gradient term with a constant coefficient: same operations
+// as AllenCahn, W evaluated by the same structure).
 TEST_CASE_METHOD(sloth_unit::UnitSquare,
                  "AllenCahnVariationalNLFormIntegrator: sum of an implicit gradient term and an "
                  "explicit double well, same residual and Jacobian as AllenCahn",
@@ -987,8 +988,22 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare,
                                       {&double_well, Scheme::Explicit}})),
           Coefficient(Glossary::Mobility, kM))})(ctx),
       x, v);
-  check_same(F, F_var, 1.e-12);
-  check_same(Jv, Jv_var, 1.e-12);
+  check_same(F, F_var, 0.);
+  check_same(Jv, Jv_var, 0.);
+
+  SECTION("implicit double well: same residual and Jacobian to the bit") {
+    const auto [F_impl, Jv_impl] = residual_and_jacobian(
+        *this, maker<AllenCahnNLFormIntegrator>({pf_coefficients(kOmega)})(ctx), x, v);
+    const auto [F_sum, Jv_sum] = residual_and_jacobian(
+        *this,
+        maker<AllenCahnVariationalNLFormIntegrator>({variational_coefficients(
+            Coefficient(Glossary::FreeEnergy, Scheme::Implicit,
+                        SumCoefficient({&gradient_term, &double_well})),
+            Coefficient(Glossary::Mobility, kM))})(ctx),
+        x, v);
+    check_same(F_impl, F_sum, 0.);
+    check_same(Jv_impl, Jv_sum, 0.);
+  }
 }
 
 // Energies of the system (SlothNLFormIntegrator::system_energies) on a non-uniform field: the

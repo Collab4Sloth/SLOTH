@@ -85,6 +85,11 @@ class AllenCahnVariationalNLFormIntegrator : public SlothNLFormIntegrator<VARS> 
   // VariationalBatch: values of one point contiguous)
   mfem::Vector df_dvar_, df_dgrad_, d2f_dvar2_, d2f_dvar_dgrad_, d2f_dgrad2_;
   bool with_second_derivatives_ = false;  ///< second derivatives computed (implicit energy)
+  /// Isotropic free energy, not explicit (f = sum_b kappa_b/2 |grad u_b|^2 + g(u)): assembly of
+  /// AllenCahn for the gradient terms, kappa_b at the points in kappa_. Generic assembly
+  /// otherwise.
+  bool isotropic_ = false;
+  mfem::Vector kappa_;  ///< kappa_b at point q: kappa_[q nb + b]
 
   // Work data of the assembly
   mfem::Vector flux_, row_, column_;
@@ -98,6 +103,11 @@ class AllenCahnVariationalNLFormIntegrator : public SlothNLFormIntegrator<VARS> 
                           const mfem::IntegrationRule& ir,
                           const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian);
   double integration_weight(mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
+  void isotropic_jacobian(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                          const mfem::IntegrationRule& ir,
+                          const mfem::Array<const mfem::Vector*>& elfun, const double* df_dvar,
+                          const double* d2f_dvar2, const double* kappa,
+                          const mfem::Array2D<mfem::DenseMatrix*>& elmats);
 
  protected:
   Coefficients mobility;

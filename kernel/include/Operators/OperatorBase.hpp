@@ -201,4 +201,5 @@ class OperatorBase : public mfem::Operator {
                                                              const unsigned int bdr_id);
   void set_time_coefficients(double time);
 };
+
 #include "Operators/OperatorBase.tpp"

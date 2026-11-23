@@ -38,22 +38,11 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/CoefficientTerm.hpp"
 #include "Coefficients/FunctionCoefficient.hpp"
-#include "Options/TimeOptions.hpp"
 
-/**
- * @brief Term of a SumCoefficient with its own scheme
- *
- * - Scheme::Implicit (default): the term is evaluated with the values given to the sum.
- * - Scheme::Explicit: the term is evaluated with the explicit values given to the sum (values at
- *   the beginning of the time step): the scheme applies to its derivatives, its second derivatives
- *   are zero. The sum must then be wrapped in a semi-implicit Coefficient.
- * - Scheme::SemiImplicit: same as Scheme::Implicit, the term reads the explicit values itself.
- */
-struct SumTerm {
-  FunctionCoefficient* coefficient = nullptr;
-  Scheme scheme = Scheme::Implicit;
-};
+/// Term of a SumCoefficient with its own scheme (see CoefficientTerm)
+using SumTerm = CoefficientTerm;
 
 /**
  * @brief Define a summation of FunctionCoefficient objects as a FunctionCoefficient
@@ -69,6 +58,7 @@ class SumCoefficient : public FunctionCoefficient {
   // Work arrays of eval_batch and eval_variational_batch
   mutable mfem::Vector term_F_, term_gradient_, term_hessian_;  ///< outputs of one term
   mutable mfem::Vector term_df_dgrad_, term_d2f_dvar_dgrad_, term_d2f_dgrad2_;
+  mutable mfem::Vector term_d2f_dgrad2_isotropic_;
 
   bool is_explicit_term(std::size_t k) const;
   void check_terms() const;
@@ -106,6 +96,7 @@ class SumCoefficient : public FunctionCoefficient {
   int variational_nb_variables() const override;
   bool uses_explicit_gradients() const override;
   bool uses_auxiliary_gradients() const override;
+  bool is_isotropic() const override;
   bool eval_variational_batch(const int npts, const mfem::Vector& values,
                               const mfem::Vector& explicit_values,
                               const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,

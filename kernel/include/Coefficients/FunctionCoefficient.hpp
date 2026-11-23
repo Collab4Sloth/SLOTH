@@ -148,6 +148,11 @@ class FunctionCoefficient {
   virtual bool uses_explicit_gradients() const { return false; }
   /// True if a variational coefficient reads the gradients of its auxiliary variables
   virtual bool uses_auxiliary_gradients() const { return false; }
+  /// True for an isotropic coefficient. Variational coefficient: its second derivatives with
+  /// respect to the gradients are kappa_i I_d for each variable i, kappa_i independent of the
+  /// variables and of the gradients, without cross derivative (f = sum_i kappa_i/2 |grad u_i|^2
+  /// + g(u)); kappa_i given by the output d2f_dgrad2_isotropic of eval_variational_batch.
+  virtual bool is_isotropic() const { return false; }
 
   /**
    * @brief Evaluation of a variational coefficient at a set of points

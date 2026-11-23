@@ -385,7 +385,29 @@ class TestCommandLine(unittest.TestCase):
         for output in ("F", "df_dvar", "df_dgrad", "d2f_dvar2", "d2f_dvar_dgrad", "d2f_dgrad2"):
             self.assertIn(f"if (out.{output} != nullptr)", header)
         self.assertIn("out.d2f_dgrad2[2] = out.d2f_dgrad2[1];", header)
+        # isotropic: kappa = 1 + c^2 depends on the auxiliary variable c only, grad c is a datum
+        self.assertIn("static constexpr bool is_isotropic = true;", header)
 
+    def test_generation_isotropic(self):
+        items = [dict(coefficient("0.5*kappa*dot(grad(phi), grad(phi)) + phi**2*(1-phi)**2",
+                                  constants="(kappa:0.15)"), class_name="Iso"),
+                 dict(coefficient("0.5*kappa*(1 + c**2)*dot(grad(phi), grad(phi))",
+                                  auxiliary_variables="c", constants="(kappa:0.15)"),
+                      class_name="IsoAux"),
+                 dict(coefficient("0.5*(1 + phi)*dot(grad(phi), grad(phi))"), class_name="KappaPhi"),
+                 dict(coefficient(f"0.5*(W0*{ANISOTROPY})**2*dot(grad(phi), grad(phi))",
+                                  constants="(W0:1.0),(e4:0.05)"), class_name="Aniso")]
+        result = self.run_script(items=items)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        header = result.header
+        self.assertIsNotNone(header)
+        # isotropic: Iso (constant kappa) and IsoAux (kappa depending on an auxiliary variable)
+        self.assertEqual(header.count("static constexpr bool is_isotropic = true;"), 2)
+        self.assertEqual(header.count("static constexpr bool is_isotropic = false;"), 2)
+        self.assertEqual(header.count("bool is_isotropic() const final { return true; }"), 2)
+        self.assertEqual(header.count("if (out.d2f_dgrad2_isotropic != nullptr)"), 2)
+        # value of kappa (written by SymPy: format independent check)
+        self.assertRegex(header, r"out\.d2f_dgrad2_isotropic\[0\] = prefactor_ \* \([^;]*kappa[^;]*\);")
 
 if __name__ == "__main__":
     unittest.main()

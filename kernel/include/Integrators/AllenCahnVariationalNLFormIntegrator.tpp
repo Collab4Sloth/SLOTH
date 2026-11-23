@@ -95,6 +95,8 @@ void AllenCahnVariationalNLFormIntegrator<VARS>::get_coefficients() {
           ": the FreeEnergy coefficient must be a variational coefficient (\"variational\": "
           "true in the JSON file), function of the blocks and of their gradients.");
   this->free_energy = *energy;
+  // Isotropic gradient terms (implicit or semi-implicit energy)
+  this->isotropic_ = this->free_energy->is_isotropic() && !this->free_energy->is_explicit();
 }
 
 /**
@@ -222,21 +224,31 @@ void AllenCahnVariationalNLFormIntegrator<VARS>::energy_at_points(
     this->coordinates_.SetSize(0);
   }
 
-  // Derivatives of the free energy (second ones: no contribution of an explicit energy)
+  // Derivatives of the free energy (second ones: no contribution of an explicit energy). With
+  // isotropic gradient terms, the derivatives with respect to the gradients, kappa_b grad u_b and
+  // kappa_b I, are given by kappa_b only.
   const int nd = nb * sdim;
+  const bool isotropic = this->isotropic_;
   this->with_second_derivatives_ = jacobian && !explicit_energy;
   this->df_dvar_.SetSize(nip * nb);
-  this->df_dgrad_.SetSize(nip * nd);
   VariationalBatch outputs;
   outputs.df_dvar = &this->df_dvar_;
-  outputs.df_dgrad = &this->df_dgrad_;
+  if (isotropic) {
+    this->kappa_.SetSize(nip * nb);
+    outputs.d2f_dgrad2_isotropic = &this->kappa_;
+  } else {
+    this->df_dgrad_.SetSize(nip * nd);
+    outputs.df_dgrad = &this->df_dgrad_;
+  }
   if (this->with_second_derivatives_) {
     this->d2f_dvar2_.SetSize(nip * nb * nb);
-    this->d2f_dvar_dgrad_.SetSize(nip * nb * nd);
-    this->d2f_dgrad2_.SetSize(nip * nd * nd);
     outputs.d2f_dvar2 = &this->d2f_dvar2_;
-    outputs.d2f_dvar_dgrad = &this->d2f_dvar_dgrad_;
-    outputs.d2f_dgrad2 = &this->d2f_dgrad2_;
+    if (!isotropic) {
+      this->d2f_dvar_dgrad_.SetSize(nip * nb * nd);
+      this->d2f_dgrad2_.SetSize(nip * nd * nd);
+      outputs.d2f_dvar_dgrad = &this->d2f_dvar_dgrad_;
+      outputs.d2f_dgrad2 = &this->d2f_dgrad2_;
+    }
   }
   MFEM_VERIFY(
       f.eval_variational_batch(nip, this->values_, this->explicit_values_, this->auxiliary_values_,
@@ -285,8 +297,33 @@ void AllenCahnVariationalNLFormIntegrator<VARS>::AssembleElementVector(
   this->mobility_at_points(fe, Tr, *ir, elfun, false);
   this->energy_at_points(fe, Tr, *ir, elfun, false);
   const double* df_dvar = this->df_dvar_.HostRead();
-  const double* df_dgrad = this->df_dgrad_.HostRead();
 
+  if (this->isotropic_) {
+    // Isotropic gradient terms: same operations as AllenCahnNLFormIntegrator
+    const double* kappa = this->kappa_.HostRead();
+    for (int q = 0; q < ir->GetNPoints(); q++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(q);
+      fe.CalcShape(ip, this->Psi_);
+      const double weight = this->integration_weight(Tr, ip);
+      fe.CalcPhysDShape(Tr, this->gradPsi_);
+
+      for (int blk = 0; blk < num_blocks; ++blk) {
+        const auto b = static_cast<std::size_t>(blk);
+        const double coef_mobi = this->mobility_at_points_[b].value(q);
+        // (kappa_b grad u_b, grad psi)
+        this->gradPsi_.MultTranspose(*elfun[blk], this->flux_);
+        this->flux_ *= coef_mobi * kappa[q * num_blocks + blk] * weight;
+        this->gradPsi_.AddMult(this->flux_, *elvect[blk]);
+        // (df/du_b, psi)
+        double ww = coef_mobi * df_dvar[q * num_blocks + blk];
+        ww *= weight;
+        add(*elvect[blk], ww, this->Psi_, *elvect[blk]);
+      }
+    }
+    return;
+  }
+
+  const double* df_dgrad = this->df_dgrad_.HostRead();
   for (int q = 0; q < ir->GetNPoints(); q++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(q);
     fe.CalcShape(ip, this->Psi_);
@@ -355,8 +392,15 @@ void AllenCahnVariationalNLFormIntegrator<VARS>::AssembleElementGrad(
   this->mobility_at_points(fe, Tr, *ir, elfun, true);
   this->energy_at_points(fe, Tr, *ir, elfun, true);
   const double* df_dvar = this->df_dvar_.HostRead();
-  const double* df_dgrad = this->df_dgrad_.HostRead();
   const double* d2f_dvar2 = this->with_second_derivatives_ ? this->d2f_dvar2_.HostRead() : nullptr;
+
+  if (this->isotropic_) {
+    this->isotropic_jacobian(fe, Tr, *ir, elfun, df_dvar, d2f_dvar2, this->kappa_.HostRead(),
+                             elmats);
+    return;
+  }
+
+  const double* df_dgrad = this->df_dgrad_.HostRead();
   const double* d2f_dvar_dgrad =
       this->with_second_derivatives_ ? this->d2f_dvar_dgrad_.HostRead() : nullptr;
   const double* d2f_dgrad2 =
@@ -412,6 +456,69 @@ void AllenCahnVariationalNLFormIntegrator<VARS>::AssembleElementGrad(
         const double d = mob.derivative(q, j);
         if (d == 0.0) continue;
         mfem::AddMult_a_VWt(d * weight, g, this->Psi_, *elmats(b, j));
+      }
+    }
+  }
+}
+
+/**
+ * @brief Element Jacobian with isotropic gradient terms (kappa_b at the points): same operations
+ * as AllenCahnNLFormIntegrator, the second derivatives of the free energy with respect to the
+ * blocks given by the variational coefficient:
+ *   int M_b (kappa_b grad psi . grad psi_b + d2f/du_b du_j psi psi_j)
+ *   + int dM_b/du_j psi_j (kappa_b grad u_b . grad psi + df/du_b psi).
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ */
+template <class VARS>
+void AllenCahnVariationalNLFormIntegrator<VARS>::isotropic_jacobian(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const double* df_dvar, const double* d2f_dvar2,
+    const double* kappa, const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
+  const int nb = elfun.Size();
+  const int nd = fe.GetDof();
+  for (int q = 0; q < ir.GetNPoints(); q++) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+    fe.CalcShape(ip, this->Psi_);
+    const double weight = this->integration_weight(Tr, ip);
+    fe.CalcPhysDShape(Tr, this->gradPsi_);
+
+    for (int blk = 0; blk < nb; ++blk) {
+      const auto b = static_cast<std::size_t>(blk);
+      const CoefficientAtPoints& mob = this->mobility_at_points_[b];
+      const double coef_mobi = mob.value(q);
+      const double lamb = kappa[q * nb + blk];
+      // Diagonal block: Laplacian + d2f/du_b2
+      const double mob_lamb = coef_mobi * lamb * weight;
+      mfem::AddMult_a_AAt(mob_lamb, this->gradPsi_, *elmats(blk, blk));
+      if (d2f_dvar2 != nullptr) {
+        double fun_val = coef_mobi * d2f_dvar2[(q * nb + blk) * nb + blk];
+        fun_val *= weight;
+        mfem::AddMult_a_VVt(fun_val, this->Psi_, *elmats(blk, blk));
+        // Off-diagonal blocks: M_b d2f/du_b du_j
+        for (int jblk = 0; jblk < nb; ++jblk) {
+          if (jblk == blk) continue;
+          double fun_val_off = coef_mobi * d2f_dvar2[(q * nb + blk) * nb + jblk];
+          fun_val_off *= weight;
+          mfem::AddMult_a_VVt(fun_val_off, this->Psi_, *elmats(blk, jblk));
+        }
+      }
+
+      // Mobility depending on the blocks: dM_b/du_j psi_j (kappa_b grad u_b . grad psi
+      // + df/du_b psi)
+      bool has_derivative = false;
+      for (int j = 0; j < nb && !has_derivative; ++j) has_derivative = mob.derivative(q, j) != 0.0;
+      if (!has_derivative) continue;
+      mfem::Vector& g = this->residual_integrand_[b];
+      g.SetSize(nd);
+      this->gradPsi_.MultTranspose(*elfun[blk], this->flux_);
+      this->gradPsi_.Mult(this->flux_, g);
+      g *= lamb;
+      g.Add(df_dvar[q * nb + blk], this->Psi_);
+      for (int j = 0; j < nb; ++j) {
+        const double d = mob.derivative(q, j);
+        if (d == 0.0) continue;
+        mfem::AddMult_a_VWt(d * weight, g, this->Psi_, *elmats(blk, j));
       }
     }
   }

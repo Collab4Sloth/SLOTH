@@ -466,6 +466,13 @@ bool SlothBaseCoefficient::uses_auxiliary_gradients() const {
 }
 
 /**
+ * @brief True for an isotropic coefficient (see FunctionCoefficient::is_isotropic)
+ */
+bool SlothBaseCoefficient::is_isotropic() const {
+  return this->coefficient_ != nullptr && !this->is_scalar() && this->coefficient_->is_isotropic();
+}
+
+/**
  * @brief Evaluation of a variational coefficient at a set of points.
  *
  * Same arguments and layout as eval_variational_at_points (Coefficients/VariationalEval.hpp).

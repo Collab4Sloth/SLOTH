@@ -1256,9 +1256,13 @@ def symmetric_entries(matrix, size: int):
 
 
 def write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_constants, coord_vars,
-                                  bounds):
+                                  bounds, isotropic=None):
     """
     Write the structure <class_name>VariationalEval (see the comment above FUNCTION_ARGS).
+
+    isotropic: coefficients kappa_i of isotropic gradient terms (see
+    VariationalForm.isotropic_coefficients), written in the output d2f_dgrad2_isotropic; None:
+    gradient terms not isotropic.
     """
     class_name = spec.class_name
     n, d = form.nb_variables, form.dimension
@@ -1291,7 +1295,8 @@ def write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_const
     f.write(f"  static constexpr int nb_auxiliary_variables = {len(auxiliary)};\n")
     f.write(f"  static constexpr int nb_coordinates = {len(coord_vars)};\n")
     f.write(f"  static constexpr bool uses_explicit_gradients = {str(uses_explicit).lower()};\n")
-    f.write(f"  static constexpr bool uses_auxiliary_gradients = {str(uses_auxiliary).lower()};\n\n")
+    f.write(f"  static constexpr bool uses_auxiliary_gradients = {str(uses_auxiliary).lower()};\n")
+    f.write(f"  static constexpr bool is_isotropic = {str(isotropic is not None).lower()};\n\n")
     f.write("  double prefactor_ = 1.0;\n")
     for k, v in member_constants.items():
         f.write(f"  double {k} = {v};\n")
@@ -1334,14 +1339,19 @@ def write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_const
     write_variational_block(f, "d2f_dvar_dgrad", entries, [], indent)
     entries, copies = symmetric_entries(form.d2f_dgrad2, nd)
     write_variational_block(f, "d2f_dgrad2", entries, copies, indent)
+    if isotropic is not None:
+        write_variational_block(f, "d2f_dgrad2_isotropic", list(enumerate(isotropic)), [],
+                                indent)
     f.write("  }\n")
     f.write("};\n\n")
 
 
-def write_variational_class(f, spec, form, explicit, auxiliary, coord_vars):
+def write_variational_class(f, spec, form, explicit, auxiliary, coord_vars, isotropic=False):
     """
     Write the class <class_name> of a variational coefficient, evaluated with the structure
     <class_name>VariationalEval by eval_variational_batch.
+
+    isotropic: isotropic gradient terms (see VariationalForm.isotropic_coefficients).
     """
     class_name = spec.class_name
     uses_explicit = any(v in form.data_gradients for v in explicit)
@@ -1380,6 +1390,8 @@ def write_variational_class(f, spec, form, explicit, auxiliary, coord_vars):
     f.write(f"  bool uses_auxiliary_gradients() const final {{ return {str(uses_auxiliary).lower()}; }}\n")
     if coord_vars:
         f.write("  bool uses_coordinates() const final { return true; }\n")
+    if isotropic:
+        f.write("  bool is_isotropic() const final { return true; }\n")
     f.write("  bool eval_variational_batch(const int npts, const mfem::Vector& values,\n")
     f.write("                              const mfem::Vector& explicit_values,\n")
     f.write("                              const mfem::Vector& auxiliary_values,\n")
@@ -1436,14 +1448,16 @@ def generate_variational_class(spec):
     bounds = get_bounds(spec.bounds, parser.variables + explicit + auxiliary, constant_names,
                         class_name)
     form = variational_form_of(spec)
+    isotropic = form.isotropic_coefficients()
 
     cpp_file = f"{spec.output_file}.hpp"
     if not Path(cpp_file).resolve().exists():
         prepare_output_file(cpp_file, False)
     with open(cpp_file, "a") as f:
         write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_constants,
-                                      coord_vars, bounds)
-        write_variational_class(f, spec, form, explicit, auxiliary, coord_vars)
+                                      coord_vars, bounds, isotropic)
+        write_variational_class(f, spec, form, explicit, auxiliary, coord_vars,
+                                isotropic is not None)
     logging.info(f"Variational class {class_name} generated in {cpp_file}")
     format_cpp(cpp_file)
 

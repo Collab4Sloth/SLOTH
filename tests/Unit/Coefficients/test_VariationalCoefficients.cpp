@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "Coefficients/CommonCoefficients.hpp"
+#include "Coefficients/ProductFunctionCoefficients.hpp"
 #include "Coefficients/SumFunctionCoefficients.hpp"
 #include "Coefficients/VariationalEval.hpp"
 #include "sloth_unit.hpp"
@@ -503,5 +504,202 @@ TEST_CASE("SumCoefficient: variational sum", "[Coefficients][variational]") {
     FunctionCoefficient& base = sum;
     CHECK_FALSE(base.eval_variational_batch(npts, values, none, none, gradients, none, none, none,
                                             outputs));
+  }
+}
+
+// ProductCoefficient: each factor with its own scheme. The value and the gradient of an explicit
+// factor are evaluated with the explicit values and held constant in the second derivatives:
+//   P = W(u) H(u_old),  dP = W'(u) H(u_old) + W(u) H'(u_old),
+//   d2P = d(dP)/du = W''(u) H(u_old) + W'(u) H'(u_old)
+TEST_CASE("ProductCoefficient: factors with their own scheme", "[Coefficients][variational]") {
+  W w(2.);
+  H h;
+  ProductCoefficient product({{&w, Scheme::Implicit}, {&h, Scheme::Explicit}});
+  FunctionCoefficient& base = product;
+  CHECK_FALSE(base.is_variational());
+  CHECK(base.batch_nb_variables() == 1);
+
+  constexpr int npts = 4;
+  mfem::Vector values(npts), explicit_values(npts), none;
+  for (int q = 0; q < npts; ++q) {
+    values(q) = 0.1 + 0.2 * q;
+    explicit_values(q) = 0.3 + 0.1 * q;
+  }
+
+  SECTION("evaluation by batch and point by point") {
+    mfem::Vector F(npts), gradient(npts), hessian(npts);
+    REQUIRE(base.eval_batch(npts, values, explicit_values, none, none, &F, &gradient, &hessian));
+    F.HostRead();
+    gradient.HostRead();
+    hessian.HostRead();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const std::vector<double> u{values(q)}, u_old{explicit_values(q)}, aux;
+      const double Wu = w.eval_f(u), dWu = w.eval_gradient(0, u), d2Wu = w.eval_hessian(0, 0, u);
+      const double Ho = h.eval_f(u_old), dHo = h.eval_gradient(0, u_old);
+      check_close(F(q), Wu * Ho);
+      check_close(gradient(q), dWu * Ho + Wu * dHo);
+      check_close(hessian(q), d2Wu * Ho + dWu * dHo);
+      check_close(base.eval_f(u, u_old, aux), Wu * Ho);
+      check_close(base.eval_gradient(0, u, u_old, aux), dWu * Ho + Wu * dHo);
+      check_close(base.eval_hessian(0, 0, u, u_old, aux), d2Wu * Ho + dWu * dHo);
+    }
+  }
+
+  SECTION("explicit first factor: same derivatives") {
+    ProductCoefficient reversed({{&h, Scheme::Explicit}, {&w, Scheme::Implicit}});
+    mfem::Vector F(npts), gradient(npts), hessian(npts);
+    REQUIRE(reversed.eval_batch(npts, values, explicit_values, none, none, &F, &gradient,
+                                &hessian));
+    F.HostRead();
+    gradient.HostRead();
+    hessian.HostRead();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const std::vector<double> u{values(q)}, u_old{explicit_values(q)};
+      const double Wu = w.eval_f(u), dWu = w.eval_gradient(0, u), d2Wu = w.eval_hessian(0, 0, u);
+      const double Ho = h.eval_f(u_old), dHo = h.eval_gradient(0, u_old);
+      check_close(F(q), Wu * Ho);
+      check_close(gradient(q), dWu * Ho + Wu * dHo);
+      check_close(hessian(q), d2Wu * Ho + dWu * dHo);
+    }
+  }
+
+  SECTION("implicit factors: usual product rule") {
+    ProductCoefficient implicit({&w, &h});
+    mfem::Vector F(npts), gradient(npts), hessian(npts);
+    REQUIRE(implicit.eval_batch(npts, values, none, none, none, &F, &gradient, &hessian));
+    F.HostRead();
+    gradient.HostRead();
+    hessian.HostRead();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const std::vector<double> u{values(q)};
+      const double Wu = w.eval_f(u), dWu = w.eval_gradient(0, u), d2Wu = w.eval_hessian(0, 0, u);
+      const double Hu = h.eval_f(u), dHu = h.eval_gradient(0, u), d2Hu = h.eval_hessian(0, 0, u);
+      check_close(F(q), Wu * Hu);
+      check_close(gradient(q), dWu * Hu + Wu * dHu);
+      check_close(hessian(q), d2Wu * Hu + 2. * dWu * dHu + Wu * d2Hu);
+    }
+  }
+
+  SECTION("explicit factor without explicit values") {
+    mfem::Vector F(npts);
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        base.eval_batch(npts, values, none, none, none, &F, nullptr, nullptr),
+        "Scheme::SemiImplicit");
+  }
+
+  SECTION("invalid scheme of a factor") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(ProductCoefficient({{&w, Scheme::Constant}}),
+                                "scheme of a factor");
+  }
+}
+
+// Variational product: EnergyKappa E(phi, grad phi) times W(phi) (non-variational), with respect
+// to z = (phi, grad phi):
+//   F = E W,  Fv = Ev W + E W',  Fg = Eg W,
+//   Fvv = Evv W + 2 Ev W' + E W'',  Fvg = Evg W + W' Eg,  Fgg = Egg W
+TEST_CASE("ProductCoefficient: variational product", "[Coefficients][variational]") {
+  EnergyKappa energy;
+  W w(1.5);
+  ProductCoefficient product({&energy, &w});
+  FunctionCoefficient& base = product;
+  CHECK(base.is_variational());
+  CHECK(base.variational_dimension() == 2);
+  CHECK(base.variational_nb_variables() == 1);
+  CHECK(base.batch_nb_variables() == 0);
+
+  constexpr int npts = 3;
+  mfem::Vector values(npts), gradients(2 * npts), none;
+  for (int q = 0; q < npts; ++q) {
+    values(q) = 0.2 + 0.25 * q;
+    for (int k = 0; k < 2; ++k) gradients(2 * q + k) = 0.4 * q - 0.3 * k + 0.1;
+  }
+  mfem::Vector F(npts), df_dvar(npts), df_dgrad(2 * npts), d2f_dvar2(npts), d2f_dvar_dgrad(2 * npts),
+      d2f_dgrad2(4 * npts);
+  VariationalBatch outputs;
+  outputs.F = &F;
+  outputs.df_dvar = &df_dvar;
+  outputs.df_dgrad = &df_dgrad;
+  outputs.d2f_dvar2 = &d2f_dvar2;
+  outputs.d2f_dvar_dgrad = &d2f_dvar_dgrad;
+  outputs.d2f_dgrad2 = &d2f_dgrad2;
+
+  auto check = [&](FunctionCoefficient& c) {
+    REQUIRE(c.eval_variational_batch(npts, values, none, none, gradients, none, none, none,
+                                     outputs));
+    F.HostRead();
+    df_dvar.HostRead();
+    df_dgrad.HostRead();
+    d2f_dvar2.HostRead();
+    d2f_dvar_dgrad.HostRead();
+    d2f_dgrad2.HostRead();
+    for (int q = 0; q < npts; ++q) {
+      CAPTURE(q);
+      const Values E = evaluate(EnergyKappaVariationalEval{},
+                                phi_point(values(q), gradients(2 * q), gradients(2 * q + 1)));
+      const std::vector<double> u{values(q)};
+      const double Wu = w.eval_f(u), dWu = w.eval_gradient(0, u), d2Wu = w.eval_hessian(0, 0, u);
+      check_close(F(q), E.F * Wu);
+      check_close(df_dvar(q), E.df_dvar[0] * Wu + E.F * dWu);
+      check_close(d2f_dvar2(q), E.d2f_dvar2[0] * Wu + 2. * E.df_dvar[0] * dWu + E.F * d2Wu);
+      for (int a = 0; a < 2; ++a) {
+        check_close(df_dgrad(2 * q + a), E.df_dgrad[a] * Wu);
+        check_close(d2f_dvar_dgrad(2 * q + a), E.d2f_dvar_dgrad[a] * Wu + dWu * E.df_dgrad[a]);
+      }
+      for (int ab = 0; ab < 4; ++ab) check_close(d2f_dgrad2(4 * q + ab), E.d2f_dgrad2[ab] * Wu);
+    }
+  };
+
+  SECTION("variational factor first") { check(base); }
+  SECTION("non-variational factor first") {
+    ProductCoefficient reversed({&w, &energy});
+    check(reversed);
+  }
+  SECTION("explicit factor not supported") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(
+        ProductCoefficient({{&energy, Scheme::Implicit}, {&w, Scheme::Explicit}}),
+        "not supported in a variational product");
+  }
+}
+
+// Isotropic coefficients: kappa_i of the gradient terms kappa_i/2 |grad u_i|^2 given by the output
+// d2f_dgrad2_isotropic
+TEST_CASE("Variational coefficients: isotropic coefficients", "[Coefficients][variational]") {
+  EnergyIsotropic isotropic;  // kappa = 2
+  EnergyKappa kappa_phi;      // kappa depending on phi: not isotropic
+  W w(1.5);
+  // kappa at one point
+  auto kappa_of = [](const FunctionCoefficient& c) {
+    mfem::Vector values(1), gradients(2), kappa(1), none;
+    values(0) = 0.3;
+    gradients(0) = 0.4;
+    gradients(1) = -0.2;
+    VariationalBatch outputs;
+    outputs.d2f_dgrad2_isotropic = &kappa;
+    // Not wrapped in a check: an error must reach the caller
+    const bool evaluated =
+        c.eval_variational_batch(1, values, none, none, gradients, none, none, none, outputs);
+    return evaluated ? kappa.HostRead()[0] : -1.;
+  };
+
+  CHECK(isotropic.is_isotropic());
+  CHECK_FALSE(kappa_phi.is_isotropic());
+  CHECK_FALSE(w.is_isotropic());
+  check_close(kappa_of(isotropic), 2.);
+  check_close(kappa_of(EnergyIsotropic(3.)), 6.);
+
+  SumCoefficient sum({&isotropic, &w, &isotropic});
+  CHECK(sum.is_isotropic());
+  check_close(kappa_of(sum), 4.);
+  CHECK_FALSE(SumCoefficient({&isotropic, &kappa_phi}).is_isotropic());
+  CHECK_FALSE(
+      SumCoefficient({{&isotropic, Scheme::Explicit}, {&w, Scheme::Implicit}}).is_isotropic());
+  CHECK_FALSE(SumCoefficient({&w}).is_isotropic());
+  CHECK_FALSE(ProductCoefficient({&isotropic, &w}).is_isotropic());
+
+  SECTION("output requested for a coefficient which is not isotropic") {
+    SLOTH_CHECK_MFEM_ERROR_WITH(kappa_of(kappa_phi), "not isotropic");
   }
 }

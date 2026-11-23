@@ -138,6 +138,7 @@ class SlothBaseCoefficient {
   int variational_nb_variables() const;
   bool uses_explicit_gradients() const;
   bool uses_auxiliary_gradients() const;
+  bool is_isotropic() const;
   bool eval_variational_batch(const int npts, const mfem::Vector& values,
                               const mfem::Vector& explicit_values,
                               const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,
