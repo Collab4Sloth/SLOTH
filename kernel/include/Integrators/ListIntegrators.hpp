@@ -35,6 +35,7 @@
 #include "Integrators/FickNLFormIntegrator.hpp"
 #include "Integrators/FourierNLFormIntegrator.hpp"
 #include "Integrators/HeatTimeNLFormIntegrator.hpp"
+#include "Integrators/RelaxationTimeNLFormIntegrator.hpp"
 #include "Integrators/LatentHeatNLFormIntegrator.hpp"
 #include "Integrators/MassDiffusionFluxNLFormIntegrator.hpp"
 #include "Integrators/MeltingCalphadNLFormIntegrator.hpp"

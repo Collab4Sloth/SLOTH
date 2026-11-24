@@ -127,6 +127,8 @@ enum class GlossaryType {
   Velocity,
   VelocityPrefactor,
   Inflow,
+  LatentHeat,
+  RelaxationTime,
   Custom  ///< Quantity defined outside the kernel, identified by its name (see CustomQuantity())
 };
 
@@ -434,6 +436,23 @@ static const GlossaryQuantity VelocityPrefactor =
  */
 static const GlossaryQuantity Inflow = GlossaryQuantity(GlossaryType::Inflow, GlossaryUnit::None,
                                                         "Inflow value of the advected variable");
+
+/**
+ * @brief Quantity associated with the latent heat L of the linear form L dphi/dt of the
+ * LatentHeat integrator
+ *
+ */
+static const GlossaryQuantity LatentHeat = GlossaryQuantity(
+    GlossaryType::LatentHeat, GlossaryUnit::None, "Latent heat of the linear form L dphi/dt");
+
+/**
+ * @brief Quantity associated with the relaxation time tau of the RelaxationTimeDerivative
+ * integrator (tau dphi/dt)
+ *
+ */
+static const GlossaryQuantity RelaxationTime =
+    GlossaryQuantity(GlossaryType::RelaxationTime, GlossaryUnit::None,
+                     "Relaxation time tau of the time derivative tau dphi/dt");
 
 /**
  * @brief Quantity associated with the MPI rank

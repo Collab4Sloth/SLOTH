@@ -1139,6 +1139,11 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_int
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
+    case Integrators::RelaxationTimeDerivative: {
+      return new RelaxationTimeNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+      break;
+    }
     default:
       mfem::mfem_error("LHS Integrators not found. Please check your data.");
       return nullptr;

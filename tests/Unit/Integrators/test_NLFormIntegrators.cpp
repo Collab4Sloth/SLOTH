@@ -58,6 +58,8 @@
 //   VariationalSemiImplicit = kappa/2 grad phi . grad phie + omega phi^2 (1 - phie)^2,
 //                             phie explicit variable
 //   VariationalGradientOnly = kappa/2 |grad phi|^2
+// Variational relaxation time tau(phi, grad phi) (VariationalEnergies.hpp):
+//   VariationalTau = tau0 (1 + e4 cos 4 theta)^2 (1 + a phi^2)   (anisotropic relaxation time)
 #include "CoupledEnergy.hpp"
 #include "FirstAuxiliary.hpp"
 #include "MobilityCross.hpp"
@@ -310,6 +312,16 @@ std::vector<Case> all_cases() {
                          Coefficient(Glossary::ExplicitTime_B, Scheme::Implicit, W(5.))),
             Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(3.)),
                          Coefficient(Glossary::ExplicitTime_B, 2.))})},
+      // Relaxation time: function of phi, anisotropic tau(n) depending on the gradient (PFHub 3)
+      {"RelaxationTimeDerivative, implicit tau(phi)", 1,
+       maker<RelaxationTimeNLFormIntegrator>(
+           {Coefficients(Coefficient(Glossary::RelaxationTime, Scheme::Implicit, H(2.)))})},
+      {"RelaxationTimeDerivative, implicit variational tau(phi, grad phi)", 1,
+       maker<RelaxationTimeNLFormIntegrator>({Coefficients(
+           Coefficient(Glossary::RelaxationTime, Scheme::Implicit, VariationalTau()))})},
+      {"RelaxationTimeDerivative, explicit variational tau(phi, grad phi)", 1,
+       maker<RelaxationTimeNLFormIntegrator>({Coefficients(
+           Coefficient(Glossary::RelaxationTime, Scheme::Explicit, VariationalTau()))})},
       {"SplitTimeDerivative, implicit A(phi)", 2,
        maker<TimeCHNLFormIntegrator>(
            {none, Coefficients(Coefficient(Glossary::ExplicitTime_A, Scheme::Implicit, H(2.)))})},
@@ -599,6 +611,35 @@ TEST_CASE_METHOD(SlothSquare, "LatentHeatNLFormIntegrator: residual and Jacobian
     CHECK_THAT(global_sum(y), Catch::Matchers::WithinRel(-(c / dt) * (c / dt) / M, 1.e-10));
   }
   SECTION("Jacobian: zero (the residual does not depend on the unknown)") {
+    check_gradient(*form, x);
+  }
+}
+
+// Linear form (LatentHeat coefficient L): residual = - L dphi/dt psi = - L (c / dt) psi,
+// Jacobian - L'(u) dphi/dt psi_j psi for L depending on the unknown.
+TEST_CASE_METHOD(SlothSquare, "LatentHeatNLFormIntegrator: linear form L dphi/dt",
+                 "[Integrators][derivatives]") {
+  const double c = 0.3, dt = 0.1, L = 0.5;
+  auto phi = aux_variable("phi", "phi", Glossary::PhaseField,
+                          [](const mfem::Vector& p, double) { return 0.4 + 0.1 * p[0]; });
+  Context ctx;
+  ctx.dt = dt;
+  ctx.u_old.push_back(project(phi_old));
+  ctx.auxvars = {&phi};
+  ctx.aux_old = {project([c](const mfem::Vector& p) { return 0.4 + 0.1 * p[0] - c; })};
+  const mfem::Vector x = random_point();
+  SECTION("constant L: sum of the residual = - L c / dt over the unit square") {
+    auto form = one_block_form(fes(), maker<LatentHeatNLFormIntegrator>({Coefficients(
+                                          Coefficient(Glossary::LatentHeat, L))})(ctx));
+    mfem::Vector y(x.Size());
+    form->Mult(x, y);
+    CHECK_THAT(global_sum(y), Catch::Matchers::WithinRel(-L * c / dt, 1.e-10));
+    check_gradient(*form, x);
+  }
+  SECTION("implicit L(u): Jacobian with the derivative of L") {
+    auto form = one_block_form(
+        fes(), maker<LatentHeatNLFormIntegrator>({Coefficients(
+                   Coefficient(Glossary::LatentHeat, Scheme::Implicit, MobilityPhi()))})(ctx));
     check_gradient(*form, x);
   }
 }

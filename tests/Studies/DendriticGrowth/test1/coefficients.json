@@ -1,0 +1,21 @@
+[
+    {
+    "expression":"0.5*(W0*(1 + e4*(n(phi)[0]**4 - 6*n(phi)[0]**2*n(phi)[1]**2 + n(phi)[1]**4)))**2*dot(grad(phi),grad(phi)) - 0.5*phi**2 + 0.25*phi**4 + lam*U*phi*(1 - 2.0/3.0*phi**2 + 1.0/5.0*phi**4)",
+    "variables":"phi",
+    "auxiliary_variables":"U",
+    "constants":"(W0:1.0),(e4:0.05),(lam:15.956598)",
+    "variational":true,
+    "dimension":2,
+    "class_name":"DendriteFreeEnergy",
+    "outputfile":"DendriteCoefficients"
+    },
+    {
+    "expression":"tau0*(1 + e4*(n(phi)[0]**4 - 6*n(phi)[0]**2*n(phi)[1]**2 + n(phi)[1]**4))**2",
+    "variables":"phi",
+    "constants":"(tau0:1.0),(e4:0.05)",
+    "variational":true,
+    "dimension":2,
+    "class_name":"AnisotropicRelaxationTime",
+    "outputfile":"DendriteCoefficients"
+    }
+]

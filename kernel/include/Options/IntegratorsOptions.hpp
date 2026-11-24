@@ -42,6 +42,7 @@ struct Integrators {
     TimeDerivative,
     HeatTimeDerivative,
     SplitTimeDerivative,
+    RelaxationTimeDerivative,
     SplitAllenCahn,
     MeltingTemperature,
     MeltingCalphad,

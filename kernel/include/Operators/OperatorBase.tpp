@@ -749,7 +749,9 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
     std::vector<double> dof_val;
     dof_val.reserve(dofs.Size());
     for (int j = 0; j < dofs.Size(); j++) {
-      dof_val.emplace_back(u(dofs[j]) - iso_value);
+      // Local dofs of the element: values of the grid function (u holds the true dofs, whose
+      // numbering differs from the local one in parallel and on nonconforming meshes)
+      dof_val.emplace_back(gf(dofs[j]) - iso_value);
     }
 
     // At least one positive and one negative value
@@ -782,12 +784,37 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
           }
         }
       }
-      for (size_t i = 0; i < iso_points.size(); i++) {
-        for (size_t d = 0; d < DIM; d++) {
-          variable_time_iso_specialized.emplace(IterationKey(it, dt, t),
-                                                SpecializedValue(vstr[d], iso_points[i](d)));
-        }
-      }
+    }
+  }
+
+  // Points of all the processes, gathered on the process 0 which writes the file
+  std::vector<double> local;
+  local.reserve(iso_points.size() * DIM);
+  for (const auto& point : iso_points) {
+    for (int d = 0; d < DIM; d++) local.push_back(point(d));
+  }
+  const MPI_Comm comm = this->fes_[var_id]->GetComm();
+  int rank = 0, nb_ranks = 1;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &nb_ranks);
+  const int local_size = static_cast<int>(local.size());
+  std::vector<int> sizes(rank == 0 ? nb_ranks : 0), offsets(rank == 0 ? nb_ranks : 0);
+  MPI_Gather(&local_size, 1, MPI_INT, sizes.data(), 1, MPI_INT, 0, comm);
+  std::vector<double> all;
+  if (rank == 0) {
+    int total = 0;
+    for (int r = 0; r < nb_ranks; r++) {
+      offsets[r] = total;
+      total += sizes[r];
+    }
+    all.resize(static_cast<std::size_t>(total));
+  }
+  MPI_Gatherv(local.data(), local_size, MPI_DOUBLE, all.data(), sizes.data(), offsets.data(),
+              MPI_DOUBLE, 0, comm);
+  for (std::size_t i = 0; i + DIM <= all.size(); i += DIM) {
+    for (int d = 0; d < DIM; d++) {
+      variable_time_iso_specialized.emplace(IterationKey(it, dt, t),
+                                            SpecializedValue(vstr[d], all[i + d]));
     }
   }
   this->time_iso_specialized_[var_name] = variable_time_iso_specialized;
