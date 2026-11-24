@@ -2,6 +2,7 @@
  * @anchor AMR
  * @file AMRBase.tpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief Base class orchestrating adaptive mesh refinement (AMR): defines
  *        the common criteria (error estimator integrator, thresholds,
  *        NC limit) and the shared refine/derefine/update orchestration
@@ -11,7 +12,6 @@
  * @version 0.1
  * @date 2026-08-04
  *
- * @copyright CEA (C) 2026
  *
  * This file is part of SLOTH.
  *
@@ -496,13 +496,13 @@ template <class VAR>
 void AMRBase<VAR>::PrintLoadBalance(const std::string& stage) const {
   MPI_Comm comm = this->par_mesh_.GetComm();
   const int nranks = this->par_mesh_.GetNRanks();
-  const long long local_ne = this->par_mesh_.GetNE();
-  long long min_ne = 0;
-  long long max_ne = 0;
-  long long sum_ne = 0;
-  MPI_Allreduce(&local_ne, &min_ne, 1, MPI_LONG_LONG, MPI_MIN, comm);
-  MPI_Allreduce(&local_ne, &max_ne, 1, MPI_LONG_LONG, MPI_MAX, comm);
-  MPI_Allreduce(&local_ne, &sum_ne, 1, MPI_LONG_LONG, MPI_SUM, comm);
+  const std::int64_t local_ne = this->par_mesh_.GetNE();
+  std::int64_t min_ne = 0;
+  std::int64_t max_ne = 0;
+  std::int64_t sum_ne = 0;
+  MPI_Allreduce(&local_ne, &min_ne, 1, MPI_INT64_T, MPI_MIN, comm);
+  MPI_Allreduce(&local_ne, &max_ne, 1, MPI_INT64_T, MPI_MAX, comm);
+  MPI_Allreduce(&local_ne, &sum_ne, 1, MPI_INT64_T, MPI_SUM, comm);
   if (this->par_mesh_.GetMyRank() == 0) {
     const double mean_ne = static_cast<double>(sum_ne) / nranks;
     const double imbalance = mean_ne > 0. ? static_cast<double>(max_ne) / mean_ne : 1.;

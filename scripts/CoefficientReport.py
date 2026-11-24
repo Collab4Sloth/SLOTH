@@ -26,6 +26,9 @@ import sympy as sp
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from sympy.printing.latex import LatexPrinter
 
+from VariationalForm import (PARSER_FUNCTIONS, Component, Normal, VDot, axis,
+                             build_variational_form, gradient_symbols)
+
 RANGE_PATTERN = re.compile(r'^([a-zA-Z_]\w*)\((\d+)\.\.(\d+)\)$')
 SDOT_PATTERN = re.compile(r"sdot\(\s*(\w+)\((\d+)\.\.(\d+)\)\s*\)")
 INDEXED_PATTERN = re.compile(r'([a-zA-Z_]\w*)\s*\[')
@@ -80,7 +83,7 @@ class ReportPrinter(LatexPrinter):
         super().__init__(settings)
 
     def _needs_mul_brackets(self, expr, first=False, last=False) -> bool:
-        if isinstance(expr, Dot):
+        if isinstance(expr, (Dot, VDot)):
             return False
         return super()._needs_mul_brackets(expr, first=first, last=last)
 
@@ -173,6 +176,8 @@ class ExpressionParser:
         local_dict = dict(self.symbols)
         if self.spec.is_gradient:
             local_dict["dot"] = Dot
+        if self.spec.is_variational:
+            local_dict.update(PARSER_FUNCTIONS)
         if "Sum(" in expression:
             local_dict["Sum"] = sp.Sum
             for base in set(INDEXED_PATTERN.findall(expression)):
@@ -182,10 +187,14 @@ class ExpressionParser:
         return local_dict
 
     def _prepare(self, expression: str) -> str:
-        # sdot(eta(1..9)) -> Sum(dot(eta[i_],eta[i_]),(i_,1,9))
+        # sdot(eta(1..9)) -> Sum(dot(eta[i_],eta[i_]),(i_,1,9)) for a gradient coefficient,
+        #                    Sum(dot(grad(eta[i_]),grad(eta[i_])),(i_,1,9)) for a variational one
+        variational = self.spec.is_variational
+
         def repl(match):
             var, start, end = match.groups()
-            return f"Sum(dot({var}[i_],{var}[i_]),(i_,{start},{end}))"
+            term = f"grad({var}[i_])" if variational else f"{var}[i_]"
+            return f"Sum(dot({term},{term}),(i_,{start},{end}))"
         return SDOT_PATTERN.sub(repl, expression)
 
     def display(self, expression: str):
@@ -239,7 +248,7 @@ def visible_width(tex: str) -> int:
 
 
 def split_expression(expr) -> List[str]:
-    """
+    r"""
     LaTeX of expr split in lines of visible width up to MAX_LINE_WIDTH (as far as possible):
         - sum: lines filled with terms; a term too long alone is itself split,
         - product: split inside its longest factor which is a sum, with the delimiters
@@ -288,11 +297,11 @@ def split_product(expr) -> List[str]:
     factors = sp.Mul.make_args(rest)
     sums = [f for f in factors if isinstance(f, sp.Add)]
     if not sums:
-        return [to_latex(expr)]
+        return split_factors(coeff, factors)
     longest = max(sums, key=lambda f: visible_width(to_latex(f)))
     inner = split_expression(longest)
     if len(inner) == 1:
-        return [to_latex(expr)]
+        return split_factors(coeff, factors)
     others = [f for f in factors if f is not longest]
     prefix = to_latex(coeff * sp.Mul(*others, evaluate=False)) if (others or coeff != 1) else ""
     if prefix == "1":
@@ -304,6 +313,29 @@ def split_product(expr) -> List[str]:
     lines = [f"{prefix}\\left({inner[0]}\\right."]
     lines += [f"\\left.{{}} {line}\\right." for line in inner[1:-1]]
     lines.append(f"\\left.{{}} {inner[-1]}\\right)")
+    return lines
+
+
+def split_factors(coeff, factors) -> List[str]:
+    """
+    Product whose factors cannot be split: lines filled with whole factors, a continuation
+    line starting with \\times.
+    """
+    texs = [f"\\left({to_latex(f)}\\right)" if isinstance(f, sp.Add) else to_latex(f)
+            for f in factors]
+    sign = ""
+    if coeff == -1:
+        sign = "-"
+    elif coeff != 1:
+        texs.insert(0, to_latex(coeff))
+    lines, current = [], sign
+    for tex in texs:
+        piece = tex if current in ("", "-") else f"\\,{tex}"
+        if current not in ("", "-") and visible_width(current + piece) > MAX_LINE_WIDTH:
+            lines.append(current)
+            current, piece = "", f"\\times {tex}"
+        current += piece
+    lines.append(current)
     return lines
 
 
@@ -352,6 +384,8 @@ def write_expression(spec, parser) -> List[str]:
 def write_derivatives(spec, parser) -> List[str]:
     if spec.is_gradient:
         return ["Derivatives are not computed for gradient coefficients."]
+    if spec.is_variational:
+        return write_variational_derivatives(spec, parser)
     variables = [sp.Symbol(v) for v in parser.variables]
     n = len(variables)
     pieces = [parser.expanded(expr) for (expr, *_rest) in spec.expressions]
@@ -384,12 +418,194 @@ def write_derivatives(spec, parser) -> List[str]:
     return first + second
 
 
+# ==========================================================
+#  Variational coefficients
+# ==========================================================
+
+# Variational form written in full (second derivatives) for at most this number of unknowns
+# (variables and components of their gradients)
+MAX_VARIATIONAL_SIZE = 4
+# Expressions are factorized for display up to this number of operations
+MAX_TIDY_OPERATIONS = 2000
+
+
+class Partial(sp.Function):
+    """
+    Display of the component k of the gradient of a: partial_x a.
+    """
+    nargs = 2
+
+    def _latex(self, printer, exp=None):
+        name, k = self.args
+        tex = f"\\partial_{{{axis(k)}}} {printer._print(name)}"
+        return tex if exp is None else f"\\left({tex}\\right)^{{{exp}}}"
+
+
+class Modulus(sp.Function):
+    """
+    Display of the norm of the gradient of a: |grad a|.
+    """
+    nargs = 1
+
+    def _latex(self, printer, exp=None):
+        tex = f"\\left|\\nabla {printer._print(self.args[0])}\\right|"
+        return tex if exp is None else f"{tex}^{{{exp}}}"
+
+
+class VariationalDisplay:
+    """
+    Writing of the derivatives of a variational coefficient in the notations of the JSON file:
+        - gradient of a name used without n(): components partial_x a, partial_y a...
+        - gradient of a name used with n(): |grad a| n_{a,x}, in the limit eps -> 0 of the
+          regularization (n = grad a / |grad a|).
+    """
+
+    def __init__(self, names, normal_names, dimension: int, eps):
+        self.eps = eps
+        self.sums = []
+        self.replacements = {}
+        for name in names:
+            symbol = sp.Symbol(name)
+            components = gradient_symbols(name, dimension)
+            if name in normal_names:
+                modulus = Modulus(symbol)
+                self.sums.append((sum(c ** 2 for c in components), modulus ** 2))
+                for k, c in enumerate(components):
+                    self.replacements[c] = modulus * Component(Normal(symbol), k)
+            else:
+                for k, c in enumerate(components):
+                    self.replacements[c] = Partial(symbol, k)
+
+    def __call__(self, expr):
+        expr = sp.sympify(expr).subs(self.eps, 0)
+        for total, modulus2 in self.sums:
+            expr = expr.subs(total, modulus2)
+        expr = expr.xreplace(self.replacements)
+        if sp.count_ops(expr) <= MAX_TIDY_OPERATIONS:
+            # decimal numbers of the JSON file (0.5...) as fractions before factorization
+            expr = sp.factor(sp.expand(sp.nsimplify(expr, rational=True)))
+        return expr
+
+
+def _partial(name: str, k=None) -> str:
+    """
+    LaTeX of the derivation variable: u, or the component k of grad u.
+    """
+    u = to_latex(sp.Symbol(name))
+    return u if k is None else f"(\\partial_{{{axis(k)}}} {u})"
+
+
+def write_variational_derivatives(spec, parser) -> List[str]:
+    """
+    Weak form of the variational coefficient: derivatives of f with respect to the variables
+    and to the components of their gradients, strong form, natural boundary condition and
+    second derivatives (Jacobian).
+    """
+    eps = sp.Dummy("epsilon", positive=True)
+    d = spec.dimension
+    names = parser.variables
+    data = parser.explicit_variables + parser.auxiliary_variables
+    expr = parser.expanded(spec.expressions[0][0])
+    normal_names = {str(e.args[0]) for e in expr.atoms(Normal)}
+    form = build_variational_form(expr, names, d, eps, data)
+    display = VariationalDisplay(names + list(form.data_gradients), normal_names, d, eps)
+
+    out = ["The energy density $f$ defines $F = \\int_\\Omega f \\, d\\Omega$. The weak form of "
+           "the Euler-Lagrange equations is the first variation of $F$ in the direction $\\psi$:"]
+    out += ["\\begin{equation*}",
+            "  dF[\\boldsymbol{u};\\boldsymbol{\\psi}] = \\int_\\Omega \\sum_i \\left("
+            "\\frac{\\partial f}{\\partial u_i}\\, \\psi_i + \\frac{\\partial f}{\\partial "
+            "\\nabla u_i} \\cdot \\nabla \\psi_i \\right) d\\Omega",
+            "\\end{equation*}"]
+    out.append(f"with $u_i$ = {names_to_latex(spec.variables)}. Strong form (Euler-Lagrange) "
+               "and natural boundary condition, $\\boldsymbol{\\nu}$ being the outward unit normal "
+               "to the boundary:")
+    out += ["\\begin{equation*}",
+            "  \\frac{\\delta F}{\\delta u_i} = \\frac{\\partial f}{\\partial u_i} - \\nabla "
+            "\\cdot \\frac{\\partial f}{\\partial \\nabla u_i}, \\qquad \\frac{\\partial f}"
+            "{\\partial \\nabla u_i} \\cdot \\boldsymbol{\\nu} = 0 \\ \\text{on } "
+            "\\partial\\Omega.",
+            "\\end{equation*}",
+            "A boundary term of the weak form prescribes the conormal flux $\\partial f / \\partial "
+            "\\nabla u_i \\cdot \\boldsymbol{\\nu}$ (e.g. $g$ for a Neumann condition of value $g$), "
+            "and not $\\nabla u_i \\cdot \\boldsymbol{\\nu}$: for an isotropic gradient term "
+            "$\\partial f / \\partial \\nabla u_i = \\lambda_i \\nabla u_i$, it is "
+            "$\\lambda_i \\nabla u_i \\cdot \\boldsymbol{\\nu}$."]
+    if form.data_gradients:
+        out.append(" The gradients of " + ", ".join(
+            f"${to_latex(sp.Symbol(v))}$" for v in form.data_gradients)
+            + " are data: they are not differentiated.")
+    if normal_names:
+        out.append(" Derivatives are written in the limit $\\varepsilon \\to 0$ of the "
+                   "regularization of the normal, $\\mathbf{n}_a = \\nabla a / |\\nabla a|$; "
+                   "the generated code uses $\\mathbf{n}_a = \\nabla a / \\sqrt{|\\nabla a|^2 + "
+                   f"\\varepsilon^2}}$ with $\\varepsilon = {to_latex(sp.Float(spec.regularization))}$.")
+    out.append("")
+
+    lambdas = form.isotropic_coefficients()
+    for i, name in enumerate(names):
+        u = to_latex(sp.Symbol(name))
+        out += [f"\\subsubsection{{Variable ${u}$}}", ""]
+        out += equation(f"\\frac{{\\partial f}}{{\\partial {u}}}", display(form.df_dvar[i]))
+        for k in range(d):
+            out += equation(f"\\frac{{\\partial f}}{{\\partial {_partial(name, k)}}}",
+                            display(form.df_dgrad[i * d + k]))
+        if lambdas is not None:
+            out.append(f"Isotropic gradient term: $\\partial f / \\partial \\nabla {u} = "
+                       f"\\lambda \\nabla {u}$ with $\\lambda = {to_latex(display(lambdas[i]))}$.")
+        out.append("")
+
+    out += write_variational_hessian(form, names, display)
+    return out
+
+
+def write_variational_hessian(form, names, display) -> List[str]:
+    """
+    Second derivatives of f (Jacobian): non-zero entries of the upper triangle of the Hessian
+    with respect to the variables and to the components of their gradients.
+    """
+    d = form.dimension
+    unknowns = [(name, None) for name in names] + [(name, k) for name in names
+                                                     for k in range(d)]
+    size = len(unknowns)
+    out = ["\\subsubsection{Second derivatives (Jacobian)}", ""]
+    if size > MAX_VARIATIONAL_SIZE:
+        out.append(f"Hessian with respect to the variables and to the components of their "
+                   f"gradients: ${size} \\times {size}$ matrix (symmetric), not written.")
+        return out
+    n = len(names)
+
+    def entry(r, c):
+        if r < n and c < n:
+            return form.d2f_dvar2[r, c]
+        if r < n:
+            return form.d2f_dvar_dgrad[r, c - n]
+        return form.d2f_dgrad2[r - n, c - n]
+
+    zeros = []
+    for r in range(size):
+        for c in range(r, size):
+            value = display(entry(r, c))
+            a, b = _partial(*unknowns[r]), _partial(*unknowns[c])
+            lhs = (f"\\frac{{\\partial^2 f}}{{\\partial {a}^2}}" if r == c else
+                   f"\\frac{{\\partial^2 f}}{{\\partial {a}\\,\\partial {b}}}")
+            if value == 0:
+                zeros.append(f"${lhs}$")
+            else:
+                out += equation(lhs, value)
+    if zeros:
+        out.append("Zero second derivatives: " + ", ".join(zeros) + ".")
+    return out
+
+
 def write_coefficient(spec) -> List[str]:
     parser = ExpressionParser(spec)
     out = [f"\\section{{Coefficient \\texttt{{{escape(spec.class_name)}}}}}", ""]
 
     kind = "conditional (piecewise)" if spec.is_conditional else \
-        "gradient (post-processing only)" if spec.is_gradient else "standard"
+        "gradient (post-processing only)" if spec.is_gradient else \
+        f"variational (dimension {spec.dimension})" if spec.is_variational \
+        else "standard"
     rows = [("Kind", kind),
             ("C++ class", f"\\texttt{{{escape(spec.class_name)}}} in "
                           f"\\texttt{{{escape(spec.output_file)}.hpp}}")]

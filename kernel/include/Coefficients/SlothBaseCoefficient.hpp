@@ -132,6 +132,21 @@ class SlothBaseCoefficient {
   // Number of variables of the evaluation structure, 0 if eval_batch is not available
   int batch_nb_variables() const;
 
+  // Variational coefficient: energy density f(u, grad u) (see FunctionCoefficient)
+  bool is_variational() const;
+  int variational_dimension() const;
+  int variational_nb_variables() const;
+  bool uses_explicit_gradients() const;
+  bool uses_auxiliary_gradients() const;
+  bool is_isotropic() const;
+  bool eval_variational_batch(const int npts, const mfem::Vector& values,
+                              const mfem::Vector& explicit_values,
+                              const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,
+                              const mfem::Vector& explicit_gradients,
+                              const mfem::Vector& auxiliary_gradients,
+                              const mfem::Vector& coordinates,
+                              const VariationalBatch& outputs) const;
+
   std::string get_name();
   void set_name(const std::string& name);
   void set_bdr_index_coef(std::vector<int> ids);

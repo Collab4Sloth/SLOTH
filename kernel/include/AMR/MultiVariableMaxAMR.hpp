@@ -1,6 +1,7 @@
 /**
  * @file MultiVariableMaxAMR.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief AMR strategy combining several variables into a single, shared
  *        mesh mutation: for each element, the local error is taken as the
  *        maximum across all variables in the collection, and refinement/
@@ -12,7 +13,6 @@
  * @version 0.1
  * @date 2026-08-04
  *
- * @copyright CEA (C) 2026
  *
  * This file is part of SLOTH.
  *

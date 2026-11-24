@@ -115,7 +115,7 @@ TEST_CASE_METHOD(HeatSquare, "CustomQuantity: missing custom quantity",
                  "[Operators][Extensions]") {
   const IntegratorEntry<VARS> named = CustomIntegrator<NamedConductivityIntegrator>("NamedFourier");
   SteadyOPE oper(spatials, {named});
-  oper.set_coefficients({Coefficients(Coefficient(CustomQuantity("Other"), 1.))}, false);
+  oper.set_coefficients({Coefficients(Coefficient(CustomQuantity("Other"), 1.))});
   const std::vector<mfem::Vector> u{vars[0].get_unknown()};
   auto build = [&]() { return oper.set_nlfi_ptr(1., named, u); };
   SLOTH_CHECK_MFEM_ERROR_WITH(build(), "MyConductivity");

@@ -27,6 +27,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -70,7 +71,7 @@ struct AMRSetup {
                     Parameter("rebalance", true)};
 
   mfem::ParMesh& mesh() { return *spatial.get_mesh(); }
-  long long global_ne() { return mesh().GetGlobalNE(); }
+  std::int64_t global_ne() { return mesh().GetGlobalNE(); }
 
   VAR variable(const std::string& name, std::function<double(const mfem::Vector&, double)> f) {
     return VAR(&spatial, bcs, name, Glossary::PhaseField, 2, AnalyticalFunctions<DIM>(f));
@@ -136,10 +137,10 @@ TEST_CASE_METHOD(AMRSetup, "SingleVariableAMR: initial refinement at the interfa
     CHECK(l2_error(aux[0], x_of) < 1.e-12);
   }
   SECTION("load balance after rebalancing") {
-    const long long local = mesh().GetNE();
-    long long max_ne = 0, min_ne = 0;
-    MPI_Allreduce(&local, &max_ne, 1, MPI_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&local, &min_ne, 1, MPI_LONG_LONG, MPI_MIN, MPI_COMM_WORLD);
+    const std::int64_t local = mesh().GetNE();
+    std::int64_t max_ne = 0, min_ne = 0;
+    MPI_Allreduce(&local, &max_ne, 1, MPI_INT64_T, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&local, &min_ne, 1, MPI_INT64_T, MPI_MIN, MPI_COMM_WORLD);
     CHECK(static_cast<double>(max_ne) <= 1.1 * static_cast<double>(min_ne) + 4.);
   }
 }
@@ -149,7 +150,7 @@ TEST_CASE_METHOD(AMRSetup, "SingleVariableAMR: derefinement of a flat field", "[
   SingleVariableAMR<VARS> amr(mesh(), spatial.is_nc_simplices(), "phi");
   amr.SetCriteria(&estimator, params);
   amr.InitialRefine(vars, {});
-  const long long refined_ne = global_ne();
+  const std::int64_t refined_ne = global_ne();
   REQUIRE(refined_ne > 64);
 
   // Uniform field: zero error everywhere, every refined element can be derefined
@@ -271,7 +272,7 @@ TEST_CASE_METHOD(AMRSetup, "MultiVariableMaxAMR: derefinement of flat fields", "
                                 std::vector<std::string>{"phi", "psi"});
   amr.SetCriteria(&estimator, params);
   amr.InitialRefine(vars, {});
-  const long long refined_ne = global_ne();
+  const std::int64_t refined_ne = global_ne();
   REQUIRE(refined_ne > 64);
 
   // Uniform fields: zero error everywhere, every refined element can be derefined

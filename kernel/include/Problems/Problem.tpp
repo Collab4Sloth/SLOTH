@@ -87,7 +87,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
   if (this->has_pst()) {
-    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+    this->oper_.set_coefficients(Coeff);
   }
 }
 
@@ -134,7 +134,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, false);
+  this->oper_.set_coefficients(Coeff);
 }
 
 /**
@@ -180,7 +180,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
   if (this->has_pst()) {
-    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+    this->oper_.set_coefficients(Coeff);
   }
 }
 
@@ -224,7 +224,7 @@ Problem<OPE, VAR, PST>::Problem(const OPE& oper, VAR& variables,
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, false);
+  this->oper_.set_coefficients(Coeff);
 }
 
 /**
@@ -274,7 +274,7 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
   if (this->has_pst()) {
-    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+    this->oper_.set_coefficients(Coeff);
   }
 }
 
@@ -321,7 +321,7 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, false);
+  this->oper_.set_coefficients(Coeff);
 }
 
 /**
@@ -368,7 +368,7 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
   if (this->has_pst()) {
-    this->oper_.set_coefficients(Coeff, this->get_pst().get_enable_compute_energies());
+    this->oper_.set_coefficients(Coeff);
   }
 }
 
@@ -412,7 +412,7 @@ Problem<OPE, VAR, PST>::Problem(const std::string& name, const OPE& oper, VAR& v
   MFEM_VERIFY(variables.get_variables_number() == Coeff.size(),
               "Error: the number of Coefficients objects must be equal to the number of primary "
               "variables. Please check your data.");
-  this->oper_.set_coefficients(Coeff, false);
+  this->oper_.set_coefficients(Coeff);
 }
 
 /**

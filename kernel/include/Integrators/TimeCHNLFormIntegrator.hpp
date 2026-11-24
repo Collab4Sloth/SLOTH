@@ -66,7 +66,14 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   void get_coefficients() override;
 
  public:
-  std::vector<std::pair<int, int>> time_derivative_map() const override { return {{1, 0}}; }
+  /// Time derivative of the concentration c_i (block i) in the equation of mu_i (block n + i):
+  /// blocks c_0..c_{n-1}, mu_0..mu_{n-1} (n = 1: phi, mu)
+  std::vector<std::pair<int, int>> time_derivative_map() const override {
+    const int n = static_cast<int>(this->nb_blk_) / 2;
+    std::vector<std::pair<int, int>> map;
+    for (int i = 0; i < n; ++i) map.emplace_back(n + i, i);
+    return map;
+  }
   void init() override;
   TimeCHNLFormIntegrator(Geometry geometry, const double time_step,
                          const std::vector<mfem::ParGridFunction>& u_old,

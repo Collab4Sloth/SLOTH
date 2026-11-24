@@ -231,9 +231,11 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
 
   /// Values of the variables given to the coefficients by eval_coefficient_at_points
   enum class ValuesAt {
-    Unknowns,  ///< {u, u_old}: values of the unknowns of the integrator
-    EndOfStep  ///< {u_old + dt k, u_old}: integrators of the time derivative, whose unknown is
-               ///< k = du/dt (see values_at_end_of_step)
+    Unknowns,   ///< {u, u_old}: values of the unknowns of the integrator
+    EndOfStep,  ///< {u_old + dt k, u_old}: integrators of the time derivative, whose unknown is
+                ///< k = du/dt (see values_at_end_of_step)
+    Current     ///< {u, u}: energies of the system, explicit and semi-implicit coefficients
+                ///< evaluated with the current values
   };
 
   void eval_coefficient_at_points(Coefficient& coef, const int var_blk, const unsigned int outputs,
@@ -243,6 +245,43 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                                   const std::vector<mfem::ParGridFunction>& aux_gf,
                                   CoefficientAtPoints& out,
                                   const ValuesAt values_at = ValuesAt::Unknowns);
+
+  void auxiliary_fields_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                  const mfem::IntegrationRule& ir,
+                                  const std::vector<mfem::ParGridFunction>& aux_gf,
+                                  mfem::Vector& values, mfem::Vector* gradients);
+
+  /// Variational free energy f(u, grad u) at the integration points of an element (see
+  /// variational_at_points): derivatives with the layout of VariationalBatch (values of one
+  /// point contiguous), inputs and work data
+  struct VariationalAtPoints {
+    int nb = 0;                            ///< number of variables of f: the first nb blocks
+    int dim = 0;                           ///< dimension of the gradients
+    bool isotropic = false;                ///< kappa in place of the derivatives w.r.t. gradients
+    bool with_second_derivatives = false;  ///< second derivatives computed (energy not explicit)
+    mfem::Vector df_dvar, df_dgrad, d2f_dvar2, d2f_dvar_dgrad, d2f_dgrad2;
+    mfem::Vector kappa;  ///< isotropic energy: kappa_b at point q, kappa[q nb + b]
+    // Inputs of the energy
+    std::vector<mfem::Vector> dofs_u, dofs_u_old;
+    mfem::Vector values, explicit_values, auxiliary_values;
+    mfem::Vector gradients, explicit_gradients, auxiliary_gradients, coordinates;
+    mfem::DenseMatrix points;
+    // Work data of add_variational_vector and add_variational_grad
+    mfem::Vector flux, row, column;
+    mfem::DenseMatrix block_hessian, gradPsi_hessian;
+  };
+  void variational_at_points(const Coefficient& f, const int nb_variables, const bool isotropic,
+                             const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                             const mfem::IntegrationRule& ir,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const std::vector<mfem::ParGridFunction>& aux_gf, const bool jacobian,
+                             VariationalAtPoints& v);
+  void add_variational_vector(VariationalAtPoints& v, const int q, const int b, const double a,
+                              const mfem::Vector& Psi, const mfem::DenseMatrix& gradPsi,
+                              mfem::Vector& elvect);
+  void add_variational_grad(VariationalAtPoints& v, const int q, const int b, const int j,
+                            const double a, const mfem::Vector& Psi,
+                            const mfem::DenseMatrix& gradPsi, mfem::DenseMatrix& mat);
 
  private:
   // Steps of eval_coefficient_at_points
@@ -284,7 +323,38 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   // an implicit coefficient is evaluated at the end of the step.
   std::span<const double> values_at_end_of_step(const std::span<const double>& values);
 
+ private:
+  // Energies of the system (see system_energies)
+  std::optional<Coefficient> system_free_energy_;      ///< FreeEnergy of block 0
+  std::optional<Coefficient> system_gradient_energy_;  ///< GradientEnergy of block 0, if given
+  CoefficientAtPoints se_free_energy_;                 ///< free energy at the points
+  std::vector<mfem::Vector> se_dofs_;                  ///< element dofs of the blocks
+  std::vector<mfem::Vector> afp_dofs_;                 ///< see auxiliary_fields_at_points
+  mfem::Vector afp_grad_;                              ///< see auxiliary_fields_at_points
+  mfem::Vector se_values_, se_gradients_, se_aux_values_, se_aux_gradients_, se_coordinates_;
+  mfem::Vector se_zero_gradients_, se_zero_aux_gradients_, se_F_, se_F0_;
+  mfem::DenseMatrix se_points_;  ///< physical coordinates of the points (dim x nip)
+
+  void classic_system_energies(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                               const mfem::IntegrationRule& ir,
+                               const mfem::Array<const mfem::Vector*>& elfun, double& density,
+                               double& interface);
+  void variational_system_energies(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
+                                   const mfem::IntegrationRule& ir, double& density,
+                                   double& interface);
+
  public:
+  /// Energies of the system on an element (see system_energies)
+  struct SystemEnergies {
+    double density = 0.;    ///< integral of the free energy density
+    double interface = 0.;  ///< twice the integral of the gradient terms
+  };
+  bool prepare_system_energies();
+  bool has_interface_energy() const;
+  SystemEnergies system_energies(const mfem::Array<const mfem::FiniteElement*>& el,
+                                 mfem::ElementTransformation& Tr,
+                                 const mfem::Array<const mfem::Vector*>& elfun);
+
   /// Physical time step of the current step (see physical_time_step_)
   void set_physical_time_step(const double dt);
   double get_physical_time_step() const;

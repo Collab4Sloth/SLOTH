@@ -1,4 +1,5 @@
 add_subdirectory(test1)
+add_subdirectory(test1_variational)
 add_subdirectory(test1_dt_variable)
 add_subdirectory(test2)
 add_subdirectory(test2_amr)

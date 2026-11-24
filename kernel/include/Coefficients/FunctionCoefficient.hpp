@@ -38,6 +38,7 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/VariationalEval.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
@@ -131,4 +132,46 @@ class FunctionCoefficient {
   /// Number of variables of the evaluation structure (derivatives given by eval_batch), 0 if
   /// the coefficient has no evaluation structure
   virtual int batch_nb_variables() const { return 0; }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Variational coefficient: energy density f(u, grad u) ("variational" in the JSON file)
+  //////////////////////////////////////////////////////////////////////////////
+  /// True for a variational coefficient. It is evaluated by eval_variational_batch only: its
+  /// point by point evaluation (eval_f, eval_gradient, eval_hessian) throws an exception.
+  virtual bool is_variational() const { return false; }
+  /// Dimension of the gradients of a variational coefficient, 0 otherwise
+  virtual int variational_dimension() const { return 0; }
+  /// Number of variables of a variational coefficient (derivatives given by
+  /// eval_variational_batch), 0 otherwise
+  virtual int variational_nb_variables() const { return 0; }
+  /// True if a variational coefficient reads the gradients of its explicit variables
+  virtual bool uses_explicit_gradients() const { return false; }
+  /// True if a variational coefficient reads the gradients of its auxiliary variables
+  virtual bool uses_auxiliary_gradients() const { return false; }
+  /// True for an isotropic coefficient. Variational coefficient: its second derivatives with
+  /// respect to the gradients are kappa_i I_d for each variable i, kappa_i independent of the
+  /// variables and of the gradients, without cross derivative (f = sum_i kappa_i/2 |grad u_i|^2
+  /// + g(u)); kappa_i given by the output d2f_dgrad2_isotropic of eval_variational_batch.
+  virtual bool is_isotropic() const { return false; }
+
+  /**
+   * @brief Evaluation of a variational coefficient at a set of points
+   *
+   * Same arguments and layout as eval_variational_at_points (Coefficients/VariationalEval.hpp),
+   * at the time of the coefficient. The loop runs on the host or on the device according to
+   * mfem::Device.
+   *
+   * @return false if the coefficient is not variational (nothing is computed).
+   */
+  virtual bool eval_variational_batch([[maybe_unused]] const int npts,
+                                      [[maybe_unused]] const mfem::Vector& values,
+                                      [[maybe_unused]] const mfem::Vector& explicit_values,
+                                      [[maybe_unused]] const mfem::Vector& auxiliary_values,
+                                      [[maybe_unused]] const mfem::Vector& gradients,
+                                      [[maybe_unused]] const mfem::Vector& explicit_gradients,
+                                      [[maybe_unused]] const mfem::Vector& auxiliary_gradients,
+                                      [[maybe_unused]] const mfem::Vector& coordinates,
+                                      [[maybe_unused]] const VariationalBatch& outputs) const {
+    return false;
+  }
 };
