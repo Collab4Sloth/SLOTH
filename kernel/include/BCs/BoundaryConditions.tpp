@@ -265,29 +265,40 @@ void BoundaryConditions<T, DIM>::SetDirichletBoundaryConditions(
 
           mfem::Vector g_tdofs;
           g_bdr.GetTrueDofs(g_tdofs);
+          const mfem::real_t* h_g = g_tdofs.HostRead();
+          mfem::real_t* h_dirichlet = dirichlet_at_dofs.HostWrite();
           for (int j = 0; j < dof_list.Size(); j++) {
-            dirichlet_at_dofs[j] = g_tdofs(dof_list[j]);
+            h_dirichlet[j] = h_g[dof_list[j]];
           }
         } else {
           // Loop over essential dofs and compute the coefficient at the dofs
           const bool uses_coordinates = dirichlet_coef.uses_coordinates();
+          // Values read on the host (u read after the values set on the previous boundaries)
+          std::vector<const mfem::real_t*> h_coords;
           if (uses_coordinates) {
             compute_coordinates_at_tdofs();
             x_dof.resize(coords_tdofs.size());
+            for (const auto& c : coords_tdofs) h_coords.push_back(c.HostRead());
           }
+          const mfem::real_t* h_u = u.HostRead();
+          std::vector<const mfem::real_t*> h_aux;
+          h_aux.reserve(auxvars_unk.size());
+          for (const auto& aux : auxvars_unk) h_aux.push_back(aux.HostRead());
+          mfem::real_t* h_dirichlet = dirichlet_at_dofs.HostWrite();
+
           for (int j = 0; j < dof_list.Size(); j++) {
             u_values.clear();
             vaux_values.clear();
 
-            int dof = dof_list[j];
+            const int dof = dof_list[j];
             if (uses_coordinates) {
-              for (std::size_t d = 0; d < coords_tdofs.size(); d++) x_dof[d] = coords_tdofs[d](dof);
+              for (std::size_t d = 0; d < h_coords.size(); d++) x_dof[d] = h_coords[d][dof];
               dirichlet_coef.set_coordinates(std::span<const double>(x_dof));
             }
-            u_values.push_back(u(dof));
-            for (auto aux : auxvars_unk) vaux_values.emplace_back(aux(dof));
+            u_values.push_back(h_u[dof]);
+            for (const auto* a : h_aux) vaux_values.emplace_back(a[dof]);
 
-            dirichlet_at_dofs[j] =
+            h_dirichlet[j] =
                 compute_dirichlet_coefficient(dirichlet_coef, std::span<const double>(u_values),
                                               std::span<const double>(vaux_values));
           }

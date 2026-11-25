@@ -607,12 +607,12 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
   Catch_Time_Section("OperatorBase::ComputeIntegral");
 
   mfem::ParGridFunction gf(this->fes_[id_var]);
+  // Values outside [lower_bound, upper_bound] set to zero, on the host
   mfem::Vector u_cut(u.Size());
-  std::transform(u.begin(), u.end(), u_cut.begin(), [&](auto value) {
-    if (value > upper_bound || value < lower_bound) {
-      return 0.0;
-    }
-    return value;
+  const mfem::real_t* h_u = u.HostRead();
+  mfem::real_t* h_cut = u_cut.HostWrite();
+  std::transform(h_u, h_u + u.Size(), h_cut, [&](const mfem::real_t value) {
+    return (value > upper_bound || value < lower_bound) ? mfem::real_t(0) : value;
   });
   gf.SetFromTrueDofs(u_cut);
 
