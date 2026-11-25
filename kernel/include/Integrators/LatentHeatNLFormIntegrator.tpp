@@ -132,10 +132,18 @@ void LatentHeatNLFormIntegrator<VARS>::init() {
     this->vaux_gf_.emplace_back(std::move(this->aux_old_gf_[i]));
   }
 
-  // Mobility evaluated at all the quadrature points of the local mesh before the assembly of the
-  // residual (the Jacobian is zero), with the auxiliary fields at the points (see prepared_values)
+  // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
+  // with the auxiliary fields at the points (see prepared_values):
+  // - linear form: latent heat L(u), value for the residual and derivatives for the Jacobian,
+  // - dissipative form: mobility for the residual (the Jacobian is zero).
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
   for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
-    this->prepare_on_mesh(this->mobility[blk], blk, SlothNLBase::CoefValue, 0u, this->vaux_gf_);
+    if (this->linear_) {
+      this->prepare_on_mesh(this->latent_heat[blk], blk, value, value | first, this->vaux_gf_);
+    } else {
+      this->prepare_on_mesh(this->mobility[blk], blk, value, 0u, this->vaux_gf_);
+    }
   }
 }
 

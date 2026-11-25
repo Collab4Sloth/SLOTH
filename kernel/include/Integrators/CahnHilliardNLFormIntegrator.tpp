@@ -110,11 +110,21 @@ void CahnHilliardNLFormIntegrator<VARS>::init() {
   }
 
   // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
-  // with the outputs of the residual and of the Jacobian: capillary coefficient and free energy
-  // of the equation of block 0, mobility of the equation of block 1 (variable of block 0)
+  // with the outputs of the residual and of the Jacobian
   const unsigned int value = SlothNLBase::CoefValue;
   const unsigned int first = SlothNLBase::CoefFirstDerivative;
   const unsigned int second = SlothNLBase::CoefSecondDerivative;
+  if (this->variational_) {
+    // Mobility of the equation of mu_i (block n + i, variable c_i): see
+    // potential_mobility_at_points
+    const int n = this->nb_concentrations(static_cast<int>(this->nb_blk_));
+    for (int i = 0; i < n; ++i) {
+      this->prepare_on_mesh(this->mobility[n + i], i, value, value | first, this->vaux_gf_);
+    }
+    return;
+  }
+  // Capillary coefficient and free energy of the equation of block 0, mobility of the equation of
+  // block 1 (variable of block 0)
   this->prepare_on_mesh(this->lambda[0], 0, value, value, this->vaux_gf_);
   this->prepare_on_mesh(this->double_well_energy[0], 0, first, second, this->vaux_gf_);
   this->prepare_on_mesh(this->mobility[1], 0, value, value | first, this->vaux_gf_);

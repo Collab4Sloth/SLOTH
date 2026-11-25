@@ -105,12 +105,14 @@ void AllenCahnNLFormIntegrator<VARS>::init() {
   }
 
   // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
-  // with the outputs of the residual and of the Jacobian (see coefficients_at_points)
+  // with the outputs of the residual and of the Jacobian (see coefficients_at_points and
+  // mobility_at_points)
   const unsigned int value = SlothNLBase::CoefValue;
   const unsigned int first = SlothNLBase::CoefFirstDerivative;
   const unsigned int second = SlothNLBase::CoefSecondDerivative;
   for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
     this->prepare_on_mesh(this->mobility[blk], blk, value, value | first, this->vaux_gf_);
+    if (this->variational_) continue;
     this->prepare_on_mesh(this->lambda[blk], blk, value, value, this->vaux_gf_);
     this->prepare_on_mesh(this->double_well_energy[blk], blk, first, first | second,
                           this->vaux_gf_);
