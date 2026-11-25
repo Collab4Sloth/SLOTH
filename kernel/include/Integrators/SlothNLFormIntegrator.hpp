@@ -283,8 +283,6 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                             const double a, const mfem::Vector& Psi,
                             const mfem::DenseMatrix& gradPsi, mfem::DenseMatrix& mat);
 
- private:
-  // Steps of eval_coefficient_at_points
   /// Values {u, u_old} and auxiliary fields at the integration points of an element
   struct ElementValues {
     std::span<const double> u_uold;  ///< [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at each point
@@ -301,14 +299,6 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
       return aux.subspan(q * naux, naux);
     }
   };
-
-  void eval_coefficient_at_points(Coefficient& coef, const int var_blk, const unsigned int outputs,
-                                  const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
-                                  const mfem::IntegrationRule& ir,
-                                  const mfem::Array<const mfem::Vector*>& elfun,
-                                  const std::vector<mfem::ParGridFunction>& aux_gf,
-                                  CoefficientAtPoints& out,
-                                  const ValuesAt values_at = ValuesAt::Unknowns);
 
   /// Integration rule of the element: the one of the assembly, used to prepare the coefficients
   /// on the local mesh (default: order 2 p + order of the transformation)

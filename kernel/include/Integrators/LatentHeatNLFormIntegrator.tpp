@@ -207,8 +207,8 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       // Source term on the right-hand side: - source in the residual
       const double source =
           this->linear_
-              ? this->latent_at_points_.value(i) * this->phase_field_time_derivative(ipv.aux)
-              : -this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), ipv.aux);
+              ? this->latent_at_points_.value(i) * this->phase_field_time_derivative(aux)
+              : -this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), aux);
       add(*elvect[blk], -source * weight_coef, Psi, *elvect[blk]);
     }
   }
@@ -246,8 +246,11 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
   if (!this->linear_) return;
 
   // Linear form: - L(u) dphi/dt, derivatives of L with respect to the unknowns
-  this->prepare_element_values(el, Tr, elfun, this->vaux_gf_,
-                               this->integration_rule(*el[0], Tr));
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  const auto prepared = this->prepared_values(Tr.ElementNo, ir_values, this->vaux_gf_);
+  if (!prepared) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     Psi.SetSize(el[blk]->GetDof());
     const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
@@ -258,13 +261,15 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+      const std::span<const double> aux =
+          prepared ? prepared->aux_at(static_cast<std::size_t>(i))
+                   : this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr).aux;
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      const double dphi_dt = this->phase_field_time_derivative(ipv.aux);
+      const double dphi_dt = this->phase_field_time_derivative(aux);
       for (int jblk = 0; jblk < num_blocks; ++jblk) {
         const double d = -this->latent_at_points_.derivative(i, jblk) * dphi_dt * weight_coef;
         if (d == 0.0) continue;
