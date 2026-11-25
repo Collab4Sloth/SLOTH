@@ -122,7 +122,10 @@ endif(SLOTH_USE_LIBTORCH)
 # ########################
 # Script
 # ########################
-set(SCRIPT_FILE ${CMAKE_SOURCE_DIR}/scripts/GenerateCoefficient.py)
+set(SCRIPT_FILE ${CMAKE_SOURCE_DIR}/scripts/GenerateCoefficient.py
+                ${CMAKE_SOURCE_DIR}/scripts/CoefficientReport.py
+                ${CMAKE_SOURCE_DIR}/scripts/CoefficientChecker.py
+                ${CMAKE_SOURCE_DIR}/scripts/VariationalForm.py)
 set(BUILD_SCRIPT_DIR ${CMAKE_BINARY_DIR}/scripts)
 file(COPY ${SCRIPT_FILE} DESTINATION ${BUILD_SCRIPT_DIR})
 
@@ -191,13 +194,12 @@ if(NOT TARGET lint)
   find_program(CPP_LINT cpplint)
 
   # Add a custom target for linting
+  # Filters and line length: CPPLINT.cfg (root of the sources, and tests/CPPLINT.cfg)
   add_custom_target(lint
     COMMAND ${CPP_LINT}
-    --filter=-runtime/references,-build/header_guard,-runtime/string,-build/include
     --counting=total
     --extensions=cpp,cxx,hpp,h,hxx,tpp
-    --linelength=100
-    --exclude ${CMAKE_SOURCE_DIR}/kernel/MAToolsProfiling
+    --exclude=${CMAKE_SOURCE_DIR}/kernel/include/MAToolsProfiling
     --recursive ${CMAKE_SOURCE_DIR}/kernel ${CMAKE_SOURCE_DIR}/tests
     COMMENT "Linting source files"
   )

@@ -40,6 +40,7 @@
 #include "Coefficients/EvalAtPoints.hpp"
 #include "Coefficients/ProductFunctionCoefficients.hpp"
 #include "Coefficients/SumFunctionCoefficients.hpp"
+#include "Coefficients/VariationalEval.hpp"
 #include "sloth_unit.hpp"
 
 // Generated at configure time from Coefficients/CoefficientExample.json:
@@ -47,6 +48,9 @@
 //   FunctionD = x^2 y + 3 x xe ye,  (xe, ye) explicit variables
 //   FunctionE = v (1 - ((X - 1)/2)^2) u^2,  v = 0.5, (X, Y) coordinates
 #include "EvalCases.hpp"
+// EnergySemiImplicit = (1 + c^2)/2 grad u . grad ue + k/2 u |grad c|^2 + 1e-3 T X u,  k = 3,
+// ue explicit, c auxiliary, (X, Y) coordinates, T time
+#include "VariationalCases.hpp"
 
 using Catch::Matchers::WithinAbs;
 
@@ -238,5 +242,79 @@ TEST_CASE("Sum and product on the debug device: D + D and D * D (FunctionD)",
                     2. * (g[ui] * g[static_cast<std::size_t>(j)] + f * h[uij]));
       }
     }
+  }
+}
+
+TEST_CASE("eval_variational_at_points on the debug device: gradients (EnergySemiImplicit)",
+          "[Coefficients][variational][device]") {
+  use_debug_device();
+  using EVAL = EnergySemiImplicitVariationalEval;
+  constexpr int d = EVAL::dimension;
+  constexpr double time = 3.;
+  mfem::Vector values(npts), explicit_values(npts), auxiliary(npts);
+  mfem::Vector gradients(d * npts), explicit_gradients(d * npts), auxiliary_gradients(d * npts);
+  mfem::Vector coordinates(d * npts);
+  for (int q = 0; q < npts; ++q) {
+    values(q) = 0.1 + 0.2 * q;
+    explicit_values(q) = 0.3 * q;
+    auxiliary(q) = 1. - 0.1 * q;
+    for (int k = 0; k < d; ++k) {
+      gradients(d * q + k) = 0.5 * q - k;
+      explicit_gradients(d * q + k) = 0.2 + 0.1 * q * (k + 1);
+      auxiliary_gradients(d * q + k) = -0.3 + 0.25 * q + 0.5 * k;
+      coordinates(d * q + k) = 1. + 0.5 * q + k;
+    }
+  }
+  mfem::Vector F(npts), df_dvar(npts), df_dgrad(d * npts), d2f_dvar2(npts);
+  mfem::Vector d2f_dvar_dgrad(d * npts), d2f_dgrad2(d * d * npts);
+  VariationalBatch outputs;
+  outputs.F = &F;
+  outputs.df_dvar = &df_dvar;
+  outputs.df_dgrad = &df_dgrad;
+  outputs.d2f_dvar2 = &d2f_dvar2;
+  outputs.d2f_dvar_dgrad = &d2f_dvar_dgrad;
+  outputs.d2f_dgrad2 = &d2f_dgrad2;
+  eval_variational_at_points(EVAL{}, npts, time, values, explicit_values, auxiliary, gradients,
+                             explicit_gradients, auxiliary_gradients, coordinates, outputs);
+
+  // Results written on the device: copied back to the host before being read
+  for (mfem::Vector* v : {&F, &df_dvar, &df_dgrad, &d2f_dvar2, &d2f_dvar_dgrad, &d2f_dgrad2,
+                          &values, &explicit_values, &auxiliary, &gradients, &explicit_gradients,
+                          &auxiliary_gradients, &coordinates}) {
+    v->HostRead();
+  }
+  for (int q = 0; q < npts; ++q) {
+    CAPTURE(q);
+    // Same structure evaluated on the host at point q
+    double f = 0.;
+    std::vector<double> f_u(1), f_p(d), f_uu(1), f_up(d), f_pp(d * d);
+    VariationalOutputs out;
+    out.F = &f;
+    out.df_dvar = f_u.data();
+    out.df_dgrad = f_p.data();
+    out.d2f_dvar2 = f_uu.data();
+    out.d2f_dvar_dgrad = f_up.data();
+    out.d2f_dgrad2 = f_pp.data();
+    const double u = values(q), ue = explicit_values(q), c = auxiliary(q);
+    const std::vector<double> g{gradients(d * q), gradients(d * q + 1)};
+    const std::vector<double> ge{explicit_gradients(d * q), explicit_gradients(d * q + 1)};
+    const std::vector<double> gc{auxiliary_gradients(d * q), auxiliary_gradients(d * q + 1)};
+    const std::vector<double> x{coordinates(d * q), coordinates(d * q + 1)};
+    EVAL{}(&u, &ue, &c, g.data(), ge.data(), gc.data(), x.data(), time, out);
+
+    check_close(F(q), f);
+    check_close(df_dvar(q), f_u[0]);
+    check_close(d2f_dvar2(q), f_uu[0]);
+    for (int k = 0; k < d; ++k) {
+      CAPTURE(k);
+      check_close(df_dgrad(d * q + k), f_p[static_cast<std::size_t>(k)]);
+      check_close(d2f_dvar_dgrad(d * q + k), f_up[static_cast<std::size_t>(k)]);
+      for (int l = 0; l < d; ++l) {
+        CAPTURE(l);
+        check_close(d2f_dgrad2(d * d * q + k * d + l), f_pp[static_cast<std::size_t>(k * d + l)]);
+      }
+    }
+    // Explicit term of the energy: 1e-3 T X u, T = time, X first coordinate
+    check_close(df_dvar(q), 1.5 * (gc[0] * gc[0] + gc[1] * gc[1]) + 1.e-3 * time * x[0]);
   }
 }

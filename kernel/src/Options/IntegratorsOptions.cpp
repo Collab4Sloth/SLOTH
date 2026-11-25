@@ -38,6 +38,7 @@ Integrators::value Integrators::from(const std::string& v) {
       {"TimeDerivative", Integrators::TimeDerivative},
       {"HeatTimeDerivative", Integrators::HeatTimeDerivative},
       {"SplitTimeDerivative", Integrators::SplitTimeDerivative},
+      {"RelaxationTimeDerivative", Integrators::RelaxationTimeDerivative},
       {"Fick", Integrators::Fick},
       {"Fourier", Integrators::Fourier},
       {"CahnHilliard", Integrators::CahnHilliard},

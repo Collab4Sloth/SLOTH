@@ -247,7 +247,6 @@ int main(int argc, char* argv[]) {
                 min_distance = dist;
                 closest_particle_id = vl.pid();  // Get the particle ID (Voronoi cell index)
               }
-
             } while (vl.inc());
           }
 

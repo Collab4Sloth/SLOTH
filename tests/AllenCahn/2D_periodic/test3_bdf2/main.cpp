@@ -1,6 +1,7 @@
 /**
  * @file main.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief MMS convergence test in time for Allen-Cahn (periodic square): implicit Euler vs BDF2.
  *
  * Transient variant of AllenCahn/2D_periodic/test3 (steady MMS):
@@ -17,7 +18,6 @@
  * @version 0.1
  * @date 2026-10-29
  *
- * @copyright Copyright (c) 2026
  */
 #include <iomanip>
 #include <map>

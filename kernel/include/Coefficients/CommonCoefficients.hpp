@@ -72,8 +72,9 @@ struct WEval {
 
 /**
  *
- * @brief Coefficient based on expression: x*x*(1.0-x) * (1.0-x)
+ * @brief C++ function of the analytical expression
  *
+ *       F = x**2*(1 - x)**2
  */
 class W : public FunctionCoefficient {
  private:
@@ -145,8 +146,9 @@ struct FwEval {
 
 /**
  *
- * @brief Coefficient based on expression: 0.25 * (x * x - 1.0) * (x * x - 1.0)
+ * @brief C++ function of the analytical expression
  *
+ *       F = (x**2/4 - 1/4)*(x**2 - 1)
  */
 class Fw : public FunctionCoefficient {
  private:
@@ -167,7 +169,6 @@ class Fw : public FunctionCoefficient {
   bool is_single_variable() const override { return true; }
   Fw() = default;
   explicit Fw(const double prefactor) { eval_.prefactor_ = prefactor; }
-
   virtual ~Fw() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const FwEval& get_eval() const { return eval_; }
@@ -220,8 +221,9 @@ struct HEval {
 
 /**
  *
- * @brief Coefficient based on expression: x * x * x * (6.0 * x * x - 15.0 * x + 10.0)
+ * @brief C++ function of the analytical expression
  *
+ *       F = x**3*(6*x**2 - 15*x + 10)
  */
 class H : public FunctionCoefficient {
  private:
@@ -242,7 +244,6 @@ class H : public FunctionCoefficient {
   bool is_single_variable() const override { return true; }
   H() = default;
   explicit H(const double prefactor) { eval_.prefactor_ = prefactor; }
-
   virtual ~H() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const HEval& get_eval() const { return eval_; }
@@ -298,8 +299,9 @@ struct LogEval {
 
 /**
  *
- * @brief Coefficient based on expression: x * log(x) + (1.0 - x)*log(1.0 - x)
+ * @brief C++ function of the analytical expression
  *
+ *       F = x*log(x) + (1 - x)*log(1 - x)
  */
 class Log : public FunctionCoefficient {
  private:
@@ -320,7 +322,6 @@ class Log : public FunctionCoefficient {
   bool is_single_variable() const override { return true; }
   Log() = default;
   explicit Log(const double prefactor) { eval_.prefactor_ = prefactor; }
-
   virtual ~Log() = default;
   /// Evaluation structure (constants, prefactor), e.g. for eval_at_points
   const LogEval& get_eval() const { return eval_; }
@@ -337,8 +338,9 @@ class Log : public FunctionCoefficient {
 
 /**
  *
- * @brief Coefficient based on expression: 0.5*dot(x,x)
+ * @brief C++ function of the analytical expression
  *
+ *       F = dot(x, x)/2
  */
 class GradientEnergy : public FunctionCoefficient {
  private:
@@ -358,6 +360,5 @@ class GradientEnergy : public FunctionCoefficient {
  public:
   GradientEnergy() : prefactor_(1.0) {}
   explicit GradientEnergy(const double prefactor) : prefactor_(prefactor) {}
-
   virtual ~GradientEnergy() = default;
 };

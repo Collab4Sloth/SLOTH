@@ -73,5 +73,69 @@
 	"bounds":{"x":[0.0, 2.0]},
 	"class_name":"FunctionH",
 	"outputfile":"EvalCases"
+	},
+	{
+	"expression":"0.5*kappa*dot(grad(phi),grad(phi)) + A*phi**2*(1-phi)**2",
+	"variables":"phi",
+	"constants":"(kappa:2.0),(A:1.5)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergyIsotropic",
+	"outputfile":"VariationalCases"
+	}
+	,
+	{
+	"expression":"0.5*(k0 + k1*phi)*dot(grad(phi),grad(phi))",
+	"variables":"phi",
+	"constants":"(k0:1.0),(k1:0.5)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergyKappa",
+	"outputfile":"VariationalCases"
+	}
+	,
+	{
+	"expression":"0.5*(1 + c**2)*dot(grad(u),grad(ue)) + 0.5*k*u*dot(grad(c),grad(c)) + 1e-3*T*X*u",
+	"variables":"u",
+	"explicit_variables":"ue",
+	"auxiliary_variables":"c",
+	"coordinates":"X,Y",
+	"constants":"(k:3.0),(T:T)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergySemiImplicit",
+	"outputfile":"VariationalCases"
+	}
+	,
+	{
+	"expression":"0.5*(W0*(1 + e4*(n(phi)[0]**4 - 6*n(phi)[0]**2*n(phi)[1]**2 + n(phi)[1]**4)))**2*dot(grad(phi),grad(phi))",
+	"variables":"phi",
+	"constants":"(W0:1.0),(e4:0.05)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergyAnisotropic2D",
+	"outputfile":"VariationalCases"
+	}
+	,
+	{
+	"expression":"0.5*(W0*(1 - 3*e4 + 4*e4*(n(phi)[0]**4 + n(phi)[1]**4 + n(phi)[2]**4)))**2*dot(grad(phi),grad(phi))",
+	"variables":"phi",
+	"constants":"(W0:1.0),(e4:0.05)",
+	"variational":true,
+	"dimension":3,
+	"regularization":1e-10,
+	"class_name":"EnergyAnisotropic3D",
+	"outputfile":"VariationalCases"
+	}
+	,
+	{
+	"expression":"0.5*(k11*dot(grad(a),grad(a)) + 2*k12*dot(grad(a),grad(b)) + k22*dot(grad(b),grad(b))) + a**2*b",
+	"variables":"a,b",
+	"constants":"(k11:2.0),(k12:0.5),(k22:3.0)",
+	"bounds":{"a":[0.0, 1.0]},
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergyTwoVariables",
+	"outputfile":"VariationalCases"
 	}
 ]

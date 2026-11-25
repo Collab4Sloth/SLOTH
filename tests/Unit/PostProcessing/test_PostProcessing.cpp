@@ -40,6 +40,12 @@
 #include "Sloth/tests.hpp"
 #include "sloth_unit.hpp"
 
+// Generated at configure time from PostProcessing/PostProcessingCoefficients.json (variational
+// coefficients f(phi, grad phi), kappa = 0.15):
+//   EnergyDoubleWell   = kappa/2 |grad phi|^2 + omega phi^2 (1 - phi)^2,  omega = 120
+//   EnergyGradientOnly = kappa/2 |grad phi|^2
+#include "PostProcessingCoefficients.hpp"
+
 using Catch::Matchers::WithinAbs;
 
 namespace {
@@ -221,7 +227,7 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: complete problem (ParaView, errors, 
 // Energies of a phase-field problem (enable_compute_energies, true by default),
 // written in time_specialized.csv:
 //   Density = int (W(u) + lambda |grad u|^2 / 2),   Sigma = int lambda |grad u|^2
-// with W(u) = omega u^2 (1 - u)^2 interpolated from its nodal values.
+// with W(u) = omega u^2 (1 - u)^2, evaluated at the integration points (order 2 p + 3).
 // Zero mobility: u keeps its initial value during the time step.
 // -----------------------------------------------------------------------------
 TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
@@ -274,6 +280,98 @@ TEST_CASE_METHOD(PstSetup, "PostProcessing: energies of a phase-field problem",
     if (mfem::Mpi::Root()) {
       CHECK_THAT(density, WithinAbs(lambda / 2., 1.e-12));
       CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
+    }
+  }
+  SECTION("u = x: Density = omega / 30 + lambda / 2, Sigma = lambda") {
+    // W(x) of degree 4 integrated exactly at the integration points
+    const double omega = 120.;
+    const auto [density, sigma] =
+        energies(omega, [](const mfem::Vector& p, double) { return p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(omega / 30. + lambda / 2., 1.e-11));
+      CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Energies with a variational FreeEnergy coefficient f(phi, grad phi), evaluated at the
+// integration points:
+//   Density = int f,   Sigma = 2 int (f(phi, grad phi) - f(phi, 0)) = int lambda |grad phi|^2
+// The Fick integrator with a zero diffusivity keeps phi at its initial value: the energy
+// coefficient is used by the post-processing only.
+// -----------------------------------------------------------------------------
+TEST_CASE_METHOD(PstSetup, "PostProcessing: energies with a variational coefficient",
+                 "[PostProcessing][Problems][variational]") {
+  const double lambda = 0.15;
+  // Returns (Density, Sigma) read by rank 0 (0 on the other ranks)
+  auto energies = [&](SPA& spa, const Coefficient& energy,
+                      std::function<double(const mfem::Vector&, double)> u0) {
+    auto bcs = BCS(&spa, Boundary("lower", 0, "Neumann"), Boundary("right", 1, "Neumann"),
+                   Boundary("upper", 2, "Neumann"), Boundary("left", 3, "Neumann"));
+    auto vars =
+        VARS(VAR(&spa, bcs, "phi", Glossary::Concentration, 2, AnalyticalFunctions<DIM>(u0)));
+    PST pst(&spa, base_parameters() + Parameter("frequency", 1));
+    Coefficients coefs(energy, Coefficient(Glossary::Diffusivity, 0.));
+    std::vector<SPA*> spatials{&spa};
+    TransientOPE oper(spatials, {"Fick"}, TimeScheme::EulerImplicit, "TimeDerivative");
+    oper.overload_nl_solver(NLSolverType::NEWTON,
+                            Parameters(Parameter("description", std::string("Newton")),
+                                       Parameter("rel_tol", 1.e-12), Parameter("abs_tol", 1.e-12)));
+    TransientPB problem("PhaseField", oper, vars, {coefs}, pst);
+    auto coupling = Coupling("PhaseField", problem);
+    auto time =
+        TimeDiscretization(Parameters(Parameter("initial_time", 0.), Parameter("final_time", 0.1),
+                                      Parameter("time_step", 0.1)),
+                           coupling);
+    time.solve();
+    MPI_Barrier(MPI_COMM_WORLD);
+    std::pair<double, double> result{0., 0.};
+    if (mfem::Mpi::Root()) {
+      const auto csv =
+          std::filesystem::path(pst.get_post_processing_directory()) / "time_specialized.csv";
+      REQUIRE(std::filesystem::exists(csv));
+      result = {column(csv, "Density[J.m-3]"), column(csv, "Sigma[J.m-3]")};
+    }
+    return result;
+  };
+
+  SECTION("u = 0.3: Density = W(0.3), Sigma = 0") {
+    const Coefficient energy(Glossary::FreeEnergy, Scheme::Implicit, EnergyDoubleWell());
+    const auto [density, sigma] =
+        energies(spatial, energy, [](const mfem::Vector&, double) { return 0.3; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(120. * 0.09 * 0.49, 1.e-10));
+      CHECK_THAT(sigma, WithinAbs(0., 1.e-12));
+    }
+  }
+  SECTION("u = x with the double well: Density = 120 / 30 + lambda / 2, Sigma = lambda") {
+    const Coefficient energy(Glossary::FreeEnergy, Scheme::Implicit, EnergyDoubleWell());
+    const auto [density, sigma] =
+        energies(spatial, energy, [](const mfem::Vector& p, double) { return p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(120. / 30. + lambda / 2., 1.e-11));
+      CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
+    }
+  }
+  SECTION("u = x: Density = lambda / 2, Sigma = lambda") {
+    const Coefficient energy(Glossary::FreeEnergy, Scheme::Implicit, EnergyGradientOnly());
+    const auto [density, sigma] =
+        energies(spatial, energy, [](const mfem::Vector& p, double) { return p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(lambda / 2., 1.e-12));
+      CHECK_THAT(sigma, WithinAbs(lambda, 1.e-12));
+    }
+  }
+  SECTION("u = x^2, second order elements: Density = 2 lambda / 3, Sigma = 4 lambda / 3") {
+    // Gradient 2x varying in the elements: int lambda/2 (2x)^2 = 2 lambda / 3
+    SPA spatial2("InlineSquareWithQuadrangles", 2, 0, std::make_tuple(8, 8, 1., 1.));
+    const Coefficient energy(Glossary::FreeEnergy, Scheme::Implicit, EnergyGradientOnly());
+    const auto [density, sigma] =
+        energies(spatial2, energy, [](const mfem::Vector& p, double) { return p[0] * p[0]; });
+    if (mfem::Mpi::Root()) {
+      CHECK_THAT(density, WithinAbs(2. * lambda / 3., 1.e-12));
+      CHECK_THAT(sigma, WithinAbs(4. * lambda / 3., 1.e-12));
     }
   }
 }

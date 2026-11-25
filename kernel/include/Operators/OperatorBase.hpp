@@ -75,8 +75,6 @@ class OperatorBase : public mfem::Operator {
  protected:
   Geometry geometry_ = Geometry::Cartesian;
   Parameters nl_solver_params_;
-  std::optional<Coefficient> energy_coefficient_;
-  std::optional<Coefficient> grad_energy_coefficient_;
   std::vector<Coefficients> coefficients_;
   std::vector<Variables<T, DIM>*> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
@@ -112,7 +110,8 @@ class OperatorBase : public mfem::Operator {
   std::vector<IntegratorEntry<Variables<T, DIM>>> rhs_integrators_;
 
   /// Mesh change detection (AMR): FE space sequence numbers at last synchronization
-  std::vector<long> fes_sequence_;
+  /// (long: type of FiniteElementSpace::GetSequence())
+  std::vector<long> fes_sequence_;  // NOLINT(runtime/int)
   void record_fes_sequence();
   bool mesh_has_changed() const;
   virtual bool sync_with_mesh();
@@ -138,8 +137,7 @@ class OperatorBase : public mfem::Operator {
   OperatorBase(const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params);
 
-  void set_coefficients(const std::vector<Coefficients>& coefficients,
-                        bool enable_compute_energies);
+  void set_coefficients(const std::vector<Coefficients>& coefficients);
 
   inline double get_current_time_step() const { return current_dt_; }
   inline int get_newton_iterations() const { return newton_iterations_; }
@@ -205,4 +203,5 @@ class OperatorBase : public mfem::Operator {
                                                              const unsigned int bdr_id);
   void set_time_coefficients(double time);
 };
+
 #include "Operators/OperatorBase.tpp"

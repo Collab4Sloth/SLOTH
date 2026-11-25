@@ -26,6 +26,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "Coefficients/Coefficient.hpp"
@@ -146,6 +147,11 @@ TEST_CASE("SlothBaseCoefficient: name, boundaries and coordinates", "[Coefficien
 
   CHECK(c.get_bdr_index_coef().empty());
   c.set_bdr_index_coef({1, 3});
+  CHECK(c.get_bdr_index_coef() == std::vector<int>{1, 3});
+
+  CHECK(c.get_bdr_names_coef().empty());
+  c.set_bdr_names_coef({"left", "upper"});
+  CHECK(c.get_bdr_names_coef() == std::vector<std::string>{"left", "upper"});
   CHECK(c.get_bdr_index_coef() == std::vector<int>{1, 3});
 
   CHECK_FALSE(c.uses_coordinates());

@@ -41,4 +41,5 @@ class SolverMUMPS : public SolverBase<mfem::MUMPSSolver, DirectSolverType> {
 
   ~SolverMUMPS();
 };
+
 #endif

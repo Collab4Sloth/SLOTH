@@ -149,7 +149,7 @@ class ProblemBase {
     return pst_->get();
   }
 
-  void disableTimeSpecialized() { this->enable_time_specialized_ = false; };
+  void disableTimeSpecialized() { this->enable_time_specialized_ = false; }
 
   //
 
@@ -189,9 +189,7 @@ class ProblemBase {
   virtual int get_nonlinear_iterations() const { return -1; }
   // Largest ratio between two successive time-steps allowed by the time scheme (adaptive
   // time-stepping)
-  virtual double get_max_time_step_ratio() const {
-    return std::numeric_limits<double>::infinity();
-  }
+  virtual double get_max_time_step_ratio() const { return std::numeric_limits<double>::infinity(); }
 
   void post_processing(const int& iter, const double& current_time, bool vtk_unified);
   void save_vtk(const int iter, const double& current_time);
@@ -208,7 +206,7 @@ class ProblemBase {
 
   bool need_to_be_saved(const int iteration, const double time) {
     return this->pst_->get().need_to_be_saved(iteration, time);
-  };
+  }
 };
 
 #include "Problems/ProblemBase.tpp"

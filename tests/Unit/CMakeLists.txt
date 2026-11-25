@@ -126,6 +126,7 @@ sloth_add_unit_test(NAME Coefficients
                             Coefficients/test_GeneratedCoefficients.cpp
                             Coefficients/test_FileCoefficient.cpp
                             Coefficients/test_MfemCoefficients.cpp
+                            Coefficients/test_VariationalCoefficients.cpp
                     COEFFICIENTS_JSON Coefficients/CoefficientExample.json)
 
 # eval_at_points with the MFEM "debug" device (memory managed as with a GPU, loops run on the
@@ -176,7 +177,8 @@ sloth_add_unit_test(NAME Parameters
                             Parameters/test_Parameters.cpp)
 
 sloth_add_unit_test(NAME PostProcessing
-                    SOURCES PostProcessing/test_PostProcessing.cpp)
+                    SOURCES PostProcessing/test_PostProcessing.cpp
+                    COEFFICIENTS_JSON PostProcessing/PostProcessingCoefficients.json)
 
 sloth_add_unit_test(NAME PreProcessing
                     SOURCES PreProcessing/test_TabulatedFunction.cpp

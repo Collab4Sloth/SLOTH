@@ -27,8 +27,10 @@
 
 #include "BCs/Boundary.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -36,20 +38,11 @@
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
- * @brief Construct a new Boundary::Boundary object (null value prescribed by default)
- *
- * @param boundary_name Name of the boundary.
- * @param boundary_index Index of the boundary.
- * @param boundary_type Type of the boundary conditions (Dirichlet, Neumann, Periodic,
- * Robin)
+ * @brief Check the boundary type and set the periodic flag
  *
  */
-Boundary::Boundary(const std::string& boundary_name, int boundary_index,
-                   const std::string& boundary_type)
-    : boundary_name_(boundary_name),
-      boundary_type_(BoundaryConditionType::from(boundary_type)),
-      boundary_index_(boundary_index) {
-  switch (boundary_type_) {
+void Boundary::check_type() {
+  switch (this->boundary_type_) {
     case BoundaryConditionType::Dirichlet:
     case BoundaryConditionType::Neumann:
     case BoundaryConditionType::Robin:
@@ -66,21 +59,31 @@ Boundary::Boundary(const std::string& boundary_name, int boundary_index,
 }
 
 /**
- * @brief Construct a new Boundary:: Boundary object
+ * @brief Construct a new Boundary object identified by the name of a boundary attribute set of
+ * the mesh (null value prescribed by default)
  *
- * @param boundary_name Name of the boundary.
- * @param boundary_index Index of the boundary.
+ * @param boundary_name Name of the boundary attribute set.
  * @param boundary_type Type of the boundary conditions (Dirichlet, Neumann, Periodic, Robin)
+ */
+Boundary::Boundary(const std::string& boundary_name, const std::string& boundary_type)
+    : boundary_name_(boundary_name), boundary_type_(BoundaryConditionType::from(boundary_type)) {
+  this->check_type();
+}
+
+/**
+ * @brief Construct a new Boundary object identified by the name of a boundary attribute set of
+ * the mesh, with a constant Dirichlet value
+ *
+ * @param boundary_name Name of the boundary attribute set.
+ * @param boundary_type Type of the boundary conditions (Dirichlet only)
  * @param boundary_value Value of the boundary condition.
  */
-Boundary::Boundary(const std::string& boundary_name, int boundary_index,
-                   const std::string& boundary_type, double boundary_value)
+Boundary::Boundary(const std::string& boundary_name, const std::string& boundary_type,
+                   double boundary_value)
     : boundary_name_(boundary_name),
       boundary_type_(BoundaryConditionType::from(boundary_type)),
-      boundary_index_(boundary_index),
       boundary_value_(boundary_value) {
-  this->is_periodic_boundary_ = false;
-  if (boundary_type_ != BoundaryConditionType::Dirichlet) {
+  if (this->boundary_type_ != BoundaryConditionType::Dirichlet) {
     mfem::mfem_error(
         "Boundary::Boundary(): only Dirichlet BoundaryConditionType can be associated with a "
         "constant value.\n"
@@ -91,11 +94,115 @@ Boundary::Boundary(const std::string& boundary_name, int boundary_index,
 }
 
 /**
+ * @brief Construct a new Boundary::Boundary object (null value prescribed by default)
+ *
+ * @param boundary_name Name of the boundary.
+ * @param boundary_index Index of the boundary (attribute - 1).
+ * @param boundary_type Type of the boundary conditions (Dirichlet, Neumann, Periodic,
+ * Robin)
+ *
+ */
+Boundary::Boundary(const std::string& boundary_name, int boundary_index,
+                   const std::string& boundary_type)
+    : Boundary(boundary_name, boundary_type) {
+  this->boundary_index_ = boundary_index;
+  this->has_user_index_ = true;
+  this->boundary_indices_ = {boundary_index};
+}
+
+/**
+ * @brief Construct a new Boundary:: Boundary object
+ *
+ * @param boundary_name Name of the boundary.
+ * @param boundary_index Index of the boundary (attribute - 1).
+ * @param boundary_type Type of the boundary conditions (Dirichlet only)
+ * @param boundary_value Value of the boundary condition.
+ */
+Boundary::Boundary(const std::string& boundary_name, int boundary_index,
+                   const std::string& boundary_type, double boundary_value)
+    : Boundary(boundary_name, boundary_type, boundary_value) {
+  this->boundary_index_ = boundary_index;
+  this->has_user_index_ = true;
+  this->boundary_indices_ = {boundary_index};
+}
+
+/**
+ * @brief Compute the indices (attribute - 1) covered by the boundary from the boundary attribute
+ * sets of the mesh.
+ *
+ * - a set named after the boundary exists: its attributes are used; if an index is also given, the
+ *   set must contain exactly the attribute index + 1;
+ * - no such set: the index given by the user is used; without index, the boundary is undefined.
+ *
+ * @param bdr_sets Boundary attribute sets of the mesh.
+ */
+void Boundary::resolve_indices(const mfem::AttributeSets& bdr_sets) {
+  if (bdr_sets.AttributeSetExists(this->boundary_name_)) {
+    const mfem::Array<int>& attrs = bdr_sets.GetAttributeSet(this->boundary_name_);
+    if (attrs.Size() == 0) {
+      const std::string msg = "Boundary::resolve_indices(): boundary attribute set '" +
+                              this->boundary_name_ + "' is empty.";
+      mfem::mfem_error(msg.c_str());
+    }
+    std::set<int> ids;
+    for (const int a : attrs) ids.insert(a - 1);
+
+    if (this->has_user_index_ && (ids.size() != 1 || *ids.begin() != this->boundary_index_)) {
+      std::string list;
+      for (const int a : attrs) list += " " + std::to_string(a);
+      const std::string msg = "Boundary::resolve_indices(): boundary '" + this->boundary_name_ +
+                              "' is given with index " + std::to_string(this->boundary_index_) +
+                              " (attribute " + std::to_string(this->boundary_index_ + 1) +
+                              ") but the boundary attribute set of the mesh with this name " +
+                              "contains the attribute(s)" + list +
+                              ". Remove the index or make it consistent with the mesh.";
+      mfem::mfem_error(msg.c_str());
+    }
+    this->boundary_indices_.assign(ids.begin(), ids.end());
+    return;
+  }
+
+  if (!this->has_user_index_) {
+    std::string names;
+    for (const auto& n : bdr_sets.GetAttributeSetNames()) names += " '" + n + "'";
+    if (names.empty()) names = " none";
+    const std::string msg = "Boundary::resolve_indices(): boundary '" + this->boundary_name_ +
+                            "' is given without index and is not a boundary attribute set of the "
+                            "mesh. Available boundary attribute sets:" +
+                            names;
+    mfem::mfem_error(msg.c_str());
+  }
+  this->boundary_indices_ = {this->boundary_index_};
+}
+
+/**
+ * @brief Return the name of the boundary
+ *
+ * @return const std::string& The name of the boundary.
+ */
+const std::string& Boundary::get_boundary_name() const { return this->boundary_name_; }
+
+/**
+ * @brief Flag to identify a boundary defined with an index
+ *
+ * @return true if an index is given by the user
+ */
+bool Boundary::has_user_index() const { return this->has_user_index_; }
+
+/**
  * @brief Return the index associated to the boundary
  *
- * @return int The index of the boundary.
+ * @return int The index of the boundary (-1 if the boundary is identified by its name only).
  */
 int Boundary::get_boundary_index() const { return this->boundary_index_; }
+
+/**
+ * @brief Return the indices (attribute - 1) covered by the boundary
+ *
+ * @return const std::vector<int>& Sorted indices. Empty for a boundary identified by its name
+ * only, before resolve_indices() is called.
+ */
+const std::vector<int>& Boundary::get_boundary_indices() const { return this->boundary_indices_; }
 
 /**
  * @brief Return the boundary type associated to the boundary

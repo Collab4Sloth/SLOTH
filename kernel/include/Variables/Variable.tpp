@@ -1330,14 +1330,14 @@ mfem::ParFiniteElementSpace* Variable<T, DIM>::get_fespace() {
 template <class T, int DIM>
 void Variable<T, DIM>::set_attributes(SpatialDiscretization<T, DIM>* spatial,
                                       const std::set<std::string>& attribute_names) {
-  std::shared_ptr<mfem::AttributeSets> elem_attr_sets = spatial->get_elem_attributes();
-  std::set<std::string> set_mesh_attr_names = elem_attr_sets->GetAttributeSetNames();
+  const mfem::AttributeSets& elem_attr_sets = spatial->get_elem_attribute_sets();
+  std::set<std::string> set_mesh_attr_names = elem_attr_sets.GetAttributeSetNames();
   MFEM_VERIFY(std::includes(set_mesh_attr_names.begin(), set_mesh_attr_names.end(),
                             attribute_names.begin(), attribute_names.end()),
               "Error while setting attributes associated with elements for variable " +
                   this->variable_name_ + ". Please check your data");
   for (const auto& name : attribute_names) {
-    this->el_attr_.Append(elem_attr_sets->GetAttributeSet(name));
+    this->el_attr_.Append(elem_attr_sets.GetAttributeSet(name));
   }
 }
 

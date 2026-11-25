@@ -15,7 +15,7 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 def calculate_error(a, b, error_type):
     if error_type == 'relativeEpsilon':
         epsilon = 1.e-20
-        return _divide(abs(b - a), abs(max(a, epsilon)))
+        return _divide(abs(b - a), max(abs(a), epsilon))
     elif error_type == 'relative':
         return _divide(abs(b - a), abs(a))
     elif error_type == 'absolute':

@@ -58,6 +58,23 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   void check_variables_consistency();
 
  protected:
+  /// Coefficient A of block blk at all the integration points of the element, at the end of the
+  /// step (with its first derivatives for the Jacobian); see the derived classes for other forms
+  virtual void eval_a_at_points(const int blk, const mfem::Array<const mfem::FiniteElement*>& el,
+                                mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+                                const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian);
+  /// Value of A at the integration point i (see eval_a_at_points)
+  virtual double a_value(const int i) const;
+  /// Derivative of A with respect to block jblk at the integration point i
+  virtual double a_derivative(const int i, const int jblk) const;
+  /// Other terms of the Jacobian of (A B k, psi) due to A at the integration point i (none by
+  /// default), multiplied by factor = dt B k w
+  virtual void add_a_jacobian(const int /*blk*/, const int /*i*/,
+                              const mfem::Array<const mfem::FiniteElement*>& /*el*/,
+                              mfem::ElementTransformation& /*Tr*/, const double /*factor*/,
+                              const mfem::Vector& /*psi*/,
+                              const mfem::Array2D<mfem::DenseMatrix*>& /*elmats*/) {}
+
   std::vector<mfem::ParGridFunction> vaux_gf_;
   std::vector<mfem::ParGridFunction> temp_gf_;
   std::list<GlossaryType> expected_list_;

@@ -29,6 +29,7 @@
 
 #include <limits>
 #include <map>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -58,8 +59,19 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* sp
   this->fespace_ = spatial->get_finite_element_space();
 
   auto bdrs = std::vector<Boundary>{boundaries...};
-  auto mesh_max_bdr_attributes = bdrs.size();
-  // If periodic, the number of boundary conditions is used
+
+  // Indices covered by each boundary, from its index or from the boundary attribute sets
+  const mfem::AttributeSets& bdr_sets = spatial->get_bdr_attribute_sets();
+  std::size_t nb_bdr_indices = 0;
+  for (auto& bdr : bdrs) {
+    bdr.resolve_indices(bdr_sets);
+    nb_bdr_indices += bdr.get_boundary_indices().size();
+    auto& ids = this->bdr_indices_by_name_[bdr.get_boundary_name()];
+    ids.insert(ids.end(), bdr.get_boundary_indices().begin(), bdr.get_boundary_indices().end());
+  }
+
+  auto mesh_max_bdr_attributes = nb_bdr_indices;
+  // If periodic, the number of boundary indices is used
   // Consistency is checked later
   if (!must_be_periodic) {
     mesh_max_bdr_attributes = spatial->get_max_bdr_attributes();
@@ -69,6 +81,10 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* sp
   Robin_bdr_.SetSize(mesh_max_bdr_attributes);
   Dirichlet_bdr_.SetSize(mesh_max_bdr_attributes);
   Dirichlet_value_.SetSize(mesh_max_bdr_attributes);
+  Neumann_bdr_ = 0;
+  Robin_bdr_ = 0;
+  Dirichlet_bdr_ = 0;
+  Dirichlet_value_ = 0.;
   bool exist_periodic_bdr = false;
   for (const auto& bdr : bdrs) {
     if (bdr.is_periodic_boundary()) {
@@ -89,48 +105,49 @@ BoundaryConditions<T, DIM>::BoundaryConditions(SpatialDiscretization<T, DIM>* sp
         "flagged periodic. Please check your data");
   }
 
-  bool test_standard_bdr = mesh_max_bdr_attributes == bdrs.size();
+  bool test_standard_bdr = mesh_max_bdr_attributes == nb_bdr_indices;
 
   if (exist_periodic_bdr || test_standard_bdr) {
     std::unordered_set<int> id_seen;
 
     for (const auto& bdr : bdrs) {
-      const auto& id = bdr.get_boundary_index();
-      // Check index value
-      if (id >= static_cast<int>(mesh_max_bdr_attributes)) {
-        std::string msg = "BoundaryConditions::BoundaryConditions(): bad index " +
-                          std::to_string(id) + ". Index should be lower than " +
-                          std::to_string(mesh_max_bdr_attributes);
-        mfem::mfem_error(msg.c_str());
-      }
-
-      // Check unicity
-      if (!id_seen.insert(id).second) {
-        std::string msg = "BoundaryConditions::BoundaryConditions(): duplicated index " +
-                          std::to_string(id) + ". Index should be unique";
-        mfem::mfem_error(msg.c_str());
-      }
-
-      // Create marker arrays
       const auto& boundary_type_ = bdr.get_boundary_type();
-      Dirichlet_bdr_[id] = 0;
-      Neumann_bdr_[id] = 0;
-      Robin_bdr_[id] = 0;
-      if (boundary_type_ == BoundaryConditionType::Dirichlet) {
-        Dirichlet_bdr_[id] = 1;
-        Dirichlet_value_[id] = bdr.get_boundary_value();
-      } else if (boundary_type_ == BoundaryConditionType::Neumann) {
-        Neumann_bdr_[id] = 1;
-      } else if (boundary_type_ == BoundaryConditionType::Robin) {
-        Robin_bdr_[id] = 1;
+      for (const int id : bdr.get_boundary_indices()) {
+        // Check index value
+        if (id < 0 || id >= static_cast<int>(mesh_max_bdr_attributes)) {
+          std::string msg = "BoundaryConditions::BoundaryConditions(): bad index " +
+                            std::to_string(id) + " for boundary '" + bdr.get_boundary_name() +
+                            "'. Index should be in [0, " + std::to_string(mesh_max_bdr_attributes) +
+                            ")";
+          mfem::mfem_error(msg.c_str());
+        }
+
+        // Check unicity
+        if (!id_seen.insert(id).second) {
+          std::string msg = "BoundaryConditions::BoundaryConditions(): duplicated index " +
+                            std::to_string(id) + " (boundary '" + bdr.get_boundary_name() +
+                            "'). Each boundary attribute should belong to a single boundary";
+          mfem::mfem_error(msg.c_str());
+        }
+
+        // Create marker arrays
+        if (boundary_type_ == BoundaryConditionType::Dirichlet) {
+          Dirichlet_bdr_[id] = 1;
+          Dirichlet_value_[id] = bdr.get_boundary_value();
+        } else if (boundary_type_ == BoundaryConditionType::Neumann) {
+          Neumann_bdr_[id] = 1;
+        } else if (boundary_type_ == BoundaryConditionType::Robin) {
+          Robin_bdr_[id] = 1;
+        }
       }
     }
     this->fespace_->GetEssentialTrueDofs(this->Dirichlet_bdr_, this->ess_tdof_list_);
   } else {
     std::string msg =
-        "BoundaryConditions::BoundaryConditions(): user-defined boundaries  " +
-        std::to_string(bdrs.size()) +
-        " are unconsistent with the total number of boundaries associated to the mesh " +
+        "BoundaryConditions::BoundaryConditions(): user-defined boundaries cover " +
+        std::to_string(nb_bdr_indices) +
+        " boundary attributes, inconsistent with the total number of boundary attributes of the "
+        "mesh " +
         std::to_string(mesh_max_bdr_attributes);
     mfem::mfem_error(msg.c_str());
   }
@@ -179,6 +196,53 @@ mfem::Array<int> BoundaryConditions<T, DIM>::get_marker_array(const std::string&
   mfem::Array<int> null_bdr(this->Neumann_bdr_.Size());
   null_bdr = 0;
   return null_bdr;
+}
+
+/**
+ * @brief Return the indices (attribute - 1) of the boundary with the given name
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param boundary_name Name of a Boundary given to the constructor.
+ * @return const std::vector<int>& Indices of the boundary.
+ */
+template <class T, int DIM>
+const std::vector<int>& BoundaryConditions<T, DIM>::get_boundary_indices(
+    const std::string& boundary_name) const {
+  const auto it = this->bdr_indices_by_name_.find(boundary_name);
+  if (it == this->bdr_indices_by_name_.end()) {
+    std::string names;
+    for (const auto& [name, ids] : this->bdr_indices_by_name_) names += " '" + name + "'";
+    const std::string msg = "BoundaryConditions::get_boundary_indices(): unknown boundary '" +
+                            boundary_name + "'. Available boundaries:" + names;
+    mfem::mfem_error(msg.c_str());
+  }
+  return it->second;
+}
+
+/**
+ * @brief Add to the boundary indices of each coefficient the indices of the boundaries it names
+ * (set_bdr_names_coef()). Coefficients without boundary names are left unchanged.
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param coefficients Coefficients of the variable associated with these boundary conditions.
+ */
+template <class T, int DIM>
+void BoundaryConditions<T, DIM>::resolve_coefficient_boundaries(Coefficients& coefficients) const {
+  for (std::size_t l = 0; l < coefficients.size(); l++) {
+    auto& coef = coefficients[l];
+    const auto& names = coef.get_bdr_names_coef();
+    if (names.empty()) continue;
+
+    const auto given_ids = coef.get_bdr_index_coef();
+    std::set<int> ids(given_ids.begin(), given_ids.end());
+    for (const auto& name : names) {
+      const auto& named_ids = this->get_boundary_indices(name);
+      ids.insert(named_ids.begin(), named_ids.end());
+    }
+    coef.set_bdr_index_coef(std::vector<int>(ids.begin(), ids.end()));
+  }
 }
 
 /**

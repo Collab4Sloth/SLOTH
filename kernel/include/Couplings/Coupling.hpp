@@ -91,7 +91,7 @@ class Coupling {
   get_convergence();
   bool need_to_be_saved(const int iteration, const double time) {
     return std::get<0>(this->problems_).need_to_be_saved(iteration, time);
-  };
+  }
   ~Coupling();
 };
 #include "Couplings/Coupling.tpp"

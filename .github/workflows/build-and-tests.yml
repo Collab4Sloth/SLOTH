@@ -212,11 +212,12 @@ jobs:
     - name: CppLint
       if: ${{ always() }}
       continue-on-error: true
-      run: | 
-        cd ${{ github.workspace }}/build
+      # Filters and line length: CPPLINT.cfg (root of the sources, and tests/CPPLINT.cfg), as the
+      # CMake target lint
+      run: |
+        cd ${{ github.workspace }}
         cpplint \
-        --filter=-runtime/references,-build/header_guard,-runtime/string,-build/include \
         --counting=total \
         --extensions=cpp,cxx,hpp,h,hxx,tpp \
-        --linelength=100 \
-        --recursive ../kernel ../tests
+        --exclude=kernel/include/MAToolsProfiling \
+        --recursive kernel tests
