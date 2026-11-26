@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::tuple<std::string, double>> vect_radius{
       std::make_tuple("099", 0.99),
       std::make_tuple("1", 1),
-      std::make_tuple("101", 101),
+      std::make_tuple("101", 1.01),
   };
   for (const auto& tup_radius : vect_radius) {
     const int NN = 256;
