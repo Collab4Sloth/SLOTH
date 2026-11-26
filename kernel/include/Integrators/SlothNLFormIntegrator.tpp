@@ -1083,8 +1083,9 @@ void SlothNLFormIntegrator<VARS>::prepare_on_mesh(Coefficient& coef, const int v
                                                   const unsigned int jacobian_outputs,
                                                   const std::vector<mfem::ParGridFunction>& aux_gf,
                                                   const ValuesAt values_at) {
-  // Constant coefficient or coefficient from a file: no values at the points needed
-  if (coef.is_scalar() || coef.is_file()) {
+  // Constant coefficient, coefficient from a file or variational coefficient (evaluated by
+  // variational_at_points): no values at the points needed
+  if (coef.is_scalar() || coef.is_file() || coef.is_variational()) {
     return;
   }
   // No evaluation structure: evaluated with the values at the points of the element
