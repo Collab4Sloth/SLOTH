@@ -64,8 +64,6 @@ TimeCHNLFormIntegrator<VARS>::TimeCHNLFormIntegrator(
     : SlothNLFormIntegrator<VARS>(geometry, time_step, u_old, aux_old, params, auxvars,
                                   coefficients) {
   this->integrator_name_ = "SplitTimeDerivative";
-
-  this->check_variables_consistency();
 }
 
 /**
@@ -95,32 +93,6 @@ void TimeCHNLFormIntegrator<VARS>::init() {
 
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
-  }
-}
-
-/**
- * @brief  Check variables consistency
- *
- * @tparam VARS Template parameter defining the variables used
- *              in the integrator.
- */
-template <class VARS>
-void TimeCHNLFormIntegrator<VARS>::check_variables_consistency() {
-  // Temperature scaling for mobility
-  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_infos_[i];
-    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    size_t vsize = variable_info.size();
-
-    MFEM_VERIFY(vsize >= 1,
-                "TimeCHNLFormIntegrator<VARS>: at least "
-                "one additionnal information is expected for auxiliary variables associated with "
-                "this integrator");
-    const std::string& symbol = toUpperCase(variable_info.back());
-    if (symbol == "T") {
-      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      break;
-    }
   }
 }
 
@@ -212,9 +184,8 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       // Implicit coefficient: evaluated at the end of the step (phi = phi_old + dt dphi/dt)
-      const double coef_a =
-          this->eval_coefficient(this->coefficient_A[blk], this->values_at_end_of_step(ipv.u),
-                                 ipv.aux);
+      const double coef_a = this->eval_coefficient(this->coefficient_A[blk],
+                                                   this->values_at_end_of_step(ipv.u), ipv.aux);
       const double ww = coef_a * phi * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }

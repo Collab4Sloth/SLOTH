@@ -49,11 +49,8 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
   mfem::Vector Psi;
 
-  void check_variables_consistency();
-
  protected:
   std::vector<mfem::ParGridFunction> vaux_gf_;
-  std::vector<mfem::ParGridFunction> temp_gf_;
   std::list<GlossaryType> expected_list_;
   Coefficients coefficient_A;
   Coefficients coefficient_B;

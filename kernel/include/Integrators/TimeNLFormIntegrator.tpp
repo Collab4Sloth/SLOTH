@@ -100,32 +100,6 @@ void TimeNLFormIntegrator<VARS>::init() {
 }
 
 /**
- * @brief  Check variables consistency
- *
- * @tparam VARS Template parameter defining the variables used
- *              in the integrator.
- */
-template <class VARS>
-void TimeNLFormIntegrator<VARS>::check_variables_consistency() {
-  // Temperature scaling for mobility
-  for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
-    const auto& variable_info = this->aux_infos_[i];
-    MFEM_VERIFY(!variable_info.empty(), "Empty variable_info encountered.");
-    size_t vsize = variable_info.size();
-
-    MFEM_VERIFY(vsize >= 1,
-                "TimeNLFormIntegrator<VARS>: at least "
-                "one additionnal information is expected for auxiliary variables associated with "
-                "this integrator");
-    const std::string& symbol = toUpperCase(variable_info.back());
-    if (symbol == "T") {
-      this->temp_gf_.emplace_back(std::move(this->aux_gf_[i]));
-      break;
-    }
-  }
-}
-
-/**
  * @brief Retrieve and store the coefficients required by the TimeDerivative integrator.
  *
  * This method collects two default coefficients:
