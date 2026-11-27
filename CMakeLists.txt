@@ -16,7 +16,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # (with their description) by "cmake -LH" or "ccmake".
 # envSloth.sh sets them through -D... (see its command-line options).
 option(SLOTH_USE_SHARED   "Build Sloth as a shared library (default: static)" OFF)
-option(SLOTH_USE_EXPRTK   "Enable ExprTk (analytical expressions parsed at runtime)" OFF)
 option(SLOTH_USE_VORO     "Enable Voro++ (Voronoi tessellations)" OFF)
 option(SLOTH_USE_LIBTORCH "Enable the LibTorch API" OFF)
 option(SLOTH_USE_EXTERNAL "Link Sloth with an external library (EXT_LIBDIR, EXT_LIBNAME)" OFF)

@@ -2,7 +2,6 @@
  * @file SlothBaseCoefficient.hpp
  * @author Clément Introïni (clement.introini@cea.fr)
  * @brief Base class definining a coefficient from an analytical formula
- * @remark Depends on ExprTk library (MIT license)
  * @version 0.1
  * @date 2025-11-06
  *
