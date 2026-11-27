@@ -114,7 +114,8 @@ RobinNLFormIntegrator<VARS>::RobinNLFormIntegrator(
 /**
  * @brief Initialize the integrator.
  *
- * This method retrieves and stores the coefficients, or raises an error if they were not provided.
+ * This method retrieves and stores the coefficients, or raises an error if they were not provided,
+ * and declares a and b evaluated at all the quadrature points of the boundary.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -125,6 +126,14 @@ void RobinNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
   }
+
+  // a and b evaluated at all the quadrature points of the boundary before each assembly, with the
+  // outputs of the residual and of the Jacobian
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  const int blk = static_cast<int>(this->blk_);
+  this->prepare_on_mesh(this->robin_a, blk, value, value | first, this->vaux_gf_);
+  this->prepare_on_mesh(this->robin_b, blk, value, first, this->vaux_gf_);
 }
 
 /**
@@ -158,8 +167,7 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
 
     // Add Robin on the right block
     if (blk == static_cast<int>(blk_)) {
-      const mfem::IntegrationRule* ir =
-          &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+      const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
       // a and b at all the integration points of the boundary element
       this->eval_coefficient_at_points(robin_a, blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                        elfun, this->vaux_gf_, this->robin_a_at_points_);
@@ -219,8 +227,7 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
 
     // Add Robin on the right block
     if (blk == static_cast<int>(blk_)) {
-      const mfem::IntegrationRule* ir =
-          &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+      const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
       // a, da/du and db/du at all the integration points of the boundary element
       this->eval_coefficient_at_points(
           robin_a, blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk], Tr,

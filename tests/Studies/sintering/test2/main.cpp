@@ -18,8 +18,7 @@
 ///---------------
 int main(int argc, char* argv[]) {
   setVerbosity(Verbosity::Verbose);   // output level
-  mfem::Mpi::Init(argc, argv);        // MPI
-  mfem::Hypre::Init();                // Hypre solvers
+  Sloth::Init(argc, argv);            // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   Profiling::getInstance().enable();  // Profiling
   using namespace Sloth2D;            // dim., aliases
 
@@ -120,7 +119,6 @@ int main(int argc, char* argv[]) {
       });
 
   auto ch_initial_condition_1 = AnalyticalFunctions<DIM>(ch_initial_condition);
-  double mu_initial_condition = 0.0;
   auto ch_v1 = VAR(&spatial, ch_bcs, "c", Glossary::PhaseField, 2, ch_initial_condition);
   ch_v1.set_additional_information("c");
   auto ch_v2 = VAR(&spatial, ch_bcs, "mu", Glossary::ChemicalPotential, 2, ch_initial_condition_mu);
@@ -569,7 +567,6 @@ int main(int argc, char* argv[]) {
       Parameter("specialized_frequency", specialized_frequency),
       Parameter("enable_compute_energies", true),
       Parameter("integral_to_compute", map_threshold_integral));
-  bool vtk_unified = false;
 
   // Post-processing object (unified) associated with a mesh
   auto unified_pst = PST(&spatial, param_unified_pst);

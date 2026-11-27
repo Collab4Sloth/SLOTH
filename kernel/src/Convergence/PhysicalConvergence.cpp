@@ -90,12 +90,15 @@ PhysicalConvergence::getRelativeMax(const double& given_criterion) {
   return std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>(
       [given_criterion](const mfem::Vector& x, const mfem::Vector& xn) {
         // Maximum of the relative differences, element per element (0 for empty vectors,
-        // e.g. a rank without dof: the criterion is then reduced over the ranks)
+        // e.g. a rank without dof: the criterion is then reduced over the ranks). Values read on
+        // the host (copied from the device if needed)
         constexpr double epsilon = 1.e-12;
+        const mfem::real_t* h_x = x.HostRead();
+        const mfem::real_t* h_xn = xn.HostRead();
         double criterion = 0.;
         for (int i = 0; i < x.Size(); ++i) {
-          criterion =
-              std::max(criterion, std::abs(x(i) - xn(i)) / std::max(epsilon, std::abs(xn(i))));
+          criterion = std::max(criterion,
+                               std::abs(h_x[i] - h_xn[i]) / std::max(epsilon, std::abs(h_xn[i])));
         }
         return std::make_tuple(criterion < given_criterion, criterion);
       });
@@ -113,10 +116,13 @@ PhysicalConvergence::getAbsoluteMax(const double& given_criterion) {
   return std::function<std::tuple<bool, double>(const mfem::Vector&, const mfem::Vector&)>(
       [given_criterion](const mfem::Vector& x, const mfem::Vector& xn) {
         // Maximum of the absolute differences, element per element (0 for empty vectors,
-        // e.g. a rank without dof: the criterion is then reduced over the ranks)
+        // e.g. a rank without dof: the criterion is then reduced over the ranks). Values read on
+        // the host (copied from the device if needed)
         double criterion = 0.;
+        const mfem::real_t* h_x = x.HostRead();
+        const mfem::real_t* h_xn = xn.HostRead();
         for (int i = 0; i < x.Size(); ++i) {
-          criterion = std::max(criterion, std::abs(x(i) - xn(i)));
+          criterion = std::max(criterion, std::abs(h_x[i] - h_xn[i]));
         }
         return std::make_tuple(criterion < given_criterion, criterion);
       });

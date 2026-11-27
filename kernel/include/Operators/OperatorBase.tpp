@@ -407,7 +407,7 @@ void OperatorBase<T, DIM>::build_rhs_nonlinear_form(const double dt,
   if (this->RHS != nullptr) {
     delete this->RHS;
   }
-  this->RHS = new mfem::ParBlockNonlinearForm(this->fes_);
+  this->RHS = new SlothParBlockNonlinearForm<Variables<T, DIM>>(this->fes_);
   for (const auto& integrator : this->rhs_integrators_) {
     auto integrator_ptr = this->set_nlfi_ptr(dt, integrator, u_vect);
     this->RHS->AddDomainIntegrator(integrator_ptr);
@@ -592,12 +592,12 @@ void OperatorBase<T, DIM>::ComputeIntegral(const int& it, const double& t, const
   Catch_Time_Section("OperatorBase::ComputeIntegral");
 
   mfem::ParGridFunction gf(this->fes_[id_var]);
+  // Values outside [lower_bound, upper_bound] set to zero, on the host
   mfem::Vector u_cut(u.Size());
-  std::transform(u.begin(), u.end(), u_cut.begin(), [&](auto value) {
-    if (value > upper_bound || value < lower_bound) {
-      return 0.0;
-    }
-    return value;
+  const mfem::real_t* h_u = u.HostRead();
+  mfem::real_t* h_cut = u_cut.HostWrite();
+  std::transform(h_u, h_u + u.Size(), h_cut, [&](const mfem::real_t value) {
+    return (value > upper_bound || value < lower_bound) ? mfem::real_t(0) : value;
   });
   gf.SetFromTrueDofs(u_cut);
 
@@ -734,8 +734,10 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
     variable_time_iso_specialized.merge(this->time_iso_specialized_[var_name]);
   }
 
+  // Values at the local dofs (element dofs are local indices), read on the host
   mfem::ParGridFunction gf(this->fes_[var_id]);
   gf.SetFromTrueDofs(u);
+  const mfem::real_t* h_gf = gf.HostRead();
   std::vector<mfem::Vector> iso_points;
 
   for (int i = 0; i < this->fes_[var_id]->GetNE(); i++) {
@@ -751,7 +753,7 @@ void OperatorBase<T, DIM>::ComputeIsoVal(const int& it, const double& t, const d
     for (int j = 0; j < dofs.Size(); j++) {
       // Local dofs of the element: values of the grid function (u holds the true dofs, whose
       // numbering differs from the local one in parallel and on nonconforming meshes)
-      dof_val.emplace_back(gf(dofs[j]) - iso_value);
+      dof_val.emplace_back(h_gf[dofs[j]] - iso_value);
     }
 
     // At least one positive and one negative value

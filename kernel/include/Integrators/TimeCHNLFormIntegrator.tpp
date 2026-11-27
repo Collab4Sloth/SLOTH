@@ -94,6 +94,17 @@ void TimeCHNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
   }
+
+  // A of the equations of mu_i (blocks n + i, coefficient of one variable: c_i) evaluated at the
+  // end of the step at all the quadrature points of the local mesh before each assembly, with the
+  // outputs of the residual and of the Jacobian
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  const int n = static_cast<int>(this->nb_blk_) / 2;
+  for (int off_blk = 0; off_blk < n; ++off_blk) {
+    this->prepare_on_mesh(this->coefficient_A[n + off_blk], off_blk, value, value | first,
+                          this->vaux_gf_, SlothNLBase::ValuesAt::EndOfStep);
+  }
 }
 
 /**
@@ -140,10 +151,12 @@ template <class VARS>
 void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not
+  // needed if the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   // Blocks c_0..c_{n-1}, mu_0..mu_{n-1} (n = 1: phi, mu)
   const int n = el.Size() / 2;
   //////////////////////
@@ -167,8 +180,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Implicit coefficient: evaluated at the end of the step (c = c_old + dt dc/dt), at all the
     // integration points of the element; a coefficient of one variable is a function of c_i
     this->eval_coefficient_at_points(this->coefficient_A[blk], off_blk, SlothNLBase::CoefValue,
@@ -213,10 +225,12 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  // {k, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {k, u_old} and auxiliary fields at the integration points (same rule as below): not
+  // needed if the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   // Blocks c_0..c_{n-1}, mu_0..mu_{n-1} (n = 1: phi, mu)
   const int nb = el.Size();
   const int n = nb / 2;
@@ -234,8 +248,7 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
   for (int off_blk = 0; off_blk < n; ++off_blk) {
     const int blk = n + off_blk;
     Psi.SetSize(el[blk]->GetDof());
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // A and its derivatives at all the integration points of the element, at the end of the step
     this->eval_coefficient_at_points(this->coefficient_A[blk], off_blk,
                                      SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,

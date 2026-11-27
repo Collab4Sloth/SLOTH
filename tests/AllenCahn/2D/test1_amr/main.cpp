@@ -37,8 +37,7 @@ int main(int argc, char* argv[]) {
   // Initialize MPI and HYPRE
   //---------------------------------------
   setVerbosity(Verbosity::Normal);
-  mfem::Mpi::Init(argc, argv);
-  mfem::Hypre::Init();
+  Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   //---------------------------------------
   // Profiling
   Profiling::getInstance().enable();
@@ -175,6 +174,7 @@ int main(int argc, char* argv[]) {
     const mfem::Vector u = phi.get_unknown();
     MFEM_VERIFY(u.Size() == fes->GetTrueVSize(),
                 "AllenCahn2Dtest1AMR: unknown vector and finite element space sizes differ.");
+    const mfem::real_t* h_u = u.HostRead();  // read on the host (copied from the device if needed)
 
     const int nb_bdr = fes->GetParMesh()->bdr_attributes.Max();
     const std::vector<std::pair<int, double>> dirichlet = {{1, phi_right}, {3, phi_left}};
@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
       mfem::Array<int> dofs;
       fes->GetEssentialTrueDofs(marker, dofs);
       for (int k = 0; k < dofs.Size(); k++) {
-        local_err = std::max(local_err, std::abs(u(dofs[k]) - value));
+        local_err = std::max(local_err, std::abs(h_u[dofs[k]] - value));
       }
     }
     double global_err = 0.;

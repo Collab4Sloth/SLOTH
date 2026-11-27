@@ -49,5 +49,6 @@
 #include "Property/PropertyBase.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Time/Time.hpp"
+#include "Utils/SlothInit.hpp"
 #include "Variables/Variable.hpp"
 #include "Variables/Variables.hpp"

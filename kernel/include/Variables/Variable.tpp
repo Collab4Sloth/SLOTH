@@ -549,8 +549,9 @@ void Variable<T, DIM>::set_extrapolated_state(const mfem::Vector& u_tilde) {
   // Truncation in the physical bounds (projection: never increases the extrapolation error)
   if (this->extrapolation_bounds_.has_value()) {
     const auto [lower, upper] = *this->extrapolation_bounds_;
+    mfem::real_t* h_unk = this->unk_.HostReadWrite();
     for (int i = 0; i < this->unk_.Size(); i++) {
-      this->unk_(i) = std::min(std::max(this->unk_(i), lower), upper);
+      h_unk[i] = std::min(std::max(h_unk[i], lower), upper);
     }
   }
   this->uh_.SetFromTrueDofs(this->unk_);

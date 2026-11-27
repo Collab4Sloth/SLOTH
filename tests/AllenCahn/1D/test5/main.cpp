@@ -31,8 +31,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   setVerbosity(Verbosity::Debug);
 
-  mfem::Mpi::Init(argc, argv);
-  mfem::Hypre::Init();
+  Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   //
   //---------------------------------------
   // Profiling

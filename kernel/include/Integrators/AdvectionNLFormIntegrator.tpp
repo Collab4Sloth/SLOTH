@@ -74,6 +74,19 @@ void AdvectionNLFormIntegrator<VARS>::init() {
                                          "NLFormIntegrator: no advected variable (Velocity or "
                                          "VelocityPrefactor coefficients are expected). Please "
                                          "check your data.");
+
+  // Velocity components or prefactor evaluated at all the quadrature points of the local mesh
+  // before each assembly (see velocity_at_points)
+  const unsigned int value = SlothNLBase::CoefValue;
+  for (auto& velocity : this->velocity_) {
+    if (velocity.mode() == VelocityField::Mode::Components) {
+      for (int d = 0; d < this->sdim_; ++d) {
+        this->prepare_on_mesh(velocity.component(d), 0, value, value, this->vaux_gf_);
+      }
+    } else if (velocity.active()) {
+      this->prepare_on_mesh(velocity.prefactor(), 0, value, value, this->vaux_gf_);
+    }
+  }
 }
 
 /**
@@ -146,7 +159,9 @@ bool AdvectionNLFormIntegrator<VARS>::velocity_at_points(
   if (!this->same_finite_elements(el)) {
     return false;
   }
-  if (this->needs_aux_) {
+  // {u, u_old} and auxiliary fields at the points: not needed if the velocity is prepared on the
+  // mesh
+  if (this->needs_aux_ && !this->values_prepared_on_mesh(Tr.ElementNo, ir)) {
     this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir);
   }
   const int nip = ir.GetNPoints();

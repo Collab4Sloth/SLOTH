@@ -97,6 +97,8 @@ DiffusionFluxNLFormIntegrator<VARS>::DiffusionFluxNLFormIntegrator(
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the stabilization coefficient evaluated at all the quadrature points of the local
+ *    mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -113,6 +115,12 @@ void DiffusionFluxNLFormIntegrator<VARS>::init() {
   this->get_parameters();
   this->check_coefficient_types(this->expected_list_);
   this->get_coefficients();
+
+  // Stabilization coefficient (block 0) evaluated at all the quadrature points of the local mesh
+  // before each assembly, with the outputs of the residual and of the Jacobian
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  this->prepare_on_mesh(this->stab_diffusion[0], 0, value, value | first, this->vaux_gf_);
 }
 
 /**
@@ -136,10 +144,12 @@ template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not needed if
+  // the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
 
   int blk = 0;
   int nd = el[blk]->GetDof();
@@ -156,8 +166,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementVector(
   mfem::Vector grad_uold;
   grad_uold.SetSize(dim);
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+  const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
 
   // Stabilization coefficient at all the integration points of the element
   this->eval_coefficient_at_points(stab_diffusion[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr,
@@ -210,10 +219,12 @@ template <class VARS>
 void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): not needed if
+  // the coefficients are prepared on the mesh
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  if (!this->values_prepared_on_mesh(Tr.ElementNo, ir_values)) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   int blk = 0;
   int nd = el[blk]->GetDof();
   int dim = el[blk]->GetDim();
@@ -228,8 +239,7 @@ void DiffusionFluxNLFormIntegrator<VARS>::AssembleElementGrad(
   vec = 0.0;
   mfem::Vector grad_u(dim), grad_uold(dim);
 
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+  const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
 
   // Stabilization coefficient and its derivatives at all the integration points of the element
   this->eval_coefficient_at_points(

@@ -77,13 +77,13 @@ void PhaseFieldReducedOperator::Mult(const mfem::Vector& k, mfem::Vector& y) con
   this->RHS_->Mult(z, y);
   this->LHS_->AddMult(k, y);
 
-  // TODO(cci) simplify BCs
-  auto sc_1 = 0;
-  auto sc_2 = this->RHS_->Height() / this->fes_size_;
+  // Dirichlet rows: zero residual
+  const mfem::Array<int>& offsets = this->RHS_->GetBlockTrueOffsets();
   for (int i = 0; i < this->fes_size_; ++i) {
-    mfem::Vector y_i(y.GetData() + sc_1, sc_2);
+    mfem::Vector y_i;
+    y_i.MakeRef(y, offsets[i], offsets[i + 1] - offsets[i]);
     y_i.SetSubVector(ess_tdof_list[i], 0.0);
-    sc_1 += sc_2;
+    y_i.SyncAliasMemory(y);  // y sees the values written into y_i
   }
 }
 
@@ -97,6 +97,7 @@ mfem::Operator& PhaseFieldReducedOperator::GetGradient(const mfem::Vector& k) co
   Jacobian.reset();
 
   add(*unk_, dt_, k, z);
+
   // Gets gradients of RHS_ and LHS_
   mfem::BlockOperator& LHS_grad = this->LHS_->GetGradient(z);
   mfem::BlockOperator& RHS_grad = this->RHS_->GetGradient(z);

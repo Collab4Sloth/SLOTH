@@ -49,13 +49,29 @@ CalphadUtils<T>::CalphadUtils() {}
  * @return size_t
  */
 template <typename T>
-size_t CalphadUtils<T>::get_size(const T &v) {
+size_t CalphadUtils<T>::get_size(const T& v) {
   if constexpr (requires { v.size(); }) {
     return v.size();  // for STL
   } else if constexpr (requires { v.Size(); }) {
     return v.Size();  // for MFEM
   } else {
     static_assert(always_false<T>, "T must have size() or Size()");
+  }
+}
+
+/**
+ * @brief Return the data of the T element, read on the host
+ *
+ * @tparam T
+ * @param v
+ * @return const double* Data of v (MFEM vectors are copied from the device if needed)
+ */
+template <typename T>
+const double* CalphadUtils<T>::host_data(const T& v) {
+  if constexpr (requires { v.HostRead(); }) {
+    return v.HostRead();  // for MFEM
+  } else {
+    return v.data();  // for STL
   }
 }
 
@@ -70,18 +86,22 @@ size_t CalphadUtils<T>::get_size(const T &v) {
  * @return std::vector<int>
  */
 template <typename T>
-std::vector<int> CalphadUtils<T>::sort_nodes(const T &temp, const T &press,
-                                             const std::string &temperature_sort_method,
-                                             const std::string &pressure_sort_method) {
+std::vector<int> CalphadUtils<T>::sort_nodes(const T& temp, const T& press,
+                                             const std::string& temperature_sort_method,
+                                             const std::string& pressure_sort_method) {
   // ===============
   //  Initialization
   // ===============
   std::vector<std::tuple<int, double, double>> sorted_data;
 
+  // Values read on the host (MFEM vectors are copied from the device if needed)
+  const double* h_temp = host_data(temp);
+  const double* h_press = host_data(press);
+
   unsigned int nb_nodes = this->get_size(temp);
 
   for (unsigned int i = 0; i < nb_nodes; i++) {
-    sorted_data.emplace_back(std::make_tuple(i, temp[i], press[i]));
+    sorted_data.emplace_back(std::make_tuple(i, h_temp[i], h_press[i]));
   }
   // ===============
   //  Pressure
@@ -90,7 +110,7 @@ std::vector<int> CalphadUtils<T>::sort_nodes(const T &temp, const T &press,
     case pressure_sort_method::descending: {
       std::sort(
           begin(sorted_data), end(sorted_data),
-          [](const std::tuple<int, double, double> &t1, const std::tuple<int, double, double> &t2) {
+          [](const std::tuple<int, double, double>& t1, const std::tuple<int, double, double>& t2) {
             return std::get<2>(t1) > std::get<2>(t2);
           });
       break;
@@ -98,7 +118,7 @@ std::vector<int> CalphadUtils<T>::sort_nodes(const T &temp, const T &press,
     case pressure_sort_method::ascending: {
       std::sort(
           begin(sorted_data), end(sorted_data),
-          [](const std::tuple<int, double, double> &t1, const std::tuple<int, double, double> &t2) {
+          [](const std::tuple<int, double, double>& t1, const std::tuple<int, double, double>& t2) {
             return std::get<2>(t1) < std::get<2>(t2);
           });
       break;
@@ -123,7 +143,7 @@ std::vector<int> CalphadUtils<T>::sort_nodes(const T &temp, const T &press,
     case temperature_sort_method::descending: {
       std::stable_sort(
           begin(sorted_data), end(sorted_data),
-          [](const std::tuple<int, double, double> &t1, const std::tuple<int, double, double> &t2) {
+          [](const std::tuple<int, double, double>& t1, const std::tuple<int, double, double>& t2) {
             return std::get<1>(t1) > std::get<1>(t2);
           });
       break;
@@ -131,7 +151,7 @@ std::vector<int> CalphadUtils<T>::sort_nodes(const T &temp, const T &press,
     case temperature_sort_method::ascending: {
       std::stable_sort(
           begin(sorted_data), end(sorted_data),
-          [](const std::tuple<int, double, double> &t1, const std::tuple<int, double, double> &t2) {
+          [](const std::tuple<int, double, double>& t1, const std::tuple<int, double, double>& t2) {
             return std::get<1>(t1) < std::get<1>(t2);
           });
       break;
@@ -148,7 +168,7 @@ std::vector<int> CalphadUtils<T>::sort_nodes(const T &temp, const T &press,
     }
   }
   std::vector<int> sorted_nodes;
-  for (const auto &i : sorted_data) {
+  for (const auto& i : sorted_data) {
     sorted_nodes.emplace_back(std::get<0>(i));
   }
   sorted_data.clear();

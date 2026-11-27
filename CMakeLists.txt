@@ -87,6 +87,11 @@ endif()
 include(MFEM4SLOTH)
 
 # ########################
+# # CUDA (MFEM built with CUDA)
+# ########################
+include(CUDA4SLOTH)
+
+# ########################
 # # Compiler options
 # ########################
 include(COMPILE4SLOTH)

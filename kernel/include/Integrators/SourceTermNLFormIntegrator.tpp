@@ -69,6 +69,13 @@ void SourceTermNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
   }
+
+  // Source terms evaluated at all the quadrature points of the local mesh before each assembly,
+  // with the outputs of the residual and of the Jacobian (see source_terms_at_points)
+  for (int b = 0; b < static_cast<int>(this->nb_blk_); ++b) {
+    this->prepare_on_mesh(this->source_term_[b], b, SlothNLBase::CoefValue,
+                          SlothNLBase::CoefFirstDerivative, this->vaux_gf_);
+  }
 }
 
 /**
@@ -190,7 +197,9 @@ bool SourceTermNLFormIntegrator<VARS>::source_terms_at_points(
     return false;
   }
   const int nb = el.Size();
-  if (this->needs_fields_) {
+  // {u, u_old} and auxiliary fields at the points: not needed if the source terms are prepared on
+  // the mesh
+  if (this->needs_fields_ && !this->values_prepared_on_mesh(Tr.ElementNo, ir)) {
     this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir);
   }
   this->source_at_points_.resize(static_cast<std::size_t>(nb));

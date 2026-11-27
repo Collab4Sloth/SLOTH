@@ -1,4 +1,3 @@
-
 /**
  * @file InterDiffusionCoefficient.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
@@ -174,6 +173,12 @@ void InterDiffusionCoefficient::get_property(
       }
     }
   }
+  // The inputs are read on the host below (operator()): copied from the device if needed
+  for (const auto& [component, gf] : this->primary_mob_gf_) gf.HostRead();
+  for (const auto& [component, gf] : this->secondary_mob_gf_) gf.HostRead();
+  for (const auto& [component, gf] : this->x_gf_) gf.HostRead();
+  for (const auto& gf : this->phi_gf_) gf.HostRead();
+
   const int size_gf = this->primary_mob_gf_.at(this->first_component_).Size();
 
   auto mult_vectors = [](const std::vector<double>& v1, const std::vector<double>& v2,

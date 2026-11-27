@@ -102,6 +102,7 @@ void LatentHeatNLFormIntegrator<VARS>::check_variables_consistency() {
  * 1. Verifies that the list of expected coefficient types is not empty.
  * 2. Checks that all coefficients contain the expected types.
  * 3. Retrieves and stores the coefficients internally.
+ * 4. Declares the mobility evaluated at all the quadrature points of the local mesh.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -130,6 +131,20 @@ void LatentHeatNLFormIntegrator<VARS>::init() {
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_old_gf_[i]));
   }
+
+  // Coefficients evaluated at all the quadrature points of the local mesh before each assembly,
+  // with the auxiliary fields at the points (see prepared_values):
+  // - linear form: latent heat L(u), value for the residual and derivatives for the Jacobian,
+  // - dissipative form: mobility for the residual (the Jacobian is zero).
+  const unsigned int value = SlothNLBase::CoefValue;
+  const unsigned int first = SlothNLBase::CoefFirstDerivative;
+  for (int blk = 0; blk < static_cast<int>(this->nb_blk_); ++blk) {
+    if (this->linear_) {
+      this->prepare_on_mesh(this->latent_heat[blk], blk, value, value | first, this->vaux_gf_);
+    } else {
+      this->prepare_on_mesh(this->mobility[blk], blk, value, 0u, this->vaux_gf_);
+    }
+  }
 }
 
 /**
@@ -155,10 +170,13 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  // {u, u_old} and auxiliary fields at the integration points (same rule as below)
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // {u, u_old} and auxiliary fields at the integration points (same rule as below): read in the
+  // values prepared on the mesh if available
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  const auto prepared = this->prepared_values(Tr.ElementNo, ir_values, this->vaux_gf_);
+  if (!prepared) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Catch_Time_Section("LatentHeatNLFormIntegrator:AssembleElementVector");
     int nd = el[blk]->GetDof();
@@ -170,8 +188,7 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
 
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     // Mobility (dissipative form) or latent heat (linear form) at all the integration points
     if (this->linear_) {
       this->eval_coefficient_at_points(latent_heat[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr,
@@ -186,7 +203,9 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+      const std::span<const double> aux =
+          prepared ? prepared->aux_at(static_cast<std::size_t>(i))
+                   : this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr).aux;
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -196,8 +215,8 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
       // Source term on the right-hand side: - source in the residual
       const double source =
           this->linear_
-              ? this->latent_at_points_.value(i) * this->phase_field_time_derivative(ipv.aux)
-              : -this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), ipv.aux);
+              ? this->latent_at_points_.value(i) * this->phase_field_time_derivative(aux)
+              : -this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), aux);
       add(*elvect[blk], -source * weight_coef, Psi, *elvect[blk]);
     }
   }
@@ -235,13 +254,14 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
   if (!this->linear_) return;
 
   // Linear form: - L(u) dphi/dt, derivatives of L with respect to the unknowns
-  this->prepare_element_values(
-      el, Tr, elfun, this->vaux_gf_,
-      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  const mfem::IntegrationRule& ir_values = this->integration_rule(*el[0], Tr);
+  const auto prepared = this->prepared_values(Tr.ElementNo, ir_values, this->vaux_gf_);
+  if (!prepared) {
+    this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, ir_values);
+  }
   for (int blk = 0; blk < num_blocks; ++blk) {
     Psi.SetSize(el[blk]->GetDof());
-    const mfem::IntegrationRule* ir =
-        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    const mfem::IntegrationRule* ir = &this->integration_rule(*el[blk], Tr);
     this->eval_coefficient_at_points(
         latent_heat[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk],
         Tr, *ir, elfun, this->vaux_gf_, this->latent_at_points_);
@@ -249,13 +269,15 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+      const std::span<const double> aux =
+          prepared ? prepared->aux_at(static_cast<std::size_t>(i))
+                   : this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr).aux;
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      const double dphi_dt = this->phase_field_time_derivative(ipv.aux);
+      const double dphi_dt = this->phase_field_time_derivative(aux);
       for (int jblk = 0; jblk < num_blocks; ++jblk) {
         const double d = -this->latent_at_points_.derivative(i, jblk) * dphi_dt * weight_coef;
         if (d == 0.0) continue;

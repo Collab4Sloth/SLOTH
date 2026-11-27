@@ -156,10 +156,17 @@ sloth_add_unit_test(NAME Integrators
                             Integrators/test_NLFormIntegrators.cpp
                     COEFFICIENTS_JSON Integrators/MobilityCoefficients.json)
 
+# Coefficients evaluated at all the quadrature points of the local mesh: own executable, the
+# generated coefficients can be included by one source file only
+sloth_add_unit_test(NAME QuadraturePoints
+                    SOURCES Integrators/test_QuadraturePoints.cpp
+                    COEFFICIENTS_JSON Integrators/MobilityCoefficients.json)
+
 sloth_add_unit_test(NAME Operators
                     SOURCES Operators/test_ReducedOperators.cpp
                             Operators/test_UserIntegrator.cpp
-                            Operators/test_CustomQuantity.cpp)
+                            Operators/test_CustomQuantity.cpp
+                            Operators/test_SlothParBlockNonlinearForm.cpp)
 
 sloth_add_unit_test(NAME Options
                     SOURCES Options/test_Options.cpp

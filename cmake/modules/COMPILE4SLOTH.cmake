@@ -67,7 +67,8 @@ set(MINSIZEREL_OPTIONS "")
 # (gcc-ar, llvm-ar) for the static library. (Previously: -flto at compile
 # time only.)
 set(SLOTH_LTO_ACTIVE FALSE)
-if(SLOTH_ENABLE_LTO AND CMAKE_BUILD_TYPE MATCHES "^(Release|MinSizeRel)$")
+# Not with CUDA (sources compiled by nvcc)
+if(SLOTH_ENABLE_LTO AND NOT MFEM_USE_CUDA AND CMAKE_BUILD_TYPE MATCHES "^(Release|MinSizeRel)$")
   include(CheckIPOSupported)
   check_ipo_supported(RESULT _sloth_ipo_ok OUTPUT _sloth_ipo_msg LANGUAGES CXX)
   if(_sloth_ipo_ok)
@@ -84,33 +85,36 @@ set(COVERAGE_OPTIONS -g -O0 --coverage)
 set(COVERAGE_LINK_OPTIONS --coverage)
 
 # Function called at each build 
+# With CUDA (MFEM built with CUDA), the C++ sources of the target are compiled by nvcc and the
+# options below are given to the host compiler (see CUDA4SLOTH.cmake).
 function(set_compile_options CURRENT_EXE)
+    sloth_cuda_target(${CURRENT_EXE})
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${DEBUG_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${DEBUG_OPTIONS})
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "Optim")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${OPTIM_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${OPTIM_OPTIONS})
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${RELEASE_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${RELEASE_OPTIONS})
         if(SLOTH_LTO_ACTIVE)
             set_property(TARGET ${CURRENT_EXE} PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
         endif()
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "PortableRelease")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${PORTABLE_REL_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${PORTABLE_REL_OPTIONS})
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${RELEASEWITHDEBINFO_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${RELEASEWITHDEBINFO_OPTIONS})
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${MINSIZEREL_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${MINSIZEREL_OPTIONS})
         if(SLOTH_LTO_ACTIVE)
             set_property(TARGET ${CURRENT_EXE} PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
         endif()
 
     elseif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-        target_compile_options(${CURRENT_EXE} PRIVATE ${COVERAGE_OPTIONS})
+        sloth_host_options(${CURRENT_EXE} ${COVERAGE_OPTIONS})
         # --coverage at link time pulls the coverage runtime (libgcov with GCC,
         # profile runtime with Clang): no explicit -lgcov (absent with AppleClang)
         set_target_properties(${CURRENT_EXE} PROPERTIES LINK_FLAGS ${COVERAGE_LINK_OPTIONS})

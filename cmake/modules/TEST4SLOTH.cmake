@@ -77,3 +77,19 @@ function(create_test exe_name test_name test_will_fail test_label test_cpu)
   add_dependencies(tests ${CURRENT_EXE})
 
 endfunction(create_test)
+
+# COEFFICIENTS generated from a JSON file
+# The SLOTH generator (Sloth_COEFFICIENT_SCRIPT, run with Python3_EXECUTABLE) writes the classes
+# of json_file, with their first and second derivatives, in
+# <build dir of the test>/<header_name>.hpp (header_name: "outputfile" of the JSON file).
+# The header is regenerated at build time whenever the JSON file changes.
+function(add_generated_coefficients target json_file header_name)
+  set(header ${CMAKE_CURRENT_BINARY_DIR}/${header_name}.hpp)
+  add_custom_command(
+    OUTPUT ${header}
+    COMMAND ${Python3_EXECUTABLE} ${Sloth_COEFFICIENT_SCRIPT} -r -f ${json_file}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS ${json_file}
+    COMMENT "Generating ${header_name}.hpp from ${json_file}")
+  target_sources(${target} PRIVATE ${header})
+endfunction(add_generated_coefficients)

@@ -48,12 +48,25 @@
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
+/// mfem::TimeDependentOperator whose size can be updated by the derived operators (after a
+/// mesh change), without ambiguity with the other mfem::Operator base of TransientOperator
+class SlothTimeDependentOperator : public mfem::TimeDependentOperator {
+ public:
+  using mfem::TimeDependentOperator::TimeDependentOperator;
+
+ protected:
+  void set_time_dependent_size(const int h, const int w) {
+    this->height = h;
+    this->width = w;
+  }
+};
+
 /**
  * @brief TransientOperator class
  *
  */
 template <class T, int DIM>
-class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependentOperator {
+class TransientOperator : public OperatorBase<T, DIM>, SlothTimeDependentOperator {
  private:
   double solve_time_step_{std::numeric_limits<double>::quiet_NaN()};
   std::shared_ptr<mfem::ODESolver> ode_solver_;
@@ -151,7 +164,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   std::vector<std::shared_ptr<LSolver>> mass_solvers_;  // one mass solver per block
   std::vector<VSharedMFEMSolver> M_solver_;  // Krylov solver for inverting the mass matrix M
   /// Left-Hand-Side
-  mfem::ParBlockNonlinearForm* LHS;
+  SlothParBlockNonlinearForm<Variables<T, DIM>>* LHS;
 
   std::vector<mfem::HypreParMatrix*> Mmat_;
 

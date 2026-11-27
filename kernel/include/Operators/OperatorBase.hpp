@@ -43,6 +43,7 @@
 #include "Extensions/UserIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
+#include "Operators/SlothParBlockNonlinearForm.hpp"
 #include "Options/Options.hpp"
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
@@ -89,7 +90,7 @@ class OperatorBase : public mfem::Operator {
   mfem::Array<int> block_trueOffsets_;
 
   /// Right-Hand-Side
-  mfem::ParBlockNonlinearForm* RHS;
+  SlothParBlockNonlinearForm<Variables<T, DIM>>* RHS;
 
   NLSolver* rhs_solver_;
   std::shared_ptr<mfem::NewtonSolver> newton_solver_;

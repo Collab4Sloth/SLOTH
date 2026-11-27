@@ -18,8 +18,7 @@
 ///---------------
 int main(int argc, char* argv[]) {
   setVerbosity(Verbosity::Verbose);   // output level
-  mfem::Mpi::Init(argc, argv);        // MPI
-  mfem::Hypre::Init();                // Hypre solvers
+  Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   Profiling::getInstance().enable();  // Profiling
   using namespace Sloth3D;            // dim., aliases
 

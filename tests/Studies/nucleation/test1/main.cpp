@@ -28,8 +28,7 @@ int main(int argc, char* argv[]) {
   //---------------------------------------
   setVerbosity(Verbosity::Quiet);
 
-  mfem::Mpi::Init(argc, argv);
-  mfem::Hypre::Init();
+  Sloth::Init(argc, argv);  // MPI, HYPRE and device (--device=..., SLOTH_DEVICE)
   //
   //---------------------------------------
   // Profiling start
@@ -49,7 +48,7 @@ int main(int argc, char* argv[]) {
   std::vector<std::tuple<std::string, double>> vect_radius{
       std::make_tuple("099", 0.99),
       std::make_tuple("1", 1),
-      std::make_tuple("101", 101),
+      std::make_tuple("101", 1.01),
   };
   for (const auto& tup_radius : vect_radius) {
     const int NN = 256;
@@ -82,10 +81,6 @@ int main(int argc, char* argv[]) {
     const double rstar = 5.0;
     const double rro = rstar * std::get<1>(tup_radius);
     const double DeltaF = -std::sqrt(2.0) / (6.0 * rstar);
-    //  Interface thickness
-    const double epsilon(1.);
-    // Interfacial energy
-    const double sigma(1.);
     // Two-phase mobility
     const double mob(1.);
     const double lambda = 1.;

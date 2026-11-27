@@ -283,8 +283,6 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
                             const double a, const mfem::Vector& Psi,
                             const mfem::DenseMatrix& gradPsi, mfem::DenseMatrix& mat);
 
- private:
-  // Steps of eval_coefficient_at_points
   /// Values {u, u_old} and auxiliary fields at the integration points of an element
   struct ElementValues {
     std::span<const double> u_uold;  ///< [u_0..u_{nb-1}, u_old_0..u_old_{nb-1}] at each point
@@ -302,19 +300,95 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
     }
   };
 
+  /// Integration rule of the element: the one of the assembly, used to prepare the coefficients
+  /// on the local mesh (default: order 2 p + order of the transformation)
+  virtual const mfem::IntegrationRule& integration_rule(const mfem::FiniteElement& fe,
+                                                        mfem::ElementTransformation& Tr) const;
+  void prepare_on_mesh(Coefficient& coef, const int var_blk, const unsigned int residual_outputs,
+                       const unsigned int jacobian_outputs,
+                       const std::vector<mfem::ParGridFunction>& aux_gf,
+                       const ValuesAt values_at = ValuesAt::Unknowns);
+  bool values_prepared_on_mesh(const int elem, const mfem::IntegrationRule& ir) const;
+  std::optional<ElementValues> prepared_values(const int elem, const mfem::IntegrationRule& ir,
+                                               const std::vector<mfem::ParGridFunction>& aux_gf,
+                                               const ValuesAt values_at = ValuesAt::Unknowns) const;
+  bool read_prepared_coefficient(const Coefficient& coef, const int var_blk,
+                                 const unsigned int outputs,
+                                 const std::vector<mfem::ParGridFunction>& aux_gf,
+                                 const ValuesAt values_at, const int elem,
+                                 const mfem::IntegrationRule& ir, CoefficientAtPoints& out) const;
+
+ private:
+  // Steps of eval_coefficient_at_points
+
   ElementValues values_at_points(const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr,
                                  const mfem::IntegrationRule& ir,
                                  const mfem::Array<const mfem::Vector*>& elfun,
                                  const std::vector<mfem::ParGridFunction>& aux_gf,
                                  const ValuesAt values_at);
   bool eval_by_batch(const Coefficient& coef, const int var_blk, const unsigned int outputs,
-                     mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
-                     const ElementValues& values, CoefficientAtPoints& out);
+                     const int npts, const ElementValues& values,
+                     const std::span<const double>& coordinates, CoefficientAtPoints& out);
   void eval_point_by_point(Coefficient& coef, const int var_blk, const unsigned int outputs,
                            mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
                            const ElementValues& values, CoefficientAtPoints& out);
   void eval_file_at_points(const Coefficient& coef, mfem::ElementTransformation& Tr,
                            const mfem::IntegrationRule& ir, CoefficientAtPoints& out);
+
+  // Evaluation at all the quadrature points of the local mesh (see prepare_quadrature_points)
+  /// Coefficient declared with prepare_on_mesh and its values at the points of the local mesh.
+  /// Vectors on the host or on the device (mfem::Vector), point by point: value F[q], derivatives
+  /// with respect to the blocks dF[q nb + b], d2F[(q nb + i) nb + j] (see CoefficientAtPoints).
+  struct MeshCoefficient {
+    const Coefficient* coef = nullptr;
+    int var_blk = 0;
+    unsigned int residual_outputs = 0;
+    unsigned int jacobian_outputs = 0;
+    const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
+    ValuesAt values_at = ValuesAt::Unknowns;
+    unsigned int prepared_outputs = 0;     ///< outputs available (0: not prepared)
+    int nb = 0;                            ///< number of blocks
+    bool is_explicit = false;              ///< explicit coefficient
+    mfem::Vector values, explicit_values;  ///< variables given to the coefficient at the points
+    mfem::Vector F;                        ///< value at the points
+    mfem::Vector gradient, hessian;        ///< derivatives with respect to its variables
+    mfem::Vector dF, d2F;                  ///< derivatives with respect to the blocks
+  };
+  /// {u, u_old} and auxiliary fields at all the points of the local mesh (layout of ElementValues),
+  /// on the host or on the device (mfem::Vector)
+  struct MeshValues {
+    const std::vector<mfem::ParGridFunction>* aux_gf = nullptr;
+    ValuesAt values_at = ValuesAt::Unknowns;
+    std::size_t nb = 0;  ///< number of blocks
+    bool used = false;   ///< used by a coefficient for the current assembly (prepared)
+    mfem::Vector u_uold;
+    mfem::Vector aux;
+  };
+  std::vector<MeshCoefficient> mesh_coefficients_;
+  bool mesh_prepared_ = false;  ///< values prepared for the current assembly
+  /// A declared coefficient is evaluated during the assembly with the values at the points of
+  /// the element (no evaluation structure): see values_prepared_on_mesh
+  bool mesh_needs_element_values_ = false;
+  std::vector<MeshValues> mesh_values_;
+  std::vector<const mfem::IntegrationRule*> mesh_rules_;  ///< rule of each element (nullptr: none)
+  std::vector<std::size_t> mesh_offsets_;  ///< first point of each element (size: elements + 1)
+  mfem::Vector mesh_coordinates_;          ///< physical coordinates of the points (dim per point)
+  mfem::Array<int> mesh_vdofs_;            ///< work data of prepare_quadrature_points
+  std::vector<mfem::Vector> mesh_elfun_;   ///< element dofs of each block
+  // Work data of values_by_interpolation
+  mfem::Vector mesh_e_vec_;                ///< dofs element by element (E-vector)
+  std::vector<mfem::Vector> mesh_q_u_;     ///< u of each block at the points
+  std::vector<mfem::Vector> mesh_q_uold_;  ///< u_old of each block at the points (once)
+  const mfem::IntegrationRule* mesh_q_uold_ir_ = nullptr;  ///< rule of mesh_q_uold_
+  std::vector<mfem::Vector> mesh_q_aux_;                   ///< auxiliary fields at the points
+  void values_by_element(const mfem::Array<mfem::FiniteElementSpace*>& fes,
+                         const mfem::BlockVector& x, const mfem::Array<int>* bdr_marker,
+                         const bool coordinates);
+  bool values_by_interpolation(const mfem::Array<mfem::FiniteElementSpace*>& fes,
+                               const mfem::BlockVector& x, const bool coordinates);
+  void eval_on_mesh(MeshCoefficient& m, const unsigned int outputs, const MeshValues& values);
+  std::span<const double> element_coordinates(mfem::ElementTransformation& Tr,
+                                              const mfem::IntegrationRule& ir);
 
  protected:
   // Integrators of the time derivative: their unknown is k = du/dt, and u at the end of the
@@ -358,6 +432,22 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   /// Physical time step of the current step (see physical_time_step_)
   void set_physical_time_step(const double dt);
   double get_physical_time_step() const;
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Coefficients evaluated at all the quadrature points of the local mesh, before the assembly
+  //////////////////////////////////////////////////////////////////////////////
+  /// Assembly for which the coefficients are prepared
+  enum class Assembly {
+    Residual,  ///< Mult: outputs of the residual
+    Jacobian   ///< GetGradient: outputs of the Jacobian
+  };
+  /// True if values are prepared at the quadrature points of the local mesh before each assembly:
+  /// by default, if coefficients are declared with prepare_on_mesh
+  virtual bool uses_quadrature_points() const { return !this->mesh_coefficients_.empty(); }
+  virtual void prepare_quadrature_points(const mfem::Array<mfem::FiniteElementSpace*>& fes,
+                                         const mfem::BlockVector& x, const Assembly assembly,
+                                         const mfem::Array<int>* bdr_marker);
+  virtual void clear_quadrature_points();
 
   virtual std::vector<std::pair<int, int>> time_derivative_map() const { return {}; }
   virtual void init() = 0;
