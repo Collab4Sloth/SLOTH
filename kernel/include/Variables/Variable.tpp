@@ -366,7 +366,8 @@ bool Variable<T, DIM>::isInitialConditionReprojectable() const {
  *          interpolated solution on the refined mesh is replaced by a
  *          fresh, exact evaluation of the initial condition instead of
  *          the (possibly less accurate) interpolation of the previous,
- *          coarser-mesh values. The multi-timestep history is reset to it.
+ *          coarser-mesh values. The multi-timestep history is reset to it,
+ *          which is why it can only be called before the first time update.
  *          Aborts with a clear error if the initial condition is not
  *          reprojectable (read from a file) or depends on other variables
  *          (use `setInitialCondition(gridfunctions)` instead).
@@ -376,6 +377,9 @@ bool Variable<T, DIM>::isInitialConditionReprojectable() const {
  */
 template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition() {
+  MFEM_VERIFY(this->nb_updates_ == 0,
+              "setInitialCondition(): variable '" + this->variable_name_ +
+                  "' has already been advanced in time: its history cannot be reset.");
   MFEM_VERIFY(this->isInitialConditionReprojectable(),
               "setInitialCondition() called without argument, but the initial condition of "
               "variable '" +
@@ -400,6 +404,9 @@ void Variable<T, DIM>::setInitialCondition() {
 template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition(
     const std::map<std::string, mfem::ParGridFunction*>& gridfunctions) {
+  MFEM_VERIFY(this->nb_updates_ == 0,
+              "setInitialCondition(): variable '" + this->variable_name_ +
+                  "' has already been advanced in time: its history cannot be reset.");
   MFEM_VERIFY(this->isInitialConditionReprojectable(),
               "setInitialCondition(): the initial condition of variable '" +
                   this->getVariableName() + "' cannot be reprojected (read from a file).");
