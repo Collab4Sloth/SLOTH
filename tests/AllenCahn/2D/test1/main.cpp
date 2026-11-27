@@ -146,10 +146,10 @@ int main(int argc, char* argv[]) {
                        Parameter("iter_max", 1000)));
 #ifdef SLOTH_USE_MUMPS
         if (NN == 30) {
+          // mat_type 1: SYMMETRIC_POSITIVE_DEFINITE, reordering_strategy 0: AUTOMATIC
           oper.overload_solver(DirectSolverType::MUMPS,
-                               Parameters(Parameter("mat_type", 1),  // SYMMETRIC_POSITIVE_DEFINITE
-                                          Parameter("reordering_strategy", 0)  // AUTOMATIC
-                                          ));
+                               Parameters(Parameter("mat_type", 1),
+                                          Parameter("reordering_strategy", 0)));
           oper.overload_preconditioner(PreconditionerType::NO);
         } else {
           oper.overload_solver(HypreSolverType::HYPRE_GMRES);

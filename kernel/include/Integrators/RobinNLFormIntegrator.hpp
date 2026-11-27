@@ -47,8 +47,15 @@
 template <class VARS>
 class RobinNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi;
+
+  /// Coefficients a and b at the integration points of the current boundary element (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints robin_a_at_points_, robin_b_at_points_;
 
  protected:
   std::vector<mfem::ParGridFunction> vaux_gf_;

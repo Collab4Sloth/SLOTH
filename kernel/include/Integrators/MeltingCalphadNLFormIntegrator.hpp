@@ -25,12 +25,14 @@
  */
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "Coefficients/AuxiliaryCoefficient.hpp"
 #include "Integrators/MeltingBaseNLFormIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
@@ -38,6 +40,41 @@
 #include "Parameters/Parameters.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
+
+/**
+ * @brief Phase change of MeltingCalphadNLFormIntegrator: melting factor times the difference
+ * of the driving forces of the secondary and primary phases, zero if one of them is zero
+ * (|dgm| <= 1e-12).
+ */
+struct MeltingCalphadPhaseChangeEval {
+  static constexpr int nb_variables = 1;
+  static constexpr int nb_explicit_variables = 0;
+  static constexpr int nb_auxiliary_variables = 0;  ///< read by index: see max_auxiliary_index
+  static constexpr int nb_coordinates = 0;
+  int primary_index = 0;    ///< index of the driving force of the primary phase
+  int secondary_index = 0;  ///< index of the driving force of the secondary phase
+  double melting_factor = 1.0;
+
+  int max_auxiliary_index() const { return std::max(primary_index, secondary_index); }
+
+  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,
+                                   [[maybe_unused]] const double* explicit_values,
+                                   const double* auxiliary_values,
+                                   [[maybe_unused]] const double* coordinates,
+                                   [[maybe_unused]] const double time, double* F, double* gradient,
+                                   double* hessian) const {
+    if (F != nullptr) {
+      const double primary_dgm = auxiliary_values[primary_index];
+      const double secondary_dgm = auxiliary_values[secondary_index];
+      constexpr double epsilon = 1.e-12;
+      *F = (fabs(primary_dgm) > epsilon && fabs(secondary_dgm) > epsilon)
+               ? melting_factor * (secondary_dgm - primary_dgm)
+               : 0.;
+    }
+    if (gradient != nullptr) gradient[0] = 0.0;
+    if (hessian != nullptr) hessian[0] = 0.0;
+  }
+};
 
 /**
  * @brief Class dedicated to the VF of Calphad melting contribution found in Allen-Cahn-type
@@ -65,12 +102,8 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
 
   void check_nucleus();
 
- protected:
-  double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
-                                const std::span<const double>& aux_values) override;
-
-  double get_seed_at_ip(unsigned int blk, const std::span<const double>& values,
-                        const std::span<const double>& aux_values) override;
+  mfem::Vector Psi_;
+  double get_seed_at_ip(const std::span<const double>& aux_values) const;
 
  public:
   MeltingCalphadNLFormIntegrator(Geometry geometry, const double time_step,
@@ -78,6 +111,11 @@ class MeltingCalphadNLFormIntegrator : public MeltingBaseNLFormIntegrator<VARS> 
                                  const std::vector<mfem::ParGridFunction>& aux_old,
                                  const Parameters& params, std::vector<VARS*> auxvars,
                                  const std::vector<Coefficients>& coefficients);
+
+  void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
+                             mfem::ElementTransformation& Tr,
+                             const mfem::Array<const mfem::Vector*>& elfun,
+                             const mfem::Array<mfem::Vector*>& elvec) override;
 
   virtual ~MeltingCalphadNLFormIntegrator() = default;
 };

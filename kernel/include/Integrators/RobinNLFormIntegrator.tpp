@@ -149,8 +149,6 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip;
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Set all blocks to zero
     int nd = el[blk]->GetDof();
@@ -162,6 +160,11 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
     if (blk == static_cast<int>(blk_)) {
       const mfem::IntegrationRule* ir =
           &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+      // a and b at all the integration points of the boundary element
+      this->eval_coefficient_at_points(robin_a, blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                       elfun, this->vaux_gf_, this->robin_a_at_points_);
+      this->eval_coefficient_at_points(robin_b, blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                       elfun, this->vaux_gf_, this->robin_b_at_points_);
 
       // Loop over integration points
       for (int i = 0; i < ir->GetNPoints(); i++) {
@@ -169,28 +172,14 @@ void RobinNLFormIntegrator<VARS>::AssembleElementVector(
 
         el[blk]->CalcShape(ip, Psi);
         this->set_int_point(Tr, ip);
-
-        // Get aux values at ip TODO(cci) (move in method)
-        vaux_gf_at_ip.clear();
-        for (const auto& aux_gf : vaux_gf_) {
-          vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-        }
-        // Get values
-        for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-          u_values[off_blk] = (*elfun[off_blk]) * Psi;
-          u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-        }
+        const double u = (*elfun[blk]) * Psi;
 
         double weight_coef = ip.weight * Tr.Weight();
         if (this->isAxisymmetric()) {
           weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
         }
-        const double val =
-            weight_coef * (this->eval_coefficient(robin_a, std::span<const double>(u_values),
-                                                  std::span<const double>(vaux_gf_at_ip), blk) *
-                               u_values[blk] -
-                           this->eval_coefficient(robin_b, std::span<const double>(u_values),
-                                                  std::span<const double>(vaux_gf_at_ip), blk));
+        const double val = weight_coef * (this->robin_a_at_points_.value(i) * u -
+                                          this->robin_b_at_points_.value(i));
 
         add(*elvect[blk], val, Psi, *elvect[blk]);
       }
@@ -219,8 +208,6 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array2D<mfem::DenseMatrix*>& elmat) {
   int num_blocks = el.Size();
-  std::vector<double> u_values(2 * num_blocks);
-  std::vector<double> vaux_gf_at_ip;
   for (int blk = 0; blk < num_blocks; ++blk) {
     // Set all blocks to zero
     int nd = el[blk]->GetDof();
@@ -234,21 +221,17 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
     if (blk == static_cast<int>(blk_)) {
       const mfem::IntegrationRule* ir =
           &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+      // a, da/du and db/du at all the integration points of the boundary element
+      this->eval_coefficient_at_points(
+          robin_a, blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk], Tr,
+          *ir, elfun, this->vaux_gf_, this->robin_a_at_points_);
+      this->eval_coefficient_at_points(robin_b, blk, SlothNLBase::CoefFirstDerivative, *el[blk], Tr,
+                                       *ir, elfun, this->vaux_gf_, this->robin_b_at_points_);
 
       for (int i = 0; i < ir->GetNPoints(); i++) {
         const mfem::IntegrationPoint& ip = ir->IntPoint(i);
         el[blk]->CalcShape(ip, Psi);
-
-        // Get aux values at ip TODO(cci) (move in method)
-        vaux_gf_at_ip.clear();
-        for (const auto& aux_gf : vaux_gf_) {
-          vaux_gf_at_ip.emplace_back(std::move(aux_gf.GetValue(Tr, ip)));
-        }
-        // Get values
-        for (int off_blk = 0; off_blk < num_blocks; ++off_blk) {
-          u_values[off_blk] = (*elfun[off_blk]) * Psi;
-          u_values[off_blk + num_blocks] = this->u_old_[off_blk].GetValue(Tr, ip);
-        }
+        const double u = (*elfun[blk]) * Psi;
 
         this->set_int_point(Tr, ip);
         double weight_coef = ip.weight * Tr.Weight();
@@ -258,13 +241,8 @@ void RobinNLFormIntegrator<VARS>::AssembleElementGrad(
 
         // d/du (a(u) u - b(u)) = a + a'(u) u - b'(u)
         const double coeff_robin =
-            (this->eval_coefficient(robin_a, std::span<const double>(u_values),
-                                    std::span<const double>(vaux_gf_at_ip), blk) +
-             this->eval_gradient_coefficient(robin_a, blk, std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip), blk) *
-                 u_values[blk] -
-             this->eval_gradient_coefficient(robin_b, blk, std::span<const double>(u_values),
-                                             std::span<const double>(vaux_gf_at_ip), blk)) *
+            (this->robin_a_at_points_.value(i) + this->robin_a_at_points_.derivative(i, blk) * u -
+             this->robin_b_at_points_.derivative(i, blk)) *
             weight_coef;
         AddMult_a_VVt(coeff_robin, Psi, *elmat(blk, blk));
       }

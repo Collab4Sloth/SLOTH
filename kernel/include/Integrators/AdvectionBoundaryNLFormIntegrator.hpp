@@ -58,6 +58,9 @@
 template <class VARS>
 class AdvectionBoundaryNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   // Work arrays reused across elements and integration points
   std::vector<mfem::Vector> shape_;
   std::vector<double> u_values_;
@@ -65,11 +68,24 @@ class AdvectionBoundaryNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::Vector nor_;
   mfem::Vector v_;
 
+  /// Velocity and inflow value at the integration points of the current boundary element, when
+  /// all the blocks have the same finite element: v_d at point q = velocity_at_points_(d, q)
+  mfem::DenseMatrix velocity_at_points_;
+  typename SlothNLBase::CoefficientAtPoints inflow_at_points_;
+  /// Velocity component or prefactor at the integration points (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints coefficient_at_points_;
+  mfem::Vector grad_;  ///< gradient of the auxiliary variable (Gradient mode)
+
   void prepare_element(const mfem::Array<const mfem::FiniteElement*>& el,
                        mfem::ElementTransformation& Tr);
+  bool values_at_points(const mfem::Array<const mfem::FiniteElement*>& el,
+                        mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+                        const mfem::Array<const mfem::Vector*>& elfun, const bool with_inflow);
   double evaluate_at_ip(const mfem::Array<const mfem::FiniteElement*>& el,
                         const mfem::Array<const mfem::Vector*>& elfun,
-                        mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip);
+                        mfem::ElementTransformation& Tr, const mfem::IntegrationPoint& ip,
+                        const int q, const bool by_element);
   static const mfem::IntegrationRule& get_integration_rule(
       const mfem::Array<const mfem::FiniteElement*>& el, const mfem::ElementTransformation& Tr);
 

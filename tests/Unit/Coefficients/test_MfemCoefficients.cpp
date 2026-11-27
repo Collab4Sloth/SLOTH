@@ -105,6 +105,8 @@ struct MeshFixture {
  * @brief Test coefficient that shows which values it receives:
  *   F = u + 10 u_explicit + 100 aux
  * (each term only if the corresponding array is not empty).
+ * Written by hand on purpose (not generated from a JSON file): it reads the sizes of the arrays
+ * it receives.
  */
 class ProbeCoefficient final : public FunctionCoefficient {
  protected:

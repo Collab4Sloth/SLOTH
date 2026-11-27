@@ -2,6 +2,7 @@
  * @anchor AMR
  * @file AMRBase.tpp
  * @author Clément Introïni (clement.introini@cea.fr)
+ * @copyright CEA (C) 2026
  * @brief Base class orchestrating adaptive mesh refinement (AMR): defines
  *        the common criteria (error estimator integrator, thresholds,
  *        NC limit) and the shared refine/derefine/update orchestration
@@ -11,7 +12,6 @@
  * @version 0.1
  * @date 2026-08-04
  *
- * @copyright CEA (C) 2026
  *
  * This file is part of SLOTH.
  *
@@ -32,6 +32,7 @@
 
 #pragma once
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 #include <map>
 #include <set>
@@ -265,9 +266,14 @@ bool AMRBase<VAR>::DerefineByConsensus(VAR& vars, const std::vector<VAR*>& coupl
  *                          `amr_max_elem_error_` used for refinement, to provide
  *                          hysteresis and avoid oscillating refine/derefine cycles
  *                          on the same elements
- *             - rebalance (optional, default false): rebalance the parallel mesh
- *                          (`mfem::ParMesh::Rebalance()`, nonconforming meshes only)
- *                          after each AMR pass that modified the mesh
+ *             - rebalance (optional, default false): redistribute the elements
+ *                          between the MPI processes (`mfem::ParMesh::Rebalance()`,
+ *                          nonconforming meshes only) after an AMR pass that modified
+ *                          the mesh, if the load is unbalanced (see rebalance_tolerance).
+ *             - rebalance_tolerance (optional, default 1, only with rebalance = true):
+ *                          rebalance if the largest number of elements per process
+ *                          exceeds rebalance_tolerance times the mean (e.g. 1.1). Must be
+ *                          greater than or equal to 1.
  */
 template <class VAR>
 void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, const Parameters& params) {
@@ -284,6 +290,12 @@ void AMRBase<VAR>::SetCriteria(SlothErrorEstimators* estimator, const Parameters
   this->amr_scale_down_factor_ =
       params.template get_param_value_or_default<double>("scale_down_factor", 0.25);
   this->amr_rebalance_ = params.template get_param_value_or_default<bool>("rebalance", false);
+  MFEM_VERIFY(this->amr_rebalance_ || !params.has_parameter("rebalance_tolerance"),
+              "AMR: rebalance_tolerance is given but rebalance is false.");
+  this->amr_rebalance_tolerance_ =
+      params.template get_param_value_or_default<double>("rebalance_tolerance", 1.0);
+  MFEM_VERIFY(this->amr_rebalance_tolerance_ >= 1.,
+              "AMR: rebalance_tolerance must be greater than or equal to 1.");
 }
 
 /**
@@ -515,14 +527,15 @@ void AMRBase<VAR>::ReprojectInitialConditions(VAR& vars, const std::vector<VAR*>
  * @brief Rebalance the parallel mesh among the MPI ranks, then
  *        resynchronize every variable sharing it.
  *
- * @details No-op if rebalancing is disabled (`rebalance` parameter), if
- *          the computation runs on a single rank, or if the mesh is
- *          conforming (`mfem::ParMesh::Rebalance()` is only available for
- *          nonconforming meshes). Rebalancing is a mesh modification of
- *          its own: it must be followed by a dedicated update of the
- *          spaces and grid functions (it cannot be merged with the update
- *          following a refinement). The estimator flux spaces do not need
- *          any update here: the estimator updates them itself.
+ * @details No-op if rebalancing is disabled (`rebalance` = false), on a single rank,
+ *          on a conforming
+ *          mesh (`mfem::ParMesh::Rebalance()` needs a nonconforming mesh), or if the load
+ *          is balanced enough (see `IsLoadImbalanced()`). Otherwise calls
+ *          `mfem::ParMesh::Rebalance()`, which keeps the refinement hierarchy and migrates
+ *          whole elements, then transfers every variable, including its previous time
+ *          levels, to the new partition. Rebalancing is a mesh modification of its own: it
+ *          must be followed by a dedicated update of the spaces and grid functions. The
+ *          estimator flux spaces are updated by the estimator itself at the next AMR pass.
  *
  * @tparam VAR Variable container type this AMR strategy operates on.
  * @param vars Primary variables sharing the mesh managed by this AMR object.
@@ -538,9 +551,11 @@ bool AMRBase<VAR>::Rebalance(VAR& vars, const std::vector<VAR*>& auxvars) {
     SlothInfo::verbose("AMRBase::Rebalance: conforming mesh, rebalancing skipped.");
     return false;
   }
+  if (!this->IsLoadImbalanced()) {
+    return false;
+  }
   this->par_mesh_.Rebalance();
   this->UpdateVariables(vars, auxvars);
-  // The estimator flux spaces are updated by the estimator itself at the next AMR pass.
   return true;
 }
 
@@ -556,13 +571,13 @@ template <class VAR>
 void AMRBase<VAR>::PrintLoadBalance(const std::string& stage) const {
   MPI_Comm comm = this->par_mesh_.GetComm();
   const int nranks = this->par_mesh_.GetNRanks();
-  const long long local_ne = this->par_mesh_.GetNE();
-  long long min_ne = 0;
-  long long max_ne = 0;
-  long long sum_ne = 0;
-  MPI_Allreduce(&local_ne, &min_ne, 1, MPI_LONG_LONG, MPI_MIN, comm);
-  MPI_Allreduce(&local_ne, &max_ne, 1, MPI_LONG_LONG, MPI_MAX, comm);
-  MPI_Allreduce(&local_ne, &sum_ne, 1, MPI_LONG_LONG, MPI_SUM, comm);
+  const std::int64_t local_ne = this->par_mesh_.GetNE();
+  std::int64_t min_ne = 0;
+  std::int64_t max_ne = 0;
+  std::int64_t sum_ne = 0;
+  MPI_Allreduce(&local_ne, &min_ne, 1, MPI_INT64_T, MPI_MIN, comm);
+  MPI_Allreduce(&local_ne, &max_ne, 1, MPI_INT64_T, MPI_MAX, comm);
+  MPI_Allreduce(&local_ne, &sum_ne, 1, MPI_INT64_T, MPI_SUM, comm);
   if (this->par_mesh_.GetMyRank() == 0) {
     const double mean_ne = static_cast<double>(sum_ne) / nranks;
     const double imbalance = mean_ne > 0. ? static_cast<double>(max_ne) / mean_ne : 1.;
@@ -726,4 +741,24 @@ mfem::Array<mfem::Refinement> AMRBase<VAR>::FilterRefinedCandidates(
     }
   }
   return filtered_candidates;
+}
+
+/**
+ * @brief Whether the elements are distributed unevenly enough among the MPI ranks to
+ *        justify a rebalancing.
+ *
+ * @details True if max(elements per rank) > rebalance_tolerance * mean(elements per
+ *          rank). Collective: the answer is identical on every rank.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ */
+template <class VAR>
+bool AMRBase<VAR>::IsLoadImbalanced() const {
+  const int64_t local_ne = this->par_mesh_.GetNE();
+  int64_t max_ne = 0;
+  int64_t sum_ne = 0;
+  MPI_Allreduce(&local_ne, &max_ne, 1, MPI_INT64_T, MPI_MAX, this->par_mesh_.GetComm());
+  MPI_Allreduce(&local_ne, &sum_ne, 1, MPI_INT64_T, MPI_SUM, this->par_mesh_.GetComm());
+  const double mean_ne = static_cast<double>(sum_ne) / this->par_mesh_.GetNRanks();
+  return static_cast<double>(max_ne) > this->amr_rebalance_tolerance_ * mean_ne;
 }

@@ -27,6 +27,8 @@
  */
 #pragma once
 
+#include <limits>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -34,6 +36,7 @@
 
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Problems/Problem.hpp"
+#include "Time/TimeStepFailure.hpp"
 #include "Utils/Utils.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
@@ -85,6 +88,46 @@ class TimeDiscretization {
   std::vector<VAR*> CollectAllVariables();
   bool vtk_unified_{false};
   void save_vtk_unified(const int& iter, const double& current_time);
+
+  //////////////////////////////////////////////////////////
+  // Adaptive time-stepping (parameter "adaptive_time_step")
+  //////////////////////////////////////////////////////////
+  // A time-step is rejected if it fails (TimeStepFailure, e.g. Newton not converged): the state
+  // of every coupling (variables, internal state of the time schemes) and the time are restored,
+  // and the time-step is retried with a smaller time-step. After an accepted time-step, the next
+  // time-step depends on the largest number of Newton iterations over all the problems; the
+  // ratio between two successive time-steps is limited (time_step_max_ratio, BDF2).
+  bool adaptive_{false};
+  double time_step_min_{0.};
+  double time_step_max_{std::numeric_limits<double>::infinity()};
+  // Time-step multiplied by this factor after a rejection
+  double cutback_factor_{0.5};
+  // Time-step multiplied (divided) by this factor if the number of Newton iterations is lower
+  // (greater) than or equal to newton_iterations_low_ (newton_iterations_high_)
+  double growth_factor_{1.25};
+  int newton_iterations_low_{3};
+  int newton_iterations_high_{8};
+  // Maximum number of successive rejections of the same time-step
+  int max_rejections_{10};
+  // Number of successive reductions of the time-step (rejections or Newton criterion), reset
+  // when a time-step is accepted without reduction
+  int successive_cuts_{0};
+
+  void get_adaptive_parameters();
+  void save_state();
+  void restore_state();
+  std::optional<std::string> try_time_step(const int& iter);
+  void reject_time_step(const std::string& reason);
+  void cut_time_step(const double& dt_new, const std::string& reason);
+  void adapt_time_step(const int& rejections);
+  int get_nonlinear_iterations() const;
+
+  // Largest ratio between two successive time-steps
+  double max_time_step_ratio_{std::numeric_limits<double>::infinity()};
+  // Time at the beginning of the time-step, restored if the time-step is rejected
+  double saved_time_{0.};
+
+  double get_max_time_step_ratio() const;
 
  public:
   explicit TimeDiscretization(const Parameters& params, Args... couplings);

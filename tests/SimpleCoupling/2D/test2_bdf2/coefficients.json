@@ -1,0 +1,34 @@
+[
+    {
+        "expression": "c*c*(1-c)*(1-c) + eta*eta*(1-eta)*(1-eta) + K*c*c*eta*eta",
+        "variables": "c",
+        "auxiliary_variables": "eta",
+        "constants": "(K:-1.0)",
+        "class_name": "Gc",
+        "outputfile": "CoupledCoefficients"
+    },
+    {
+        "expression": "c*c*(1-c)*(1-c) + eta*eta*(1-eta)*(1-eta) + K*c*c*eta*eta",
+        "variables": "eta",
+        "auxiliary_variables": "c",
+        "constants": "(K:-1.0)",
+        "class_name": "Geta",
+        "outputfile": "CoupledCoefficients"
+    },
+    {
+        "expression": "-pi**2*(sin(2*pi*t) + 2)*(-3*K*(cos(2*pi*t) - 2)**2*sin(pi*x)**3/4 + 3*K*(cos(2*pi*t) - 2)**2*sin(pi*x)*cos(pi*x)**2/2 - ((sin(2*pi*t) + 2)*sin(pi*x) - 2)**2*sin(pi*x)/4 - ((sin(2*pi*t) + 2)*sin(pi*x) - 2)*(sin(2*pi*t) + 2)*sin(pi*x)**2 + 3*((sin(2*pi*t) + 2)*sin(pi*x) - 2)*(sin(2*pi*t) + 2)*cos(pi*x)**2/2 - (sin(2*pi*t) + 2)**2*sin(pi*x)**3/4 + 3*(sin(2*pi*t) + 2)**2*sin(pi*x)*cos(pi*x)**2/2 - pi**2*sin(pi*x)/2) + pi*sin(pi*x)*cos(2*pi*t)",
+        "variables": "c",
+        "coordinates": "x,y",
+        "constants": "(t:T),(K:-1.0)",
+        "class_name": "SourceC",
+        "outputfile": "CoupledCoefficients"
+    },
+    {
+        "expression": "2*K*(1 - cos(2*pi*t)/2)*(sin(2*pi*t)/2 + 1)**2*sin(pi*x)**3 + (1 - cos(2*pi*t)/2)**2*(2*(1 - cos(2*pi*t)/2)*sin(pi*x) - 2)*sin(pi*x)**2 + 2*(1 - cos(2*pi*t)/2)*(-(1 - cos(2*pi*t)/2)*sin(pi*x) + 1)**2*sin(pi*x) - pi**2*(cos(2*pi*t)/2 - 1)*sin(pi*x) + pi*sin(2*pi*t)*sin(pi*x)",
+        "variables": "eta",
+        "coordinates": "x,y",
+        "constants": "(t:T),(K:-1.0)",
+        "class_name": "SourceEta",
+        "outputfile": "CoupledCoefficients"
+    }
+]

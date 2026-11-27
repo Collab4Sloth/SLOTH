@@ -45,6 +45,9 @@ class Variables {
   std::vector<Variable<T, DIM>> vect_variables_;
 
  public:
+  // State of one Variable (see Variable::save_state())
+  using VariableState = typename Variable<T, DIM>::State;
+
   template <class... Args>
   explicit Variables(Args... args);
 

@@ -37,16 +37,39 @@
 #include <utility>
 #include <vector>
 
+#include "Coefficients/CoefficientTerm.hpp"
 #include "Coefficients/FunctionCoefficient.hpp"
+
+/// Factor of a ProductCoefficient with its own scheme (see CoefficientTerm)
+using ProductTerm = CoefficientTerm;
 
 /**
  * @brief Define a product of FunctionCoefficient objects as a FunctionCoefficient
- * @remark This suggest that all FunctionCoefficient share the same variables...
+ * @remark All the factors share the same variables. Each factor has its own scheme (see
+ * ProductTerm): the value and the derivatives of an explicit factor are evaluated with the
+ * explicit values and are not differentiated in the second derivatives, which are then the
+ * derivatives of the gradient: hessian[i n + j] = d(gradient[i])/du_j (not symmetric in general).
+ * Variational and non-variational factors can be multiplied: the product is then variational.
+ * A variational product with an explicit factor is not supported (non-symmetric second
+ * derivatives with respect to the variables and their gradients).
  *
  */
 class ProductCoefficient : public FunctionCoefficient {
  private:
   std::vector<FunctionCoefficient*> vect_coefficients_;
+  std::vector<Scheme> vect_schemes_;  ///< scheme of each factor
+  // Work arrays of eval_batch and eval_variational_batch
+  mutable mfem::Vector term_F_, term_gradient_, term_hessian_;  ///< outputs of one term
+  mutable mfem::Vector term_df_dgrad_, term_d2f_dvar_dgrad_, term_d2f_dgrad2_;
+  mutable mfem::Vector product_F_, product_gradient_;  ///< product of the first factors
+  /// Gradient of the product of the first factors, explicit factors held constant
+  mutable mfem::Vector product_implicit_gradient_;
+  mutable mfem::Vector product_df_dgrad_, product_d2f_dvar2_, product_d2f_dvar_dgrad_,
+      product_d2f_dgrad2_;
+
+  bool is_explicit_term(std::size_t k) const;
+  bool has_explicit_term() const;
+  void check_terms() const;
 
  protected:
   std::function<double(const std::span<const double>&, const std::span<const double>&,
@@ -61,6 +84,7 @@ class ProductCoefficient : public FunctionCoefficient {
 
  public:
   explicit ProductCoefficient(std::initializer_list<FunctionCoefficient*> coeffs);
+  explicit ProductCoefficient(std::initializer_list<ProductTerm> terms);
   ProductCoefficient() = default;
 
   virtual ~ProductCoefficient() = default;
@@ -69,4 +93,22 @@ class ProductCoefficient : public FunctionCoefficient {
   bool uses_coordinates() const override;
   bool is_single_variable() const override;
   void set_coordinates(std::span<const double> x) override;
+
+  bool eval_batch(const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,
+                  mfem::Vector* F, mfem::Vector* gradient, mfem::Vector* hessian) const override;
+  int batch_nb_variables() const override;
+
+  bool is_variational() const override;
+  int variational_dimension() const override;
+  int variational_nb_variables() const override;
+  bool uses_explicit_gradients() const override;
+  bool uses_auxiliary_gradients() const override;
+  bool eval_variational_batch(const int npts, const mfem::Vector& values,
+                              const mfem::Vector& explicit_values,
+                              const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,
+                              const mfem::Vector& explicit_gradients,
+                              const mfem::Vector& auxiliary_gradients,
+                              const mfem::Vector& coordinates,
+                              const VariationalBatch& outputs) const override;
 };

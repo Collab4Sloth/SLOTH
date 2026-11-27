@@ -149,16 +149,19 @@ void TimeNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // A and B at all the integration points of the element, at the end of the step
+    this->eval_a_at_points(blk, el, Tr, *ir, elfun, false);
+    this->eval_coefficient_at_points(this->coefficient_B[blk], blk, SlothNLBase::CoefValue,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->b_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
 
       const double k = *elfun[blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      const auto u_end = this->values_at_end_of_step(ipv.u);
-      const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux, blk);
-      const double coef_b = this->eval_coefficient(this->coefficient_B[blk], u_end, ipv.aux, blk);
+      const double coef_a = this->a_value(i);
+      const double coef_b = this->b_at_points_.value(i);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -200,29 +203,34 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
     Psi.SetSize(el[blk]->GetDof());
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // A, B and their derivatives at all the integration points of the element, at the end of
+    // the step
+    this->eval_a_at_points(blk, el, Tr, *ir, elfun, true);
+    this->eval_coefficient_at_points(this->coefficient_B[blk], blk,
+                                     SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->b_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);
       this->set_int_point(Tr, ip);
 
       const double k = *elfun[blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-      const auto u_end = this->values_at_end_of_step(ipv.u);
-      const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux, blk);
-      const double coef_b = this->eval_coefficient(this->coefficient_B[blk], u_end, ipv.aux, blk);
+      const double coef_a = this->a_value(i);
+      const double coef_b = this->b_at_points_.value(i);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       AddMult_a_VVt(coef_a * coef_b * weight_coef, Psi, *elmats(blk, blk));
+      this->add_a_jacobian(blk, i, el, Tr, coef_b * this->time_step_ * k * weight_coef, Psi,
+                           elmats);
 
       // Coefficients depending on u at the end of the step: d/dk_j = dt d/du_j
       for (int jblk = 0; jblk < num_blocks; ++jblk) {
-        const double d_a =
-            this->eval_gradient_coefficient(this->coefficient_A[blk], jblk, u_end, ipv.aux, blk);
-        const double d_b =
-            this->eval_gradient_coefficient(this->coefficient_B[blk], jblk, u_end, ipv.aux, blk);
+        const double d_a = this->a_derivative(i, jblk);
+        const double d_b = this->b_at_points_.derivative(i, jblk);
         const double d = (d_a * coef_b + coef_a * d_b) * this->time_step_ * k * weight_coef;
         if (d == 0.0) continue;
         if (jblk == blk) {
@@ -235,4 +243,38 @@ void TimeNLFormIntegrator<VARS>::AssembleElementGrad(
       }
     }
   }
+}
+
+/**
+ * @brief Coefficient A of block blk at all the integration points of the element, at the end of
+ * the step (see SlothNLFormIntegrator::eval_coefficient_at_points), with its first derivatives
+ * for the Jacobian.
+ */
+template <class VARS>
+void TimeNLFormIntegrator<VARS>::eval_a_at_points(
+    const int blk, const mfem::Array<const mfem::FiniteElement*>& el,
+    mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian) {
+  const unsigned int outputs = jacobian
+                                   ? (SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative)
+                                   : SlothNLBase::CoefValue;
+  this->eval_coefficient_at_points(this->coefficient_A[blk], blk, outputs, *el[blk], Tr, ir, elfun,
+                                   this->vaux_gf_, this->a_at_points_,
+                                   SlothNLBase::ValuesAt::EndOfStep);
+}
+
+/**
+ * @brief Value of A at the integration point i (see eval_a_at_points)
+ */
+template <class VARS>
+double TimeNLFormIntegrator<VARS>::a_value(const int i) const {
+  return this->a_at_points_.value(i);
+}
+
+/**
+ * @brief Derivative of A with respect to block jblk at the integration point i
+ */
+template <class VARS>
+double TimeNLFormIntegrator<VARS>::a_derivative(const int i, const int jblk) const {
+  return this->a_at_points_.derivative(i, jblk);
 }

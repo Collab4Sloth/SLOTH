@@ -65,6 +65,18 @@ MeltingTemperatureNLFormIntegrator<VARS>::MeltingTemperatureNLFormIntegrator(
   this->integrator_name_ = "MeltingTemperature";
   this->get_parameters();
   this->check_variables_consistency();
+
+  // Phase change: melting enthalpy where the temperature exceeds the melting temperature
+  MFEM_VERIFY(this->temp_index_ >= 0,
+              "Error in MeltingTemperature: the temperature (T) is expected among the auxiliary "
+              "variables.");
+  MeltingTemperaturePhaseChangeEval phase_change;
+  phase_change.temperature_index = this->temp_index_;
+  phase_change.melting_temperature = this->melting_temperature_;
+  phase_change.melting_enthalpy = this->melting_enthalpy_;
+  this->phase_change_.emplace(
+      Glossary::DrivingForce, Scheme::Implicit,
+      AuxiliaryCoefficient<MeltingTemperaturePhaseChangeEval>(phase_change));
 }
 
 /**
@@ -114,31 +126,4 @@ void MeltingTemperatureNLFormIntegrator<VARS>::get_parameters() {
   this->melting_temperature_ =
       this->params_.template get_param_value<double>("melting_temperature");
   this->melting_enthalpy_ = this->params_.template get_param_value<double>("melting_enthalpy");
-}
-
-/**
- * @brief Compute the value of the phase change at integration point
- *
- * @remark Written for two phase
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed phase change at integration point
- */
-template <class VARS>
-double MeltingTemperatureNLFormIntegrator<VARS>::get_phase_change_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double temperature_at_ip = aux_values[this->temp_index_];
-  double phase_change_at_ip = 0.;
-  if (temperature_at_ip > this->melting_temperature_) {
-    phase_change_at_ip = this->melting_enthalpy_;
-  }
-  return phase_change_at_ip;
 }

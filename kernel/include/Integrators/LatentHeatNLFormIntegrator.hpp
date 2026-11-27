@@ -43,7 +43,11 @@
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
- * @brief Latent heat contribution for heat transfer equations
+ * @brief Latent heat contribution for heat transfer equations, with the phase field phi as an
+ * auxiliary variable (symbol "phi"), in one of two forms:
+ * - dissipative (Mobility coefficient M): (1/M) (dphi/dt)^2,
+ * - linear (LatentHeat coefficient L): L dphi/dt.
+ * dphi/dt = (phi - phi_old) / dt, with the physical time step.
  *
  * @tparam VARS Template parameter defining the variables used
  *              in the integrator.
@@ -51,23 +55,34 @@
 template <class VARS>
 class LatentHeatNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   int phase_field_index_;
 
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility};
+  /// Expected coefficients of the linear form L dphi/dt
+  std::list<GlossaryType> expected_linear_list_{GlossaryType::LatentHeat};
+  bool linear_ = false;  ///< linear form L dphi/dt (LatentHeat coefficient given)
+  mfem::Vector shape_j_;
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
+  /// Mobility at the integration points of the current element (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints mobility_at_points_;
+  /// Latent heat L at the integration points of the current element (linear form)
+  typename SlothNLBase::CoefficientAtPoints latent_at_points_;
+
  protected:
   Coefficients mobility;
+  Coefficients latent_heat;  ///< latent heat L of the linear form
   /// Auxiliary fields at the current then at the previous time step:
   /// [aux_0..aux_{n-1}, aux_old_0..aux_old_{n-1}] (order expected by get_latent_heat_at_ip)
   std::vector<mfem::ParGridFunction> vaux_gf_;
 
-  double get_latent_heat_at_ip(unsigned int blk, const std::span<const double>& values,
-                               const std::span<const double>& aux_values);
-
-  virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
-                               const std::span<const double>& aux_values);
+  double get_latent_heat_at_ip(const double mobility, const std::span<const double>& aux_values);
+  double phase_field_time_derivative(const std::span<const double>& aux_values) const;
 
   void get_coefficients() override;
 

@@ -1,0 +1,21 @@
+[
+	{
+	"expression":"1 + X + Y",
+	"variables":"u",
+	"coordinates":"X,Y",
+	"class_name":"OnePlusXPlusY",
+	"outputfile":"OnePlusXPlusY"
+	}
+	,
+	{
+	"expressions":[
+		{"expression":"1.0", "lower":0.0, "upper":0.5},
+		{"expression":"2.0", "default":true}
+	],
+	"range_variable":"t",
+	"variables":"u",
+	"constants":"(t:T)",
+	"class_name":"StepInTime",
+	"outputfile":"StepInTime"
+	}
+]

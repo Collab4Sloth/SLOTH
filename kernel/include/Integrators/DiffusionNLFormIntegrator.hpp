@@ -47,6 +47,12 @@
 template <class VARS>
 class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
+  /// Diffusion coefficient at the integration points of the current element (see
+  /// SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints diffusion_at_points_;
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 

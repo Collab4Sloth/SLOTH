@@ -1,0 +1,9 @@
+[
+	{
+	"expression":"a",
+	"variables":"u",
+	"auxiliary_variables":"a",
+	"class_name":"FirstAuxiliary",
+	"outputfile":"FirstAuxiliary"
+	}
+]

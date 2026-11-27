@@ -126,7 +126,10 @@ enum class GlossaryType {
   SourceTerm,
   Velocity,
   VelocityPrefactor,
-  Inflow
+  Inflow,
+  LatentHeat,
+  RelaxationTime,
+  Custom  ///< Quantity defined outside the kernel, identified by its name (see CustomQuantity())
 };
 
 struct GlossaryQuantity {
@@ -140,15 +143,41 @@ struct GlossaryQuantity {
   GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d) : GlossaryQuantity(t, u, d, 0) {}
   GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d, unsigned int id_qty)
       : type(t), unit(u), id(id_qty), description(d) {}
+  GlossaryQuantity(GlossaryType t, GlossaryUnit u, std::string d, unsigned int id_qty,
+                   std::string n)
+      : type(t), unit(u), id(id_qty), description(d), name(n) {}
 
   GlossaryType type;
   GlossaryUnit unit;
   unsigned int id;
   std::string description;
+  std::string name;  ///< Name of a custom quantity (GlossaryType::Custom); empty otherwise
 
   inline void setUnit(GlossaryUnit newUnit) { unit = newUnit; }
   inline void setId(unsigned int newId) { id = newId; }
 };
+
+/**
+ * @brief Quantity defined outside the kernel, used by custom integrators only.
+ *
+ * @details Custom integrators retrieve the corresponding coefficients by name
+ *          (SlothNLFormIntegrator::get_coefficient(blk, name, id)). The built-in integrators never
+ *          read a custom quantity, and an operator without any custom integrator rejects it.
+ *
+ * @param name Name of the quantity (non-empty, unique among the coefficients of a block).
+ * @param unit Unit, as a free text (informative).
+ * @param description Description (informative).
+ * @param id Identifier, to distinguish several coefficients of the same quantity.
+ */
+inline GlossaryQuantity CustomQuantity(const std::string& name, const std::string& unit = "",
+                                       const std::string& description = "",
+                                       unsigned int id = 0) {
+  std::string text = description.empty() ? name : description;
+  if (!unit.empty()) {
+    text += " in " + unit;
+  }
+  return GlossaryQuantity(GlossaryType::Custom, GlossaryUnit::None, text, id, name);
+}
 
 /**
  * @brief Namespace for pre-defined GlossaryQuantity
@@ -407,6 +436,23 @@ static const GlossaryQuantity VelocityPrefactor =
  */
 static const GlossaryQuantity Inflow = GlossaryQuantity(GlossaryType::Inflow, GlossaryUnit::None,
                                                         "Inflow value of the advected variable");
+
+/**
+ * @brief Quantity associated with the latent heat L of the linear form L dphi/dt of the
+ * LatentHeat integrator
+ *
+ */
+static const GlossaryQuantity LatentHeat = GlossaryQuantity(
+    GlossaryType::LatentHeat, GlossaryUnit::None, "Latent heat of the linear form L dphi/dt");
+
+/**
+ * @brief Quantity associated with the relaxation time tau of the RelaxationTimeDerivative
+ * integrator (tau dphi/dt)
+ *
+ */
+static const GlossaryQuantity RelaxationTime =
+    GlossaryQuantity(GlossaryType::RelaxationTime, GlossaryUnit::None,
+                     "Relaxation time tau of the time derivative tau dphi/dt");
 
 /**
  * @brief Quantity associated with the MPI rank

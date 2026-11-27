@@ -25,8 +25,10 @@
  */
 
 #pragma once
+#include <string>
 #include <vector>
 
+#include "Extensions/UserIntegrator.hpp"
 #include "Factory/ListFactory.hpp"
 
 /**
@@ -134,6 +136,11 @@ struct Test<3> {
   template <class... Args>                                                                       \
   SPAS setPeriodicSpatialDiscretization(std::size_t N, Args&&... args) {                         \
     return ::setSpatialDiscretization<FECollection, DIM>(N, true, std::forward<Args>(args)...);  \
+  }                                                                                              \
+  using IntegratorList = std::vector<::IntegratorEntry<VARS>>;                                   \
+  template <template <class> class INTEGRATOR>                                                   \
+  ::UserIntegrator<VARS> CustomIntegrator(const std::string& name) {                             \
+    return ::user_integrator<INTEGRATOR, VARS>(name);                                            \
   }
 
 /**
@@ -144,20 +151,22 @@ struct Test<3> {
  *        in COMMON_NS, so importing from several namespaces at once is
  *        never ambiguous.
  */
-#define SLOTH_IMPORT_COMMON(COMMON_NS)       \
-  using COMMON_NS::DIM;                      \
-  using COMMON_NS::FECollection;             \
-  using COMMON_NS::VARS;                     \
-  using COMMON_NS::VAR;                      \
-  using COMMON_NS::PST;                      \
-  using COMMON_NS::SPA;                      \
-  using COMMON_NS::SPAS;                     \
-  using COMMON_NS::BCS;                      \
-  using COMMON_NS::PB_MPI;                   \
-  using COMMON_NS::PB_CALPHAD;               \
-  using COMMON_NS::PB_PROPERTY;              \
-  using COMMON_NS::setSpatialDiscretization; \
-  using COMMON_NS::setPeriodicSpatialDiscretization;
+#define SLOTH_IMPORT_COMMON(COMMON_NS)               \
+  using COMMON_NS::DIM;                              \
+  using COMMON_NS::FECollection;                     \
+  using COMMON_NS::VARS;                             \
+  using COMMON_NS::VAR;                              \
+  using COMMON_NS::PST;                              \
+  using COMMON_NS::SPA;                              \
+  using COMMON_NS::SPAS;                             \
+  using COMMON_NS::BCS;                              \
+  using COMMON_NS::PB_MPI;                           \
+  using COMMON_NS::PB_CALPHAD;                       \
+  using COMMON_NS::PB_PROPERTY;                      \
+  using COMMON_NS::setSpatialDiscretization;         \
+  using COMMON_NS::setPeriodicSpatialDiscretization; \
+  using COMMON_NS::IntegratorList;                   \
+  using COMMON_NS::CustomIntegrator;
 
 /**
  * @brief Define only the PREFIX-prefixed, scheme-specific PDE aliases

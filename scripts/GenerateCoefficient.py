@@ -8,11 +8,13 @@ import os
 import re
 import sympy as sp
 
+from VariationalForm import DEFAULT_REGULARIZATION
 
 import shutil
 import logging
 import sys
-from typing import List, Tuple, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, Optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -262,6 +264,236 @@ def sp_from_expr_with_sum(expression: str, local_dict, nb_var_expanded: int):
     
     return expr_tmp
 
+# ==========================================================
+#  Evaluation structure <class_name>Eval (host and device)
+# ==========================================================
+#
+# In addition to the class <class_name>, a structure <class_name>Eval is written. It evaluates
+# F, its gradient and its Hessian at one point with the same expressions, without any memory
+# allocation, and can be called both on the host and on the device (MFEM_HOST_DEVICE), for
+# instance inside mfem::forall (see Coefficients/EvalAtPoints.hpp).
+#
+# Names of the arguments of <class_name>Eval::operator(): an expression using one of them as a
+# variable, a constant or a coordinate is not written as an evaluation structure.
+EVAL_RESERVED_NAMES = {"values", "explicit_values", "auxiliary_values", "coordinates", "time",
+                       "F", "gradient", "hessian", "prefactor_"}
+
+
+def get_bounds(bounds, variable_names, constant_names, class_name):
+    """
+    Parse the optional 'bounds' attribute: bounds of variables, e.g.
+        "bounds": {"x": ["eps", "1 - eps"], "eta(1..2)": [0.0, null]}
+    A key is a variable (unknown, explicit or auxiliary variable) or a range of variables
+    eta(1..2). A bound is a number, an expression of the constants of the coefficient, or null
+    (no bound on this side).
+
+    The value of a bounded variable is clamped to its bounds before the evaluation of F, of its
+    gradient and of its Hessian, which are thus evaluated at the clamped value (outside the
+    bounds, the derivatives are those at the bound, not the zero derivatives of the clamped
+    function).
+
+    Return a dict: variable name -> (lower bound, upper bound), each one a C++ expression or None.
+    """
+    if not bounds:
+        return {}
+    if not isinstance(bounds, dict):
+        raise ValueError(f"Error ({class_name}): 'bounds' must be a dictionary "
+                         "{variable: [lower, upper]}. Please check your data.")
+
+    def to_cpp(bound):
+        if bound is None:
+            return None
+        if isinstance(bound, bool) or not isinstance(bound, (int, float, str)):
+            raise ValueError(f"Error ({class_name}): a bound must be a number, an expression of "
+                             f"the constants or null, not {bound!r}. Please check your data.")
+        if isinstance(bound, (int, float)):
+            return repr(float(bound))
+        if "**" in bound or "^" in bound:
+            raise ValueError(f"Error ({class_name}): powers are not allowed in the bound "
+                             f"'{bound}'. Please check your data.")
+        try:
+            symbols = {str(x) for x in sp.sympify(bound).free_symbols}
+        except (sp.SympifyError, SyntaxError, TypeError) as e:
+            raise ValueError(f"Error ({class_name}): invalid bound '{bound}'. "
+                             "Please check your data.") from e
+        unknown = symbols - set(constant_names)
+        if unknown:
+            raise ValueError(f"Error ({class_name}): the bound '{bound}' uses {sorted(unknown)}, "
+                             "which are not constants of the coefficient. Please check your data.")
+        bound = bound.strip()
+        if re.fullmatch(r"[A-Za-z_]\w*", bound):
+            return bound
+        return f"({bound})"
+
+    result = {}
+    for key, value in bounds.items():
+        match = RANGE_PATTERN.match(key.strip())
+        if match:
+            name, start, end = match.groups()
+            names = [f"{name}{i}" for i in range(int(start), int(end) + 1)]
+        else:
+            names = [key.strip()]
+        if not isinstance(value, (list, tuple)) or len(value) != 2:
+            raise ValueError(f"Error ({class_name}): the bounds of '{key}' must be a list "
+                             "[lower, upper]. Please check your data.")
+        lower, upper = value
+        if lower is None and upper is None:
+            raise ValueError(f"Error ({class_name}): at least one bound of '{key}' must be "
+                             "defined. Please check your data.")
+        if isinstance(lower, (int, float)) and isinstance(upper, (int, float)) and lower > upper:
+            raise ValueError(f"Error ({class_name}): lower bound greater than upper bound for "
+                             f"'{key}'. Please check your data.")
+        for v in names:
+            if v not in variable_names:
+                raise ValueError(f"Error ({class_name}): '{v}' in 'bounds' is not a variable of "
+                                 "the coefficient. Please check your data.")
+            if v in result:
+                raise ValueError(f"Error ({class_name}): bounds of '{v}' defined twice. "
+                                 "Please check your data.")
+            result[v] = (to_cpp(lower), to_cpp(upper))
+    return result
+
+
+def bounded_value(value, variable_bounds):
+    """
+    C++ expression of a variable read from value and clamped to its bounds (if any).
+    """
+    if variable_bounds is None:
+        return value
+    lower, upper = variable_bounds
+    if lower is not None and upper is not None:
+        return f"fmin({upper}, fmax({lower}, {value}))"
+    if lower is not None:
+        return f"fmax({lower}, {value})"
+    return f"fmin({upper}, {value})"
+
+
+def condition_to_cpp(item):
+    """
+    C++ condition of one piece of a conditional expression.
+    item = (expression, variable, lower, lower_strict, upper, upper_strict)
+    """
+    _, var, lower, lower_strict, upper, upper_strict = item
+    left = f"({lower} <= {var})" if lower is not None else f"({lower_strict} < {var})"
+    right = f"({var} <= {upper})" if upper is not None else f"({var} < {upper_strict})"
+    return f"{left} && {right}"
+
+
+def write_eval_expressions(f, expr, gradient, hessian, n, indent):
+    """
+    Write F, its gradient and its Hessian (each one only if requested by a non-null pointer).
+    The Hessian is symmetric: its lower part is copied from its upper part.
+    """
+    f.write(f"{indent}if (F != nullptr) {{\n")
+    f.write(f"{indent}  *F = prefactor_ * ({sp.ccode(expr)});\n")
+    f.write(f"{indent}}}\n")
+    f.write(f"{indent}if (gradient != nullptr) {{\n")
+    for k in range(n):
+        f.write(f"{indent}  gradient[{k}] = prefactor_ * ({sp.ccode(gradient[k])});\n")
+    f.write(f"{indent}}}\n")
+    f.write(f"{indent}if (hessian != nullptr) {{\n")
+    for i in range(n):
+        for j in range(n):
+            if j < i:
+                f.write(f"{indent}  hessian[{i*n + j}] = hessian[{j*n + i}];\n")
+            else:
+                f.write(f"{indent}  hessian[{i*n + j}] = prefactor_ * ({sp.ccode(hessian[i, j])});\n")
+    f.write(f"{indent}}}\n")
+
+
+def write_eval_struct(cpp_file, class_name, list_expr, list_gradient, list_hessian, spvars,
+                      explicit_vars, auxiliary_vars, dict_constants, coord_vars,
+                      is_conditional_expression, bounds=None):
+    """
+    Write the structure <class_name>Eval in cpp_file (see the comment above EVAL_RESERVED_NAMES).
+    bounds: bounds of variables (see get_bounds), applied when the variables are read.
+
+    Hessian stored in a vector: H(i,j) -> H(i*n+j), n number of variables.
+    Constants are members of the structure (copied with it on the device), except the time (T),
+    given as an argument.
+    Return True if the structure is written.
+    """
+    n = len(spvars)
+    names = set(str(v) for v in spvars) | set(str(v) for v in explicit_vars) \
+        | set(str(v) for v in auxiliary_vars) | set(dict_constants.keys()) | set(coord_vars)
+    clash = names & EVAL_RESERVED_NAMES
+    bounds = bounds or {}
+    if clash and bounds:
+        raise ValueError(f"Error ({class_name}): names {sorted(clash)} are reserved for the "
+                         "evaluation structure, required by 'bounds'. Please rename them.")
+    if clash:
+        logging.warning(f"{class_name}Eval not generated: names {sorted(clash)} are reserved "
+                        f"for the evaluation structure. The class {class_name} holds its own "
+                        "expressions.")
+        return False
+
+    time_constants = [k for k, v in dict_constants.items() if v == "this->time_"]
+    member_constants = {k: v for k, v in dict_constants.items() if v != "this->time_"}
+
+    with open(cpp_file, "a") as f:
+        f.write("/**\n")
+        f.write(f" * @brief Evaluation of {class_name} at one point, on the host or on the device\n")
+        f.write(" *\n")
+        f.write(f" * Same expressions as {class_name} (F, gradient and Hessian), without memory\n")
+        f.write(" * allocation. Each output is computed only if its pointer is not null.\n")
+        if bounds:
+            f.write(" *\n")
+            f.write(" * Bounded variables (F, gradient and Hessian evaluated at the clamped values):\n")
+            for v, (lower, upper) in bounds.items():
+                lo = lower if lower is not None else "-inf"
+                up = upper if upper is not None else "+inf"
+                f.write(f" *   {v} in [{lo}, {up}]\n")
+        f.write(" * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)\n")
+        f.write(" */\n")
+        f.write(f"struct {class_name}Eval {{\n")
+        f.write(f"  static constexpr int nb_variables = {n};\n")
+        f.write(f"  static constexpr int nb_explicit_variables = {len(explicit_vars)};\n")
+        f.write(f"  static constexpr int nb_auxiliary_variables = {len(auxiliary_vars)};\n")
+        f.write(f"  static constexpr int nb_coordinates = {len(coord_vars)};\n\n")
+        f.write("  double prefactor_ = 1.0;\n")
+        for k, v in member_constants.items():
+            f.write(f"  double {k} = {v};\n")
+        f.write("\n")
+        f.write("  MFEM_HOST_DEVICE void operator()([[maybe_unused]] const double* values,\n")
+        f.write("                                   [[maybe_unused]] const double* explicit_values,\n")
+        f.write("                                   [[maybe_unused]] const double* auxiliary_values,\n")
+        f.write("                                   [[maybe_unused]] const double* coordinates,\n")
+        f.write("                                   [[maybe_unused]] const double time, double* F,\n")
+        f.write("                                   double* gradient, double* hessian) const {\n")
+        if bounds:
+            f.write("    // Bounded variables: clamped to their bounds\n")
+        for i, v in enumerate(spvars):
+            value = bounded_value(f"values[{i}]", bounds.get(str(v)))
+            f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+        for i, v in enumerate(explicit_vars):
+            value = bounded_value(f"explicit_values[{i}]", bounds.get(str(v)))
+            f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+        for i, v in enumerate(auxiliary_vars):
+            value = bounded_value(f"auxiliary_values[{i}]", bounds.get(str(v)))
+            f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+        for i, c in enumerate(coord_vars):
+            f.write(f"    [[maybe_unused]] const double {c} = coordinates[{i}];\n")
+        for k in time_constants:
+            f.write(f"    [[maybe_unused]] const double {k} = time;\n")
+
+        if is_conditional_expression:
+            for i in range(len(list_expr) - 1):
+                keyword = "if" if i == 0 else "} else if"
+                f.write(f"    {keyword} ({condition_to_cpp(list_expr[i])}) {{\n")
+                write_eval_expressions(f, list_expr[i][0], list_gradient[i][0],
+                                       list_hessian[i][0], n, "      ")
+            f.write("    } else {\n")
+            write_eval_expressions(f, list_expr[-1][0], list_gradient[-1][0],
+                                   list_hessian[-1][0], n, "      ")
+            f.write("    }\n")
+        else:
+            write_eval_expressions(f, list_expr[-1][0], list_gradient[-1][0],
+                                   list_hessian[-1][0], n, "    ")
+        f.write("  }\n")
+        f.write("};\n\n")
+    return True
+
+
 #######################################################################
 #######################################################################
 
@@ -302,118 +534,130 @@ def prepare_output_file(output_file, is_gradient_coefficient):
 
 #include "Options/PhysicalPropertiesOptions.hpp"\n  
 #include "Coefficients/FunctionCoefficient.hpp"\n  
+#include "Coefficients/EvalAtPoints.hpp"\n
+#include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]\n
 
 #pragma once\n
 """)
         
     
-def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression, coordinate_names=""):
-    
-    # Get constants
-    has_constants = False
-    if(len(constants)>0):
-        dict_constants = get_constants(constants)
-        has_constants = True
-        constants_names=','.join(list(dict_constants.keys()))+ ","
-        constants_vars = sp.symbols(constants_names)
-    
-    
-    # Expand variables with a range if needed
-    nb_var_expanded = 0
-    var_names, nb_var_expanded = expand_ranges(var_names, nb_var_expanded)
-    var_names+=","
-    spvars = sp.symbols(var_names)
-    n = len(spvars)
-    has_auxiliary_variables = False
-    if(len(auxiliary_var_names)>0):
-        auxiliary_var_names, nb_var_expanded = expand_ranges(auxiliary_var_names, nb_var_expanded)
-        has_auxiliary_variables = True
-        auxiliary_var_names+=","
-        auxiliary_vars = sp.symbols(auxiliary_var_names)
-        
-    has_explicit_variables = False
-    if(len(explicit_var_names)>0):
-        explicit_var_names, nb_var_expanded = expand_ranges(explicit_var_names, nb_var_expanded)
-        has_explicit_variables = True
-        explicit_var_names+=","
-        explicit_vars = sp.symbols(explicit_var_names)
+def write_coordinates_check(f, coord_vars, class_name):
+    """
+    Write the check of the spatial coordinates set by SLOTH (set_coordinates) before each
+    evaluation.
+    """
+    if not coord_vars:
+        return
+    f.write(f"    if (this->coordinates_.size() < {len(coord_vars)}) {{\n")
+    f.write(f"      throw std::runtime_error(\"{class_name}: spatial coordinates not set or "
+            f"inconsistent with the dimension of the problem\");\n")
+    f.write("    }\n")
 
-    # Spatial coordinates (optional): not differentiated (they are not unknowns)
-    coord_vars = get_coordinates(coordinate_names)
-    has_coordinates = len(coord_vars) > 0
-    if has_coordinates:
-        if is_gradient_coefficient:
-            raise ValueError("Error: coordinates are not extended to gradient expression.")
-        other_names = set(str(v) for v in spvars)
-        if has_auxiliary_variables:
-            other_names |= set(str(v) for v in auxiliary_vars)
-        if has_explicit_variables:
-            other_names |= set(str(v) for v in explicit_vars)
-        if has_constants:
-            other_names |= set(dict_constants.keys())
-        clash = other_names & set(coord_vars)
-        if clash:
-            raise ValueError(f"Error: coordinate names {sorted(clash)} are already used as variables "
-                             "or constants. Please check your data.")
 
-    # translate sdot contributions before managing expressions with sympy    
-    # pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
+def write_class_using_eval(cpp_file, class_name, list_expr, n, coord_vars,
+                           is_conditional_expression):
+    """
+    Write the class <class_name>: F(), GradientF() and HessianF() call the evaluation structure
+    <class_name>Eval (written before the class), which holds the expressions.
+    """
+    args = ("const std::span<const double>&, const std::span<const double>&, "
+            "const std::span<const double>&, const unsigned int dimension")
+    lambda_head = ("  auto func = [&](const std::span<const double>& input_vector,\n"
+                   "                  const std::span<const double>& exp_input_vector,\n"
+                   "                  const std::span<const double>& auxiliary_vector,\n"
+                   "                  [[maybe_unused]] const unsigned int dimension) {\n")
 
-    # ==========================================================
-    # ========================================================== 
-    # List of expressions and associated derivatives 
-    list_expr = []
-    list_gradient = []
-    list_hessian = []
-    # Get all expressions even for those of type gradient (simpler approach)
-    for expr_str1 in list_expr_str1:
-        
-        expr_str = expand_sdot(expr_str1[0])
-        locals_dict={}
-        
-        # Check if the expression is of type gradient 
-        has_dot = bool(re.search(r"\bdot\s*\(", expr_str))
-        if has_dot and (not is_gradient_coefficient):
-            raise ValueError(f"Analytical expression contains at least a dot(...) term but "
-                            "is not declared as a gradient expression."
-                            "Expression of type gradient are differentiated.")
+    def eval_call(outputs):
+        return ("    this->eval_(input_vector.data(), exp_input_vector.data(), "
+                "auxiliary_vector.data(),\n"
+                f"                this->coordinates_.data(), this->time_, {outputs});\n")
 
-        if(is_gradient_coefficient):
-            dot = sp.Function('dot')
-            locals_dict["dot"]=dot
-            
-        # Check presence of Sum terms in the expression
-        bad_sum_term = bool(re.search(r"\bsum\s*\(", expr_str))
-        if bad_sum_term:
-            raise ValueError(f"Analytical expression contains at least a sum term but is incorrectly written."
-                            "Summation is defined Sum(...)")
-            
-        has_sum = "Sum(" in expr_str
-        if has_sum:
-            expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
-        else:
-            expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
-        
-        # Int to float
-        expr = expr_tmp
-        # expr = sp.N(expr_tmp)
+    with open(cpp_file, "a") as f:
+        print_header(f, list_expr, is_conditional_expression)
+
+        # Class
+        f.write(f"class {class_name} : public FunctionCoefficient {{\n")
+        f.write(" private:\n")
+        f.write(f"  {class_name}Eval eval_;  ///< F, gradient and Hessian (host and device)\n\n")
+        f.write(" protected:\n")
+        f.write(f"  std::function<double({args})> F() final;\n")
+        f.write(f"  std::function<std::vector<double>({args})> GradientF() final;\n")
+        f.write(f"  std::function<std::vector<double>({args})> HessianF() final;\n\n")
+        f.write(" public:\n")
+        f.write(f"  {class_name}() = default;\n")
+        f.write(f"  explicit {class_name}(const double prefactor) {{ eval_.prefactor_ = prefactor; }}\n")
+        f.write(f"  virtual ~{class_name}() = default;\n")
+        f.write(f"  /// Evaluation structure (constants, prefactor), e.g. for eval_at_points\n")
+        f.write(f"  const {class_name}Eval& get_eval() const {{ return eval_; }}\n")
+        f.write("  /// Evaluation at a set of points with the evaluation structure (see eval_at_points)\n")
+        f.write("  bool eval_batch(const int npts, const mfem::Vector& values,\n")
+        f.write("                  const mfem::Vector& explicit_values,\n")
+        f.write("                  const mfem::Vector& auxiliary_values, const mfem::Vector& coordinates,\n")
+        f.write("                  mfem::Vector* F, mfem::Vector* gradient,\n")
+        f.write("                  mfem::Vector* hessian) const final {\n")
+        f.write("    eval_at_points(eval_, npts, this->time_, values, explicit_values, auxiliary_values,\n")
+        f.write("                   coordinates, F, gradient, hessian);\n")
+        f.write("    return true;\n")
+        f.write("  }\n")
+        f.write(f"  int batch_nb_variables() const final {{ return {class_name}Eval::nb_variables; }}\n")
+        if coord_vars:
+            f.write("  bool uses_coordinates() const final { return true; }\n")
+        f.write("};\n\n")
+
+        # F
+        f.write("/**\n")
+        f.write(f" * @brief Value of {class_name} (see {class_name}Eval)\n")
+        f.write(" */\n")
+        f.write(f"std::function<double({args})> {class_name}::F() {{\n")
+        f.write(lambda_head)
+        write_coordinates_check(f, coord_vars, class_name)
+        f.write("    double value = 0.0;\n")
+        f.write(eval_call("&value, nullptr, nullptr"))
+        f.write("    return value;\n")
+        f.write("  };\n")
+        f.write("  return func;\n")
+        f.write("}\n\n")
+
         # Gradient
-        gradient = [sp.diff(expr, v) for v in spvars]
-        # Hessian (n x n)
-        hessian = sp.hessian(expr, spvars)
+        f.write("/**\n")
+        f.write(f" * @brief Gradient of {class_name} (see {class_name}Eval)\n")
+        f.write(" */\n")
+        f.write(f"std::function<std::vector<double>({args})> {class_name}::GradientF() {{\n")
+        f.write(lambda_head)
+        write_coordinates_check(f, coord_vars, class_name)
+        f.write(f"    std::vector<double> gradient({n});\n")
+        f.write(eval_call("nullptr, gradient.data(), nullptr"))
+        f.write("    return gradient;\n")
+        f.write("  };\n")
+        f.write("  return func;\n")
+        f.write("}\n\n")
 
-        list_expr.append([expr]+ list(expr_str1[1:]))
-        list_gradient.append([gradient]+ list(expr_str1[1:]))
-        list_hessian.append([hessian]+ list(expr_str1[1:]))
-        
-    # ==========================================================
-    # ========================================================== 
+        # Hessian
+        f.write("/**\n")
+        f.write(f" * @brief Hessian of {class_name} (see {class_name}Eval)\n")
+        f.write(" * @remark Hessian matrix stored in vector : H(i,j)->H(i*n+j)\n")
+        f.write(" */\n")
+        f.write(f"std::function<std::vector<double>({args})> {class_name}::HessianF() {{\n")
+        f.write(lambda_head)
+        write_coordinates_check(f, coord_vars, class_name)
+        f.write(f"    std::vector<double> hessian({n * n});\n")
+        f.write(eval_call("nullptr, nullptr, hessian.data()"))
+        f.write("    return hessian;\n")
+        f.write("  };\n")
+        f.write("  return func;\n")
+        f.write("}\n\n")
 
-    cpp_file = f"{output_file}.hpp"
-    path = Path(cpp_file).resolve()
-    if not path.exists():
-        prepare_output_file(cpp_file,is_gradient_coefficient)
 
+def write_class_with_expressions(cpp_file, class_name, list_expr, list_gradient, list_hessian,
+                                 spvars, n, explicit_vars, auxiliary_vars, dict_constants,
+                                 coord_vars, has_explicit_variables, has_auxiliary_variables,
+                                 has_constants, has_coordinates, is_gradient_coefficient,
+                                 is_conditional_expression):
+    """
+    Write the class <class_name> holding its own expressions in F(), GradientF() and HessianF().
+    Used when the evaluation structure <class_name>Eval is not generated (gradient expressions,
+    reserved names).
+    """
     with open(cpp_file, "a") as f:
 
         print_header(f, list_expr, is_conditional_expression)
@@ -790,6 +1034,151 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
         f.write("}\n")
 
 
+def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_file, is_gradient_coefficient, is_conditional_expression, coordinate_names="", bounds=None):
+    
+    # Get constants
+    has_constants = False
+    if(len(constants)>0):
+        dict_constants = get_constants(constants)
+        has_constants = True
+        constants_names=','.join(list(dict_constants.keys()))+ ","
+        constants_vars = sp.symbols(constants_names)
+    
+    
+    # Expand variables with a range if needed
+    nb_var_expanded = 0
+    var_names, nb_var_expanded = expand_ranges(var_names, nb_var_expanded)
+    var_names+=","
+    spvars = sp.symbols(var_names)
+    n = len(spvars)
+    has_auxiliary_variables = False
+    if(len(auxiliary_var_names)>0):
+        auxiliary_var_names, nb_var_expanded = expand_ranges(auxiliary_var_names, nb_var_expanded)
+        has_auxiliary_variables = True
+        auxiliary_var_names+=","
+        auxiliary_vars = sp.symbols(auxiliary_var_names)
+        
+    has_explicit_variables = False
+    if(len(explicit_var_names)>0):
+        explicit_var_names, nb_var_expanded = expand_ranges(explicit_var_names, nb_var_expanded)
+        has_explicit_variables = True
+        explicit_var_names+=","
+        explicit_vars = sp.symbols(explicit_var_names)
+
+    # Spatial coordinates (optional): not differentiated (they are not unknowns)
+    coord_vars = get_coordinates(coordinate_names)
+    has_coordinates = len(coord_vars) > 0
+    if has_coordinates:
+        if is_gradient_coefficient:
+            raise ValueError("Error: coordinates are not extended to gradient expression.")
+        other_names = set(str(v) for v in spvars)
+        if has_auxiliary_variables:
+            other_names |= set(str(v) for v in auxiliary_vars)
+        if has_explicit_variables:
+            other_names |= set(str(v) for v in explicit_vars)
+        if has_constants:
+            other_names |= set(dict_constants.keys())
+        clash = other_names & set(coord_vars)
+        if clash:
+            raise ValueError(f"Error: coordinate names {sorted(clash)} are already used as variables "
+                             "or constants. Please check your data.")
+
+    # translate sdot contributions before managing expressions with sympy    
+    # pattern = r"(?:([-+]?\d*\.?\d+)\s*\*\s*)?sdot\((\w+)\((\d+)\.\.(\d+)\)\)"
+
+    # ==========================================================
+    # ========================================================== 
+    # List of expressions and associated derivatives 
+    list_expr = []
+    list_gradient = []
+    list_hessian = []
+    # Get all expressions even for those of type gradient (simpler approach)
+    for expr_str1 in list_expr_str1:
+        
+        expr_str = expand_sdot(expr_str1[0])
+        locals_dict={}
+        
+        # Check if the expression is of type gradient 
+        has_dot = bool(re.search(r"\bdot\s*\(", expr_str))
+        if has_dot and (not is_gradient_coefficient):
+            raise ValueError(f"Analytical expression contains at least a dot(...) term but "
+                            "is not declared as a gradient expression."
+                            "Expression of type gradient are differentiated.")
+
+        if(is_gradient_coefficient):
+            dot = sp.Function('dot')
+            locals_dict["dot"]=dot
+            
+        # Check presence of Sum terms in the expression
+        bad_sum_term = bool(re.search(r"\bsum\s*\(", expr_str))
+        if bad_sum_term:
+            raise ValueError(f"Analytical expression contains at least a sum term but is incorrectly written."
+                            "Summation is defined Sum(...)")
+            
+        has_sum = "Sum(" in expr_str
+        if has_sum:
+            expr_tmp = sp_from_expr_with_sum(expr_str, locals_dict, nb_var_expanded)
+        else:
+            expr_tmp = sp.sympify(expr_str, locals=locals_dict, rational=True)
+        
+        # Int to float
+        expr = expr_tmp
+        # expr = sp.N(expr_tmp)
+        # Gradient
+        gradient = [sp.diff(expr, v) for v in spvars]
+        # Hessian (n x n)
+        hessian = sp.hessian(expr, spvars)
+
+        list_expr.append([expr]+ list(expr_str1[1:]))
+        list_gradient.append([gradient]+ list(expr_str1[1:]))
+        list_hessian.append([hessian]+ list(expr_str1[1:]))
+        
+    # ==========================================================
+    # ========================================================== 
+
+    cpp_file = f"{output_file}.hpp"
+    path = Path(cpp_file).resolve()
+    if not path.exists():
+        prepare_output_file(cpp_file,is_gradient_coefficient)
+
+    # Evaluation structure (host and device) written before the class, which uses it.
+    # Not extended to gradient expressions: the class then holds its own expressions.
+    # Bounds of variables (optional): applied in the evaluation structure
+    if bounds and is_gradient_coefficient:
+        raise ValueError(f"Error ({class_name}): 'bounds' not extended to gradient expressions.")
+    variable_names = [str(v) for v in spvars]
+    if has_explicit_variables:
+        variable_names += [str(v) for v in explicit_vars]
+    if has_auxiliary_variables:
+        variable_names += [str(v) for v in auxiliary_vars]
+    constant_names = [k for k, v in dict_constants.items() if v != "this->time_"] \
+        if has_constants else []
+    parsed_bounds = get_bounds(bounds, variable_names, constant_names, class_name)
+
+    eval_generated = False
+    if is_gradient_coefficient:
+        logging.info(f"{class_name}Eval not generated: not extended to gradient expressions")
+    else:
+        eval_generated = write_eval_struct(cpp_file, class_name, list_expr, list_gradient,
+                                           list_hessian, spvars,
+                                           explicit_vars if has_explicit_variables else [],
+                                           auxiliary_vars if has_auxiliary_variables else [],
+                                           dict_constants if has_constants else {}, coord_vars,
+                                           is_conditional_expression, parsed_bounds)
+
+    if eval_generated:
+        write_class_using_eval(cpp_file, class_name, list_expr, n, coord_vars,
+                               is_conditional_expression)
+    else:
+        write_class_with_expressions(cpp_file, class_name, list_expr, list_gradient, list_hessian,
+                                     spvars, n,
+                                     explicit_vars if has_explicit_variables else [],
+                                     auxiliary_vars if has_auxiliary_variables else [],
+                                     dict_constants if has_constants else {}, coord_vars,
+                                     has_explicit_variables, has_auxiliary_variables,
+                                     has_constants, has_coordinates, is_gradient_coefficient,
+                                     is_conditional_expression)
+
     logging.info(f"Class {class_name} generated in {cpp_file}")
     # ======================
     # clang-format if found
@@ -808,6 +1197,395 @@ def generate_class_with_functions(list_expr_str1, var_names, explicit_var_names,
     except FileNotFoundError:
         print("clang-format is not found. C++ file not formatted.")
     # ======================
+
+
+########################################################################################
+########################################################################################
+
+
+# ==========================================================
+#  Variational coefficients (see VariationalForm.py)
+# ==========================================================
+#
+# A variational coefficient ("variational": true) is an energy density f(u, grad u). Two C++
+# objects are written:
+#   - the structure <class_name>VariationalEval: f and its derivatives with respect to the
+#     variables and to the components of their gradients at one point, on the host or on the
+#     device (see Coefficients/VariationalEval.hpp),
+#   - the class <class_name>, evaluated by eval_variational_batch only: its point by point
+#     evaluation (F, GradientF, HessianF) throws an exception, as it has no access to the
+#     gradients.
+
+FUNCTION_ARGS = ("const std::span<const double>&, const std::span<const double>&, "
+                 "const std::span<const double>&, const unsigned int dimension")
+
+
+def write_variational_block(f, pointer: str, entries, copies, indent: str):
+    """
+    Write the computation of one output of the variational evaluation structure, if its pointer
+    is not null: out.<pointer>[index] = prefactor_ * (expression) for each (index, expression)
+    of entries, then out.<pointer>[dst] = out.<pointer>[src] for each (dst, src) of copies.
+    Common subexpressions are computed once (temporary variables cse_<k>).
+    """
+    from VariationalForm import TEMPORARY_PREFIX
+    f.write(f"{indent}if (out.{pointer} != nullptr) {{\n")
+    nonzero = [(index, expr) for index, expr in entries if sp.S(expr) != 0]
+    temporaries, reduced = sp.cse([expr for _, expr in nonzero],
+                                  symbols=sp.numbered_symbols(TEMPORARY_PREFIX))
+    for symbol, expr in temporaries:
+        f.write(f"{indent}  const double {symbol} = {sp.ccode(expr)};\n")
+    values = dict(zip([index for index, _ in nonzero], reduced))
+    for index, _ in entries:
+        if index in values:
+            f.write(f"{indent}  out.{pointer}[{index}] = prefactor_ * ({sp.ccode(values[index])});\n")
+        else:
+            f.write(f"{indent}  out.{pointer}[{index}] = 0.0;\n")
+    for dst, src in copies:
+        f.write(f"{indent}  out.{pointer}[{dst}] = out.{pointer}[{src}];\n")
+    f.write(f"{indent}}}\n")
+
+
+def symmetric_entries(matrix, size: int):
+    """
+    Entries (index, expression) of the upper triangle of a symmetric matrix stored row by row,
+    and copies (dst, src) of its lower triangle.
+    """
+    entries = [(r * size + c, matrix[r, c]) for r in range(size) for c in range(r, size)]
+    copies = [(r * size + c, c * size + r) for r in range(size) for c in range(r)]
+    return entries, copies
+
+
+def write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_constants, coord_vars,
+                                  bounds, isotropic=None):
+    """
+    Write the structure <class_name>VariationalEval (see the comment above FUNCTION_ARGS).
+
+    isotropic: coefficients kappa_i of isotropic gradient terms (see
+    VariationalForm.isotropic_coefficients), written in the output d2f_dgrad2_isotropic; None:
+    gradient terms not isotropic.
+    """
+    class_name = spec.class_name
+    n, d = form.nb_variables, form.dimension
+    nd = n * d
+    variables = [str(v) for v in form.variables]
+    uses_explicit = any(v in form.data_gradients for v in explicit)
+    uses_auxiliary = any(v in form.data_gradients for v in auxiliary)
+    time_constants = [k for k, v in dict_constants.items() if v == "this->time_"]
+    member_constants = {k: v for k, v in dict_constants.items() if v != "this->time_"}
+
+    f.write("/**\n")
+    f.write(f" * @brief Evaluation of the variational coefficient {class_name} at one point, on the\n")
+    f.write(" * host or on the device: energy density f and its derivatives with respect to the\n")
+    f.write(" * variables and to the components of their gradients (see VariationalOutputs).\n")
+    f.write(" *\n")
+    f.write(f" *   f = {spec.expressions[0][0]}\n")
+    f.write(" *\n")
+    f.write(f" * Gradient of the variable i, component k: gradients[i*{d} + k].\n")
+    if bounds:
+        f.write(" * Bounded variables (f and its derivatives evaluated at the clamped values):\n")
+        for v, (lower, upper) in bounds.items():
+            lo = lower if lower is not None else "-inf"
+            up = upper if upper is not None else "+inf"
+            f.write(f" *   {v} in [{lo}, {up}]\n")
+    f.write(" */\n")
+    f.write(f"struct {class_name}VariationalEval {{\n")
+    f.write(f"  static constexpr int nb_variables = {n};\n")
+    f.write(f"  static constexpr int dimension = {d};\n")
+    f.write(f"  static constexpr int nb_explicit_variables = {len(explicit)};\n")
+    f.write(f"  static constexpr int nb_auxiliary_variables = {len(auxiliary)};\n")
+    f.write(f"  static constexpr int nb_coordinates = {len(coord_vars)};\n")
+    f.write(f"  static constexpr bool uses_explicit_gradients = {str(uses_explicit).lower()};\n")
+    f.write(f"  static constexpr bool uses_auxiliary_gradients = {str(uses_auxiliary).lower()};\n")
+    f.write(f"  static constexpr bool is_isotropic = {str(isotropic is not None).lower()};\n\n")
+    f.write("  double prefactor_ = 1.0;\n")
+    for k, v in member_constants.items():
+        f.write(f"  double {k} = {v};\n")
+    f.write("\n")
+    f.write("  MFEM_HOST_DEVICE void operator()(\n")
+    f.write("      [[maybe_unused]] const double* values, [[maybe_unused]] const double* explicit_values,\n")
+    f.write("      [[maybe_unused]] const double* auxiliary_values,\n")
+    f.write("      [[maybe_unused]] const double* gradients,\n")
+    f.write("      [[maybe_unused]] const double* explicit_gradients,\n")
+    f.write("      [[maybe_unused]] const double* auxiliary_gradients,\n")
+    f.write("      [[maybe_unused]] const double* coordinates, [[maybe_unused]] const double time,\n")
+    f.write("      const VariationalOutputs& out) const {\n")
+    for i, v in enumerate(variables):
+        value = bounded_value(f"values[{i}]", bounds.get(v))
+        f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+    for i, v in enumerate(explicit):
+        value = bounded_value(f"explicit_values[{i}]", bounds.get(v))
+        f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+    for i, v in enumerate(auxiliary):
+        value = bounded_value(f"auxiliary_values[{i}]", bounds.get(v))
+        f.write(f"    [[maybe_unused]] const double {v} = {value};\n")
+    for i, p in enumerate(form.gradients):
+        f.write(f"    [[maybe_unused]] const double {p} = gradients[{i}];\n")
+    for source, names in (("explicit_gradients", explicit), ("auxiliary_gradients", auxiliary)):
+        for i, v in enumerate(names):
+            for k, p in enumerate(form.data_gradients.get(v, [])):
+                f.write(f"    [[maybe_unused]] const double {p} = {source}[{i * d + k}];\n")
+    for i, c in enumerate(coord_vars):
+        f.write(f"    [[maybe_unused]] const double {c} = coordinates[{i}];\n")
+    for k in time_constants:
+        f.write(f"    [[maybe_unused]] const double {k} = time;\n")
+
+    indent = "    "
+    write_variational_block(f, "F", [(0, form.density)], [], indent)
+    write_variational_block(f, "df_dvar", list(enumerate(form.df_dvar)), [], indent)
+    write_variational_block(f, "df_dgrad", list(enumerate(form.df_dgrad)), [], indent)
+    entries, copies = symmetric_entries(form.d2f_dvar2, n)
+    write_variational_block(f, "d2f_dvar2", entries, copies, indent)
+    entries = [(r * nd + c, form.d2f_dvar_dgrad[r, c]) for r in range(n) for c in range(nd)]
+    write_variational_block(f, "d2f_dvar_dgrad", entries, [], indent)
+    entries, copies = symmetric_entries(form.d2f_dgrad2, nd)
+    write_variational_block(f, "d2f_dgrad2", entries, copies, indent)
+    if isotropic is not None:
+        write_variational_block(f, "d2f_dgrad2_isotropic", list(enumerate(isotropic)), [],
+                                indent)
+    f.write("  }\n")
+    f.write("};\n\n")
+
+
+def write_variational_class(f, spec, form, explicit, auxiliary, coord_vars, isotropic=False):
+    """
+    Write the class <class_name> of a variational coefficient, evaluated with the structure
+    <class_name>VariationalEval by eval_variational_batch.
+
+    isotropic: isotropic gradient terms (see VariationalForm.isotropic_coefficients).
+    """
+    class_name = spec.class_name
+    uses_explicit = any(v in form.data_gradients for v in explicit)
+    uses_auxiliary = any(v in form.data_gradients for v in auxiliary)
+    message = (f"{class_name}: variational coefficient, evaluated by eval_variational_batch "
+               "only (use it in an integrator taking variational coefficients)")
+
+    f.write("/**\n")
+    f.write(f" * @brief Variational coefficient {class_name}: energy density\n")
+    f.write(" *\n")
+    f.write(f" *   f = {spec.expressions[0][0]}\n")
+    f.write(" *\n")
+    f.write(f" * Evaluated with {class_name}VariationalEval by eval_variational_batch only: the point\n")
+    f.write(" * by point evaluation (F, GradientF, HessianF) throws an exception, as it has no access\n")
+    f.write(" * to the gradients.\n")
+    f.write(" */\n")
+    f.write(f"class {class_name} : public FunctionCoefficient {{\n")
+    f.write(" private:\n")
+    f.write(f"  {class_name}VariationalEval eval_;  ///< f and its derivatives (host and device)\n\n")
+    f.write(" protected:\n")
+    for method, result in (("F", "double"), ("GradientF", "std::vector<double>"),
+                           ("HessianF", "std::vector<double>")):
+        f.write(f"  std::function<{result}({FUNCTION_ARGS})> {method}() final {{\n")
+        f.write(f"    throw std::runtime_error(\"{message}\");\n")
+        f.write("  }\n")
+    f.write("\n public:\n")
+    f.write(f"  {class_name}() = default;\n")
+    f.write(f"  explicit {class_name}(const double prefactor) {{ eval_.prefactor_ = prefactor; }}\n")
+    f.write(f"  virtual ~{class_name}() = default;\n")
+    f.write("  /// Evaluation structure (constants, prefactor)\n")
+    f.write(f"  const {class_name}VariationalEval& get_eval() const {{ return eval_; }}\n")
+    f.write("  bool is_variational() const final { return true; }\n")
+    f.write(f"  int variational_dimension() const final {{ return {form.dimension}; }}\n")
+    f.write(f"  int variational_nb_variables() const final {{ return {form.nb_variables}; }}\n")
+    f.write(f"  bool uses_explicit_gradients() const final {{ return {str(uses_explicit).lower()}; }}\n")
+    f.write(f"  bool uses_auxiliary_gradients() const final {{ return {str(uses_auxiliary).lower()}; }}\n")
+    if coord_vars:
+        f.write("  bool uses_coordinates() const final { return true; }\n")
+    if isotropic:
+        f.write("  bool is_isotropic() const final { return true; }\n")
+    f.write("  bool eval_variational_batch(const int npts, const mfem::Vector& values,\n")
+    f.write("                              const mfem::Vector& explicit_values,\n")
+    f.write("                              const mfem::Vector& auxiliary_values,\n")
+    f.write("                              const mfem::Vector& gradients,\n")
+    f.write("                              const mfem::Vector& explicit_gradients,\n")
+    f.write("                              const mfem::Vector& auxiliary_gradients,\n")
+    f.write("                              const mfem::Vector& coordinates,\n")
+    f.write("                              const VariationalBatch& outputs) const final {\n")
+    f.write("    eval_variational_at_points(eval_, npts, this->time_, values, explicit_values,\n")
+    f.write("                               auxiliary_values, gradients, explicit_gradients,\n")
+    f.write("                               auxiliary_gradients, coordinates, outputs);\n")
+    f.write("    return true;\n")
+    f.write("  }\n")
+    f.write("};\n\n")
+
+
+def format_cpp(cpp_file):
+    """
+    Format the C++ file with clang-format, if found.
+    """
+    options = ["clang-format", "-i",
+               "-style={BasedOnStyle: Google, ColumnLimit: 100, Cpp11BracedListStyle: true, "
+               "IncludeBlocks: Preserve}", cpp_file]
+    try:
+        subprocess.run(options, check=True)
+        print(f"{cpp_file} is formatted with clang-format")
+    except subprocess.CalledProcessError as e:
+        print(f"Error when running clang-format: {e}")
+    except FileNotFoundError:
+        print("clang-format is not found. C++ file not formatted.")
+
+
+def generate_variational_class(spec):
+    """
+    Write the structure <class_name>VariationalEval and the class <class_name> of a variational
+    coefficient in <outputfile>.hpp.
+    """
+    from CoefficientReport import ExpressionParser
+    from VariationalForm import (TEMPORARY_PREFIX, VARIATIONAL_EVAL_RESERVED,
+                                 variational_form_of)
+    class_name = spec.class_name
+    parser = ExpressionParser(spec)
+    explicit, auxiliary = parser.explicit_variables, parser.auxiliary_variables
+    dict_constants = get_constants(spec.constants) if spec.constants else {}
+    coord_vars = get_coordinates(spec.coordinates)
+    names = set(parser.variables) | set(explicit) | set(auxiliary) | set(dict_constants) \
+        | set(coord_vars)
+    clash = sorted(name for name in names if name in VARIATIONAL_EVAL_RESERVED
+                   or name.startswith(TEMPORARY_PREFIX))
+    if clash:
+        raise ValueError(f"Error ({class_name}): names {clash} are reserved in a variational "
+                         "coefficient. Please rename them.")
+    constant_names = [k for k, v in dict_constants.items() if v != "this->time_"]
+    bounds = get_bounds(spec.bounds, parser.variables + explicit + auxiliary, constant_names,
+                        class_name)
+    form = variational_form_of(spec)
+    isotropic = form.isotropic_coefficients()
+
+    cpp_file = f"{spec.output_file}.hpp"
+    if not Path(cpp_file).resolve().exists():
+        prepare_output_file(cpp_file, False)
+    with open(cpp_file, "a") as f:
+        write_variational_eval_struct(f, spec, form, explicit, auxiliary, dict_constants,
+                                      coord_vars, bounds, isotropic)
+        write_variational_class(f, spec, form, explicit, auxiliary, coord_vars,
+                                isotropic is not None)
+    logging.info(f"Variational class {class_name} generated in {cpp_file}")
+    format_cpp(cpp_file)
+
+
+# ==========================================================
+#  Reading of the JSON file
+# ==========================================================
+
+@dataclass
+class CoefficientSpec:
+    """
+    Description of one coefficient read from the JSON file.
+
+    expressions: list of tuples (expression, range_variable, lower, lower_strict, upper,
+                 upper_strict). A single tuple with None bounds for a standard expression.
+    """
+    expressions: List[Tuple]
+    variables: str
+    explicit_variables: str
+    auxiliary_variables: str
+    constants: str
+    class_name: str
+    output_file: str
+    is_gradient: bool
+    is_conditional: bool
+    coordinates: str
+    bounds: Dict[str, Any] = field(default_factory=dict)
+    # Variational coefficient: energy density f(u, grad(u)) (see VariationalForm.py)
+    is_variational: bool = False
+    dimension: Optional[int] = None
+    regularization: float = DEFAULT_REGULARIZATION
+
+
+def read_coefficient(item) -> CoefficientSpec:
+    """
+    Check one item of the JSON file and return the associated CoefficientSpec.
+    """
+    gradient = bool(item.get("gradient", False))
+    variational = bool(item.get("variational", False))
+    if variational and gradient:
+        raise ValueError("Error: a coefficient cannot be both 'gradient' and 'variational'.")
+    if variational and item.get("dimension") is None:
+        raise ValueError("Error: 'dimension' (1, 2 or 3) must be defined for a variational "
+                         "coefficient.")
+    auxiliaries = item.get("auxiliary_variables", "")
+    explicit = item.get("explicit_variables", "")
+    constants = item.get("constants", "")
+    coordinates = item.get("coordinates", "")
+    bounds = item.get("bounds", {})
+
+    expressions = []
+
+    cond_var = item.get("range_variable")
+    is_conditional_expression = False
+    if "expression" in item:
+        expressions.append((item["expression"], None, None, None, None, None))
+    elif "expressions" in item:
+        is_conditional_expression = True
+        found_default = False
+        if cond_var is None:
+            raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")
+        if gradient:
+            raise ValueError("Error: conditional expression not extended to gradient expression.")
+        if variational:
+            raise ValueError("Error: conditional expression not extended to variational "
+                             "coefficients.")
+        nb_expression = 0
+        nb_range = 0
+        for expr_item in item["expressions"]:
+            expr = expr_item.get("expression")
+            if expr is not None:
+                nb_expression = nb_expression + 1
+            lower = expr_item.get("lower")
+            upper = expr_item.get("upper")
+            lower_strict = expr_item.get("lower_strict")
+            upper_strict = expr_item.get("upper_strict")
+
+            if expr is None:
+                raise ValueError("Error: expression is expected.")
+            if not expr_item.get("default"):
+                if (lower is not None) and (lower_strict is not None):
+                    raise ValueError("Error: either lower or lower_strict must be defined. Please make a choice.")
+                if (lower is None) and (lower_strict is None):
+                    raise ValueError("Error: either lower or lower_strict must be defined.")
+                if (upper is not None) and (upper_strict is not None):
+                    raise ValueError("Error: either upper or upper_strict must be defined. Please make a choice.")
+                if (upper is None) and (upper_strict is None):
+                    raise ValueError("Error: either upper or upper_strict must be defined.")
+                nb_range = nb_range + 1
+            else:
+                found_default = True
+
+            expressions.append((expr, cond_var, lower, lower_strict, upper, upper_strict))
+
+        if not found_default:
+            raise ValueError("Error: a default expression must be defined for each conditional expression .Use the 'default' attribute in the JSON file.")
+
+        if nb_expression < 2:
+            raise ValueError("Error: at least two expression expressions are expected.")
+
+        if nb_range != nb_expression - 1:
+            raise ValueError("Error: the number of ranges must be equal to the number of expressions - 1")
+
+        check_bounds_consistency(expressions)
+
+    else:
+        raise ValueError("Error: either expression or expressions must be defined.")
+
+    return CoefficientSpec(expressions, item["variables"], explicit, auxiliaries, constants,
+                           item["class_name"], item["outputfile"], gradient,
+                           is_conditional_expression, coordinates, bounds,
+                           is_variational=variational, dimension=item.get("dimension"),
+                           regularization=item.get("regularization", DEFAULT_REGULARIZATION))
+
+
+def read_coefficients(input_file) -> List[CoefficientSpec]:
+    """
+    Read the JSON file and return the list of CoefficientSpec, in the order of the file.
+    """
+    coefficients = []
+    try:
+        with open(input_file, 'r') as file:
+            data = json.load(file)
+        for item in data:
+            coefficients.append(read_coefficient(item))
+    except json.JSONDecodeError:
+        print("Error: Failed to decode JSON from the file.")
+    return coefficients
 
 
 ########################################################################################
@@ -844,8 +1622,26 @@ def parse_args() -> Namespace:
     )
 
     parser.add_argument("-r", "--remove", dest="remove", help="Remove output cpp files is already exist\n", action="store_true")
+    parser.add_argument("--check", dest="check", action="store_true",
+                        help="Only check the consistency of the JSON file (see CoefficientChecker.py);\n"
+                             "the check is always done before the generation")
+
+    group2 = parser.add_argument_group('Report (LaTeX description of the coefficients)')
+    group2.add_argument(
+        "--report", dest="report", nargs="?", const="", default=None, metavar="TEX_FILE",
+        help="Write a LaTeX report of the coefficients (default: <json name>_report.tex in the "
+             "current directory) and compile it with pdflatex if available"
+    )
+    group2.add_argument("--report-only", dest="report_only", action="store_true",
+                        help="Write the report without generating the C++ files")
 
     args = parser.parse_args()
+    if args.report_only and args.report is None:
+        args.report = ""
+    if args.report is not None and args.input_file is None:
+        parser.error("--report requires an input file (-f)")
+    if args.check and args.input_file is None:
+        parser.error("--check requires an input file (-f)")
 
 
     return args
@@ -859,14 +1655,13 @@ if __name__ == "__main__":
     """
     The script GenerateCoefficient.py performs the following tasks:
 
-    1. Loads coefficient definitions from a JSON file (via `-f`)
+    1. Loads coefficient definitions from a JSON file (via `-f`) and checks their consistency
+       (see CoefficientChecker.py): errors stop the script, `--check` stops after the check.
     2. Optionally removes previously generated C++ output files (flag `-r`).
     3. Generates C++ classes using the `generate_class_with_functions` function.
+    4. Optionally writes a LaTeX report of the coefficients (`--report`, see CoefficientReport.py).
+    """
 
-    Each coefficient is expected to be a quadruplet:
-        (expression, variables, class_name, output_cpp_file)
-    """ 
- 
     logging.basicConfig(
         level=logging.INFO,
         format="[%(asctime)s][%(levelname)s] %(message)s",
@@ -874,103 +1669,40 @@ if __name__ == "__main__":
     )
     args = parse_args()
 
-    
-    # Read data
+    # Check and read data
     coefficients = []
-    if args.input_file is not None:       
-        try:
-            with open(args.input_file, 'r') as file:
-                data = json.load(file)
-            for item in data:
-                if "gradient" in item and item["gradient"]:
-                    gradient=True
-                else:
-                    gradient=False
-                if "auxiliary_variables" in item:
-                    auxiliaries = item["auxiliary_variables"]
-                else:
-                    auxiliaries = ""
-                if "explicit_variables" in item:
-                    explicit = item["explicit_variables"]
-                else:
-                    explicit = ""
-                if "constants" in item:
-                    constants = item["constants"]
-                else:
-                    constants = ""
-                coordinates = item.get("coordinates", "")
+    if args.input_file is not None:
+        from CoefficientChecker import check_file, log_issues
+        if not log_issues(check_file(args.input_file), args.input_file):
+            sys.exit(1)
+        if args.check:
+            logging.info(f"{args.input_file}: no error found.")
+            sys.exit(0)
+        coefficients = read_coefficients(args.input_file)
 
-                expressions = []
-                
-                cond_var = item.get("range_variable")
-                is_conditional_expression = False
-                if "expression" in item:
-                    expressions.append( (item["expression"], None, None, None, None, None) )
-                elif "expressions" in item:
-                    is_conditional_expression = True
-                    found_default = False
-                    if cond_var is None:
-                        raise ValueError("Error: 'range_variable' attribute must be defined for a conditional expression.")   
-                    if gradient:
-                        raise ValueError("Error: conditional expression not extended to gradient expression.")   
-                    nb_expression = 0
-                    nb_range = 0
-                    for expr_item in item["expressions"]:
-                        expr = expr_item.get("expression")
-                        if expr is not None:
-                            nb_expression= nb_expression +1
-                        lower = expr_item.get("lower")
-                        upper = expr_item.get("upper")
-                        lower_strict = expr_item.get("lower_strict")
-                        upper_strict = expr_item.get("upper_strict")
-                        
-                        if expr is None:
-                            raise ValueError("Error: expression is expected.")    
-                        if not expr_item.get("default"):                  
-                            if (lower is not None) and (lower_strict is not None):
-                                raise ValueError("Error: either lower or lower_strict must be defined. Please make a choice.")
-                            if (lower is None) and (lower_strict is None):
-                                raise ValueError("Error: either lower or lower_strict must be defined.")
-                            if (upper is not None) and (upper_strict is not None):
-                                raise ValueError("Error: either upper or upper_strict must be defined. Please make a choice.")
-                            if (upper is None) and (upper_strict is None):
-                                raise ValueError("Error: either upper or upper_strict must be defined.")
-                            nb_range= nb_range +1
-                        else:
-                            found_default = True
-
-                        expressions.append( (expr, cond_var, lower, lower_strict, upper, upper_strict) )
-                     
-                    if not found_default:
-                        raise ValueError("Error: a default expression must be defined for each conditional expression .Use the 'default' attribute in the JSON file.")
-
-                    if nb_expression < 2:
-                        raise ValueError("Error: at least two expression expressions are expected.")  
-                        
-                    if nb_range != nb_expression - 1:
-                        raise ValueError("Error: the number of ranges must be equal to the number of expressions - 1")
-
-                    check_bounds_consistency(expressions)
-
-                else:
-                    raise ValueError("Error: either expression or expressions must be defined.")
-
-                coefficients.append((expressions, item["variables"], explicit, auxiliaries, constants, item["class_name"], item["outputfile"], gradient, is_conditional_expression, coordinates))
-            
-        except json.JSONDecodeError:
-            print("Error: Failed to decode JSON from the file.")         
+    # LaTeX report
+    if args.report is not None:
+        from CoefficientReport import write_report, compile_report
+        tex_file = args.report or f"{Path(args.input_file).stem}_report.tex"
+        tex_file = write_report(coefficients, tex_file, args.input_file)
+        compile_report(tex_file)
+        if args.report_only:
+            sys.exit(0)
 
     # Remove existing Cpp files
     if args.remove:
         for coef in coefficients:
-            output_cpp_file = coef[6]        
-            cpp_file = f"{output_cpp_file}.hpp"
+            cpp_file = f"{coef.output_file}.hpp"
             path = Path(cpp_file).resolve()
             if path.is_file():
                 os.remove(cpp_file)
 
     # Generate Cpp files
     for coef in coefficients:
-        [expr_str, var_names, explicit_var_names, auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression, coordinate_names] = coef
-        generate_class_with_functions(expr_str, var_names, explicit_var_names,auxiliary_var_names, constants, class_name, output_cpp_file, is_gradient_coefficient, is_conditional_expression, coordinate_names)
-        
+        if coef.is_variational:
+            generate_variational_class(coef)
+            continue
+        generate_class_with_functions(coef.expressions, coef.variables, coef.explicit_variables,
+                                      coef.auxiliary_variables, coef.constants, coef.class_name,
+                                      coef.output_file, coef.is_gradient, coef.is_conditional,
+                                      coef.coordinates, coef.bounds)

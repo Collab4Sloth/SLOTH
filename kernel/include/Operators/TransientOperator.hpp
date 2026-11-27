@@ -42,6 +42,7 @@
 #include "Parameters/Parameter.hpp"
 #include "Parameters/Parameters.hpp"
 #include "Solvers/LSolver.hpp"
+#include "Solvers/SlothBDF2Solver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variables.hpp"
@@ -56,6 +57,14 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
  private:
   double solve_time_step_{std::numeric_limits<double>::quiet_NaN()};
   std::shared_ptr<mfem::ODESolver> ode_solver_;
+  // BDF2 scheme (nullptr otherwise): history and lagged auxiliary variables handled by the solver
+  std::shared_ptr<SlothBDF2Solver<T, DIM>> bdf2_solver_;
+  // BDF2: previous time step saved at the beginning of a time-step (save_time_scheme_state)
+  mfem::real_t saved_previous_time_step_{0.};
+  // Other schemes: lagged auxiliary variables of a partitioned coupling reported once
+  Variables<T, DIM>* vars_{nullptr};
+  bool lagged_aux_info_printed_{false};
+  void report_lagged_auxiliary_variables();
 
   bool is_explicit_;
   void set_ODE_solver(const TimeScheme::value& ode_solver);
@@ -72,10 +81,11 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   SlothNLFormIntegrator<Variables<T, DIM>>* get_lhs_integrator(
       const double dt, const std::string integrator, const std::vector<mfem::ParGridFunction>& vun,
       const std::vector<mfem::ParGridFunction>& vauxn, const Parameters& all_params);
-  std::string lhs_integrator_;
+  IntegratorEntry<Variables<T, DIM>> lhs_integrator_;
 
   void free_memory();
   void free_mass_matrices();
+  bool sync_with_mesh() override;
 
   Coefficients explicit_time_coefficients_;
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);
@@ -154,13 +164,20 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   PhaseFieldReducedOperator* reduced_oper;
 
  public:
-  TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                    const std::vector<std::string>& rhs_integrators, TimeScheme::value ode,
-                    const std::string lhs_integrator);
+  // Time scheme (adaptive time-stepping, see OperatorBase)
+  double get_max_time_step_ratio() const;
+  void save_time_scheme_state();
+  void restore_time_scheme_state();
 
   TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                    const std::vector<std::string>& rhs_integrators, const Parameters& params,
-                    TimeScheme::value ode, const std::string lhs_integrator);
+                    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators,
+                    TimeScheme::value ode,
+                    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator);
+
+  TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
+                    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators,
+                    const Parameters& params, TimeScheme::value ode,
+                    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator);
 
   ~TransientOperator() override;
 

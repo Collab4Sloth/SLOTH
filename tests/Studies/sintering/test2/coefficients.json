@@ -3,7 +3,8 @@
     "expression":"dvol * c*c*c *( 10.0 - 15.0*c+6.0*c*c) + dvap * (1.0 - c*c*c *( 10.0-15.0*c+6.0*c*c)) + dsurf *c*(1-c) + dgb * ( Sum(eta[i],(i,1,9))*Sum(eta[i],(i,1,9))- Sum(eta[i]*eta[i],(i,1,9)))",
     "variables":"c",
     "auxiliary_variables":"eta(1..9)",
-    "constants":"(dvol:0.04),(dvap:0.002),(dsurf:16.0),(dgb:1.6)",
+    "constants":"(dvol:0.04),(dvap:0.002),(dsurf:16.0),(dgb:1.6),(eps:1.e-10)",
+    "bounds":{"c":["eps", "1.0 - eps"]},
     "class_name":"D",
     "outputfile":"SinteringCoefficients"
     },

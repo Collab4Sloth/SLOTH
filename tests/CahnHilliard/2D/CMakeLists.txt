@@ -1,9 +1,13 @@
 add_subdirectory(test1)
+add_subdirectory(test1_variational)
 add_subdirectory(test1_dt_variable)
 add_subdirectory(test2)
 add_subdirectory(test2_amr)
 add_subdirectory(test3)
 add_subdirectory(test4)
 add_subdirectory(test5)
+add_subdirectory(test5_bdf2)
 add_subdirectory(test6)
+# Study case (BM1, BDF2, adaptive time-stepping): long run, not built by default
+# add_subdirectory(study_adaptive_bdf2)
 add_subdirectory(test_logo)

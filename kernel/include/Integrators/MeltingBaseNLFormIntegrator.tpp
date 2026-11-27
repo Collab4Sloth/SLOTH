@@ -84,6 +84,8 @@ template <class VARS>
 void MeltingBaseNLFormIntegrator<VARS>::init() {
   this->check_coefficient_types(this->expected_list_);
   this->get_coefficients();
+  MFEM_VERIFY(this->phase_change_.has_value(),
+              "Error in " + this->integrator_name_ + ": the phase change is not defined.");
 
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
     this->vaux_gf_.emplace_back(std::move(this->aux_gf_[i]));
@@ -138,20 +140,23 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // M(u), h'(u) and phase change at all the integration points of the element
+    this->eval_coefficient_at_points(mobility[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
+                                     elfun, this->vaux_gf_, this->mobility_at_points_);
+    this->eval_coefficient_at_points(*this->phase_change_, blk, SlothNLBase::CoefValue, *el[blk],
+                                     Tr, *ir, elfun, this->vaux_gf_, this->phase_change_at_points_);
+    this->eval_coefficient_at_points(interpolation_potential[blk], blk,
+                                     SlothNLBase::CoefFirstDerivative, *el[blk], Tr, *ir, elfun,
+                                     this->vaux_gf_, this->potential_at_points_);
     // elvect = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-
-      const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
-      const double alpha = this->get_phase_change_at_ip(blk, ipv.u, ipv.aux);
-      const double seed = this->get_seed_at_ip(blk, ipv.u, ipv.aux);
-      double ww = coef_mobi * (alpha * this->eval_gradient_energy_coefficient(
-                                           interpolation_potential[blk], blk, ipv.u, ipv.aux, blk)) +
-                  seed;
+      const double coef_mobi = this->mobility_at_points_.value(i);
+      const double alpha = this->phase_change_at_points_.value(i);
+      double ww = coef_mobi * (alpha * this->potential_at_points_.energy_derivative(i, blk));
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -203,23 +208,30 @@ void MeltingBaseNLFormIntegrator<VARS>::AssembleElementGrad(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // M(u), dM/du, h'(u), h''(u) and phase change at all the integration points of the element
+    this->eval_coefficient_at_points(
+        mobility[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk], Tr,
+        *ir, elfun, this->vaux_gf_, this->mobility_at_points_);
+    this->eval_coefficient_at_points(*this->phase_change_, blk, SlothNLBase::CoefValue, *el[blk],
+                                     Tr, *ir, elfun, this->vaux_gf_, this->phase_change_at_points_);
+    this->eval_coefficient_at_points(
+        interpolation_potential[blk], blk,
+        SlothNLBase::CoefFirstDerivative | SlothNLBase::CoefSecondDerivative, *el[blk], Tr, *ir,
+        elfun, this->vaux_gf_, this->potential_at_points_);
 
     // elmat = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       this->set_int_point(Tr, ip);
       el[blk]->CalcShape(ip, Psi);
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
-      const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
-      const double alpha = this->get_phase_change_at_ip(blk, ipv.u, ipv.aux);
+      const double coef_mobi = this->mobility_at_points_.value(i);
+      const double alpha = this->phase_change_at_points_.value(i);
       // d/du (M(u) alpha h'(u)) = M alpha h''(u) + M'(u) alpha h'(u)
-      double fun_val = coef_mobi * alpha *
-                           this->eval_hessian_coefficient(interpolation_potential[blk], blk, blk,
-                                                          ipv.u, ipv.aux, blk) +
-                       this->get_mob_derivative_at_ip(blk, ipv.u, ipv.aux) * alpha *
-                           this->eval_gradient_energy_coefficient(interpolation_potential[blk], blk,
-                                                                  ipv.u, ipv.aux, blk);
+      double fun_val =
+          coef_mobi * alpha * this->potential_at_points_.second_derivative(i, blk, blk) +
+          this->mobility_at_points_.derivative(i, blk) * alpha *
+              this->potential_at_points_.energy_derivative(i, blk);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
@@ -260,65 +272,4 @@ void MeltingBaseNLFormIntegrator<VARS>::get_coefficients() {
           *(this->get_coefficient(i, GlossaryType::PhaseFieldPotential, 0)));
     }
   }
-}
-
-/**
- * @brief Compute the value of a seed of the secondary phase at integration point
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed seed at integration point
- */
-template <class VARS>
-double MeltingBaseNLFormIntegrator<VARS>::get_seed_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  // Nucleus must be equal to zero except when phase transition starts
-  const double seed = 0.0;
-
-  return seed;
-}
-
-/**
- * @brief Compute the value of the mobility at integration point
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed mobility at integration point
- */
-template <class VARS>
-double MeltingBaseNLFormIntegrator<VARS>::get_mob_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
-
-  return mobi;
-}
-/**
- * @brief Derivative of the mobility with respect to the unknown of block blk
- *
- * @tparam VARS
- * @param blk index of the block
- * @param values values of the unknowns at the integration point
- * @param aux_values values of the auxiliary variables at the integration point
- * @return double
- */
-template <class VARS>
-double MeltingBaseNLFormIntegrator<VARS>::get_mob_derivative_at_ip(
-    unsigned int blk, const std::span<const double>& values,
-    const std::span<const double>& aux_values) {
-  return this->eval_gradient_coefficient(mobility[blk], blk, values, aux_values,
-                                         static_cast<int>(blk));
 }

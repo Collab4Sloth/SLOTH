@@ -37,6 +37,7 @@
 #include "Parameters/Parameters.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Solvers/NLSolver.hpp"
+#include "Solvers/SlothNewtonSolver.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variables.hpp"
@@ -50,8 +51,9 @@
  * @param spatial
  */
 template <class T, int DIM>
-SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                       const std::vector<std::string>& integrators)
+SteadyOperator<T, DIM>::SteadyOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators)
     : OperatorBase<T, DIM>(integrators, spatials), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -67,9 +69,9 @@ SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>
  * @param params
  */
 template <class T, int DIM>
-SteadyOperator<T, DIM>::SteadyOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                       const std::vector<std::string>& integrators,
-                                       const Parameters& params)
+SteadyOperator<T, DIM>::SteadyOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators, const Parameters& params)
     : OperatorBase<T, DIM>(integrators, spatials, params), steady_reduced_oper(NULL) {
   const Parameters nl_parameters =
       Parameters(Parameter("description", "Newton Algorithm"), Parameter("iterative_mode", true));
@@ -113,10 +115,16 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
   // Important line if solvers parameters are overloaded.
   this->nl_solver_params_ = this->nl_solver_params_ + Parameter("iterative_mode", true);
 
-  if (this->enable_amr_ && this->mesh_has_changed()) {
-    // Resynchronize height/width/z/block_trueOffsets_
-    this->UpdateAfterMeshChange();
-    this->record_fes_sequence();
+  // Operator sizes and essential dofs on the current mesh (AMR of this Problem or of another
+  // Problem sharing the mesh)
+  this->sync_with_mesh();
+
+  // Dirichlet values imposed at each solve: they may depend on time or on the auxiliary
+  // variables, and the unknowns may have been interpolated or reset on a new mesh
+  const auto auxvars_unk = this->get_auxvars_unknowns();
+  for (size_t i = 0; i < vect_unk.size(); i++) {
+    this->bcs_[i]->SetDirichletBoundaryConditions(*(vect_unk[i]), this->coefficients_[i],
+                                                  auxvars_unk);
   }
 
   //// Constructing array of offsets
@@ -134,23 +142,14 @@ void SteadyOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& v
 
   this->SetTransientParameters(dt, u_vect);
 
-  /// Apply BCs: check if need to be uncomment
-  // Get the unknown vectors of the auxiliary variables
-  // std::vector<mfem::Vector> auxvars_unk;
-  // for (const auto& auxvar_vec : this->auxvariables_) {
-  //   for (const auto& auxvar : auxvar_vec->getVariables()) {
-  //     auxvars_unk.emplace_back(auxvar.get_unknown());
-  //   }
-  // }
-  // for (size_t i = 0; i < unk_size; i++) {
-  //   auto &unk_i = *(vect_unk[i]);
-  //   this->bcs_[i]->SetDirichletBoundaryConditions(unk_i, this->coefficients_[i], auxvars_unk);
-  // }
-
   // Zero right-hand side: source terms are part of the RHS nonlinear form (SourceTerm
   // integrator)
   mfem::BlockVector zero_rhs(this->block_trueOffsets_);
   zero_rhs = 0.0;
+  // No divergence detection for steady problems: no time-step to reject (see SlothNewtonSolver)
+  if (auto sloth_newton = std::dynamic_pointer_cast<SlothNewtonSolver>(this->newton_solver_)) {
+    sloth_newton->set_divergence_factor(0.);
+  }
   this->newton_solver_->Mult(zero_rhs, block_unk);
 
   this->free_memory();

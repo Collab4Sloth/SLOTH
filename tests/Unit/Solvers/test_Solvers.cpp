@@ -1,7 +1,8 @@
 /**
  * @file test_Solvers.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief Unit tests for the linear and nonlinear solvers (SlothSolver, LSolver, NLSolver)
+ * @brief Unit tests for the linear and nonlinear solvers (SlothSolver, LSolver, NLSolver) and for
+ *        the BDF2 time integrator (BDF2Solver, MFEM only)
  * @version 0.1
  * @date 2026-10-22
  *
@@ -26,12 +27,15 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/generators/catch_generators_range.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "Parameters/Parameters.hpp"
+#include "Solvers/BDF2Solver.hpp"
 #include "Solvers/HSolverBase.hpp"
 #include "Solvers/IPrecondBase.hpp"
 #include "Solvers/ISolverBase.hpp"
@@ -281,4 +285,102 @@ TEST_CASE_METHOD(PoissonFixture, "NLSolver: Newton", "[Solvers]") {
 
   X -= X_exact;
   CHECK(X.Normlinf() < 1.e-8);  // on this rank
+}
+
+// -----------------------------------------------------------------------------
+// BDF2 coefficients: u^{n+1} - a u^n + b u^{n-1} = beta dt_n u'(t_{n+1}) must be exact for
+// u = 1, t, t^2 whatever the ratio w = dt_n / dt_{n-1} (t_{n-1} = -1, t_n = 0, t_{n+1} = w).
+// -----------------------------------------------------------------------------
+TEST_CASE("BDF2Solver: variable-step coefficients", "[Solvers][BDF2]") {
+  const double w = GENERATE(0.5, 1., 1.5, 2.);
+  CAPTURE(w);
+  double a = 0., b = 0., beta = 0.;
+  BDF2Solver::Coefficients(w, a, b, beta);
+  // t_{n-1} = -1, t_n = 0, t_{n+1} = w (dt_{n-1} = 1, dt_n = w)
+  const double dt = w;
+  // u = 1: consistency
+  CHECK_THAT(1. - a + b, Catch::Matchers::WithinAbs(0., 1.e-14));
+  // u = t: u' = 1
+  CHECK_THAT(w - a * 0. + b * (-1.), Catch::Matchers::WithinAbs(beta * dt * 1., 1.e-14));
+  // u = t^2: u'(t_{n+1}) = 2 w
+  CHECK_THAT(w * w - a * 0. + b * 1., Catch::Matchers::WithinAbs(beta * dt * 2. * w, 1.e-14));
+  if (w == 1.) {
+    CHECK_THAT(a, Catch::Matchers::WithinAbs(4. / 3., 1.e-14));
+    CHECK_THAT(b, Catch::Matchers::WithinAbs(1. / 3., 1.e-14));
+    CHECK_THAT(beta, Catch::Matchers::WithinAbs(2. / 3., 1.e-14));
+  }
+}
+
+// -----------------------------------------------------------------------------
+// BDF2Solver alone (MFEM only): du/dt = -lambda u, u(0) = 1, t in [0, 1], exact backward Euler
+// solve. Order 2 with constant and variable time steps, previous state stored by the solver
+// (GetState), Init restarts the scheme (first step after Init: backward Euler).
+// -----------------------------------------------------------------------------
+namespace {
+/// @brief du/dt = -lambda u (one unknown); ImplicitSolve: k = -lambda (u + dt k)
+class DecayOperator final : public mfem::TimeDependentOperator {
+  double lambda_;
+
+ public:
+  explicit DecayOperator(double lambda) : mfem::TimeDependentOperator(1), lambda_(lambda) {}
+  void Mult(const mfem::Vector& u, mfem::Vector& k) const override {
+    k.SetSize(1);
+    k(0) = -this->lambda_ * u(0);
+  }
+  void ImplicitSolve(const mfem::real_t dt, const mfem::Vector& u, mfem::Vector& k) override {
+    k.SetSize(1);
+    k(0) = -this->lambda_ * u(0) / (1. + this->lambda_ * dt);
+  }
+};
+
+/// @brief |u(1) - exp(-lambda)| with a time step h (constant) or h (1 + t/2)
+double bdf2_decay_error(double h, bool variable_step) {
+  const double lambda = 2.;
+  DecayOperator op(lambda);
+  BDF2Solver solver;
+  solver.Init(op);
+  mfem::Vector u(1);
+  u(0) = 1.;
+  mfem::real_t t = 0.;
+  bool last = false;
+  while (!last) {
+    mfem::real_t dt = variable_step ? h * (1. + 0.5 * t) : h;
+    if (t + 1.5 * dt > 1.) {
+      dt = 1. - t;
+      last = true;
+    }
+    solver.Step(u, t, dt);
+  }
+  return std::abs(u(0) - std::exp(-lambda));
+}
+}  // namespace
+
+TEST_CASE("BDF2Solver: order 2 on an ODE (MFEM only)", "[Solvers][BDF2]") {
+  const bool variable_step = GENERATE(false, true);
+  CAPTURE(variable_step);
+  const double e1 = bdf2_decay_error(0.02, variable_step);
+  const double e2 = bdf2_decay_error(0.01, variable_step);
+  CAPTURE(e1, e2);
+  // observed: 2.01 (constant), 1.89 (variable: the last step is shortened)
+  CHECK(std::log2(e1 / e2) > 1.8);
+}
+
+TEST_CASE("BDF2Solver: state and restart", "[Solvers][BDF2]") {
+  DecayOperator op(1.);
+  BDF2Solver solver;
+  solver.Init(op);
+  CHECK(solver.GetState().Size() == 0);
+  mfem::Vector u(1);
+  u(0) = 1.;
+  mfem::real_t t = 0., dt = 0.1;
+  // First step: backward Euler, u^0 stored as previous state
+  solver.Step(u, t, dt);
+  CHECK_THAT(u(0), Catch::Matchers::WithinAbs(1. / 1.1, 1.e-14));
+  CHECK(solver.GetState().Size() == 1);
+  CHECK_THAT(solver.GetState().Get(0)(0), Catch::Matchers::WithinAbs(1., 1.e-14));
+  CHECK_THAT(solver.GetPreviousTimeStep(), Catch::Matchers::WithinAbs(0.1, 1.e-14));
+  // Init restarts the scheme
+  solver.Init(op);
+  CHECK(solver.GetState().Size() == 0);
+  CHECK(solver.GetPreviousTimeStep() == 0.);
 }

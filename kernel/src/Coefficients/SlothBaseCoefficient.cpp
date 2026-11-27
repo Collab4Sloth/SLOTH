@@ -33,6 +33,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Coefficients/ConstantCoefficient.hpp"
@@ -296,6 +297,14 @@ double SlothBaseCoefficient::compute_hessian(const int id, const int jd,
  */
 GlossaryType SlothBaseCoefficient::get_type() const { return this->coefficient_quantity_.type; }
 /**
+ * @brief Returns the name of the quantity of a custom coefficient (empty for a built-in quantity).
+ *
+ * @return the name of the custom quantity.
+ */
+const std::string& SlothBaseCoefficient::get_custom_name() const {
+  return this->coefficient_quantity_.name;
+}
+/**
  * @brief Returns the quantity associated with the coefficient.
  *
  * @return the quantity.
@@ -383,6 +392,109 @@ void SlothBaseCoefficient::set_coordinates(std::span<const double> x) {
 }
 
 /**
+ * @brief Evaluation at a set of points with the evaluation structure of the coefficient.
+ *
+ * Same arguments and layout as eval_at_points (Coefficients/EvalAtPoints.hpp). The values are
+ * those of the variables of the coefficient: the caller selects them according to the scheme
+ * (current or previous values, explicit values for a semi-implicit coefficient).
+ *
+ * A coefficient from a file is evaluated at the physical points given in coordinates (see
+ * FileCoefficient::eval_batch).
+ *
+ * @return false if the coefficient has no evaluation structure (constant, hand-written
+ * FunctionCoefficient...): nothing is computed.
+ */
+bool SlothBaseCoefficient::eval_batch(const int npts, const mfem::Vector& values,
+                                      const mfem::Vector& explicit_values,
+                                      const mfem::Vector& auxiliary_values,
+                                      const mfem::Vector& coordinates, mfem::Vector* F,
+                                      mfem::Vector* gradient, mfem::Vector* hessian) const {
+  if (this->coefficient_ == nullptr || this->is_scalar()) {
+    return false;
+  }
+  return this->coefficient_->eval_batch(npts, values, explicit_values, auxiliary_values,
+                                        coordinates, F, gradient, hessian);
+}
+
+/**
+ * @brief Number of variables of the evaluation structure of the coefficient (derivatives given
+ * by eval_batch).
+ *
+ * @return 0 if the coefficient has no evaluation structure (see eval_batch).
+ */
+int SlothBaseCoefficient::batch_nb_variables() const {
+  if (this->coefficient_ == nullptr || this->is_scalar() || this->is_file()) {
+    return 0;
+  }
+  return this->coefficient_->batch_nb_variables();
+}
+
+/**
+ * @brief True if the coefficient is variational: energy density f(u, grad u), evaluated by
+ * eval_variational_batch only (see FunctionCoefficient::is_variational).
+ */
+bool SlothBaseCoefficient::is_variational() const {
+  return this->coefficient_ != nullptr && this->coefficient_->is_variational();
+}
+
+/**
+ * @brief Dimension of the gradients of a variational coefficient, 0 otherwise
+ */
+int SlothBaseCoefficient::variational_dimension() const {
+  return this->coefficient_ != nullptr ? this->coefficient_->variational_dimension() : 0;
+}
+
+/**
+ * @brief Number of variables of a variational coefficient, 0 otherwise
+ */
+int SlothBaseCoefficient::variational_nb_variables() const {
+  return this->coefficient_ != nullptr ? this->coefficient_->variational_nb_variables() : 0;
+}
+
+/**
+ * @brief True if a variational coefficient reads the gradients of its explicit variables
+ */
+bool SlothBaseCoefficient::uses_explicit_gradients() const {
+  return this->coefficient_ != nullptr && this->coefficient_->uses_explicit_gradients();
+}
+
+/**
+ * @brief True if a variational coefficient reads the gradients of its auxiliary variables
+ */
+bool SlothBaseCoefficient::uses_auxiliary_gradients() const {
+  return this->coefficient_ != nullptr && this->coefficient_->uses_auxiliary_gradients();
+}
+
+/**
+ * @brief True for an isotropic coefficient (see FunctionCoefficient::is_isotropic)
+ */
+bool SlothBaseCoefficient::is_isotropic() const {
+  return this->coefficient_ != nullptr && !this->is_scalar() && this->coefficient_->is_isotropic();
+}
+
+/**
+ * @brief Evaluation of a variational coefficient at a set of points.
+ *
+ * Same arguments and layout as eval_variational_at_points (Coefficients/VariationalEval.hpp).
+ * The values and gradients are those of the variables of the coefficient: the caller selects
+ * them according to the scheme.
+ *
+ * @return false if the coefficient is not variational: nothing is computed.
+ */
+bool SlothBaseCoefficient::eval_variational_batch(
+    const int npts, const mfem::Vector& values, const mfem::Vector& explicit_values,
+    const mfem::Vector& auxiliary_values, const mfem::Vector& gradients,
+    const mfem::Vector& explicit_gradients, const mfem::Vector& auxiliary_gradients,
+    const mfem::Vector& coordinates, const VariationalBatch& outputs) const {
+  if (this->coefficient_ == nullptr || this->is_scalar()) {
+    return false;
+  }
+  return this->coefficient_->eval_variational_batch(npts, values, explicit_values, auxiliary_values,
+                                                    gradients, explicit_gradients,
+                                                    auxiliary_gradients, coordinates, outputs);
+}
+
+/**
  * @brief Set the boundary index for a coefficient.
  *
  * @param ids Vector of boundary ids where the coefficient should apply.
@@ -395,6 +507,28 @@ void SlothBaseCoefficient::set_bdr_index_coef(std::vector<int> ids) { this->bdr_
  * @return Vector of boundary ids where the coefficient is applied.
  */
 std::vector<int> SlothBaseCoefficient::get_bdr_index_coef() const { return this->bdr_index_; }
+
+/**
+ * @brief Set the names of the boundaries where the coefficient applies.
+ *
+ * The names are those of the Boundary objects of the BoundaryConditions of the variable. They are
+ * converted into boundary indices, added to the ones given by set_bdr_index_coef(), when the
+ * operator is initialized (BoundaryConditions::resolve_coefficient_boundaries()).
+ *
+ * @param names Names of the boundaries.
+ */
+void SlothBaseCoefficient::set_bdr_names_coef(std::vector<std::string> names) {
+  this->bdr_names_ = std::move(names);
+}
+
+/**
+ * @brief Get the names of the boundaries where the coefficient applies.
+ *
+ * @return Names given by set_bdr_names_coef().
+ */
+const std::vector<std::string>& SlothBaseCoefficient::get_bdr_names_coef() const {
+  return this->bdr_names_;
+}
 
 /**
  * @brief Get the name of the coefficient

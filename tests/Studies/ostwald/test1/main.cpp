@@ -319,7 +319,7 @@ int main(int argc, char* argv[]) {
   // ###########################################
 
   const int level_of_detail = 1;
-  const auto& frequency = 2000;
+  const auto& frequency = 1000;
 
   std::vector<int> iterations_list_save_gf = {5,       100000,  200000,  400000,  600000, 800000,
                                               1000000, 1200000, 1400000, 1600000, 1800000};
@@ -360,8 +360,8 @@ int main(int argc, char* argv[]) {
                        "SplitTimeDerivative");
   ch_oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", -1),
-                 Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+      Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
+                 Parameter("rel_tol", 1.e-8), Parameter("abs_tol", 1.e-10)));
 
   auto ch_pst = PST(&spatial, ch_p_pst);
   TransientPB ch_pb("CahnHilliard", ch_oper, ch_vars, {ch_coef, ch_coef}, ch_pst, ac_vars);
@@ -370,8 +370,8 @@ int main(int argc, char* argv[]) {
   TransientOPE ac_oper(ac_spatials, {"AllenCahn"}, TimeScheme::EulerImplicit, "TimeDerivative");
   ac_oper.overload_nl_solver(
       NLSolverType::NEWTON,
-      Parameters(Parameter("description", "LBFGS solver "), Parameter("print_level", -1),
-                 Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-14)));
+      Parameters(Parameter("description", "LBFGS solver "), Parameter("print_level", 1),
+                 Parameter("rel_tol", 1.e-8), Parameter("abs_tol", 1.e-10)));
   const auto& solver = HypreSolverType::HYPRE_GMRES;
   const auto& precond = HyprePreconditionerType::HYPRE_ILU;
   ac_oper.overload_solver(solver);
@@ -391,8 +391,13 @@ int main(int argc, char* argv[]) {
   const double t_initial = p.control_initial_time;
   const double t_final = p.control_final_time;
   const double dt = p.control_time_step;
-  auto time_params_ = Parameters(Parameter("initial_time", t_initial),
-                                 Parameter("final_time", t_final), Parameter("time_step", dt));
+  auto time_params_ = Parameters(
+      Parameter("initial_time", t_initial), Parameter("final_time", t_final),
+      Parameter("time_step", dt), Parameter("adaptive_time_step", false),
+      Parameter("time_step_min", 1.e-4), Parameter("time_step_max", 1.),
+      Parameter("time_step_growth_factor", 1.25), Parameter("time_step_cutback_factor", 0.5),
+      Parameter("newton_iterations_low", 4), Parameter("newton_iterations_high", 10),
+      Parameter("max_time_step_rejections", 20));
   auto time_params = time_params_;
   if (p.control_restart) {
     auto restart_parameters =

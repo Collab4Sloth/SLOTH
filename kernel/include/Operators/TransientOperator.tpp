@@ -25,9 +25,12 @@
  */
 
 #pragma once
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -45,6 +48,7 @@
 #include "Parameters/Parameters.hpp"
 #include "Solvers/LSolver.hpp"
 #include "Spatial/Spatial.hpp"
+#include "Time/TimeStepFailure.hpp"
 #include "Utils/Utils.hpp"
 #include "Variables/Variables.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
@@ -61,10 +65,10 @@
  * @param ode
  */
 template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                             const std::vector<std::string>& rhs_integrators,
-                                             TimeScheme::value ode,
-                                             const std::string lhs_integrator)
+TransientOperator<T, DIM>::TransientOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators, TimeScheme::value ode,
+    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
@@ -86,10 +90,11 @@ TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T
  * @param ode
  */
 template <class T, int DIM>
-TransientOperator<T, DIM>::TransientOperator(std::vector<SpatialDiscretization<T, DIM>*> spatials,
-                                             const std::vector<std::string>& rhs_integrators,
-                                             const Parameters& params, TimeScheme::value ode,
-                                             const std::string lhs_integrator)
+TransientOperator<T, DIM>::TransientOperator(
+    std::vector<SpatialDiscretization<T, DIM>*> spatials,
+    const std::vector<IntegratorEntry<Variables<T, DIM>>>& rhs_integrators,
+    const Parameters& params, TimeScheme::value ode,
+    const IntegratorEntry<Variables<T, DIM>>& lhs_integrator)
     : OperatorBase<T, DIM>(rhs_integrators, spatials, params),
       mfem::TimeDependentOperator(this->compute_total_height(spatials),
                                   this->compute_total_width(spatials), 0.0),
@@ -158,11 +163,17 @@ void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solv
       this->is_explicit_ = false;
       break;
     }
+    case TimeScheme::BDF2: {
+      // variable-step second-order backward differentiation formula (first step: implicit Euler)
+      this->bdf2_solver_ = std::make_shared<SlothBDF2Solver<T, DIM>>();
+      this->ode_solver_ = this->bdf2_solver_;
+      this->is_explicit_ = false;
+      break;
+    }
     default:
       mfem::mfem_error(
           "TimeDiscretization::set_ODE_solver: EulerImplicit, EulerExplicit, RungeKutta4, SDIRK23, "
-          "SDIRK33 are "
-          "available");
+          "SDIRK33, BDF2 are available");
       break;
   }
 }
@@ -183,14 +194,44 @@ void TransientOperator<T, DIM>::initialize(const double& initial_time, const dou
 
   this->SetTime(initial_time);
 
+  this->vars_ = &vars;
+
   OperatorBase<T, DIM>::initialize(initial_time, time_step, vars, auxvars);
 
+  if (this->bdf2_solver_ != nullptr) {
+    this->bdf2_solver_->set_variables(vars, auxvars);
+  }
   this->ode_solver_->Init(*this);
 
   // Get coefficients for time-derivative in case of explicit solvers
   if (this->is_explicit_) {
     this->get_explicit_time_coefficients();
   }
+}
+
+/**
+ * @brief Resynchronize the operator with the current mesh (see OperatorBase::sync_with_mesh()),
+ *        then reset the data of the transient operator that depend on the mesh.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return true The mesh had changed: the operator has been resynchronized.
+ * @return false The operator was already up to date.
+ */
+template <class T, int DIM>
+bool TransientOperator<T, DIM>::sync_with_mesh() {
+  if (!OperatorBase<T, DIM>::sync_with_mesh()) return false;
+  // The other height/width copy, inherited via mfem::TimeDependentOperator
+  this->mfem::TimeDependentOperator::height = this->OperatorBase<T, DIM>::height;
+  this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
+  // Work vectors of the ODE solver
+  this->ode_solver_->Init(*this);
+  // Mass matrices, lumped masses, last projected state and constraint solvers of split systems
+  this->free_mass_matrices();
+  this->lumped_.clear();
+  this->last_projection_signature_.Destroy();
+  this->free_constraint_solvers();
+  return true;
 }
 
 /**
@@ -206,23 +247,8 @@ template <class T, int DIM>
 void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk,
                                       double& next_time, const double& current_time,
                                       double current_time_step, [[maybe_unused]] const int iter) {
-  if (this->enable_amr_ && this->mesh_has_changed()) {
-    // Resynchronize height/width/z/block_trueOffsets_
-    this->UpdateAfterMeshChange();
-    // Resynchronize the OTHER height/width copy, inherited via mfem::TimeDependentOperator,
-    // which UpdateAfterMeshChange() does not touch.
-    this->mfem::TimeDependentOperator::height = this->OperatorBase<T, DIM>::height;
-    this->mfem::TimeDependentOperator::width = this->OperatorBase<T, DIM>::width;
-    // Resize k (the ODE solver's internal work vector)
-    this->ode_solver_->Init(*this);
-    // The mesh has changed: the mass matrices must be rebuilt
-    this->free_mass_matrices();
-    // Split systems: lumped masses and last projected state refer to the old mesh
-    this->lumped_.clear();
-    this->last_projection_signature_.Destroy();
-    this->free_constraint_solvers();
-    this->record_fes_sequence();
-  }
+  // Operator sizes, essential dofs and mesh-dependent data on the current mesh
+  this->sync_with_mesh();
   //// Constructing array of offsets
   const size_t unk_size = vect_unk.size();
   this->solve_time_step_ = current_time_step;
@@ -233,10 +259,18 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
     mfem::Vector& bb = block_unk.GetBlock(static_cast<int>(i));
     bb = unk_i;
   }
+  //// Other schemes: lagged auxiliary variables of a partitioned coupling reported once (BDF2
+  //// extrapolates them, see SlothBDF2Solver)
+  this->report_lagged_auxiliary_variables();
+
   //// Call ODE solver
   this->current_time_ = current_time;
   this->current_dt_ = current_time_step;
+  this->newton_iterations_ = -1;
+  // Throws TimeStepFailure if a nonlinear solve fails (see ImplicitSolve): vect_unk is then left
+  // unchanged
   this->ode_solver_->Step(block_unk, next_time, current_time_step);
+
   // The last stage of a Runge-Kutta scheme is not necessarily at the end of the step (e.g.
   // SDIRK23): coefficients at the end of the step for the post-processing
   this->SetTime(next_time);
@@ -267,10 +301,44 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Release the mass solvers, then the mass matrices they refer to
+ * @brief Partitioned coupling, schemes other than BDF2: report once the lagged auxiliary variables
+ *
+ * @details An auxiliary variable belonging to a problem not yet solved in the current step is
+ *          seen at t^n (lag O(dt), first order) and its previous value is that of the previous
+ *          step. BDF2 extrapolates these variables instead (SlothBDF2Solver).
  *
  * @tparam T
  * @tparam DIM
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::report_lagged_auxiliary_variables() {
+  if (this->bdf2_solver_ != nullptr || this->lagged_aux_info_printed_ || this->vars_ == nullptr) {
+    return;
+  }
+  if (this->vars_->get_variables_number() == 0 || (*this->vars_)[0].get_number_of_updates() == 0) {
+    return;  // first step: fixed fields cannot be distinguished
+  }
+  this->lagged_aux_info_printed_ = true;
+  if (mfem::Mpi::WorldRank() != 0) return;
+  for (auto* auxvar_vec : this->auxvariables_) {
+    if (auxvar_vec == nullptr) continue;
+    for (size_t i = 0; i < auxvar_vec->get_variables_number(); i++) {
+      auto& auxvar = (*auxvar_vec)[i];
+      if (is_lagged_auxiliary_variable(auxvar, *this->vars_)) {
+        SlothInfo::verbose(" TransientOperator: auxiliary variable '", auxvar.getVariableName(),
+                           "' not yet advanced in the step (partitioned coupling): seen at the "
+                           "beginning of the step (lag O(dt)), its previous value is that of the "
+                           "previous step");
+      }
+    }
+  }
+}
+
+/**
+ * @brief Release the mass solvers, then the mass matrices they refer to
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::free_mass_matrices() {
@@ -287,8 +355,8 @@ void TransientOperator<T, DIM>::free_mass_matrices() {
 /**
  * @brief build the mass matrix (one lumped mass matrix and one solver per block)
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector>& u_vect) {
@@ -322,8 +390,11 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
     mfem::ParGridFunction un(this->fes_[ib]);
     un.SetFromTrueDofs(u_vect[i]);
 
-    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], {un}, {un}, vauxn);
-    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], {un}, {un}, vauxn);
+    // MfemCoefficient keeps references to the vectors of grid functions: they must outlive the
+    // assembly (no temporary)
+    const std::vector<mfem::ParGridFunction> vun{un};
+    auto coef_a_exp = MfemCoefficient(this->explicit_time_coefficients_[0], vun, vun, vauxn);
+    auto coef_b_exp = MfemCoefficient(this->explicit_time_coefficients_[1], vun, vun, vauxn);
     mfem::ProductCoefficient mass_coefficient(coef_a_exp, coef_b_exp);
 
     M->AddDomainIntegrator(new mfem::LumpedIntegrator(new mfem::MassIntegrator(mass_coefficient)));
@@ -348,8 +419,8 @@ void TransientOperator<T, DIM>::build_mass_matrix(const std::vector<mfem::Vector
 /**
  * @brief Build the nonlinear form associated with LHS of the PDEs
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt
  * @param u
  */
@@ -367,8 +438,8 @@ void TransientOperator<T, DIM>::build_lhs_nonlinear_form(const double dt,
 /**
  * @brief  Set the LHS NonLinearFormIntegrator
  *
- * @tparam T
- * @tparam DIM
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt
  * @param u_vect
  */
@@ -395,7 +466,22 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
   }
   const Parameters& all_params = this->params_ - this->default_p_;
 
-  auto lhs = this->get_lhs_integrator(dt, this->lhs_integrator_, vun, vauxn, all_params);
+  SlothNLFormIntegrator<Variables<T, DIM>>* lhs = nullptr;
+  if (const auto* user = std::get_if<UserIntegrator<Variables<T, DIM>>>(&this->lhs_integrator_)) {
+    const UserIntegratorArgs<Variables<T, DIM>> args{
+        this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_};
+    lhs = user->build(args);
+  } else {
+    lhs = this->get_lhs_integrator(dt, std::get<std::string>(this->lhs_integrator_), vun, vauxn,
+                                   all_params);
+  }
+
+  const std::string& verify_msg = "TransientOperator: integrator '" +
+                                  integrator_name<Variables<T, DIM>>(this->lhs_integrator_) +
+                                  "' could not be built.";
+
+  MFEM_VERIFY(lhs != nullptr, verify_msg.c_str());
+  lhs->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
   lhs->init();
   return lhs;
 }
@@ -403,6 +489,8 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::set_lhs_nlf
 /**
  * @brief Set current dt, unk values - needed to compute action and Jacobian.
  *solution_coef
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
  * @param dt time-step
  * @param u unknown vector
  */
@@ -527,13 +615,18 @@ void TransientOperator<T, DIM>::setup_split_structure(const double dt,
                                                       const std::vector<mfem::Vector>& u_vect) {
   this->split_checked_ = true;
   this->split_explicit_ =
-      this->is_explicit_ && this->lhs_integrator_.find("Split") != std::string::npos;
+      this->is_explicit_ &&
+      integrator_name<Variables<T, DIM>>(this->lhs_integrator_).find("Split") != std::string::npos;
   if (!this->split_explicit_) return;
 
   std::unique_ptr<SlothNLFormIntegrator<Variables<T, DIM>>> lhs(this->set_lhs_nlfi_ptr(dt, u_vect));
   const auto map = lhs->time_derivative_map();
-  MFEM_VERIFY(!map.empty(), "Split LHS integrator '" + this->lhs_integrator_ +
-                                "' must define time_derivative_map() for explicit schemes.");
+
+  const std::string& verify_msg = "Split LHS integrator '" +
+                                  integrator_name<Variables<T, DIM>>(this->lhs_integrator_) +
+                                  "' must define time_derivative_map() for explicit schemes.";
+
+  MFEM_VERIFY(!map.empty(), verify_msg.c_str());
 
   const int n = this->fes_.Size();
   std::vector<bool> row_evol(static_cast<size_t>(n), false);
@@ -671,7 +764,8 @@ void TransientOperator<T, DIM>::project_algebraic_variables(mfem::BlockVector& u
       ub.GetBlock(c) -= d;
     }
   }
-  MFEM_ABORT("Split system: projection of the algebraic variables did not converge.");
+  // Same decision on every rank (norms reduced over all the ranks)
+  throw TimeStepFailure("Split system: projection of the algebraic variables did not converge.");
 }
 
 /**
@@ -870,13 +964,7 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::ApplyBCs");
 
-    // Get the unknown vectors of the auxiliary variables
-    std::vector<mfem::Vector> auxvars_unk;
-    for (const auto& auxvar_vec : this->auxvariables_) {
-      for (const auto& auxvar : auxvar_vec->getVariables()) {
-        auxvars_unk.emplace_back(auxvar.get_unknown());
-      }
-    }
+    const auto auxvars_unk = this->get_auxvars_unknowns();
     for (int i = 0; i < fes_size; ++i) {
       const int off = this->block_trueOffsets_[i];
       const int sz = this->block_trueOffsets_[i + 1] - off;
@@ -910,15 +998,41 @@ void TransientOperator<T, DIM>::ImplicitSolve(const double dt, const mfem::Vecto
   {
     MATools::MATrace::start();
     Catch_Time_Section("ImplicitSolve::CallMult");
-    this->newton_solver_->Mult(zero_rhs, dv_dt);
+    // A failure inside the Newton solver is a failure of the time-step:
+    // - divergence detected by SlothNewtonSolver (TimeStepFailure);
+    // - with MFEM_USE_EXCEPTIONS, any MFEM error (e.g. non-finite residual norm, MFEM_VERIFY).
+    //   Without MFEM_USE_EXCEPTIONS, MFEM aborts the computation.
+    try {
+      this->newton_solver_->Mult(zero_rhs, dv_dt);
+    } catch (const TimeStepFailure&) {
+      MATools::MATrace::stop("Solve");
+      this->free_memory();
+      throw;
+#ifdef MFEM_USE_EXCEPTIONS
+    } catch (const mfem::ErrorException& error) {
+      MATools::MATrace::stop("Solve");
+      this->free_memory();
+      throw TimeStepFailure(std::string("Nonlinear solver failed: ") + error.what());
+#endif
+    }
     MATools::MATrace::stop("Solve");
   }
 
-  bool converged = this->newton_solver_->GetConverged();
+  // Same values on every rank: the Newton solver is built with MPI_COMM_WORLD (see
+  // SolverNewton::create_solver), so its residual norms are reduced over all the ranks
+  const bool converged = this->newton_solver_->GetConverged();
+  const int iterations = this->newton_solver_->GetNumIterations();
+  const double final_norm = this->newton_solver_->GetFinalNorm();
+  this->newton_iterations_ = std::max(this->newton_iterations_, iterations);
 
   this->free_memory();
 
-  MFEM_VERIFY(converged, "Nonlinear solver did not converge.");
+  if (!converged) {
+    std::ostringstream msg;
+    msg << "Nonlinear solver did not converge (" << iterations << " iterations, final norm "
+        << final_norm << ", implicit stage step " << dt << ").";
+    throw TimeStepFailure(msg.str());
+  }
 }
 
 /**
@@ -1022,6 +1136,11 @@ SlothNLFormIntegrator<Variables<T, DIM>>* TransientOperator<T, DIM>::get_lhs_int
     }
     case Integrators::SplitTimeDerivative: {
       return new TimeCHNLFormIntegrator<Variables<T, DIM>>(
+          this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
+      break;
+    }
+    case Integrators::RelaxationTimeDerivative: {
+      return new RelaxationTimeNLFormIntegrator<Variables<T, DIM>>(
           this->geometry_, dt, vun, vauxn, all_params, this->auxvariables_, this->coefficients_);
       break;
     }
@@ -1129,4 +1248,47 @@ void TransientOperator<T, DIM>::SetTime(const mfem::real_t t) {
   mfem::TimeDependentOperator::SetTime(t);
   this->set_time_coefficients(t);
   this->explicit_time_coefficients_.set_time(t);
+}
+
+/**
+ * @brief Largest ratio dt_n / dt_{n-1} allowed by the time scheme
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ * @return double 1 + sqrt(2) for BDF2 (zero-stability, see BDF2Solver), infinity otherwise
+ */
+template <class T, int DIM>
+double TransientOperator<T, DIM>::get_max_time_step_ratio() const {
+  return (this->bdf2_solver_ != nullptr) ? BDF2Solver::MaxRatio()
+                                         : std::numeric_limits<double>::infinity();
+}
+
+/**
+ * @brief Save the internal state of the time scheme at the beginning of a time-step
+ *
+ * @details BDF2: previous time step dt_{n-1}. The previous state u^{n-1} is taken from the
+ *          history of the variables, saved with them. The other schemes have no internal state.
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::save_time_scheme_state() {
+  if (this->bdf2_solver_ != nullptr) {
+    this->saved_previous_time_step_ = this->bdf2_solver_->GetPreviousTimeStep();
+  }
+}
+
+/**
+ * @brief Restore the internal state of the time scheme saved by save_time_scheme_state()
+ *        (rejected time-step)
+ *
+ * @tparam T Finite Element collection (mfem object)
+ * @tparam DIM Spatial dimension
+ */
+template <class T, int DIM>
+void TransientOperator<T, DIM>::restore_time_scheme_state() {
+  if (this->bdf2_solver_ != nullptr) {
+    this->bdf2_solver_->SetPreviousTimeStep(this->saved_previous_time_step_);
+  }
 }

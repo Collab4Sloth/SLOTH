@@ -1,0 +1,9 @@
+scheme,dt,phi_L2-error
+BDF2,0.0125,4.08517e-07
+BDF2,0.025,1.58741e-06
+BDF2,0.05,6.22503e-06
+BDF2,0.1,2.39947e-05
+EulerImplicit,0.0125,4.82575e-05
+EulerImplicit,0.025,9.61116e-05
+EulerImplicit,0.05,0.000190624
+EulerImplicit,0.1,0.00037497

@@ -121,8 +121,8 @@ class SpatialDiscretization {
    *          the underlying serial mesh according to `mesh_type` and
    *          `mesh_file`, calls `EnsureNCMesh(is_nc_simplices_)` before
    *          finalizing it, and converts it to a distributed `mfem::ParMesh`.
-   *          Mesh attributes (element/boundary attribute sets) found in the
-   *          file are then loaded via `set_mesh_attributes_from_file()`.
+   *          Element/boundary attribute sets found in the file are kept by the
+   *          mesh (see `get_elem_attribute_sets()`, `get_bdr_attribute_sets()`).
    *
    * @tparam T Finite element collection type.
    * @tparam DIM Spatial dimension.
@@ -149,7 +149,6 @@ class SpatialDiscretization {
     this->enable_nc_mesh_ = enable_nc_mesh;
     this->is_nc_simplices_ = allow_nc_simplices;
     init(*this, mesh_type, fe_order, ref_level, mesh_file, periodic_mesh);
-    this->set_mesh_attributes_from_file();
   }
 
   /**
@@ -355,12 +354,8 @@ class SpatialDiscretization {
 
   void set_finite_element_space();
 
-  void set_mesh_attributes_from_file();
-  std::shared_ptr<mfem::AttributeSets> get_elem_attributes();
-  std::shared_ptr<mfem::AttributeSets> get_bdr_attributes();
-
-  std::shared_ptr<mfem::AttributeSets> elem_attr_sets_;
-  std::shared_ptr<mfem::AttributeSets> bdr_attr_sets_;
+  const mfem::AttributeSets& get_elem_attribute_sets() const;
+  const mfem::AttributeSets& get_bdr_attribute_sets() const;
 
   mfem::ParMesh* get_mesh();
   mfem::ParFiniteElementSpace* get_finite_element_space() const;
@@ -1095,40 +1090,27 @@ void SpatialDiscretization<T, DIM>::set_finite_element_space() {
 }
 
 /**
- * @brief Set the mesh attributes find in a mesh file
+ * @brief Return the named sets of element attributes of the mesh (attribute_sets)
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param imesh
+ * @return const mfem::AttributeSets& Sets read from the mesh file, empty for built-in meshes.
  */
 template <class T, int DIM>
-void SpatialDiscretization<T, DIM>::set_mesh_attributes_from_file() {
-  this->elem_attr_sets_ = std::make_shared<mfem::AttributeSets>(this->mesh_->attribute_sets);
-  this->bdr_attr_sets_ = std::make_shared<mfem::AttributeSets>(this->mesh_->bdr_attribute_sets);
+const mfem::AttributeSets& SpatialDiscretization<T, DIM>::get_elem_attribute_sets() const {
+  return this->mesh_->attribute_sets;
 }
 
 /**
- * @brief Return the set of attributes associated with the elements
+ * @brief Return the named sets of boundary attributes of the mesh (bdr_attribute_sets)
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @return std::shared_ptr<mfem::AttributeSets>
+ * @return const mfem::AttributeSets& Sets read from the mesh file, empty for built-in meshes.
  */
 template <class T, int DIM>
-std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_elem_attributes() {
-  return this->elem_attr_sets_;
-}
-
-/**
- * @brief Return the set of attributes associated with the boundaries
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @return std::shared_ptr<mfem::AttributeSets>
- */
-template <class T, int DIM>
-std::shared_ptr<mfem::AttributeSets> SpatialDiscretization<T, DIM>::get_bdr_attributes() {
-  return this->bdr_attr_sets_;
+const mfem::AttributeSets& SpatialDiscretization<T, DIM>::get_bdr_attribute_sets() const {
+  return this->mesh_->bdr_attribute_sets;
 }
 
 /**

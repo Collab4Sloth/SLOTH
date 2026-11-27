@@ -23,9 +23,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <cmath>
 #include <memory>
+#include <utility>
 
 #include "AMR/SlothErrorEstimators.hpp"
 #include "mfem.hpp"
@@ -34,6 +37,45 @@
 namespace {
 double affine(const mfem::Vector& p) { return 1. + 2. * p[0] - 3. * p[1]; }
 double quadratic(const mfem::Vector& p) { return p[0] * p[0] + p[1] * p[1]; }
+
+/// @brief Estimator giving the same error in every element of the mesh of a field
+/// (constructor following the SLOTH convention: field, space, mesh, then its own arguments)
+class ConstantEstimator : public mfem::ErrorEstimator {
+ public:
+  ConstantEstimator(mfem::ParGridFunction&, mfem::ParFiniteElementSpace&, mfem::ParMesh& mesh,
+                    double value)
+      : mesh_(mesh), value_(value) {}
+  const mfem::Vector& GetLocalErrors() override {
+    errors_.SetSize(mesh_.GetNE());
+    errors_ = value_;
+    return errors_;
+  }
+  void Reset() override {}
+
+ private:
+  const mfem::ParMesh& mesh_;
+  double value_;
+  mfem::Vector errors_;
+};
+
+/// @brief Estimator multiplying the local errors of another (SLOTH) estimator by a factor
+class ScaledEstimator : public mfem::ErrorEstimator {
+ public:
+  ScaledEstimator(mfem::ParGridFunction& x, mfem::ParFiniteElementSpace& fespace,
+                  mfem::ParMesh& mesh, std::shared_ptr<SlothErrorEstimators> base, double factor)
+      : base_(base->get_value(x, fespace, mesh)), factor_(factor) {}
+  const mfem::Vector& GetLocalErrors() override {
+    errors_ = base_->GetLocalErrors();
+    errors_ *= factor_;
+    return errors_;
+  }
+  void Reset() override { base_->Reset(); }
+
+ private:
+  std::shared_ptr<mfem::ErrorEstimator> base_;
+  double factor_;
+  mfem::Vector errors_;
+};
 
 /// @brief Largest local error over all the ranks (collective)
 double max_error(mfem::ErrorEstimator& estimator) {
@@ -97,5 +139,38 @@ TEST_CASE_METHOD(sloth_unit::UnitSquare, "SlothErrorEstimators: errors", "[AMR][
   SECTION("unknown estimator") {
     SlothErrorEstimators estimators(static_cast<ErrorEstimatorType>(99));
     SLOTH_CHECK_MFEM_ERROR_WITH(estimators.get_value(u, *fes, *pmesh), "unknown estimator");
+  }
+}
+
+// Custom estimator declared with CustomEstimator<Class>(own arguments)
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "SlothErrorEstimators: custom estimator",
+                 "[AMR][Extensions]") {
+  SlothErrorEstimators estimators(CustomEstimator<ConstantEstimator>(3.));
+  auto u = project(affine);
+  CHECK(max_error(*estimators.get_value(u, *fes, *pmesh)) == 3.);
+}
+
+// A custom estimator can combine a built-in one: Kelly estimator scaled by 2
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "SlothErrorEstimators: custom estimator built on Kelly",
+                 "[AMR][Extensions]") {
+  mfem::DiffusionIntegrator integ;
+  auto kelly = std::make_shared<SlothErrorEstimators>(ErrorEstimatorType::KELLY, &integ);
+  SlothErrorEstimators scaled(CustomEstimator<ScaledEstimator>(kelly, 2.));
+
+  auto u = project(quadratic);
+  const double reference = max_error(*kelly->get_value(u, *fes, *pmesh));
+  REQUIRE(reference > 1.e-4);
+  CHECK(std::abs(max_error(*scaled.get_value(u, *fes, *pmesh)) - 2. * reference) <
+        1.e-12 * reference);
+}
+
+TEST_CASE_METHOD(sloth_unit::UnitSquare, "SlothErrorEstimators: custom estimator errors",
+                 "[AMR][errors][Extensions]") {
+  auto u = project(affine);
+  SECTION("factory returning no estimator") {
+    SlothErrorEstimators estimators(
+        [](mfem::ParGridFunction&, mfem::ParFiniteElementSpace&,
+           mfem::ParMesh&) -> std::shared_ptr<mfem::ErrorEstimator> { return nullptr; });
+    SLOTH_CHECK_MFEM_ERROR_WITH(estimators.get_value(u, *fes, *pmesh), "returned no estimator");
   }
 }

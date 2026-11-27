@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <tuple>
@@ -50,26 +51,25 @@
 template <class VARS>
 class MeltingBaseNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
  private:
+  /// Base class of the nonlinear integrators of SLOTH
+  using SlothNLBase = SlothNLFormIntegrator<VARS>;
+
   std::list<GlossaryType> expected_list_{GlossaryType::Mobility, GlossaryType::PhaseFieldPotential};
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
+
+  /// Mobility, interpolation potential and phase change at the integration points of the current
+  /// element (see SlothNLFormIntegrator::eval_coefficient_at_points)
+  typename SlothNLBase::CoefficientAtPoints mobility_at_points_;
+  typename SlothNLBase::CoefficientAtPoints potential_at_points_;
+  typename SlothNLBase::CoefficientAtPoints phase_change_at_points_;
 
  protected:
   Coefficients mobility;
   Coefficients interpolation_potential;
   std::vector<mfem::ParGridFunction> vaux_gf_;
-
-  virtual double get_phase_change_at_ip(unsigned int blk, const std::span<const double>& values,
-                                        const std::span<const double>& aux_values) = 0;
-
-  virtual double get_seed_at_ip(unsigned int blk, const std::span<const double>& values,
-                                const std::span<const double>& aux_values);
-
-  virtual double get_mob_at_ip(unsigned int blk, const std::span<const double>& values,
-                               const std::span<const double>& aux_values);
-
-  virtual double get_mob_derivative_at_ip(unsigned int blk, const std::span<const double>& values,
-                                          const std::span<const double>& aux_values);
+  /// Phase change, built by the derived integrators from their parameters
+  std::optional<Coefficient> phase_change_;
 
   void get_coefficients() override;
 

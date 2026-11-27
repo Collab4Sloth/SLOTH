@@ -35,7 +35,9 @@
 #include <vector>
 
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
+#include "Coefficients/FieldsAtPoints.hpp"
 #include "Coefficients/SlothBaseCoefficient.hpp"
+#include "Coefficients/VariationalEval.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Parameters/Parameter.hpp"
@@ -70,7 +72,9 @@ AllenCahnNLFormIntegrator<VARS>::AllenCahnNLFormIntegrator(
 /**
  * @brief Initialize the AllenCahn integrator.
  *
- * 1. Checks that all coefficients contain the expected types.
+ * 1. Checks that all coefficients contain the expected types: Mobility, FreeEnergy and Capillary,
+ *    or Mobility and FreeEnergy if the FreeEnergy of the first block is variational (no Capillary
+ *    then: the gradient terms are part of the free energy).
  * 2. Retrieves and stores the coefficients internally.
  *
  * @tparam VARS Template parameter defining the variables used
@@ -78,7 +82,21 @@ AllenCahnNLFormIntegrator<VARS>::AllenCahnNLFormIntegrator(
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::init() {
-  this->check_coefficient_types(this->expected_list_);
+  const auto energy = this->coefficients_.empty()
+                          ? std::nullopt
+                          : this->get_coefficient(0, GlossaryType::FreeEnergy, 0);
+  this->variational_ = energy.has_value() && energy->is_variational();
+  if (this->variational_) {
+    this->check_coefficient_types(this->expected_variational_list_);
+    for (unsigned int i = 0; i < this->nb_blk_; i++) {
+      MFEM_VERIFY(!this->get_coefficient(i, GlossaryType::Capillary, 0).has_value(),
+                  "Error in " + this->integrator_name_ +
+                      ": the variational FreeEnergy coefficient contains the gradient terms: a "
+                      "Capillary coefficient must not be given.");
+    }
+  } else {
+    this->check_coefficient_types(this->expected_list_);
+  }
   this->get_coefficients();
 
   for (std::size_t i = 0; i < this->aux_infos_.size(); ++i) {
@@ -102,13 +120,14 @@ void AllenCahnNLFormIntegrator<VARS>::check_variables_consistency() {}
 /**
  * @brief Assemble the element-level residual vector for the nonlinear problem.
  *
- * Blocks sharing the same finite element (blocks with different finite elements: see
- * AssembleElementVectorGeneric):
+ * All the blocks share the same finite element:
  * - integration points in the outer loop, blocks in the inner loop;
  * - shape functions, physical gradients and weight computed once per integration point;
  * - {u, u_old} and auxiliary values computed once per element for all the blocks
  *   (see SlothNLFormIntegrator::prepare_element_values);
- * - coefficients evaluated by reference (no copy).
+ * - coefficients evaluated once per element at all the integration points (see
+ *   SlothNLFormIntegrator::eval_coefficient_at_points): by batch for the coefficients generated
+ *   from a JSON file.
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  */
@@ -117,10 +136,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
     const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
   const int num_blocks = el.Size();
-  if (!this->same_finite_elements(el)) {
-    this->AssembleElementVectorGeneric(el, Tr, elfun, elvect);
-    return;
-  }
+  MFEM_VERIFY(this->same_finite_elements(el),
+              "Error in AllenCahn: all the phases must be on the same finite element space.");
 
   const mfem::FiniteElement& fe = *el[0];
   const int nd = fe.GetDof();
@@ -136,12 +153,27 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
   this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  // Variational free energy: kappa_b and df/du_b (isotropic), all the derivatives otherwise
+  const double* kappa = nullptr;
+  const double* df_dvar = nullptr;
+  if (this->variational_) {
+    this->mobility_at_points(fe, Tr, *ir, elfun, false);
+    this->variational_at_points(*this->free_energy, num_blocks, this->isotropic_, fe, Tr, *ir,
+                                elfun, this->vaux_gf_, false, this->energy_);
+    if (!this->isotropic_) {
+      this->variational_element_vector(fe, Tr, *ir, elvect);
+      return;
+    }
+    kappa = this->energy_.kappa.HostRead();
+    df_dvar = this->energy_.df_dvar.HostRead();
+  } else {
+    this->coefficients_at_points(fe, Tr, *ir, elfun, false);
+  }
 
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     fe.CalcShape(ip, Psi);
     this->set_int_point(Tr, ip);
-    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
     fe.CalcPhysDShape(Tr, gradPsi);
 
@@ -151,8 +183,13 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
     }
 
     for (int blk = 0; blk < num_blocks; ++blk) {
-      const double coef_mobi = get_mob_at_ip(blk, ipv.u, ipv.aux);
-      const double lamb = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux, blk);
+      const auto b = static_cast<std::size_t>(blk);
+      const double coef_mobi = this->mobility_at_points_[b].value(i);
+      const double lamb =
+          kappa != nullptr ? kappa[i * num_blocks + blk] : this->lambda_at_points_[b].value(i);
+      const double w_prime = df_dvar != nullptr
+                                 ? df_dvar[i * num_blocks + blk]
+                                 : this->energy_at_points_[b].energy_derivative(i, blk);
 
       // Laplacian : (grad(u), grad(psi))
       gradPsi.MultTranspose(*elfun[blk], gradU);
@@ -160,8 +197,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
       gradPsi.AddMult(gradU, *elvect[blk]);
 
       // (w'(u), psi)
-      double ww = coef_mobi * this->eval_gradient_energy_coefficient(double_well_energy[blk], blk,
-                                                                     ipv.u, ipv.aux, blk);
+      double ww = coef_mobi * w_prime;
       ww *= weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -175,8 +211,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
 /**
  * @brief Assemble the element-level Jacobian matrix for the nonlinear problem.
  *
- * Blocks sharing the same finite element (blocks with different finite elements: see
- * AssembleElementGradGeneric). Organised as AssembleElementVector: everything that does not
+ * All the blocks share the same finite element. Organised as AssembleElementVector: everything
+ * that does not
  * depend on the block is computed once per integration point, and the mobility of each block
  * once per integration point.
  *
@@ -188,10 +224,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   const int num_blocks = el.Size();
-  if (!this->same_finite_elements(el)) {
-    this->AssembleElementGradGeneric(el, Tr, elfun, elmats);
-    return;
-  }
+  MFEM_VERIFY(this->same_finite_elements(el),
+              "Error in AllenCahn: all the phases must be on the same finite element space.");
 
   const mfem::FiniteElement& fe = *el[0];
   const int nd = fe.GetDof();
@@ -208,13 +242,32 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
   this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  // Variational free energy: kappa_b, df/du_b and d2f/du_b du_j (isotropic), all the derivatives
+  // otherwise
+  const double* kappa = nullptr;
+  const double* df_dvar = nullptr;
+  const double* d2f_dvar2 = nullptr;
+  if (this->variational_) {
+    this->mobility_at_points(fe, Tr, *ir, elfun, true);
+    this->variational_at_points(*this->free_energy, num_blocks, this->isotropic_, fe, Tr, *ir,
+                                elfun, this->vaux_gf_, true, this->energy_);
+    if (!this->isotropic_) {
+      this->variational_element_grad(fe, Tr, *ir, elmats);
+      return;
+    }
+    kappa = this->energy_.kappa.HostRead();
+    df_dvar = this->energy_.df_dvar.HostRead();
+    if (this->energy_.with_second_derivatives) d2f_dvar2 = this->energy_.d2f_dvar2.HostRead();
+  } else {
+    this->coefficients_at_points(fe, Tr, *ir, elfun, true);
+  }
   this->mob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
+  this->dmob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
 
   for (int i = 0; i < ir->GetNPoints(); i++) {
     const mfem::IntegrationPoint& ip = ir->IntPoint(i);
     fe.CalcShape(ip, Psi);
     this->set_int_point(Tr, ip);
-    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
     fe.CalcPhysDShape(Tr, gradPsi);
 
@@ -224,197 +277,57 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
     }
 
     for (int b = 0; b < num_blocks; ++b) {
-      this->mob_at_ip_[static_cast<std::size_t>(b)] = get_mob_at_ip(b, ipv.u, ipv.aux);
+      const auto ub = static_cast<std::size_t>(b);
+      this->mob_at_ip_[ub] = this->mobility_at_points_[ub].value(i);
     }
 
     for (int blk = 0; blk < num_blocks; ++blk) {
+      const auto b = static_cast<std::size_t>(blk);
+      // W'(u) and W''(u) of the block: classic free energy of the block, or derivatives of the
+      // variational free energy (no second derivative for an explicit energy)
+      const bool with_w_second = !this->variational_ || d2f_dvar2 != nullptr;
+      auto w_second = [&](const int jblk) {
+        return d2f_dvar2 != nullptr ? d2f_dvar2[(i * num_blocks + blk) * num_blocks + jblk]
+                                    : this->energy_at_points_[b].second_derivative(i, blk, jblk);
+      };
+      const double w_prime = df_dvar != nullptr
+                                 ? df_dvar[i * num_blocks + blk]
+                                 : this->energy_at_points_[b].energy_derivative(i, blk);
       // Diagonal block: Laplacian + w''(u)
-      const double coef_mobi = this->mob_at_ip_[static_cast<std::size_t>(blk)];
-      const double lamb = this->eval_coefficient(lambda[blk], ipv.u, ipv.aux, blk);
+      const double coef_mobi = this->mob_at_ip_[b];
+      const double lamb =
+          kappa != nullptr ? kappa[i * num_blocks + blk] : this->lambda_at_points_[b].value(i);
       const double mob_lamb = coef_mobi * lamb * weight_coef;
       AddMult_a_AAt(mob_lamb, gradPsi, *elmats(blk, blk));
 
-      double fun_val = coef_mobi * this->eval_hessian_coefficient(double_well_energy[blk], blk, blk,
-                                                                  ipv.u, ipv.aux, blk);
-      fun_val *= weight_coef;
-      AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
+      if (with_w_second) {
+        double fun_val = coef_mobi * w_second(blk);
+        fun_val *= weight_coef;
+        AddMult_a_VVt(fun_val, Psi, *elmats(blk, blk));
 
-      // Off-diagonal blocks: d/du_j (M_b dW_b/du_b) = M_b d2W_b/du_b du_j (mobility and free
-      // energy of the row block blk; the derivative of M_b is added below)
-      for (int jblk = 0; jblk < num_blocks; ++jblk) {
-        if (jblk == blk) continue;
-        double fun_val_off =
-            coef_mobi *
-            this->eval_hessian_coefficient(double_well_energy[blk], blk, jblk, ipv.u, ipv.aux, blk);
-        fun_val_off *= weight_coef;
-        AddMult_a_VVt(fun_val_off, Psi, *elmats(blk, jblk));
+        // Off-diagonal blocks: d/du_j (M_b dW_b/du_b) = M_b d2W_b/du_b du_j (mobility and free
+        // energy of the row block blk; the derivative of M_b is added below)
+        for (int jblk = 0; jblk < num_blocks; ++jblk) {
+          if (jblk == blk) continue;
+          double fun_val_off = coef_mobi * w_second(jblk);
+          fun_val_off *= weight_coef;
+          AddMult_a_VVt(fun_val_off, Psi, *elmats(blk, jblk));
+        }
       }
 
       // Mobility depending on the unknowns:
       //   d/du_j (M (lambda grad u . grad psi_i + W' psi_i))
       //     += dM/du_j psi_j (lambda grad u . grad psi_i + W' psi_i)
-      this->add_mobility_derivative(blk, lamb, gradPsi, Psi, *elfun[blk], ipv.u, ipv.aux,
-                                    weight_coef, elmats);
-    }
-  }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// General case: blocks with different finite elements
-//////////////////////////////////////////////////////////////////////////////
-
-/**
- * @brief Integration rule for blocks with different finite elements: the one of the
- * highest-order block, so that the products of shape functions of any two blocks are
- * integrated as in the case of identical finite elements.
- */
-template <class VARS>
-const mfem::IntegrationRule& AllenCahnNLFormIntegrator<VARS>::generic_integration_rule(
-    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr) const {
-  int order = 0;
-  for (int b = 0; b < el.Size(); ++b) {
-    order = std::max(order, el[b]->GetOrder());
-  }
-  return mfem::IntRules.Get(el[0]->GetGeomType(), 2 * order + Tr.OrderW());
-}
-
-/**
- * @brief At an integration point, for blocks with different finite elements: shape functions
- * of each block (shapes_), value of each block computed with its own shape functions and
- * previous values (u_generic_ = {u, u_old}), auxiliary values (aux_generic_).
- */
-template <class VARS>
-void AllenCahnNLFormIntegrator<VARS>::generic_values_at_ip(
-    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::IntegrationPoint& ip, const mfem::Array<const mfem::Vector*>& elfun) {
-  const int num_blocks = el.Size();
-  this->set_int_point(Tr, ip);
-  this->shapes_.resize(static_cast<std::size_t>(num_blocks));
-  this->u_generic_.resize(2 * static_cast<std::size_t>(num_blocks));
-  for (int b = 0; b < num_blocks; ++b) {
-    auto& shape = this->shapes_[static_cast<std::size_t>(b)];
-    shape.SetSize(el[b]->GetDof());
-    el[b]->CalcShape(ip, shape);
-    this->u_generic_[static_cast<std::size_t>(b)] = (*elfun[b]) * shape;
-    this->u_generic_[static_cast<std::size_t>(b + num_blocks)] =
-        this->u_old_[static_cast<std::size_t>(b)].GetValue(Tr, ip);
-  }
-  this->aux_generic_.resize(this->vaux_gf_.size());
-  for (std::size_t k = 0; k < this->vaux_gf_.size(); ++k) {
-    this->aux_generic_[k] = this->vaux_gf_[k].GetValue(Tr, ip);
-  }
-}
-
-/**
- * @brief Element residual for blocks with different finite elements (same formulas as
- * AssembleElementVector).
- */
-template <class VARS>
-void AllenCahnNLFormIntegrator<VARS>::AssembleElementVectorGeneric(
-    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::Array<const mfem::Vector*>& elfun, const mfem::Array<mfem::Vector*>& elvect) {
-  const int num_blocks = el.Size();
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    elvect[blk]->SetSize(el[blk]->GetDof());
-    *elvect[blk] = 0.;
-  }
-
-  const mfem::IntegrationRule& ir = this->generic_integration_rule(el, Tr);
-  for (int i = 0; i < ir.GetNPoints(); i++) {
-    const mfem::IntegrationPoint& ip = ir.IntPoint(i);
-    this->generic_values_at_ip(el, Tr, ip, elfun);
-    const std::span<const double> u(this->u_generic_);
-    const std::span<const double> aux(this->aux_generic_);
-
-    double weight_coef = ip.weight * Tr.Weight();
-    if (this->isAxisymmetric()) {
-      weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
-    }
-
-    for (int blk = 0; blk < num_blocks; ++blk) {
-      gradPsi.SetSize(el[blk]->GetDof(), el[blk]->GetDim());
-      el[blk]->CalcPhysDShape(Tr, gradPsi);
-      gradU.SetSize(el[blk]->GetDim());
-
-      const double coef_mobi = get_mob_at_ip(blk, u, aux);
-      const double lamb = this->eval_coefficient(lambda[blk], u, aux, blk);
-
-      // Laplacian : (grad(u), grad(psi))
-      gradPsi.MultTranspose(*elfun[blk], gradU);
-      gradU *= coef_mobi * lamb * weight_coef;
-      gradPsi.AddMult(gradU, *elvect[blk]);
-
-      // (w'(u), psi)
-      const double ww =
-          coef_mobi * this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux, blk) *
-          weight_coef;
-      elvect[blk]->Add(ww, this->shapes_[static_cast<std::size_t>(blk)]);
-    }
-  }
-}
-
-/**
- * @brief Element Jacobian for blocks with different finite elements (same formulas as
- * AssembleElementGrad). The block (blk, jblk) is a nd_blk x nd_jblk matrix: test functions
- * of block blk, trial functions of block jblk.
- */
-template <class VARS>
-void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
-    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
-    const mfem::Array<const mfem::Vector*>& elfun,
-    const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  const int num_blocks = el.Size();
-  for (int blk = 0; blk < num_blocks; ++blk) {
-    for (int jblk = 0; jblk < num_blocks; ++jblk) {
-      elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
-      *elmats(blk, jblk) = 0.0;
-    }
-  }
-  this->mob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
-
-  const mfem::IntegrationRule& ir = this->generic_integration_rule(el, Tr);
-  for (int i = 0; i < ir.GetNPoints(); i++) {
-    const mfem::IntegrationPoint& ip = ir.IntPoint(i);
-    this->generic_values_at_ip(el, Tr, ip, elfun);
-    const std::span<const double> u(this->u_generic_);
-    const std::span<const double> aux(this->aux_generic_);
-
-    double weight_coef = ip.weight * Tr.Weight();
-    if (this->isAxisymmetric()) {
-      weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
-    }
-
-    for (int b = 0; b < num_blocks; ++b) {
-      this->mob_at_ip_[static_cast<std::size_t>(b)] = get_mob_at_ip(b, u, aux);
-    }
-
-    for (int blk = 0; blk < num_blocks; ++blk) {
-      const mfem::Vector& Psi_blk = this->shapes_[static_cast<std::size_t>(blk)];
-      gradPsi.SetSize(el[blk]->GetDof(), el[blk]->GetDim());
-      el[blk]->CalcPhysDShape(Tr, gradPsi);
-
-      // Diagonal block: Laplacian + w''(u)
-      const double coef_mobi = this->mob_at_ip_[static_cast<std::size_t>(blk)];
-      const double lamb = this->eval_coefficient(lambda[blk], u, aux, blk);
-      AddMult_a_AAt(coef_mobi * lamb * weight_coef, gradPsi, *elmats(blk, blk));
-      const double fun_val =
-          coef_mobi *
-          this->eval_hessian_coefficient(double_well_energy[blk], blk, blk, u, aux, blk) * weight_coef;
-      AddMult_a_VVt(fun_val, Psi_blk, *elmats(blk, blk));
-
-      // Off-diagonal blocks (as AssembleElementGrad): M_b d2W_b/du_b du_j
-      for (int jblk = 0; jblk < num_blocks; ++jblk) {
-        if (jblk == blk) continue;
-        const double fun_val_off =
-            coef_mobi * this->eval_hessian_coefficient(double_well_energy[blk], blk, jblk, u, aux, blk) *
-            weight_coef;
-        AddMult_a_VWt(fun_val_off, Psi_blk, this->shapes_[static_cast<std::size_t>(jblk)],
-                      *elmats(blk, jblk));
+      bool has_derivative = false;
+      for (int j = 0; j < num_blocks; ++j) {
+        const double d = this->mobility_at_points_[b].derivative(i, j);
+        this->dmob_at_ip_[static_cast<std::size_t>(j)] = d;
+        has_derivative = has_derivative || (d != 0.0);
       }
-
-      // Mobility depending on the unknowns (trial functions of each block)
-      this->add_mobility_derivative(blk, lamb, gradPsi, Psi_blk, *elfun[blk], u, aux, weight_coef,
-                                    elmats, &this->shapes_);
+      if (has_derivative) {
+        this->add_mobility_derivative(blk, lamb, w_prime, gradPsi, Psi, *elfun[blk], weight_coef,
+                                      elmats);
+      }
     }
   }
 }
@@ -426,8 +339,9 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
 /**
  * @brief Retrieve and store the coefficients required by the Allen-Cahn integrator.
  *
- * This method collects the coefficients of type `Capillary`, `Mobility`, and `FreeEnergy`
- * from each coefficients and adds them to the corresponding internal storage:
+ * Variational free energy: mobility of each block and FreeEnergy of the first block (free_energy).
+ * Otherwise, this method collects the coefficients of type `Capillary`, `Mobility`, and
+ * `FreeEnergy` from each coefficients and adds them to the corresponding internal storage:
  * - 'lambda' stores the capillary coefficients,
  * - 'mobility' stores the mobility coefficients,
  * - 'double_well_energy' stores the free energy coefficients.
@@ -438,6 +352,17 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGradGeneric(
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {
+  if (this->variational_) {
+    // Mobility of each block and variational free energy of the first block
+    for (unsigned int i = 0; i < this->nb_blk_; i++) {
+      if (this->get_coefficient(i, GlossaryType::Mobility, 0).has_value()) {
+        mobility.add(*(this->get_coefficient(i, GlossaryType::Mobility, 0)));
+      }
+    }
+    this->free_energy = this->get_coefficient(0, GlossaryType::FreeEnergy, 0);
+    this->isotropic_ = this->free_energy->is_isotropic() && !this->free_energy->is_explicit();
+    return;
+  }
   for (unsigned int i = 0; i < this->nb_blk_; i++) {
     if (this->get_coefficient(i, GlossaryType::Capillary, 0).has_value()) {
       lambda.add(*(this->get_coefficient(i, GlossaryType::Capillary, 0)));
@@ -452,58 +377,213 @@ void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {
 }
 
 /**
- * @brief Add the derivative of the mobility to the rows of block blk:
- *   elmats(blk, j) += dM/du_j psi_j (lambda grad u . grad psi_i + W' psi_i)
- * Nothing is added for a mobility independent of the unknowns (dM/du_j = 0).
- * psi_j: shape functions of block j, given by col_shapes (blocks with different finite
- * elements), Psi otherwise.
+ * @brief Adds the derivative of the mobility to the Jacobian, from known values at the current
+ * point:
+ *   d/du_j (M (lambda grad u . grad psi_i + W' psi_i))
+ *     += dM/du_j psi_j (lambda grad u . grad psi_i + W' psi_i)
+ *
+ * @param blk Row block
+ * @param lamb Capillary coefficient of the block
+ * @param w_prime Derivative W' of the free energy of the block
+ * @param gradPsi Physical gradients of the shape functions
+ * @param Psi Shape functions
+ * @param elfun_blk Values of the dofs of the block
+ * @param weight_coef Integration weight
+ * @param elmats Element matrices
+ * @remark dM/du_j are read in dmob_at_ip_
  */
 template <class VARS>
 void AllenCahnNLFormIntegrator<VARS>::add_mobility_derivative(
-    const int blk, const double lamb, const mfem::DenseMatrix& gradPsi, const mfem::Vector& Psi,
-    const mfem::Vector& elfun_blk, const std::span<const double>& u,
-    const std::span<const double>& aux, const double weight_coef,
-    const mfem::Array2D<mfem::DenseMatrix*>& elmats, const std::vector<mfem::Vector>* col_shapes) {
+    const int blk, const double lamb, const double w_prime, const mfem::DenseMatrix& gradPsi,
+    const mfem::Vector& Psi, const mfem::Vector& elfun_blk, const double weight_coef,
+    const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
   const int num_blocks = static_cast<int>(this->nb_blk_);
-  bool has_derivative = false;
-  this->dmob_at_ip_.assign(static_cast<std::size_t>(num_blocks), 0.);
-  for (int j = 0; j < num_blocks; ++j) {
-    const double d = this->eval_gradient_coefficient(mobility[blk], j, u, aux, blk);
-    this->dmob_at_ip_[static_cast<std::size_t>(j)] = d;
-    has_derivative = has_derivative || (d != 0.0);
-  }
-  if (!has_derivative) return;
 
   // g_i = lambda grad u . grad psi_i + W' psi_i
-  mfem::Vector grad_u(gradPsi.Width()), g(gradPsi.Height());
-  gradPsi.MultTranspose(elfun_blk, grad_u);
-  gradPsi.Mult(grad_u, g);
-  g *= lamb;
-  g.Add(this->eval_gradient_energy_coefficient(double_well_energy[blk], blk, u, aux, blk), Psi);
+  this->grad_u_mob_.SetSize(gradPsi.Width());
+  this->g_mob_.SetSize(gradPsi.Height());
+  gradPsi.MultTranspose(elfun_blk, this->grad_u_mob_);
+  gradPsi.Mult(this->grad_u_mob_, this->g_mob_);
+  this->g_mob_ *= lamb;
+  this->g_mob_.Add(w_prime, Psi);
 
   for (int j = 0; j < num_blocks; ++j) {
     const double d = this->dmob_at_ip_[static_cast<std::size_t>(j)];
     if (d == 0.0) continue;
-    const mfem::Vector& Psi_j =
-        col_shapes == nullptr ? Psi : (*col_shapes)[static_cast<std::size_t>(j)];
-    AddMult_a_VWt(d * weight_coef, g, Psi_j, *elmats(blk, j));
+    AddMult_a_VWt(d * weight_coef, this->g_mob_, Psi, *elmats(blk, j));
   }
 }
 
 /**
- * @brief Compute the value of the mobility at integration point
+ * @brief Evaluates the coefficients of each block at all the integration points of the element
+ * (blocks with the same finite element).
  *
- * @tparam VARS Template parameter defining the variables used in the integrator.
+ * Residual: mobility M, capillary coefficient lambda and W'. Jacobian: in addition dM/du_j and
+ * W''. See SlothNLFormIntegrator::eval_coefficient_at_points.
  *
- * @param blk   Index of the block.
- * @param values {u, u_old} at the integration point
- * @param aux_values auxiliary values at the integration point
- *
- * @return The computed mobility at integration point
+ * @param fe Finite element of the blocks
+ * @param Tr Transformation of the element
+ * @param ir Integration rule
+ * @param elfun Values of the dofs of each block
+ * @param jacobian Derivatives required by the Jacobian
  */
 template <class VARS>
-double AllenCahnNLFormIntegrator<VARS>::get_mob_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  return this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
+void AllenCahnNLFormIntegrator<VARS>::coefficients_at_points(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian) {
+  const int num_blocks = elfun.Size();
+  const auto nb = static_cast<std::size_t>(num_blocks);
+  this->mobility_at_points_.resize(nb);
+  this->lambda_at_points_.resize(nb);
+  this->energy_at_points_.resize(nb);
+
+  const unsigned int mobility_outputs =
+      jacobian ? (SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative)
+               : SlothNLBase::CoefValue;
+  const unsigned int energy_outputs =
+      jacobian ? (SlothNLBase::CoefFirstDerivative | SlothNLBase::CoefSecondDerivative)
+               : SlothNLBase::CoefFirstDerivative;
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    const auto b = static_cast<std::size_t>(blk);
+    this->eval_coefficient_at_points(mobility[blk], blk, mobility_outputs, fe, Tr, ir, elfun,
+                                     this->vaux_gf_, this->mobility_at_points_[b]);
+    this->eval_coefficient_at_points(lambda[blk], blk, SlothNLBase::CoefValue, fe, Tr, ir, elfun,
+                                     this->vaux_gf_, this->lambda_at_points_[b]);
+    this->eval_coefficient_at_points(double_well_energy[blk], blk, energy_outputs, fe, Tr, ir,
+                                     elfun, this->vaux_gf_, this->energy_at_points_[b]);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Variational free energy
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Evaluates the mobility of each block at all the integration points of the element (see
+ * SlothNLFormIntegrator::eval_coefficient_at_points): value, and its derivatives with respect to
+ * the blocks for the Jacobian.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ */
+template <class VARS>
+void AllenCahnNLFormIntegrator<VARS>::mobility_at_points(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<const mfem::Vector*>& elfun, const bool jacobian) {
+  const int num_blocks = elfun.Size();
+  this->mobility_at_points_.resize(static_cast<std::size_t>(num_blocks));
+  const unsigned int outputs = jacobian
+                                   ? (SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative)
+                                   : SlothNLBase::CoefValue;
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    this->eval_coefficient_at_points(mobility[blk], blk, outputs, fe, Tr, ir, elfun, this->vaux_gf_,
+                                     this->mobility_at_points_[static_cast<std::size_t>(blk)]);
+  }
+}
+
+/**
+ * @brief Integration weight at the point ip (the integration point of Tr is set to ip)
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ */
+template <class VARS>
+double AllenCahnNLFormIntegrator<VARS>::integration_weight(mfem::ElementTransformation& Tr,
+                                                           const mfem::IntegrationPoint& ip) {
+  this->set_int_point(Tr, ip);
+  double weight = ip.weight * Tr.Weight();
+  if (this->isAxisymmetric()) {
+    weight *= AxiCylindricalCoefficient().Eval(Tr, ip);
+  }
+  return weight;
+}
+
+/**
+ * @brief Element residual with a variational free energy which is not isotropic, from the
+ * mobility and the derivatives of f at the points (mobility_at_points,
+ * variational_energy_at_points):
+ *   R_b(psi) = int M_b (df/du_b psi + df/d(grad u_b) . grad psi).
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ */
+template <class VARS>
+void AllenCahnNLFormIntegrator<VARS>::variational_element_vector(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array<mfem::Vector*>& elvect) {
+  const int num_blocks = elvect.Size();
+  const int nd = fe.GetDof();
+  const int sdim = Tr.GetSpaceDim();
+  this->Psi.SetSize(nd);
+  this->gradPsi.SetSize(nd, sdim);
+
+  for (int q = 0; q < ir.GetNPoints(); q++) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+    fe.CalcShape(ip, this->Psi);
+    const double weight = this->integration_weight(Tr, ip);
+    fe.CalcPhysDShape(Tr, this->gradPsi);
+
+    for (int blk = 0; blk < num_blocks; ++blk) {
+      const double a = this->mobility_at_points_[static_cast<std::size_t>(blk)].value(q) * weight;
+      this->add_variational_vector(this->energy_, q, blk, a, this->Psi, this->gradPsi,
+                                   *elvect[blk]);
+    }
+  }
+}
+
+/**
+ * @brief Element Jacobian with a variational free energy which is not isotropic: block (b, j),
+ * derivative of R_b with respect to the dofs of the block j (shape functions psi, psi_j):
+ *   int M_b (d2f/du_b du_j psi psi_j + (d2f/du_b d(grad u_j) . grad psi_j) psi
+ *            + (d2f/d(grad u_b) du_j . grad psi) psi_j
+ *            + grad psi . d2f/d(grad u_b) d(grad u_j) grad psi_j)
+ *   + int dM_b/du_j psi_j (df/du_b psi + df/d(grad u_b) . grad psi).
+ * The terms of the free energy are not added for an explicit energy.
+ *
+ * @tparam VARS Template parameter defining the variables used in the integrator.
+ */
+template <class VARS>
+void AllenCahnNLFormIntegrator<VARS>::variational_element_grad(
+    const mfem::FiniteElement& fe, mfem::ElementTransformation& Tr, const mfem::IntegrationRule& ir,
+    const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
+  const int nb = elmats.NumRows();
+  const int nd = fe.GetDof();
+  const int sdim = Tr.GetSpaceDim();
+  const int ng = nb * sdim;  // components of the gradients of the blocks
+  auto& energy = this->energy_;
+  this->Psi.SetSize(nd);
+  this->gradPsi.SetSize(nd, sdim);
+  energy.flux.SetSize(sdim);
+  this->residual_integrand_.resize(static_cast<std::size_t>(nb));
+  const double* df_dvar = energy.df_dvar.HostRead();
+  const double* df_dgrad = energy.df_dgrad.HostRead();
+
+  for (int q = 0; q < ir.GetNPoints(); q++) {
+    const mfem::IntegrationPoint& ip = ir.IntPoint(q);
+    fe.CalcShape(ip, this->Psi);
+    const double weight = this->integration_weight(Tr, ip);
+    fe.CalcPhysDShape(Tr, this->gradPsi);
+
+    for (int b = 0; b < nb; ++b) {
+      const CoefficientAtPoints& mob = this->mobility_at_points_[static_cast<std::size_t>(b)];
+      const double a = mob.value(q) * weight;
+
+      // Second derivatives of the free energy
+      for (int j = 0; j < nb && energy.with_second_derivatives; ++j) {
+        this->add_variational_grad(energy, q, b, j, a, this->Psi, this->gradPsi, *elmats(b, j));
+      }
+
+      // Mobility depending on the blocks: dM_b/du_j psi_j (df/du_b psi + df/d(grad u_b) . grad psi)
+      bool has_derivative = false;
+      for (int j = 0; j < nb && !has_derivative; ++j) has_derivative = mob.derivative(q, j) != 0.0;
+      if (!has_derivative) continue;
+      mfem::Vector& g = this->residual_integrand_[static_cast<std::size_t>(b)];
+      g.SetSize(nd);
+      for (int k = 0; k < sdim; ++k) energy.flux(k) = df_dgrad[q * ng + b * sdim + k];
+      this->gradPsi.Mult(energy.flux, g);
+      g.Add(df_dvar[q * nb + b], this->Psi);
+      for (int j = 0; j < nb; ++j) {
+        const double d = mob.derivative(q, j);
+        if (d == 0.0) continue;
+        mfem::AddMult_a_VWt(d * weight, g, this->Psi, *elmats(b, j));
+      }
+    }
+  }
 }

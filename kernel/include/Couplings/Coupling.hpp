@@ -26,6 +26,7 @@
  *
  */
 #pragma once
+#include <limits>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -78,6 +79,10 @@ class Coupling {
   void execute(const int& iter, double& next_time, const double& current_time,
                const double& current_time_step);
   void update();
+  void save_state();
+  void restore_state();
+  int get_nonlinear_iterations() const;
+  double get_max_time_step_ratio() const;
   void post_processing(const int& iter, const double& current_time, bool vtk_unified,
                        std::vector<VAR*> all_vars);
   void finalize();
@@ -86,7 +91,7 @@ class Coupling {
   get_convergence();
   bool need_to_be_saved(const int iteration, const double time) {
     return std::get<0>(this->problems_).need_to_be_saved(iteration, time);
-  };
+  }
   ~Coupling();
 };
 #include "Couplings/Coupling.tpp"

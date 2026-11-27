@@ -77,4 +77,5 @@ std::shared_ptr<mfem::MUMPSSolver> SolverMUMPS::create_solver(const Parameters& 
  *
  */
 SolverMUMPS::~SolverMUMPS() {}
+
 #endif

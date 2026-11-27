@@ -144,22 +144,20 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  // Blocks c_0..c_{n-1}, mu_0..mu_{n-1} (n = 1: phi, mu)
+  const int n = el.Size() / 2;
   //////////////////////
-  // Block 0 R(phi) on mu term
-  {
-    int blk = 0;
-
+  // Blocks c_i: R(c_i) on mu_i term
+  for (int blk = 0; blk < n; ++blk) {
     int nd = el[blk]->GetDof();
     elvect[blk]->SetSize(nd);
     *elvect[blk] = 0.;
   }
 
   //////////////////////
-  // Block 1 R(mu) on dphi/dt term
-  {
-    int blk = 1;
-
-    int off_blk = 0;
+  // Blocks mu_i: R(mu_i) on dc_i/dt term
+  for (int off_blk = 0; off_blk < n; ++off_blk) {
+    int blk = n + off_blk;
 
     int nd = el[blk]->GetDof();
     int dim = el[blk]->GetDim();
@@ -171,21 +169,23 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Implicit coefficient: evaluated at the end of the step (c = c_old + dt dc/dt), at all the
+    // integration points of the element; a coefficient of one variable is a function of c_i
+    this->eval_coefficient_at_points(this->coefficient_A[blk], off_blk, SlothNLBase::CoefValue,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
       el[blk]->CalcShape(ip, Psi);  //
       this->set_int_point(Tr, ip);
 
       const auto& phi = *elfun[off_blk] * Psi;
-      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
 
       double weight_coef = ip.weight * Tr.Weight();
       if (this->isAxisymmetric()) {
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
-      // Implicit coefficient: evaluated at the end of the step (phi = phi_old + dt dphi/dt)
-      const double coef_a = this->eval_coefficient(this->coefficient_A[blk],
-                                                   this->values_at_end_of_step(ipv.u), ipv.aux);
+      const double coef_a = this->a_at_points_.value(i);
       const double ww = coef_a * phi * weight_coef;
       add(*elvect[blk], ww, Psi, *elvect[blk]);
     }
@@ -217,44 +217,49 @@ void TimeCHNLFormIntegrator<VARS>::AssembleElementGrad(
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
-  for (int blk = 0; blk < 2; ++blk) {
-    for (int jblk = 0; jblk < 2; ++jblk) {
+  // Blocks c_0..c_{n-1}, mu_0..mu_{n-1} (n = 1: phi, mu)
+  const int nb = el.Size();
+  const int n = nb / 2;
+  for (int blk = 0; blk < nb; ++blk) {
+    for (int jblk = 0; jblk < nb; ++jblk) {
       elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
       *elmats(blk, jblk) = 0.0;
     }
   }
 
-  // Row 1 (equation of mu), term (A(u) dphi/dt, psi):
-  //   block (1, 0): A (psi_j, psi_i) + dt dA/dphi dphi/dt (psi_j, psi_i)
-  //   block (1, 1): dt dA/dmu dphi/dt (psi_j, psi_i)
+  // Row n + i (equation of mu_i), term (A(u) dc_i/dt, psi):
+  //   block (n + i, i): A (psi_j, psi_i) + dt dA/dc_i dc_i/dt (psi_j, psi_i)
+  //   block (n + i, j): dt dA/du_j dc_i/dt (psi_j, psi_i)
   // (u = u_old + dt k at the end of the step; the derivatives vanish for constant or explicit A)
-  const int blk = 1;
-  const int off_blk = 0;
-  Psi.SetSize(el[blk]->GetDof());
-  const mfem::IntegrationRule* ir =
-      &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
-  for (int i = 0; i < ir->GetNPoints(); i++) {
-    const mfem::IntegrationPoint& ip = ir->IntPoint(i);
-    this->set_int_point(Tr, ip);
-    el[blk]->CalcShape(ip, Psi);
+  for (int off_blk = 0; off_blk < n; ++off_blk) {
+    const int blk = n + off_blk;
+    Psi.SetSize(el[blk]->GetDof());
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // A and its derivatives at all the integration points of the element, at the end of the step
+    this->eval_coefficient_at_points(this->coefficient_A[blk], off_blk,
+                                     SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative,
+                                     *el[blk], Tr, *ir, elfun, this->vaux_gf_, this->a_at_points_,
+                                     SlothNLBase::ValuesAt::EndOfStep);
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      this->set_int_point(Tr, ip);
+      el[blk]->CalcShape(ip, Psi);
 
-    const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
-    const auto u_end = this->values_at_end_of_step(ipv.u);
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
 
-    double weight_coef = ip.weight * Tr.Weight();
-    if (this->isAxisymmetric()) {
-      weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
-    }
+      const double coef_a = this->a_at_points_.value(i);
+      AddMult_a_VVt(coef_a * weight_coef, Psi, *elmats(blk, off_blk));
 
-    const double coef_a = this->eval_coefficient(this->coefficient_A[blk], u_end, ipv.aux);
-    AddMult_a_VVt(coef_a * weight_coef, Psi, *elmats(blk, off_blk));
-
-    const double dphi_dt = *elfun[off_blk] * Psi;
-    for (int jblk = 0; jblk < 2; ++jblk) {
-      const double d =
-          this->eval_gradient_coefficient(this->coefficient_A[blk], jblk, u_end, ipv.aux) *
-          this->time_step_ * dphi_dt * weight_coef;
-      if (d != 0.0) AddMult_a_VVt(d, Psi, *elmats(blk, jblk));
+      const double dphi_dt = *elfun[off_blk] * Psi;
+      for (int jblk = 0; jblk < nb; ++jblk) {
+        const double d =
+            this->a_at_points_.derivative(i, jblk) * this->time_step_ * dphi_dt * weight_coef;
+        if (d != 0.0) AddMult_a_VVt(d, Psi, *elmats(blk, jblk));
+      }
     }
   }
 }

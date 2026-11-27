@@ -112,7 +112,15 @@ void LatentHeatNLFormIntegrator<VARS>::check_variables_consistency() {
  */
 template <class VARS>
 void LatentHeatNLFormIntegrator<VARS>::init() {
-  this->check_coefficient_types(this->expected_list_);
+  // Linear form L dphi/dt if a LatentHeat coefficient is given, dissipative form otherwise
+  for (unsigned int i = 0; i < this->nb_blk_; i++) {
+    this->linear_ =
+        this->linear_ || this->get_coefficient(i, GlossaryType::LatentHeat, 0).has_value();
+  }
+  this->check_coefficient_types(this->linear_ ? this->expected_linear_list_ : this->expected_list_);
+  MFEM_VERIFY(this->phase_field_index_ >= 0,
+              "Error in " + this->integrator_name_ +
+                  ": the phase field must be an auxiliary variable with the symbol \"phi\".");
   this->get_coefficients();
 
   this->vaux_gf_.reserve(2 * this->aux_infos_.size());
@@ -164,6 +172,14 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
 
     const mfem::IntegrationRule* ir =
         &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    // Mobility (dissipative form) or latent heat (linear form) at all the integration points
+    if (this->linear_) {
+      this->eval_coefficient_at_points(latent_heat[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr,
+                                       *ir, elfun, this->vaux_gf_, this->latent_at_points_);
+    } else {
+      this->eval_coefficient_at_points(mobility[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr,
+                                       *ir, elfun, this->vaux_gf_, this->mobility_at_points_);
+    }
     // elvect = 0.0;
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -177,8 +193,12 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      const double latent_heat = this->get_latent_heat_at_ip(blk, ipv.u, ipv.aux) * weight_coef;
-      add(*elvect[blk], latent_heat, Psi, *elvect[blk]);
+      // Source term on the right-hand side: - source in the residual
+      const double source =
+          this->linear_
+              ? this->latent_at_points_.value(i) * this->phase_field_time_derivative(ipv.aux)
+              : -this->get_latent_heat_at_ip(this->mobility_at_points_.value(i), ipv.aux);
+      add(*elvect[blk], -source * weight_coef, Psi, *elvect[blk]);
     }
   }
 }
@@ -201,19 +221,53 @@ void LatentHeatNLFormIntegrator<VARS>::AssembleElementVector(
  */
 template <class VARS>
 void LatentHeatNLFormIntegrator<VARS>::AssembleElementGrad(
-    const mfem::Array<const mfem::FiniteElement*>& el,
-    [[maybe_unused]] mfem::ElementTransformation& Tr,
-    [[maybe_unused]] const mfem::Array<const mfem::Vector*>& elfun,
+    const mfem::Array<const mfem::FiniteElement*>& el, mfem::ElementTransformation& Tr,
+    const mfem::Array<const mfem::Vector*>& elfun,
     const mfem::Array2D<mfem::DenseMatrix*>& elmats) {
-  int num_blocks = el.Size();
+  const int num_blocks = el.Size();
   for (int blk = 0; blk < num_blocks; ++blk) {
-    int nd = el[blk]->GetDof();
-    int dim = el[blk]->GetDim();
+    for (int jblk = 0; jblk < num_blocks; ++jblk) {
+      elmats(blk, jblk)->SetSize(el[blk]->GetDof(), el[jblk]->GetDof());
+      *elmats(blk, jblk) = 0.0;
+    }
+  }
+  // Dissipative form: the auxiliary phase field does not depend on the unknowns
+  if (!this->linear_) return;
 
-    gradPsi.SetSize(nd, dim);
-    Psi.SetSize(nd);
-    elmats(blk, blk)->SetSize(nd);
-    *elmats(blk, blk) = 0.0;
+  // Linear form: - L(u) dphi/dt, derivatives of L with respect to the unknowns
+  this->prepare_element_values(
+      el, Tr, elfun, this->vaux_gf_,
+      mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    Psi.SetSize(el[blk]->GetDof());
+    const mfem::IntegrationRule* ir =
+        &mfem::IntRules.Get(el[blk]->GetGeomType(), 2 * el[blk]->GetOrder() + Tr.OrderW());
+    this->eval_coefficient_at_points(
+        latent_heat[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk],
+        Tr, *ir, elfun, this->vaux_gf_, this->latent_at_points_);
+    for (int i = 0; i < ir->GetNPoints(); i++) {
+      const mfem::IntegrationPoint& ip = ir->IntPoint(i);
+      el[blk]->CalcShape(ip, Psi);
+      this->set_int_point(Tr, ip);
+      const auto ipv = this->values_at_ip(*ir, i, Psi, elfun, this->vaux_gf_, Tr);
+
+      double weight_coef = ip.weight * Tr.Weight();
+      if (this->isAxisymmetric()) {
+        weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
+      }
+      const double dphi_dt = this->phase_field_time_derivative(ipv.aux);
+      for (int jblk = 0; jblk < num_blocks; ++jblk) {
+        const double d = -this->latent_at_points_.derivative(i, jblk) * dphi_dt * weight_coef;
+        if (d == 0.0) continue;
+        if (jblk == blk) {
+          AddMult_a_VVt(d, Psi, *elmats(blk, blk));
+        } else {
+          shape_j_.SetSize(el[jblk]->GetDof());
+          el[jblk]->CalcShape(ip, shape_j_);
+          AddMult_a_VWt(d, Psi, shape_j_, *elmats(blk, jblk));
+        }
+      }
+    }
   }
 }
 
@@ -239,7 +293,25 @@ void LatentHeatNLFormIntegrator<VARS>::get_coefficients() {
     if (this->get_coefficient(i, GlossaryType::Mobility, 0).has_value()) {
       mobility.add(*(this->get_coefficient(i, GlossaryType::Mobility, 0)));
     }
+    if (this->get_coefficient(i, GlossaryType::LatentHeat, 0).has_value()) {
+      latent_heat.add(*(this->get_coefficient(i, GlossaryType::LatentHeat, 0)));
+    }
   }
+}
+
+/**
+ * @brief Time derivative of the auxiliary phase field at the integration point,
+ * (phi - phi_old) / dt with the physical time step (see get_latent_heat_at_ip).
+ *
+ * @param aux_values values of the auxiliary variables at the current then at the previous time
+ * step
+ */
+template <class VARS>
+double LatentHeatNLFormIntegrator<VARS>::phase_field_time_derivative(
+    const std::span<const double>& aux_values) const {
+  const auto k = static_cast<std::size_t>(this->phase_field_index_);
+  const auto naux = static_cast<std::size_t>(this->nb_vaux_);
+  return (aux_values[k] - aux_values[naux + k]) / this->get_physical_time_step();
 }
 
 /**
@@ -247,52 +319,31 @@ void LatentHeatNLFormIntegrator<VARS>::get_coefficients() {
  *
  * @tparam VARS Template parameter defining the variables used in the integrator.
  *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
+ * @param mobility_value value of the mobility at the integration point
+ * @param aux_values values of the auxiliary variables at the current then at the previous time
+ * step at the integration point
  *
- * @return The computed mobility at integration point
+ * @return The computed latent heat at integration point
  */
 template <class VARS>
 double LatentHeatNLFormIntegrator<VARS>::get_latent_heat_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
+    const double mobility_value, const std::span<const double>& aux_values) {
   std::span<const double> local_auxvalues(aux_values.begin(), aux_values.begin() + this->nb_vaux_);
   std::span<const double> local_auxvalues_n(aux_values.begin() + this->nb_vaux_, aux_values.end());
-
-  const double mobility_value = this->get_mob_at_ip(blk, values, local_auxvalues);
 
   const double phi = local_auxvalues[this->phase_field_index_];
   const double phin = local_auxvalues_n[this->phase_field_index_];
 
-  double square_time_derivative = (phi - phin) / this->time_step_;
+  // phi, phin: current and previous values of the auxiliary phase field. If the phase-field
+  // problem is solved before this one in the coupling: phi^{n+1}, phi^n (derivative over the
+  // current step). Otherwise phi^n, phi^{n-1} (derivative of the previous step), or with BDF2 the
+  // extrapolated value and phi^n (same quotient as the previous step). First order in all cases.
+  // Physical time step: differs from time_step_ for SDIRK stages and BDF2.
+  double square_time_derivative = (phi - phin) / this->get_physical_time_step();
+
   square_time_derivative *= square_time_derivative;
   const double epsilon = 1.e-10;
   const double latent_heat = -square_time_derivative / std::max(epsilon, mobility_value);
 
   return latent_heat;
-}
-
-/**
- * @brief Compute the value of the mobility at integration point
- *
- * @tparam VARS Template parameter defining the variables used in the integrator.
- *
- * @param Tr Element transformation.
- * @param ir Integration point
- * @param blk   Index of the block.
- * @param u value of the current solution at ip
- * @param un value of the previous solution at ip
- *
- * @return The computed mobility at integration point
- */
-template <class VARS>
-double LatentHeatNLFormIntegrator<VARS>::get_mob_at_ip(
-    [[maybe_unused]] unsigned int blk, [[maybe_unused]] const std::span<const double>& values,
-    [[maybe_unused]] const std::span<const double>& aux_values) {
-  const double mobi = this->eval_coefficient(mobility[blk], values, aux_values, static_cast<int>(blk));
-
-  return mobi;
 }

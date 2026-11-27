@@ -29,8 +29,10 @@
 #pragma once
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,6 +40,7 @@
 #include "AnalyticalFunctions/AnalyticalFunctions.hpp"
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/Coefficients.hpp"
+#include "Extensions/UserIntegrator.hpp"
 #include "Integrators/SlothNLFormIntegrator.hpp"
 #include "MAToolsProfiling/MATimersAPI.hxx"
 #include "Options/Options.hpp"
@@ -69,11 +72,8 @@ class OperatorBase : public mfem::Operator {
   void set_default_solver();
 
  protected:
-  bool enable_amr_{true};
   Geometry geometry_ = Geometry::Cartesian;
   Parameters nl_solver_params_;
-  std::optional<Coefficient> energy_coefficient_;
-  std::optional<Coefficient> grad_energy_coefficient_;
   std::vector<Coefficients> coefficients_;
   std::vector<Variables<T, DIM>*> auxvariables_;
   std::string description_{"UNKNOWN OPERATOR"};
@@ -100,15 +100,21 @@ class OperatorBase : public mfem::Operator {
 
   double current_dt_;
   double current_time_;
+  // Largest number of Newton iterations over the stages of the last time-step (-1: no Newton
+  // solve, e.g. explicit schemes)
+  int newton_iterations_{-1};
   int height_;
   mutable mfem::Vector z;  // auxiliary vector
 
-  std::vector<std::string> rhs_integrators_;
+  std::vector<IntegratorEntry<Variables<T, DIM>>> rhs_integrators_;
 
   /// Mesh change detection (AMR): FE space sequence numbers at last synchronization
-  std::vector<long> fes_sequence_;
+  /// (long: type of FiniteElementSpace::GetSequence())
+  std::vector<long> fes_sequence_;  // NOLINT(runtime/int)
   void record_fes_sequence();
   bool mesh_has_changed() const;
+  virtual bool sync_with_mesh();
+  std::vector<mfem::Vector> get_auxvars_unknowns() const;
 
   void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
@@ -124,16 +130,24 @@ class OperatorBase : public mfem::Operator {
       const unsigned int block, const unsigned int bdr_id);
 
  public:
-  OperatorBase(const std::vector<std::string>& integrators,
+  OperatorBase(const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials);
 
-  OperatorBase(const std::vector<std::string>& integrators,
+  OperatorBase(const std::vector<IntegratorEntry<Variables<T, DIM>>>& integrators,
                std::vector<SpatialDiscretization<T, DIM>*> spatials, const Parameters& params);
 
-  void set_coefficients(const std::vector<Coefficients>& coefficients,
-                        bool enable_compute_energies);
+  void set_coefficients(const std::vector<Coefficients>& coefficients);
 
   inline double get_current_time_step() const { return current_dt_; }
+  inline int get_newton_iterations() const { return newton_iterations_; }
+  // Time scheme (adaptive time-stepping). Defaults for an operator without time scheme; hidden
+  // by TransientOperator.
+  // Largest ratio between two successive time-steps allowed by the time scheme
+  inline double get_max_time_step_ratio() const { return std::numeric_limits<double>::infinity(); }
+  // Internal state of the time scheme (beyond the variables), saved at the beginning of a
+  // time-step and restored if the time-step is rejected
+  inline void save_time_scheme_state() {}
+  inline void restore_time_scheme_state() {}
 
   void ComputeError(const int& it, const double& t, const double& dt, const int id_var,
                     const std::string& name, const mfem::Vector& u,
@@ -178,8 +192,9 @@ class OperatorBase : public mfem::Operator {
   virtual void SetTransientParameters(const double dt, const std::vector<mfem::Vector>& u_vect) = 0;
   virtual void solve(std::vector<std::unique_ptr<mfem::Vector>>& vect_unk, double& next_time,
                      const double& current_time, double current_time_step, const int iter) = 0;
-  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(const double dt, const std::string nlfi,
-                                                         const std::vector<mfem::Vector>& u);
+  SlothNLFormIntegrator<Variables<T, DIM>>* set_nlfi_ptr(
+      const double dt, const IntegratorEntry<Variables<T, DIM>>& nlfi,
+      const std::vector<mfem::Vector>& u);
   SlothNLFormIntegrator<Variables<T, DIM>>* set_bdr_nlfi_ptr(const double dt,
                                                              const std::string nlfi,
                                                              const std::vector<mfem::Vector>& u,
@@ -187,4 +202,5 @@ class OperatorBase : public mfem::Operator {
                                                              const unsigned int bdr_id);
   void set_time_coefficients(double time);
 };
+
 #include "Operators/OperatorBase.tpp"

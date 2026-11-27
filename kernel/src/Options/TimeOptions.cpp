@@ -38,6 +38,7 @@ TimeScheme::value TimeScheme::from(const std::string& v) {
                                                       {"SDIRK23", TimeScheme::SDIRK23},
                                                       {"SDIRK33", TimeScheme::SDIRK33},
                                                       {"EulerExplicit", TimeScheme::EulerExplicit},
-                                                      {"RungeKutta4", TimeScheme::RungeKutta4}};
+                                                      {"RungeKutta4", TimeScheme::RungeKutta4},
+                                                      {"BDF2", TimeScheme::BDF2}};
   return m.find("TimeScheme", v);
 }

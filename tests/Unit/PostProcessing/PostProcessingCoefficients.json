@@ -1,0 +1,21 @@
+[
+	{
+	"expression":"0.5*kappa*dot(grad(phi),grad(phi)) + omega*phi**2*(1-phi)**2",
+	"variables":"phi",
+	"constants":"(kappa:0.15),(omega:120.0)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergyDoubleWell",
+	"outputfile":"PostProcessingCoefficients"
+	}
+	,
+	{
+	"expression":"0.5*kappa*dot(grad(phi),grad(phi))",
+	"variables":"phi",
+	"constants":"(kappa:0.15)",
+	"variational":true,
+	"dimension":2,
+	"class_name":"EnergyGradientOnly",
+	"outputfile":"PostProcessingCoefficients"
+	}
+]

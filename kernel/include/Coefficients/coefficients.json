@@ -20,6 +20,8 @@
     {
     "expression":"x * log(x) + (1.0 - x)*log(1.0 - x)",
     "variables":"x",
+    "constants":"(eps:1.e-10)",
+    "bounds":{"x":["eps", "1.0 - eps"]},
     "class_name":"Log",
     "outputfile":"CommonCoefficients"
     },

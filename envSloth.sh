@@ -221,7 +221,7 @@ for argument in "${SLOTH_ARGS[@]}"; do
             return 1 2>/dev/null || exit 1  # return if sourced, exit if executed
         fi
         export USER_INSTALL_PATH=$(to_absolute_path "$value")
-        Print "Sloth wil be installed in ${USER_INSTALL_PATH}"
+        Print "Sloth will be installed in ${USER_INSTALL_PATH}"
 
         ;;
     *)
