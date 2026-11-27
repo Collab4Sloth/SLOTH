@@ -2,7 +2,6 @@
  * @file Coefficient.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
  * @brief Base class definining a coefficient from an analytical formula
- * @remark Depends on ExprTk library (MIT license)
  * @version 0.1
  * @date 2025-11-06
  *
@@ -40,10 +39,6 @@
 #include "Coefficients/SlothBaseCoefficient.hpp"
 #include "Glossary/Glossary.hpp"
 #include "Options/TimeOptions.hpp"
-
-#ifdef SLOTH_USE_EXPRTK
-#include "Coefficients/ExprTkSloth.hpp"  // NOLINT [no include the directory when naming exprtk include file]
-#endif
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 namespace {
 /**
