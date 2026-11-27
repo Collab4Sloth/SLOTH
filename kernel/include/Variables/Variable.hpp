@@ -26,6 +26,7 @@
 #pragma once
 #include <algorithm>
 #include <any>
+#include <concepts>
 #include <limits>
 #include <map>
 #include <memory>
@@ -39,8 +40,10 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/FileCoefficient.hpp"
+#include "Coefficients/MfemFromSlothCoefficient.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
+#include "Variables/VariableSolution.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 template <class T, int DIM>
@@ -52,15 +55,25 @@ class Variable {
   GlossaryQuantity variable_type_;
   mfem::ParFiniteElementSpace* fespace_;
 
-  // std::shared_ptr<AnalyticalFunctions<DIM>> ics_;
   std::map<int, mfem::Vector> map_of_unk_;
   int depth_ = 2;
   mfem::Vector unk_;
   mfem::ParGridFunction uh_;
 
+  // Analytical solution: as a std::function (only if given by an AnalyticalFunctions, kept for
+  // get_analytical_solution()) and as an mfem::Coefficient (in all cases)
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> analytical_solution_{nullptr};
+  std::shared_ptr<mfem::Coefficient> analytical_solution_coef_{nullptr};
 
-  std::shared_ptr<std::function<double(const mfem::Vector&, double)>> initial_condition_{nullptr};
+  // Initial condition as an mfem::Coefficient (nullptr if read from a file (used for save/restart):
+  // not reprojectable)
+  std::shared_ptr<mfem::Coefficient> ic_coef_{nullptr};
+  // Same object as ic_coef_ when the initial condition is given by a SLOTH ::Coefficient
+  std::shared_ptr<MfemFromSlothCoefficient> ic_dependent_coef_{nullptr};
+  // Names of the variables the initial condition depends on (see set_dependencies())
+  std::vector<std::string> dependencies_;
+  // True while the initial condition has not been projected yet (deferred projection)
+  bool ic_pending_ = false;
 
   std::vector<std::string> additional_variable_info_;
 
@@ -69,16 +82,14 @@ class Variable {
   void setVariableDepth(const int& depth);
 
   void add_variable_info(const std::string& var);
-  std::function<double(const mfem::Vector&, double)> buildAnalyticalFunction(
-      const AnalyticalFunctions<DIM>& analytical_function);
-  void setInitialCondition(const AnalyticalFunctions<DIM>& initial_condition_name);
-  void setInitialCondition(const mfem::FunctionCoefficient& initial_condition_function);
-  void setInitialCondition(const double& initial_condition_value);
+  void setInitialCondition(SpatialDiscretization<T, DIM>* spatial,
+                           const InitialCondition<DIM>& initial_condition);
   void setInitialCondition(mfem::ParMesh* pmesh,
                            const std::tuple<std::string, std::string>& input_file_dir);
-  void setInitialCondition(const Coefficient& initial_condition_file_coef);
-  void setAnalyticalSolution(const AnalyticalFunctions<DIM>& analytical_solution_name);
-  void setAnalyticalSolution(const mfem::FunctionCoefficient& analytical_solution_function);
+  void setAnalyticalSolution(const AnalyticalSolution<DIM>& analytical_solution);
+  void projectInitialCondition();
+  void projectInitialCondition(const std::vector<const mfem::ParGridFunction*>& dependencies);
+  void ensureInitialCondition() const;
   void saveBeforeUpdate();
   void set_attributes(SpatialDiscretization<T, DIM>* spatial,
                       const std::set<std::string>& attribute_names);
@@ -86,116 +97,27 @@ class Variable {
  public:
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const std::tuple<std::string, std::string>& input_file_dir);
+           const InitialCondition<DIM>& initial_condition,
+           const std::set<std::string>& attribute_names = {},
+           const AnalyticalSolution<DIM>& analytical_solution = {});
 
   Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
            const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const Coefficient& input_file_coefficient);
-  /////////////////////////////
-  // Without attributes names   //
-  /////////////////////////////
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const AnalyticalFunctions<DIM>& initial_condition_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const AnalyticalFunctions<DIM>& initial_condition_name,
-           const AnalyticalFunctions<DIM>& analytical_solution_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const AnalyticalFunctions<DIM>& initial_condition_name,
-           const mfem::FunctionCoefficient& analytical_solution_function);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const mfem::FunctionCoefficient& initial_condition_function);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const mfem::FunctionCoefficient& initial_condition_function,
-           const AnalyticalFunctions<DIM>& analytical_solution_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const mfem::FunctionCoefficient& initial_condition_function,
-           const mfem::FunctionCoefficient& analytical_solution_function);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const double& initial_condition_value);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const double& initial_condition_value,
-           const AnalyticalFunctions<DIM>& analytical_solution_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const double& initial_condition_value,
-           const mfem::FunctionCoefficient& analytical_solution_function);
-
-  /////////////////////////////
-  // With attributes names   //
-  /////////////////////////////
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const AnalyticalFunctions<DIM>& initial_condition_name,
-           const std::set<std::string>& attribute_names);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const AnalyticalFunctions<DIM>& initial_condition_name,
-           const std::set<std::string>& attribute_names,
-           const AnalyticalFunctions<DIM>& analytical_solution_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const AnalyticalFunctions<DIM>& initial_condition_name,
-           const std::set<std::string>& attribute_names,
-           const mfem::FunctionCoefficient& analytical_solution_function);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const mfem::FunctionCoefficient& initial_condition_function,
-           const std::set<std::string>& attribute_names);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const mfem::FunctionCoefficient& initial_condition_function,
-           const std::set<std::string>& attribute_names,
-           const AnalyticalFunctions<DIM>& analytical_solution_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const mfem::FunctionCoefficient& initial_condition_function,
-           const std::set<std::string>& attribute_names,
-           const mfem::FunctionCoefficient& analytical_solution_function);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const double& initial_condition_value, const std::set<std::string>& attribute_names);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const double& initial_condition_value, const std::set<std::string>& attribute_names,
-           const AnalyticalFunctions<DIM>& analytical_solution_name);
-
-  Variable(SpatialDiscretization<T, DIM>* spatial, const BoundaryConditions<T, DIM>& bcs,
-           const std::string& variable_name, GlossaryQuantity type, const int& depth,
-           const double& initial_condition_value, const std::set<std::string>& attribute_names,
-           const mfem::FunctionCoefficient& analytical_solution_function);
+           const InitialCondition<DIM>& initial_condition,
+           const AnalyticalSolution<DIM>& analytical_solution);
 
   template <class... Args>
   void set_additional_information(Args&&... add_var_info);
+
+  template <class... Vars>
+    requires(sizeof...(Vars) > 0 && (std::same_as<Vars, Variable<T, DIM>> && ...))
+  void set_dependencies(Vars&... dependencies);
+  std::vector<std::string> get_dependencies() const;
 
   mfem::Vector get_last() const;
   mfem::Vector get_second_to_last() const;
   std::string getVariableName() const;
   std::vector<std::string> get_additional_variable_info() const;
-  // std::shared_ptr<AnalyticalFunctions<DIM>> getInitialCondition();
   void update(const mfem::Vector& unk);
   mfem::Vector get_unknown() const;
   mfem::Vector& get_ref_unknown();
@@ -203,12 +125,14 @@ class Variable {
   mfem::ParGridFunction get_gf() const;
   mfem::ParGridFunction& get_ref_gf();
   mfem::ParGridFunction get_igf() const;
-  // mfem::ParGridFunction get_analytical_solution();
   std::shared_ptr<std::function<double(const mfem::Vector&, double)>> get_analytical_solution();
+  std::shared_ptr<mfem::Coefficient> get_analytical_solution_coefficient();
   BoundaryConditions<T, DIM>* get_boundary_conditions();
   mfem::ParFiniteElementSpace* get_fespace();
 
+  bool isInitialConditionReprojectable() const;
   void setInitialCondition();
+  void setInitialCondition(const std::map<std::string, mfem::ParGridFunction*>& gridfunctions);
   void updateAfterMeshChange(const mfem::Vector& unk);
   void prepareMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);
   void finalizeMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history);

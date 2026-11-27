@@ -65,8 +65,6 @@ TimeNLFormIntegrator<VARS>::TimeNLFormIntegrator(Geometry geometry, const double
     : SlothNLFormIntegrator<VARS>(geometry, time_step, u_old, aux_old, params, auxvars,
                                   coefficients) {
   this->integrator_name_ = "TimeDerivative";
-
-  this->check_variables_consistency();
 }
 
 /**

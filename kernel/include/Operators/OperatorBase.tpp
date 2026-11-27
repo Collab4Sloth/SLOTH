@@ -481,22 +481,23 @@ void OperatorBase<T, DIM>::SetNewtonAlgorithm(mfem::Operator* oper) {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Compute L2 error
+ * @brief Compute errors between a variable and its analytical solution given as an
+ *        mfem::Coefficient
  *
  * @tparam T Finite Element collection (mfem object)
  * @tparam DIM Spatial dimension
- * @param it
- * @param t
- * @param dt
- * @param id_var
- * @param name
- * @param u
- * @param solution_func
+ * @param it Iteration
+ * @param t Time
+ * @param dt Time step
+ * @param id_var Index of the variable
+ * @param name Name of the variable
+ * @param u Unknown vector of the variable
+ * @param solution_coef Analytical solution (its time is set to t)
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::ComputeError(
-    const int& it, const double& t, const double& dt, const int id_var, const std::string& name,
-    const mfem::Vector& u, std::function<double(const mfem::Vector&, double)> solution_func) {
+void OperatorBase<T, DIM>::ComputeError(const int& it, const double& t, const double& dt,
+                                        const int id_var, const std::string& name,
+                                        const mfem::Vector& u, mfem::Coefficient& solution_coef) {
   Catch_Time_Section("OperatorBase::ComputeError");
 
   mfem::ParGridFunction gf(this->fes_[id_var]);
@@ -504,7 +505,6 @@ void OperatorBase<T, DIM>::ComputeError(
   zero = 0.0;
 
   gf.SetFromTrueDofs(u);
-  mfem::FunctionCoefficient solution_coef(solution_func);
   solution_coef.SetTime(t);
 
   const auto errorL2 = gf.ComputeLpError(2., solution_coef);

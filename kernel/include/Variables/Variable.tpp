@@ -26,6 +26,7 @@
 #pragma once
 #include <algorithm>
 #include <any>
+#include <concepts>
 #include <iomanip>
 #include <limits>
 #include <map>
@@ -43,604 +44,81 @@
 #include "BCs/BoundaryConditions.hpp"
 #include "Coefficients/Coefficient.hpp"
 #include "Coefficients/FileCoefficient.hpp"
-#include "Coefficients/MfemFileCoefficient.hpp"
+#include "Coefficients/MfemFromSlothCoefficient.hpp"
 #include "Spatial/Spatial.hpp"
 #include "Utils/Utils.hpp"
+#include "Variables/VariableSolution.hpp"
 #include "mfem.hpp"  // NOLINT [no include the directory when naming mfem include file]
 
 /**
  * @brief Construct a new Variable:: Variable object
  *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param input_file
- */
-template <class T, int DIM>
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const std::tuple<std::string, std::string>& input_file_dir)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(spatial->mesh_, input_file_dir);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable:: Variable object
+ * @details The initial condition can be given as:
+ *          - a double;
+ *          - an AnalyticalFunctions<DIM>;
+ *          - an mfem::FunctionCoefficient;
+ *          - a SLOTH ::Coefficient (constant, file-based, or depending on other variables:
+ *            see set_dependencies());
+ *          - a (file name, directory) tuple, for a MFEM grid function file read on each rank.
+ *          The analytical solution, if any, can be given as a double, an AnalyticalFunctions<DIM>,
+ *          an mfem::FunctionCoefficient or a SLOTH ::Coefficient (never depending on other
+ *          variables).
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param input_file_coeff
+ * @param spatial Spatial discretization
+ * @param bcs Boundary conditions
+ * @param variable_name Name of the variable
+ * @param type Quantity associated with the variable
+ * @param depth Number of stored time levels (at least 2)
+ * @param initial_condition Initial condition
+ * @param attribute_names Names of the element attribute sets where the initial condition is
+ *                        projected (whole domain if empty)
+ * @param analytical_solution Analytical solution (none by default)
  */
 template <class T, int DIM>
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            GlossaryQuantity type, const int& depth,
-                           const Coefficient& input_file_coeff)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(input_file_coeff);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-
-////////////////////////////////
-// Without attributes names   //
-////////////////////////////////
-
-/**
- * @brief Construct a new Variable:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const AnalyticalFunctions<DIM>& initial_condition_name)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_name);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_name
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const AnalyticalFunctions<DIM>& initial_condition_name,
-                           const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_name);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_name);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_name
- * @param analytical_solution_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const AnalyticalFunctions<DIM>& initial_condition_name,
-                           const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-
-  const auto dim = spatial->get_dimension();
-  this->setInitialCondition(initial_condition_name);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_function);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const mfem::FunctionCoefficient& initial_condition_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_function);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_function
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const mfem::FunctionCoefficient& initial_condition_function,
-                           const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
-  this->setInitialCondition(initial_condition_function);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_name);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_function
- * @param analytical_solution_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const mfem::FunctionCoefficient& initial_condition_function,
-                           const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_function);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_function);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_value
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const double& initial_condition_value)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_value);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_value
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const double& initial_condition_value,
-                           const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_value);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_name);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_value
- * @param analytical_solution_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const double& initial_condition_value,
-                           const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->setInitialCondition(initial_condition_value);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_function);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/////////////////////////////
-// With attributes names   //
-/////////////////////////////
-/**
- * @brief Construct a new Variable:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const AnalyticalFunctions<DIM>& initial_condition_name,
-                           const std::set<std::string>& attribute_names)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_name);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_name
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const AnalyticalFunctions<DIM>& initial_condition_name,
+                           const InitialCondition<DIM>& initial_condition,
                            const std::set<std::string>& attribute_names,
-                           const AnalyticalFunctions<DIM>& analytical_solution_name)
+                           const AnalyticalSolution<DIM>& analytical_solution)
     : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
   this->fespace_ = spatial->get_finite_element_space();
 
   this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
-
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_name);
-
+  if (!attribute_names.empty()) {
+    this->set_attributes(spatial, attribute_names);
+  }
+  this->setInitialCondition(spatial, initial_condition);
   this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_name);
+  this->setAnalyticalSolution(analytical_solution);
 
   this->additional_variable_info_.resize(0);
 }
 
 /**
- * @brief Construct a new Variable:: Variable object
+ * @brief Construct a new Variable:: Variable object, with an analytical solution but without
+ *        attribute names
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_name
- * @param analytical_solution_function
+ * @param spatial Spatial discretization
+ * @param bcs Boundary conditions
+ * @param variable_name Name of the variable
+ * @param type Quantity associated with the variable
+ * @param depth Number of stored time levels (at least 2)
+ * @param initial_condition Initial condition
+ * @param analytical_solution Analytical solution
  */
 template <class T, int DIM>
-
 Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
                            const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
                            GlossaryQuantity type, const int& depth,
-                           const AnalyticalFunctions<DIM>& initial_condition_name,
-                           const std::set<std::string>& attribute_names,
-                           const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-
-  const auto dim = spatial->get_dimension();
-
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_name);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_function);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const mfem::FunctionCoefficient& initial_condition_function,
-                           const std::set<std::string>& attribute_names)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_function);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_function
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const mfem::FunctionCoefficient& initial_condition_function,
-                           const std::set<std::string>& attribute_names,
-                           const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
-
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_function);
-  this->setVariableDepth(depth);
-
-  this->setAnalyticalSolution(analytical_solution_name);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_function
- * @param analytical_solution_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const mfem::FunctionCoefficient& initial_condition_function,
-                           const std::set<std::string>& attribute_names,
-                           const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_function);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_function);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_value
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const double& initial_condition_value,
-                           const std::set<std::string>& attribute_names)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_value);
-  this->setVariableDepth(depth);
-
-  this->additional_variable_info_.resize(0);
-}
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_value
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const double& initial_condition_value,
-                           const std::set<std::string>& attribute_names,
-                           const AnalyticalFunctions<DIM>& analytical_solution_name)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-  const auto dim = spatial->get_dimension();
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_value);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_name);
-
-  this->additional_variable_info_.resize(0);
-}
-
-/**
- * @brief Construct a new Variable<T>:: Variable object
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param fespace
- * @param variable_name
- * @param depth
- * @param initial_condition_value
- * @param analytical_solution_function
- */
-template <class T, int DIM>
-
-Variable<T, DIM>::Variable(SpatialDiscretization<T, DIM>* spatial,
-                           const BoundaryConditions<T, DIM>& bcs, const std::string& variable_name,
-                           GlossaryQuantity type, const int& depth,
-                           const double& initial_condition_value,
-                           const std::set<std::string>& attribute_names,
-                           const mfem::FunctionCoefficient& analytical_solution_function)
-    : bcs_(bcs), variable_name_(variable_name), variable_type_(type) {
-  this->fespace_ = spatial->get_finite_element_space();
-
-  this->uh_.SetSpace(fespace_);
-
-  this->set_attributes(spatial, attribute_names);
-  this->setInitialCondition(initial_condition_value);
-  this->setVariableDepth(depth);
-  this->setAnalyticalSolution(analytical_solution_function);
-
-  this->additional_variable_info_.resize(0);
-}
+                           const InitialCondition<DIM>& initial_condition,
+                           const AnalyticalSolution<DIM>& analytical_solution)
+    : Variable(spatial, bcs, variable_name, type, depth, initial_condition, std::set<std::string>{},
+               analytical_solution) {}
 
 /**
  * @brief Associate additional information to the variable
@@ -661,20 +139,64 @@ void Variable<T, DIM>::set_additional_information(Args&&... add_var_info) {
 }
 
 /**
- * @brief build the function associated to initial_condition_name
+ * @brief Define the variables the initial condition depends on, and project the initial
+ *        condition with their current values.
+ *
+ * @details Only meaningful when the initial condition is given by a SLOTH ::Coefficient that is
+ *          neither a constant nor file-based. The values of the dependencies at each point are
+ *          forwarded to the coefficient, in the order of the arguments.
+ *
+ *          Must be called before any use of the variable, in particular before adding it to a
+ *          Variables container (which stores a copy). Without call to set_dependencies(), such
+ *          an initial condition is projected without dependency at the first use of the
+ *          variable.
+ *
+ *          Only the names of the dependencies are kept: after a mesh change, the initial
+ *          condition is reprojected with setInitialCondition(gridfunctions).
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param initial_condition_name
- * @return std::function<double(const mfem::Vector&, double)>
+ * @tparam Vars Variable<T, DIM>
+ * @param dependencies Variables the initial condition depends on
  */
 template <class T, int DIM>
-std::function<double(const mfem::Vector&, double)> Variable<T, DIM>::buildAnalyticalFunction(
-    const AnalyticalFunctions<DIM>& analytical_function_name) {
-  // this->ics_ = std::make_shared<AnalyticalFunctions<DIM>>();
-  std::shared_ptr<AnalyticalFunctions<DIM>> ics(
-      new AnalyticalFunctions<DIM>(analytical_function_name));
-  return ics->getFunction();
+template <class... Vars>
+  requires(sizeof...(Vars) > 0 && (std::same_as<Vars, Variable<T, DIM>> && ...))
+void Variable<T, DIM>::set_dependencies(Vars&... dependencies) {
+  MFEM_VERIFY(
+      this->ic_dependent_coef_ != nullptr && this->ic_dependent_coef_->requires_dependencies(),
+      "set_dependencies(): the initial condition of variable '" + this->variable_name_ +
+          "' cannot depend on other variables (only a SLOTH Coefficient that is neither "
+          "constant nor file-based can).");
+  MFEM_VERIFY(this->ic_pending_,
+              "set_dependencies(): the initial condition of variable '" + this->variable_name_ +
+                  "' has already been projected. set_dependencies() must be called before any "
+                  "use of the variable, in particular before adding it to a Variables container.");
+
+  std::vector<std::string> names{dependencies.getVariableName()...};
+  for (const auto& name : names) {
+    MFEM_VERIFY(
+        name != this->variable_name_,
+        "set_dependencies(): variable '" + this->variable_name_ + "' cannot depend on itself.");
+  }
+
+  // get_ref_gf() projects the initial condition of the dependencies if not done yet
+  std::vector<const mfem::ParGridFunction*> gridfunctions{&dependencies.get_ref_gf()...};
+
+  this->dependencies_ = std::move(names);
+  this->projectInitialCondition(gridfunctions);
+}
+
+/**
+ * @brief Return the names of the variables the initial condition depends on
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @return std::vector<std::string>
+ */
+template <class T, int DIM>
+std::vector<std::string> Variable<T, DIM>::get_dependencies() const {
+  return this->dependencies_;
 }
 
 //////////////////////////////////
@@ -714,167 +236,201 @@ void Variable<T, DIM>::setInitialCondition(
 }
 
 /**
- * @brief Define an initial condition on the basis of an analytical function defined by its name
+ * @brief Define the initial condition
+ *
+ * @details A SLOTH ::Coefficient that may depend on other variables is not projected here: its
+ *          projection is deferred to set_dependencies() or, failing that, to the first use of
+ *          the variable.
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param initial_condition_name
+ * @param spatial Spatial discretization
+ * @param initial_condition Initial condition
  */
 template <class T, int DIM>
-void Variable<T, DIM>::setInitialCondition(const AnalyticalFunctions<DIM>& initial_condition_name) {
-  this->initial_condition_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
-      this->buildAnalyticalFunction(initial_condition_name));
-  mfem::FunctionCoefficient ic_fc(*this->initial_condition_);
-  mfem::VectorArrayCoefficient vc(1);
-  vc.Set(0, &ic_fc, false);
+void Variable<T, DIM>::setInitialCondition(SpatialDiscretization<T, DIM>* spatial,
+                                           const InitialCondition<DIM>& initial_condition) {
+  if (initial_condition.is_input_file()) {
+    MFEM_VERIFY(this->el_attr_.Size() == 0,
+                "Variable '" + this->variable_name_ +
+                    "': attribute names cannot be used with an initial condition read from a "
+                    "file.");
+    this->setInitialCondition(spatial->mesh_, initial_condition.get_input_file_dir());
+    return;
+  }
+
+  this->ic_coef_ = initial_condition.SlothToMfemCoefficient();
+  this->ic_dependent_coef_ = std::dynamic_pointer_cast<MfemFromSlothCoefficient>(this->ic_coef_);
+
+  if (initial_condition.requires_dependencies()) {
+    this->ic_pending_ = true;
+    return;
+  }
+  this->projectInitialCondition();
+}
+
+/**
+ * @brief Project the initial condition onto the grid function, without dependency
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::projectInitialCondition() {
+  this->projectInitialCondition(std::vector<const mfem::ParGridFunction*>{});
+}
+
+/**
+ * @brief Project the initial condition onto the grid function, and reset the multi-timestep
+ *        history to it
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @param dependencies Grid functions of the variables the initial condition depends on, in the
+ *                     order of get_dependencies() (empty if none)
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::projectInitialCondition(
+    const std::vector<const mfem::ParGridFunction*>& dependencies) {
+  MFEM_VERIFY(this->ic_coef_ != nullptr,
+              "Variable '" + this->variable_name_ + "': no initial condition to project.");
+  MFEM_VERIFY(dependencies.empty() || this->ic_dependent_coef_ != nullptr,
+              "Variable '" + this->variable_name_ +
+                  "': the initial condition cannot depend on other variables.");
+  for (const auto* gf : dependencies) {
+    MFEM_VERIFY(gf != nullptr && gf->ParFESpace()->GetParMesh() == this->fespace_->GetParMesh(),
+                "Variable '" + this->variable_name_ +
+                    "': the variables the initial condition depends on must share its mesh.");
+  }
+
+  if (this->ic_dependent_coef_ != nullptr) {
+    this->ic_dependent_coef_->bind(dependencies);
+  }
+
   this->uh_ = 0.;
   if (this->el_attr_.Size() > 0) {
+    mfem::VectorArrayCoefficient vc(1);
+    vc.Set(0, this->ic_coef_.get(), false);
     for (int i = 0; i < this->el_attr_.Size(); i++) {
       this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
     }
   } else {
-    this->uh_.ProjectCoefficient(ic_fc);
+    this->uh_.ProjectCoefficient(*this->ic_coef_);
+  }
+  this->uh_.GetTrueDofs(this->unk_);
+
+  // Only non-owning pointers: never keep them beyond the projection
+  if (this->ic_dependent_coef_ != nullptr) {
+    this->ic_dependent_coef_->unbind();
   }
 
-  this->uh_.GetTrueDofs(this->unk_);
+  for (auto& [key, vec] : this->map_of_unk_) {
+    vec = this->unk_;
+  }
+  this->ic_pending_ = false;
+}
+
+/**
+ * @brief Project the initial condition if its projection has been deferred (initial condition
+ *        given by a SLOTH ::Coefficient, without call to set_dependencies())
+ *
+ * @remark const so that it can be called from the const accessors: the projection is part of
+ *         the construction of the variable, deferred.
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ */
+template <class T, int DIM>
+void Variable<T, DIM>::ensureInitialCondition() const {
+  if (this->ic_pending_) {
+    const_cast<Variable<T, DIM>*>(this)->projectInitialCondition();
+  }
+}
+
+/**
+ * @brief True if the initial condition can be projected again, e.g. after a mesh change
+ *        (false for an initial condition read from a file)
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ */
+template <class T, int DIM>
+bool Variable<T, DIM>::isInitialConditionReprojectable() const {
+  return this->ic_coef_ != nullptr;
 }
 
 /**
  * @brief Reapply this variable's initial condition to its current grid
- *        function, using the analytical function set at construction.
+ *        function.
  *
  * @details Used to project the initial condition again after a mesh
  *          change (e.g. during `AMRBase::InitialRefine()`), so that the
  *          interpolated solution on the refined mesh is replaced by a
- *          fresh, exact evaluation of the analytical function instead of
+ *          fresh, exact evaluation of the initial condition instead of
  *          the (possibly less accurate) interpolation of the previous,
- *          coarser-mesh values. Requires `initial_condition_` to have
- *          been set beforehand via the `AnalyticalFunctions<DIM>`
- *          constructor/overload of `setInitialCondition()`; aborts with a
- *          clear error otherwise.
+ *          coarser-mesh values. The multi-timestep history is reset to it.
+ *          Aborts with a clear error if the initial condition is not
+ *          reprojectable (read from a file) or depends on other variables
+ *          (use `setInitialCondition(gridfunctions)` instead).
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
  */
 template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition() {
-  MFEM_VERIFY(this->initial_condition_ != nullptr,
-              "setInitialCondition() called without argument, but no analytical initial "
-              "condition was previously set for variable '" +
-                  this->getVariableName() + "'.");
-
-  mfem::FunctionCoefficient ic_fc(*this->initial_condition_);
-  mfem::VectorArrayCoefficient vc(1);
-  vc.Set(0, &ic_fc, false);
-  this->uh_ = 0.;
-  if (this->el_attr_.Size() > 0) {
-    for (int i = 0; i < this->el_attr_.Size(); i++) {
-      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
-    }
-  } else {
-    this->uh_.ProjectCoefficient(ic_fc);
-  }
-  this->uh_.GetTrueDofs(this->unk_);
+  MFEM_VERIFY(this->isInitialConditionReprojectable(),
+              "setInitialCondition() called without argument, but the initial condition of "
+              "variable '" +
+                  this->getVariableName() + "' cannot be reprojected (read from a file).");
+  MFEM_VERIFY(this->dependencies_.empty(),
+              "setInitialCondition() called without argument, but the initial condition of "
+              "variable '" +
+                  this->getVariableName() +
+                  "' depends on other variables: use setInitialCondition(gridfunctions).");
+  this->projectInitialCondition();
 }
 
 /**
- * @brief Define an initial condition on the basis of a FunctionCoefficient
+ * @brief Reapply this variable's initial condition to its current grid function, looking up
+ *        the variables it depends on (if any) by name.
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param initial_condition_function
+ * @param gridfunctions Grid functions of the available variables, by name. Must contain all the
+ *                      dependencies, already up to date on the current mesh.
  */
 template <class T, int DIM>
 void Variable<T, DIM>::setInitialCondition(
-    const mfem::FunctionCoefficient& initial_condition_function) {
-  auto ic_fc = initial_condition_function;
-  this->uh_ = 0.;
-  if (this->el_attr_.Size() > 0) {
-    mfem::VectorArrayCoefficient vc(1);
-    vc.Set(0, &ic_fc, false);
-    for (int i = 0; i < this->el_attr_.Size(); i++) {
-      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
-    }
-  } else {
-    this->uh_.ProjectCoefficient(ic_fc);
+    const std::map<std::string, mfem::ParGridFunction*>& gridfunctions) {
+  MFEM_VERIFY(this->isInitialConditionReprojectable(),
+              "setInitialCondition(): the initial condition of variable '" +
+                  this->getVariableName() + "' cannot be reprojected (read from a file).");
+
+  std::vector<const mfem::ParGridFunction*> dependencies;
+  dependencies.reserve(this->dependencies_.size());
+  for (const auto& name : this->dependencies_) {
+    const auto it = gridfunctions.find(name);
+    MFEM_VERIFY(it != gridfunctions.end(), "setInitialCondition(): variable '" + name +
+                                               "', on which the initial condition "
+                                               "of variable '" +
+                                               this->getVariableName() +
+                                               "' depends, is not available.");
+    dependencies.push_back(it->second);
   }
-  this->uh_.GetTrueDofs(this->unk_);
+  this->projectInitialCondition(dependencies);
 }
 
 /**
- * @brief Define an initial condition on the basis of a FileCoefficient
+ * @brief Define the analytical solution
  *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @param initial_condition_file_coef
+ * @param analytical_solution Analytical solution (possibly undefined)
  */
 template <class T, int DIM>
-void Variable<T, DIM>::setInitialCondition(const Coefficient& initial_condition_file_coef) {
-  MfemFileCoefficient mfem_file_coef(initial_condition_file_coef);
-  this->uh_ = 0.;
-  if (this->el_attr_.Size() > 0) {
-    mfem::VectorArrayCoefficient vc(1);
-    vc.Set(0, &mfem_file_coef, false);
-    for (int i = 0; i < this->el_attr_.Size(); i++) {
-      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
-    }
-  } else {
-    this->uh_.ProjectCoefficient(mfem_file_coef);
-  }
-  this->uh_.GetTrueDofs(this->unk_);
-}
-
-/**
- * @brief Define an initial condition on the basis of a double value
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param initial_condition_value
- */
-template <class T, int DIM>
-void Variable<T, DIM>::setInitialCondition(const double& initial_condition_value) {
-  mfem::ConstantCoefficient ic_fc(initial_condition_value);
-  this->uh_ = 0.;
-  if (this->el_attr_.Size() > 0) {
-    mfem::VectorArrayCoefficient vc(1);
-    vc.Set(0, &ic_fc, false);
-    for (int i = 0; i < this->el_attr_.Size(); i++) {
-      this->uh_.ProjectCoefficient(vc, this->el_attr_[i]);
-    }
-  } else {
-    this->uh_.ProjectCoefficient(ic_fc);
-  }
-  this->uh_.GetTrueDofs(this->unk_);
-}
-
-//////////////////////////////////
-//////////////////////////////////
-/**
- * @brief Define an analytical solution
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param analytical_solution_name
- */
-template <class T, int DIM>
-void Variable<T, DIM>::setAnalyticalSolution(
-    const AnalyticalFunctions<DIM>& analytical_solution_name) {
-  this->analytical_solution_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
-      this->buildAnalyticalFunction(analytical_solution_name));
-}
-
-/**
- * @brief Define an analytical solution
- *
- * @tparam T Finite element collection type.
- * @tparam DIM Spatial dimension.
- * @param analytical_solution_function
- */
-template <class T, int DIM>
-void Variable<T, DIM>::setAnalyticalSolution(
-    const mfem::FunctionCoefficient& analytical_solution_function) {
-  this->analytical_solution_ = std::make_shared<std::function<double(const mfem::Vector&, double)>>(
-      analytical_solution_function);
+void Variable<T, DIM>::setAnalyticalSolution(const AnalyticalSolution<DIM>& analytical_solution) {
+  this->analytical_solution_ = analytical_solution.get_function();
+  this->analytical_solution_coef_ = analytical_solution.SlothToMfemCoefficient();
 }
 
 /**
@@ -886,6 +442,7 @@ void Variable<T, DIM>::setAnalyticalSolution(
  */
 template <class T, int DIM>
 mfem::Vector Variable<T, DIM>::get_second_to_last() const {
+  this->ensureInitialCondition();
   return std::prev(std::prev(this->map_of_unk_.end()))->second;
 }
 
@@ -898,6 +455,7 @@ mfem::Vector Variable<T, DIM>::get_second_to_last() const {
  */
 template <class T, int DIM>
 mfem::Vector Variable<T, DIM>::get_last() const {
+  this->ensureInitialCondition();
   return std::prev(this->map_of_unk_.end())->second;
 }
 
@@ -909,6 +467,7 @@ mfem::Vector Variable<T, DIM>::get_last() const {
  */
 template <class T, int DIM>
 void Variable<T, DIM>::update(const mfem::Vector& unk) {
+  this->ensureInitialCondition();
   this->saveBeforeUpdate();
   this->unk_ = unk;
   this->uh_.SetFromTrueDofs(this->unk_);
@@ -938,6 +497,7 @@ void Variable<T, DIM>::update(const mfem::Vector& unk) {
  */
 template <class T, int DIM>
 void Variable<T, DIM>::prepareMeshTransfer(std::map<int, mfem::ParGridFunction>& tmp_history) {
+  this->ensureInitialCondition();
   for (const auto& [key, vec] : this->map_of_unk_) {
     mfem::ParGridFunction gf_h(this->fespace_);
     gf_h.SetFromTrueDofs(vec);
@@ -1035,10 +595,12 @@ void Variable<T, DIM>::updateAfterMeshChange(const mfem::Vector& unk) {
  */
 template <class T, int DIM>
 mfem::Vector Variable<T, DIM>::get_unknown() const {
+  this->ensureInitialCondition();
   return this->unk_;
 }
 template <class T, int DIM>
 mfem::Vector& Variable<T, DIM>::get_ref_unknown() {
+  this->ensureInitialCondition();
   return this->unk_;
 }
 
@@ -1063,6 +625,7 @@ std::vector<std::string> Variable<T, DIM>::get_additional_variable_info() const 
  */
 template <class T, int DIM>
 std::map<int, mfem::Vector> Variable<T, DIM>::get_map_unknown() {
+  this->ensureInitialCondition();
   return this->map_of_unk_;
 }
 
@@ -1075,24 +638,41 @@ std::map<int, mfem::Vector> Variable<T, DIM>::get_map_unknown() {
  */
 template <class T, int DIM>
 mfem::ParGridFunction Variable<T, DIM>::get_gf() const {
+  this->ensureInitialCondition();
   return this->uh_;
 }
 template <class T, int DIM>
 mfem::ParGridFunction& Variable<T, DIM>::get_ref_gf() {
+  this->ensureInitialCondition();
   return this->uh_;
 }
 
 /**
  * @brief return the function associated to the analytical solution
  *
+ * @remark Only available when the analytical solution is given by an AnalyticalFunctions:
+ *         use get_analytical_solution_coefficient() for the general case.
+ *
  * @tparam T Finite element collection type.
  * @tparam DIM Spatial dimension.
- * @return std::function<double(const mfem::Vector&, double)>
+ * @return std::function<double(const mfem::Vector&, double)> nullptr otherwise
  */
 template <class T, int DIM>
 std::shared_ptr<std::function<double(const mfem::Vector&, double)>>
 Variable<T, DIM>::get_analytical_solution() {
   return this->analytical_solution_;
+}
+
+/**
+ * @brief return the analytical solution as an mfem::Coefficient, whatever the way it was given
+ *
+ * @tparam T Finite element collection type.
+ * @tparam DIM Spatial dimension.
+ * @return std::shared_ptr<mfem::Coefficient> nullptr if no analytical solution was given
+ */
+template <class T, int DIM>
+std::shared_ptr<mfem::Coefficient> Variable<T, DIM>::get_analytical_solution_coefficient() {
+  return this->analytical_solution_coef_;
 }
 
 /**

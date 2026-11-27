@@ -180,6 +180,9 @@ sloth_add_unit_test(NAME Utils
                     SOURCES Utils/test_Utils.cpp
                     NPROCS 1)
 
+sloth_add_unit_test(NAME Variables
+                    SOURCES Variables/test_Variable.cpp)
+
 # ##############################################################################
 # Coverage: see the target cc of the main CMakeLists.txt (make cc_reset,
 # ctest -L Unit, make cc for the coverage of the unit tests alone).
