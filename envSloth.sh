@@ -29,7 +29,6 @@ Build type (default: --release):
 
 Dependencies:
   --mfem=DIR         local MFEM build (instead of spack on Linux / Homebrew on macOS)
-  --exprtk=DIR       ExprTk (directory containing exprtk.hpp)
   --voro=DIR         Voro++ installation prefix
   --libtorch=DIR     LibTorch installation prefix
   --external=EXT_LIBDIR,EXT_LIBNAME
@@ -42,7 +41,7 @@ Other options:
   -h | --help        print this help
 
 Everything after "--" is passed unchanged to CMake, e.g.:
-  bash ../envSloth.sh --exprtk=../../exprtk -- -DMATOOLS_VERBOSITY_LEVEL_1=ON
+  bash ../envSloth.sh -- -DMATOOLS_VERBOSITY_LEVEL_1=ON
 USAGE
 }
 #=============================================
@@ -51,7 +50,6 @@ built_code="Release"
 use_external="OFF"
 use_libtorch="OFF"
 use_shared="OFF"
-use_exprtk="OFF"
 use_voro="OFF"
 local_mfem_version="No"
 export USER_INSTALL_PATH=""
@@ -154,20 +152,6 @@ for argument in "${SLOTH_ARGS[@]}"; do
             # Set voro++ flag
             use_voro='ON'
         fi
-        ;;
-    --exprtk)
-        # export ExprTk_INCLUDE_DIR=$(spack location -i exprtk)/include/exprtk
-
-        export ExprTk_INCLUDE_DIR=$(to_absolute_path "$value")
-        if [[ ! -d "$ExprTk_INCLUDE_DIR" ]]; then
-            Print "\nError: "$ExprTk_INCLUDE_DIR" directory does not exist. Please check the path of the local ExprTk version!"
-            return 1 2>/dev/null || exit 1  # return if sourced, exit if executed
-        else
-            Print "Sloth built with ExprTk "
-            # Set libtorch flag
-            use_exprtk='ON'
-        fi
-
         ;;
     --libtorch)
         export LIBTORCH=$(to_absolute_path "$value")
@@ -301,7 +285,7 @@ else
 fi
 
 Print "Run CMake configuration..."
-if ! cmake "${SCRIPT_PATH}" "${ADDITIONAL_ARGS[@]}" -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_SHARED=$use_shared -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_LIBTORCH=$use_libtorch -DSLOTH_USE_EXPRTK=$use_exprtk -DSLOTH_USE_VORO=$use_voro "${CMAKE_EXTRA_ARGS[@]}"; then
+if ! cmake "${SCRIPT_PATH}" "${ADDITIONAL_ARGS[@]}" -DCMAKE_BUILD_TYPE=$built_code -DSLOTH_USE_SHARED=$use_shared -DSLOTH_USE_EXTERNAL=$use_external -DSLOTH_USE_LIBTORCH=$use_libtorch -DSLOTH_USE_VORO=$use_voro "${CMAKE_EXTRA_ARGS[@]}"; then
     Print "\nError: CMake configuration failed (see the messages above). SLOTH is not compiled."
     return 1 2>/dev/null || exit 1  # return if sourced, exit if executed
 fi

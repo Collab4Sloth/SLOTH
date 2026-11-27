@@ -10,10 +10,6 @@ file(GLOB_RECURSE SLOTH_SRC CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/kernel/src/*.cpp
 )
 
-# Exclude specific cpp files if not required 
-if(NOT SLOTH_USE_EXPRTK)
-    list(REMOVE_ITEM SLOTH_SRC ${CMAKE_SOURCE_DIR}/kernel/src/Coefficients/ExprTkSloth.cpp)
-endif()
 
 target_sources(Sloth PRIVATE ${SLOTH_SRC})
 set_compile_options(Sloth)
@@ -37,36 +33,6 @@ target_include_directories(Sloth
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/kernel/include>
         $<INSTALL_INTERFACE:include>
 )
-
-# ExprTk
-# ExprTk (header-only): directory containing exprtk.hpp, stored in the cache
-# variable ExprTk_INCLUDE_DIR.
-#   - envSloth.sh --exprtk=DIR exports the environment variable
-#     ExprTk_INCLUDE_DIR, which takes priority (a new --exprtk path in an
-#     existing build directory is taken into account);
-#   - otherwise the cached value is kept (a plain "cmake ." keeps ExprTk);
-#   - -DExprTk_INCLUDE_DIR=DIR can also be given directly.
-if(SLOTH_USE_EXPRTK)
-    if(NOT "$ENV{ExprTk_INCLUDE_DIR}" STREQUAL ""
-       AND NOT "$ENV{ExprTk_INCLUDE_DIR}" STREQUAL "${ExprTk_INCLUDE_DIR}")
-        unset(ExprTk_INCLUDE_DIR CACHE)
-    endif()
-    find_path(ExprTk_INCLUDE_DIR
-        NAMES exprtk.hpp
-        HINTS ENV ExprTk_INCLUDE_DIR
-        PATH_SUFFIXES exprtk include/exprtk
-        DOC "Directory containing exprtk.hpp"
-    )
-    if(NOT ExprTk_INCLUDE_DIR)
-        message(FATAL_ERROR
-            "SLOTH_USE_EXPRTK is ON but exprtk.hpp was not found.\n"
-            "Use envSloth.sh --exprtk=<dir containing exprtk.hpp> "
-            "or -DExprTk_INCLUDE_DIR=<dir>.")
-    endif()
-    target_include_directories(Sloth SYSTEM PUBLIC
-        $<BUILD_INTERFACE:${ExprTk_INCLUDE_DIR}>
-    )
-endif()
 
 
 # MFEM and all its third-party libraries (from MFEM's config.mk, see
@@ -207,11 +173,6 @@ if(SLOTH_USE_VORO)
 endif(SLOTH_USE_VORO)
 
 
-
-# ExprTk ??
-if(SLOTH_USE_EXPRTK)
-    target_compile_definitions(Sloth PUBLIC SLOTH_USE_EXPRTK=1)
-endif()
 
 ## Debug option
 if(MATOOLS_VERBOSITY_LEVEL_1)

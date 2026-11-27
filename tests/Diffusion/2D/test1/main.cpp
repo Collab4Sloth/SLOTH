@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "./DiffusionCoefficients.hpp"
 #include "Sloth/sloth.hpp"
 #include "Sloth/tests.hpp"
 
@@ -59,11 +60,9 @@ int main(int argc, char* argv[]) {
   //     Coefficients  //
   // ####################
 
-  std::string function = "0.5 + 0.01*c";
-  std::string gx = "0.01";
-  std::vector<std::string> grad_functions{gx};
+  // D(c) = 0.5 + 0.01 c (see coefficients.json)
   std::vector<Coefficients> coeffs;
-  Coefficient D(Glossary::Diffusivity, Scheme::Explicit, grad_functions, function, "c");
+  Coefficient D(Glossary::Diffusivity, Scheme::Explicit, LinearDiffusivity());
   Coefficient FW(Glossary::FreeEnergy, Scheme::Implicit, Log());
   Coefficients CoeffDiffusion(D, FW);
   coeffs.emplace_back(CoeffDiffusion);

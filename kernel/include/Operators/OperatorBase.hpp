@@ -152,7 +152,7 @@ class OperatorBase : public mfem::Operator {
 
   void ComputeError(const int& it, const double& t, const double& dt, const int id_var,
                     const std::string& name, const mfem::Vector& u,
-                    std::function<double(const mfem::Vector&, double)> solution_func);
+                    mfem::Coefficient& solution_coef);
   void ComputeIntegral(const int& it, const double& t, const double& dt, const int id_var,
                        const std::string& name, const mfem::Vector& u, const double lower_bound,
                        const double upper_bound);

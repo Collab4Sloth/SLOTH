@@ -94,6 +94,7 @@ class AMRBase {
   void EnsureNCMeshIfNeeded();
   bool IsOnMesh(const mfem::ParFiniteElementSpace* fes) const;
   void UpdateVariables(VAR& vars, const std::vector<VAR*>& auxvars);
+  void ReprojectInitialConditions(VAR& vars, const std::vector<VAR*>& auxvars);
 
   bool Rebalance(VAR& vars, const std::vector<VAR*>& auxvars);
   void PrintLoadBalance(const std::string& stage) const;

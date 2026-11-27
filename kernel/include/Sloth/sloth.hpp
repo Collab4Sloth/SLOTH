@@ -31,9 +31,7 @@
 #ifdef SLOTH_USE_LIBTORCH
 #include "Calphad/CalphadInformedNeuralNetwork.hpp"
 #endif
-#ifdef SLOTH_USE_EXPRTK
-#include "Coefficients/ExprTkSloth.hpp"
-#endif
+
 #include "AMR/ListAMR.hpp"
 #include "Calphad/AnalyticalIdealSolution.hpp"
 #include "Calphad/CalphadBase.hpp"

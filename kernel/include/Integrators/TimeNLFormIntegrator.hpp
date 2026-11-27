@@ -55,8 +55,6 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   /// step (see SlothNLFormIntegrator::eval_coefficient_at_points)
   typename SlothNLBase::CoefficientAtPoints a_at_points_, b_at_points_;
 
-  void check_variables_consistency();
-
  protected:
   /// Coefficient A of block blk at all the integration points of the element, at the end of the
   /// step (with its first derivatives for the Jacobian); see the derived classes for other forms
@@ -76,7 +74,6 @@ class TimeNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                               const mfem::Array2D<mfem::DenseMatrix*>& /*elmats*/) {}
 
   std::vector<mfem::ParGridFunction> vaux_gf_;
-  std::vector<mfem::ParGridFunction> temp_gf_;
   std::list<GlossaryType> expected_list_;
   Coefficients coefficient_A;
   Coefficients coefficient_B;
