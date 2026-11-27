@@ -56,11 +56,8 @@ class TimeCHNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
-  void check_variables_consistency();
-
  protected:
   std::vector<mfem::ParGridFunction> vaux_gf_;
-  std::vector<mfem::ParGridFunction> temp_gf_;
   std::list<GlossaryType> expected_list_;
   Coefficients coefficient_A;
   void get_coefficients() override;

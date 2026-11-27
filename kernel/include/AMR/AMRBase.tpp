@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <iterator>
 #include <map>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -449,6 +450,80 @@ void AMRBase<VAR>::UpdateVariables(VAR& vars, const std::vector<VAR*>& auxvars) 
 }
 
 /**
+ * @brief Reset every variable sharing the mesh to its initial condition,
+ *        reprojected on the current mesh.
+ *
+ * @details Variables are gathered from `vars` and `auxvars` without
+ *          duplicates, keeping only those defined on the mesh managed by
+ *          this object. An initial condition depending on other variables
+ *          (see `Variable::set_dependencies()`) is reprojected once these
+ *          variables have themselves been reset, their grid functions being
+ *          looked up by name. An initial condition that cannot be
+ *          reprojected (read from a file) keeps its interpolated values.
+ *
+ * @tparam VAR Variable container type this AMR strategy operates on.
+ * @param vars Primary variables sharing the mesh managed by this AMR object.
+ * @param auxvars Auxiliary variable collections sharing the same mesh.
+ */
+template <class VAR>
+void AMRBase<VAR>::ReprojectInitialConditions(VAR& vars, const std::vector<VAR*>& auxvars) {
+  using Var = std::remove_reference_t<decltype(vars[0])>;
+
+  std::vector<Var*> remaining;
+  std::map<std::string, mfem::ParGridFunction*> gridfunctions;
+  auto collect = [this, &remaining, &gridfunctions](VAR& container) {
+    for (std::size_t i = 0; i < container.get_variables_number(); i++) {
+      Var* var = &container[i];
+      if (!this->IsOnMesh(var->get_fespace())) {
+        continue;
+      }
+      if (std::find(remaining.begin(), remaining.end(), var) == remaining.end()) {
+        remaining.push_back(var);
+        gridfunctions.try_emplace(var->getVariableName(), &var->get_ref_gf());
+      }
+    }
+  };
+  collect(vars);
+  for (auto* auxvar : auxvars) {
+    if (auxvar != nullptr) {
+      collect(*auxvar);
+    }
+  }
+
+  // Variables whose grid function holds its final value for this cycle
+  std::set<std::string> done;
+  while (!remaining.empty()) {
+    bool progress = false;
+    for (auto it = remaining.begin(); it != remaining.end();) {
+      Var* var = *it;
+      const std::string name = var->getVariableName();
+      if (!var->isInitialConditionReprojectable()) {
+        SlothInfo::verbose("Pre-refinement: initial condition of variable '", name,
+                           "' read from a file, interpolated instead of reprojected.");
+      } else {
+        // A dependency not managed by this AMR object is reported by setInitialCondition()
+        const auto dependencies = var->get_dependencies();
+        const bool ready =
+            std::all_of(dependencies.begin(), dependencies.end(), [&](const std::string& dep) {
+              return done.contains(dep) || !gridfunctions.contains(dep);
+            });
+        if (!ready) {
+          ++it;
+          continue;
+        }
+        var->setInitialCondition(gridfunctions);
+      }
+      done.insert(name);
+      it = remaining.erase(it);
+      progress = true;
+    }
+    MFEM_VERIFY(progress,
+                "AMRBase::ReprojectInitialConditions(): circular dependencies between the "
+                "initial conditions of the variables.");
+  }
+}
+
+/**
  * @brief Rebalance the parallel mesh among the MPI ranks, then
  *        resynchronize every variable sharing it.
  *
@@ -523,8 +598,8 @@ void AMRBase<VAR>::PrintLoadBalance(const std::string& stage) const {
  *            must stay consistent with its current state;
  *          - the mesh is rebalanced if requested (`Rebalance()`), so that
  *            the next cycle starts from a balanced partition;
- *          - each variable is then reset to its initial condition via
- *            `Variable::setInitialCondition()`.
+ *          - each variable is then reset to its initial condition
+ *            (`ReprojectInitialConditions()`).
  *
  * @tparam VAR Variables container type this AMR strategy operates on.
  * @param vars Primary variables sharing the mesh managed by this AMR
@@ -547,14 +622,7 @@ void AMRBase<VAR>::InitialRefine(VAR& vars, std::vector<VAR*> auxvars) {
     this->UpdateVariables(vars, auxvars);
     const bool did_rebalance = this->Rebalance(vars, auxvars);
 
-    for (std::size_t i = 0; i < vars.get_variables_number(); i++) {
-      vars[i].setInitialCondition();
-    }
-    for (auto* auxvar_container : auxvars) {
-      for (std::size_t i = 0; i < auxvar_container->get_variables_number(); i++) {
-        (*auxvar_container)[i].setInitialCondition();
-      }
-    }
+    this->ReprojectInitialConditions(vars, auxvars);
 
     cycle++;
     this->PrintLoadBalance("pre-refinement cycle " + std::to_string(cycle) +

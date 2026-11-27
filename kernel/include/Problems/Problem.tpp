@@ -527,15 +527,14 @@ void Problem<OPE, VAR, PST>::save_csv(const int iter, const double current_time)
 
     for (unsigned int iv = 0; iv < nvars; iv++) {
       auto vv = this->variables_[iv];
-      auto solution = vv.get_analytical_solution();
+      auto solution = vv.get_analytical_solution_coefficient();
       auto unk = vv.get_unknown();
       auto unk_name = vv.getVariableName();
 
       // Errors : automatically done if an analytical solution is provided in Variable's definition
       if (solution != nullptr) {
-        auto solution_func = solution.get();
         this->oper_.ComputeError(iter, current_time, current_time_step, iv, unk_name, unk,
-                                 *solution_func);
+                                 *solution);
       }
 
       // Isovalues : control at the uppest level of the scheme; automatically disable if Problem's
