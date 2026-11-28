@@ -68,6 +68,7 @@ class Coefficients {
   std::vector<GlossaryType> get_types() const;
 
   void set_time(double time);
+  void set_time_step(double dt);
 };
 
 /**

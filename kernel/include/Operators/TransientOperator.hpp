@@ -67,6 +67,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   void report_lagged_auxiliary_variables();
 
   bool is_explicit_;
+  TimeScheme::value time_scheme_{TimeScheme::EulerImplicit};  ///< see set_ODE_solver
   void set_ODE_solver(const TimeScheme::value& ode_solver);
 
   VSolverType mass_solver_;
@@ -86,6 +87,7 @@ class TransientOperator : public OperatorBase<T, DIM>, public mfem::TimeDependen
   void free_memory();
   void free_mass_matrices();
   bool sync_with_mesh() override;
+  bool allows_theta() const override { return this->time_scheme_ == TimeScheme::EulerImplicit; }
 
   Coefficients explicit_time_coefficients_;
   std::optional<Coefficient> get_coefficient(const int blk, GlossaryType type, unsigned int id);

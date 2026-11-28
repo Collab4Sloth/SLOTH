@@ -2,7 +2,7 @@
  * Copyright CEA (c) 2026
  * @file main.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
- * @brief MMS convergence test IN TIME: implicit Euler vs BDF2.
+ * @brief MMS convergence test IN TIME: implicit Euler vs BDF2 vs Crank-Nicolson.
  *
  * Variant of CahnHilliard/2D/test5 (Zhang et al., JCP 236, 2013) with a non-polynomial time
  * dependence, so that the time discretization error does not vanish:
@@ -13,8 +13,16 @@
  * 160 Q2 elements in x and only 2 in y. Q2 converges at order 3 in L2 (test5 reference), so the
  * spatial error stays well below the smallest BDF2 error.
  * The time step is divided by 2 from 0.1 to 0.0125.
- * Expected slopes of the L2 error on phi at t = 1: EulerImplicit: 1, BDF2: 2 (see
- * tests/tools/time_convergence.py).
+ * Crank-Nicolson: theta-scheme with theta = 1/2 (parameters "CahnHilliard.theta" and
+ * "SourceTerm.theta") and average vector field of the free energy (AverageCoefficient, Gauss rule
+ * exact for the cubic derivative of Fw).
+ * Expected slopes of the L2 error on phi at t = 1: EulerImplicit: 1, BDF2: 2, CrankNicolson: 2
+ * (see tests/tools/time_convergence.py).
+ * The problem is stiff for these time steps (eigenvalue of the linearized operator ~ pi^4 for
+ * sin(pi x)): the error of implicit Euler is damped by the stiffness (~ dt u' / lambda), not the
+ * one of Crank-Nicolson (~ dt^2 u'' / 8, the stiff terms being evaluated at
+ * (phi^n + phi^{n+1}) / 2). Crank-Nicolson is then of order 2 with a larger error than implicit
+ * Euler on most of the range of time steps; BDF2 has not this drawback.
  *
  * @version 0.1
  * @date 2026-10-29
@@ -55,11 +63,21 @@ int main(int argc, char* argv[]) {
   // ##############################
   //  Time schemes and time steps
   // ##############################
-  const std::vector<std::pair<std::string, TimeScheme::value>> vect_scheme{
-      {"EulerImplicit", TimeScheme::EulerImplicit}, {"BDF2", TimeScheme::BDF2}};
+  // Name (folder Saves_<name>_dt_<dt>), time scheme, theta of the theta-scheme, average vector
+  // field of the free energy
+  struct TimeSchemeCase {
+    std::string name;
+    TimeScheme::value scheme;
+    double theta;
+    bool avf;
+  };
+  const std::vector<TimeSchemeCase> vect_scheme{
+      {"EulerImplicit", TimeScheme::EulerImplicit, 1., false},
+      {"BDF2", TimeScheme::BDF2, 1., false},
+      {"CrankNicolson", TimeScheme::EulerImplicit, 0.5, true}};
   const std::vector<double> vect_dt{0.1, 0.05, 0.025, 0.0125};
 
-  for (const auto& [scheme_name, scheme] : vect_scheme) {
+  for (const auto& [scheme_name, scheme, theta, avf] : vect_scheme) {
     for (const auto dt : vect_dt) {
       const double lx = 1.;
       const double ly = 1.;
@@ -87,13 +105,24 @@ int main(int argc, char* argv[]) {
       const double lambda = 1.;
       const double omega = 1.;
       auto params = Parameters(Parameter("epsilon", epsilon), Parameter("sigma", sigma),
-                               Parameter("lambda", lambda), Parameter("omega", omega));
+                               Parameter("lambda", lambda), Parameter("omega", omega),
+                               Parameter("CahnHilliard.theta", theta),
+                               Parameter("SourceTerm.theta", theta),
+                               // Crank-Nicolson from the first step (no implicit Euler first
+                               // step): same results as the references
+                               Parameter("theta_implicit_first_step", false));
 
       // ####################
       //     coefficients  //
       // ####################
       Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
-      Coefficient double_well(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
+      // Free energy: implicit, or average vector field over [phi^n, phi^{n+1}] (Fw' cubic: Gauss
+      // rule of order 3)
+      Fw fw(omega);
+      Coefficient double_well =
+          avf ? Coefficient(Glossary::FreeEnergy, Scheme::SemiImplicit,
+                            AverageCoefficient(&fw, QuadRule::gauss(3), Average::Gradient))
+              : Coefficient(Glossary::FreeEnergy, Scheme::Implicit, Fw(omega));
       Coefficient capillary(Glossary::Capillary, lambda);
       Coefficient mobility(Glossary::Mobility, mob);
 
@@ -150,7 +179,7 @@ int main(int argc, char* argv[]) {
       //     operators     //
       // ####################
       Coefficient no_source(Glossary::SourceTerm, 0.);
-      // Source term evaluated at the time of the step (t^{n+1} for both schemes)
+      // Source term evaluated at the time of the step (t^{n+1}), at t^{n+1/2} for Crank-Nicolson
       Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
       Coefficients coef_pb0(double_well, capillary, mobility, grad_energy, no_source);
       Coefficients coef_pb1(double_well, capillary, mobility, grad_energy, source);
@@ -159,10 +188,13 @@ int main(int argc, char* argv[]) {
       TransientOPE oper(spatials, {"CahnHilliard", "SourceTerm"}, params, scheme,
                         "SplitTimeDerivative");
 
+      // Crank-Nicolson: residual floor (round-off) around 4e-12 at the smallest time steps, where
+      // the initial residual is small: absolute tolerance 1e-11
+      const double abs_tol = theta < 1. ? 1.e-11 : 1.e-12;
       oper.overload_nl_solver(
           NLSolverType::NEWTON,
           Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                     Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-12)));
+                     Parameter("rel_tol", 1.e-10), Parameter("abs_tol", abs_tol)));
       const auto& solver = HypreSolverType::HYPRE_GMRES;
       const auto& precond = HyprePreconditionerType::HYPRE_ILU;
       oper.overload_solver(solver, Parameters(Parameter("tol", 1.e-12), Parameter("kDim", 100)));

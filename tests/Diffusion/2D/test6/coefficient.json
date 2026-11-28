@@ -1,0 +1,10 @@
+[
+    {
+        "expression": "(1 + pi**2)*exp(t)*sin(pi*x)",
+        "variables": "c",
+        "coordinates": "x,y",
+        "constants": "(t:T)",
+        "class_name": "SourceCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

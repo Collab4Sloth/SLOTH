@@ -262,7 +262,8 @@ void AdvectionNLFormIntegrator<VARS>::compute_advection_shape(const mfem::Finite
 }
 
 /**
- * @brief Assemble the element-level residual: R_r = - ( u_c v, grad(psi_r) ).
+ * @brief Assemble the element-level residual: R_r = - ( u_c v, grad(psi_r) ), with
+ * u_c = theta u_c + (1 - theta) u_c_old (theta-scheme).
  */
 template <class VARS>
 void AdvectionNLFormIntegrator<VARS>::AssembleElementVector(
@@ -294,13 +295,17 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementVector(
         this->compute_velocity(term.vel, Tr, u, aux, this->v_);
       }
       this->compute_advection_shape(*el[term.row], Tr);
-      elvect[term.row]->Add(-weight * this->u_values_[term.var], this->adv_);
+      // Advected unknown: theta u + (1 - theta) u_old (theta-scheme)
+      const auto var = static_cast<std::size_t>(term.var);
+      const double u_old = this->u_values_[var + static_cast<std::size_t>(nb)];
+      const double u_adv = this->theta_ * this->u_values_[var] + (1. - this->theta_) * u_old;
+      elvect[term.row]->Add(-weight * u_adv, this->adv_);
     }
   }
 }
 
 /**
- * @brief Assemble the element-level Jacobian: J_rc = - ( v.grad(psi_r), phi_c ).
+ * @brief Assemble the element-level Jacobian: J_rc = - theta ( v.grad(psi_r), phi_c ).
  *
  * Only blocks (r, c) are non-zero, but all blocks are sized and reset so that no stale
  * contribution left by another integrator in the shared elmats can be re-assembled.
@@ -338,7 +343,9 @@ void AdvectionNLFormIntegrator<VARS>::AssembleElementGrad(
         this->compute_velocity(term.vel, Tr, u, aux, this->v_);
       }
       this->compute_advection_shape(*el[term.row], Tr);
-      mfem::AddMult_a_VWt(-weight, this->adv_, this->shape_[term.var], *elmats(term.row, term.var));
+      // Weight theta of the theta-scheme
+      mfem::AddMult_a_VWt(-weight * this->theta_, this->adv_, this->shape_[term.var],
+                          *elmats(term.row, term.var));
     }
   }
 }

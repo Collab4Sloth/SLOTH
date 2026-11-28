@@ -1,6 +1,7 @@
 add_subdirectory(AllenCahn)
 add_subdirectory(Diffusion)
 add_subdirectory(HeatTransfer)
+add_subdirectory(Advection)
 add_subdirectory(SimpleCoupling)
 add_subdirectory(Calphad)
 add_subdirectory(CahnHilliard)

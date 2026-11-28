@@ -56,6 +56,14 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   mfem::DenseMatrix gradPsi;
   mfem::Vector Psi, gradU;
 
+  // Theta-scheme (theta != 1): dofs of theta u + (1 - theta) u_old on the current element for
+  // the current block, used in the diffusion term
+  mfem::Vector theta_dofs_;
+  mfem::Vector uold_dofs_;  ///< work vector: element dofs of u_old
+  const mfem::Vector& diffusion_term_dofs(mfem::ElementTransformation& Tr,
+                                          const mfem::Array<const mfem::Vector*>& elfun,
+                                          const int blk);
+
  protected:
   std::list<GlossaryType> expected_list_;
   Coefficients diffusion;
@@ -65,6 +73,8 @@ class DiffusionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
+  /// Theta-scheme on the diffusion term (Fick, Fourier)
+  bool supports_theta() const override { return true; }
   DiffusionNLFormIntegrator(Geometry geometry, const double time_step,
                             const std::vector<mfem::ParGridFunction> u_old,
                             const std::vector<mfem::ParGridFunction> aux_old,

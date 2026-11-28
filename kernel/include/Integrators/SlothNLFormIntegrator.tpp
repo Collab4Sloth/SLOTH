@@ -696,6 +696,22 @@ template <class VARS>
 double SlothNLFormIntegrator<VARS>::get_physical_time_step() const {
   return this->physical_time_step_ > 0. ? this->physical_time_step_ : this->time_step_;
 }
+
+/**
+ * @brief Set the weight of the theta-scheme (see theta_)
+ *
+ * @tparam VAR Type representing the problem variables.
+ * @param theta weight in [0, 1]; a value different from 1 requires supports_theta()
+ */
+template <class VARS>
+void SlothNLFormIntegrator<VARS>::set_theta(const double theta) {
+  MFEM_VERIFY(theta >= 0. && theta <= 1.,
+              "Error in " + this->integrator_name_ + ": theta must be in [0, 1].");
+  MFEM_VERIFY(theta == 1. || this->supports_theta(),
+              "Error in " + this->integrator_name_ +
+                  ": the theta-scheme is not implemented in this integrator (theta must be 1).");
+  this->theta_ = theta;
+}
 /**
  * @brief Evaluates a coefficient at all the integration points of an element.
  *

@@ -1,0 +1,9 @@
+scheme,dt,phi_L2-error
+CrankNicolson,0.00125,1.79618e-05
+CrankNicolson,0.0025,7.18189e-05
+CrankNicolson,0.005,0.000286816
+CrankNicolson,0.01,0.00113969
+EulerImplicit,0.00125,0.00488896
+EulerImplicit,0.0025,0.00940631
+EulerImplicit,0.005,0.0175585
+EulerImplicit,0.01,0.0313077

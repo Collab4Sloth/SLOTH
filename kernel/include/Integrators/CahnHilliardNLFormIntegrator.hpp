@@ -104,6 +104,16 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   CoefficientAtPoints energy_at_points_;    ///< free energy (block 0)
   CoefficientAtPoints mobility_at_points_;  ///< mobility (block 1)
 
+  // Theta-scheme (theta != 1): dofs of theta c + (1 - theta) c_old on the current element for the
+  // concentration blocks, used in the gradient term of the equation of mu. The chemical
+  // potentials are not interpolated (unknowns at the time n + theta).
+  std::vector<mfem::Vector> theta_dofs_;
+  mfem::Vector uold_dofs_;  ///< work vector: element dofs of c_old
+  void prepare_theta_dofs(mfem::ElementTransformation& Tr,
+                          const mfem::Array<const mfem::Vector*>& elfun, const int n);
+  const mfem::Vector& gradient_term_dofs(const mfem::Array<const mfem::Vector*>& elfun,
+                                         const int blk) const;
+
  protected:
   Coefficients lambda;
   Coefficients mobility;
@@ -116,6 +126,8 @@ class CahnHilliardNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
+  /// Theta-scheme on the gradient term of the equation of mu (isotropic gradient energy)
+  bool supports_theta() const override { return true; }
   CahnHilliardNLFormIntegrator(Geometry geometry, const double time_step,
                                const std::vector<mfem::ParGridFunction>& u_old,
                                const std::vector<mfem::ParGridFunction>& aux_old,

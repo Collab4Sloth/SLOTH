@@ -119,6 +119,8 @@ class SlothBaseCoefficient {
   bool is_file() const;
 
   void set_time(double time);
+  double get_time() const;
+  void set_time_step(double dt);
   bool uses_coordinates() const;
   bool is_single_variable() const;
   void set_coordinates(std::span<const double> x);

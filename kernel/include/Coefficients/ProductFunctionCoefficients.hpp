@@ -90,6 +90,7 @@ class ProductCoefficient : public FunctionCoefficient {
   virtual ~ProductCoefficient() = default;
 
   void set_time(double time) override;
+  void set_time_step(double dt) override;
   bool uses_coordinates() const override;
   bool is_single_variable() const override;
   void set_coordinates(std::span<const double> x) override;

@@ -140,6 +140,8 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
     // Diffusion coefficient at all the integration points of the element
     this->eval_coefficient_at_points(diffusion[blk], blk, SlothNLBase::CoefValue, *el[blk], Tr, *ir,
                                      elfun, this->vaux_gf_, this->diffusion_at_points_);
+    // u = theta u + (1 - theta) u_old in the diffusion term (theta-scheme)
+    const mfem::Vector& u_diffusion = this->diffusion_term_dofs(Tr, elfun, blk);
 
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -147,7 +149,7 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementVector(
       this->set_int_point(Tr, ip);
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
-      gradPsi.MultTranspose(*elfun[blk], gradU);
+      gradPsi.MultTranspose(u_diffusion, gradU);
       double diffu = this->diffusion_at_points_.value(i);
 
       double weight_coef = ip.weight * Tr.Weight();
@@ -205,6 +207,8 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
     this->eval_coefficient_at_points(
         diffusion[blk], blk, SlothNLBase::CoefValue | SlothNLBase::CoefFirstDerivative, *el[blk],
         Tr, *ir, elfun, this->vaux_gf_, this->diffusion_at_points_);
+    // u = theta u + (1 - theta) u_old in the diffusion term (theta-scheme)
+    const mfem::Vector& u_diffusion = this->diffusion_term_dofs(Tr, elfun, blk);
 
     for (int i = 0; i < ir->GetNPoints(); i++) {
       const mfem::IntegrationPoint& ip = ir->IntPoint(i);
@@ -222,14 +226,42 @@ void DiffusionNLFormIntegrator<VARS>::AssembleElementGrad(
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
 
-      AddMult_a_AAt(diffu * weight_coef, gradPsi, *elmat(blk, blk));
+      // Diffusion term: weight theta of the theta-scheme
+      AddMult_a_AAt(diffu * weight_coef * this->theta_, gradPsi, *elmat(blk, blk));
 
       // Derivative of the diffusivity: dR_i/du_j += D'(u) (grad(u).grad(psi_i)) phi_j
       // (vec holds grad(u).grad(psi_i) at the current integration point only)
       gradU.SetSize(dim);
-      gradPsi.MultTranspose(*elfun[blk], gradU);
+      gradPsi.MultTranspose(u_diffusion, gradU);
       gradPsi.Mult(gradU, vec);
       AddMult_a_VWt(grad_diffu * weight_coef, vec, Psi, *elmat(blk, blk));
     }
   }
+}
+
+/**
+ * @brief Dofs used in the diffusion term of block blk on the current element: u (theta = 1),
+ * theta u + (1 - theta) u_old otherwise (theta-scheme)
+ *
+ * @param Tr Element transformation
+ * @param elfun Values of the dofs of the blocks (u)
+ * @param blk Block
+ */
+template <class VARS>
+const mfem::Vector& DiffusionNLFormIntegrator<VARS>::diffusion_term_dofs(
+    mfem::ElementTransformation& Tr, const mfem::Array<const mfem::Vector*>& elfun,
+    const int blk) {
+  const mfem::Vector& u = *elfun[blk];
+  if (this->theta_ == 1.) return u;
+  const auto b = static_cast<std::size_t>(blk);
+  MFEM_VERIFY(b < this->u_old_.size(),
+              "Error in " + this->integrator_name_ +
+                  ": the theta-scheme requires the values at the beginning of the time step.");
+  this->u_old_[b].GetElementDofValues(Tr.ElementNo, this->uold_dofs_);
+  MFEM_VERIFY(this->uold_dofs_.Size() == u.Size(),
+              "Error in " + this->integrator_name_ +
+                  ": u and u_old must be on the same finite element space.");
+  this->theta_dofs_.SetSize(u.Size());
+  add(this->theta_, u, 1. - this->theta_, this->uold_dofs_, this->theta_dofs_);
+  return this->theta_dofs_;
 }

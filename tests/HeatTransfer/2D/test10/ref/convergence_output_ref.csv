@@ -1,0 +1,13 @@
+scheme,dt,phi_L2-error
+BDF2,0.0125,9.12866e-06
+BDF2,0.025,3.61748e-05
+BDF2,0.05,0.000142001
+BDF2,0.1,0.000544502
+CrankNicolson,0.0125,3.52381e-05
+CrankNicolson,0.025,0.000140944
+CrankNicolson,0.05,0.000563676
+CrankNicolson,0.1,0.00225309
+EulerImplicit,0.0125,0.00110122
+EulerImplicit,0.025,0.0021945
+EulerImplicit,0.05,0.00435741
+EulerImplicit,0.1,0.00858914

@@ -121,6 +121,10 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   /// ImplicitSolve (u = u_old + time_step_ k): it differs from the physical time step for
   /// SDIRK stages (gamma dt) and BDF2 (beta dt). Equal to time_step_ if not set.
   double physical_time_step_{-1.};
+  /// Weight of the theta-scheme: the terms of the integrator treated by the scheme are evaluated
+  /// with theta u + (1 - theta) u_old (1: implicit Euler, 1/2: Crank-Nicolson). Given by the
+  /// parameter "<integrator name>.theta" of the operator (see OperatorBase::set_nlfi_ptr).
+  double theta_{1.};
 
   std::string integrator_name_ = "";
 
@@ -358,6 +362,12 @@ class SlothNLFormIntegrator : public mfem::BlockNonlinearFormIntegrator {
   /// Physical time step of the current step (see physical_time_step_)
   void set_physical_time_step(const double dt);
   double get_physical_time_step() const;
+
+  /// True if the integrator implements the theta-scheme (see theta_). An integrator which does
+  /// not implement it can only be used with theta = 1.
+  virtual bool supports_theta() const { return false; }
+  void set_theta(const double theta);
+  double get_theta() const { return this->theta_; }
 
   virtual std::vector<std::pair<int, int>> time_derivative_map() const { return {}; }
   virtual void init() = 0;

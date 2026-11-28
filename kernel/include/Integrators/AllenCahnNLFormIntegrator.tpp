@@ -153,6 +153,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
   this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  this->prepare_theta_dofs(Tr, elfun);
   // Variational free energy: kappa_b and df/du_b (isotropic), all the derivatives otherwise
   const double* kappa = nullptr;
   const double* df_dvar = nullptr;
@@ -191,8 +192,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementVector(
                                  ? df_dvar[i * num_blocks + blk]
                                  : this->energy_at_points_[b].energy_derivative(i, blk);
 
-      // Laplacian : (grad(u), grad(psi))
-      gradPsi.MultTranspose(*elfun[blk], gradU);
+      // Laplacian : (grad(u), grad(psi)), u = theta u + (1 - theta) u_old (theta-scheme)
+      gradPsi.MultTranspose(this->gradient_term_dofs(elfun, blk), gradU);
       gradU *= coef_mobi * lamb * weight_coef;
       gradPsi.AddMult(gradU, *elvect[blk]);
 
@@ -242,6 +243,7 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
   this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  this->prepare_theta_dofs(Tr, elfun);
   // Variational free energy: kappa_b, df/du_b and d2f/du_b du_j (isotropic), all the derivatives
   // otherwise
   const double* kappa = nullptr;
@@ -293,11 +295,11 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
       const double w_prime = df_dvar != nullptr
                                  ? df_dvar[i * num_blocks + blk]
                                  : this->energy_at_points_[b].energy_derivative(i, blk);
-      // Diagonal block: Laplacian + w''(u)
+      // Diagonal block: Laplacian (weight theta of the theta-scheme) + w''(u)
       const double coef_mobi = this->mob_at_ip_[b];
       const double lamb =
           kappa != nullptr ? kappa[i * num_blocks + blk] : this->lambda_at_points_[b].value(i);
-      const double mob_lamb = coef_mobi * lamb * weight_coef;
+      const double mob_lamb = coef_mobi * lamb * weight_coef * this->theta_;
       AddMult_a_AAt(mob_lamb, gradPsi, *elmats(blk, blk));
 
       if (with_w_second) {
@@ -325,8 +327,8 @@ void AllenCahnNLFormIntegrator<VARS>::AssembleElementGrad(
         has_derivative = has_derivative || (d != 0.0);
       }
       if (has_derivative) {
-        this->add_mobility_derivative(blk, lamb, w_prime, gradPsi, Psi, *elfun[blk], weight_coef,
-                                      elmats);
+        this->add_mobility_derivative(blk, lamb, w_prime, gradPsi, Psi,
+                                      this->gradient_term_dofs(elfun, blk), weight_coef, elmats);
       }
     }
   }
@@ -374,6 +376,48 @@ void AllenCahnNLFormIntegrator<VARS>::get_coefficients() {
       double_well_energy.add(*(this->get_coefficient(i, GlossaryType::FreeEnergy, 0)));
     }
   }
+}
+
+/**
+ * @brief Theta-scheme: dofs of theta u + (1 - theta) u_old on the current element, for each block
+ * (nothing for theta = 1)
+ *
+ * The theta-scheme applies to the gradient term only, for a classic or an isotropic variational
+ * free energy.
+ *
+ * @param Tr Element transformation
+ * @param elfun Values of the dofs of the blocks (u)
+ */
+template <class VARS>
+void AllenCahnNLFormIntegrator<VARS>::prepare_theta_dofs(
+    mfem::ElementTransformation& Tr, const mfem::Array<const mfem::Vector*>& elfun) {
+  if (this->theta_ == 1.) return;
+  MFEM_VERIFY(!this->variational_ || this->isotropic_,
+              "Error in AllenCahn: the theta-scheme requires an isotropic gradient energy.");
+  const int num_blocks = elfun.Size();
+  MFEM_VERIFY(this->u_old_.size() >= static_cast<std::size_t>(num_blocks),
+              "Error in AllenCahn: the theta-scheme requires the values at the beginning of the "
+              "time step.");
+  this->theta_dofs_.resize(static_cast<std::size_t>(num_blocks));
+  for (int blk = 0; blk < num_blocks; ++blk) {
+    const auto b = static_cast<std::size_t>(blk);
+    const mfem::Vector& u = *elfun[blk];
+    this->u_old_[b].GetElementDofValues(Tr.ElementNo, this->uold_dofs_);
+    MFEM_VERIFY(this->uold_dofs_.Size() == u.Size(),
+                "Error in AllenCahn: u and u_old must be on the same finite element space.");
+    this->theta_dofs_[b].SetSize(u.Size());
+    add(this->theta_, u, 1. - this->theta_, this->uold_dofs_, this->theta_dofs_[b]);
+  }
+}
+
+/**
+ * @brief Dofs used in the gradient term of block blk: u (theta = 1), theta u + (1 - theta) u_old
+ * otherwise (see prepare_theta_dofs)
+ */
+template <class VARS>
+const mfem::Vector& AllenCahnNLFormIntegrator<VARS>::gradient_term_dofs(
+    const mfem::Array<const mfem::Vector*>& elfun, const int blk) const {
+  return this->theta_ == 1. ? *elfun[blk] : this->theta_dofs_[static_cast<std::size_t>(blk)];
 }
 
 /**

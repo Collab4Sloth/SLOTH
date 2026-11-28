@@ -133,7 +133,7 @@ TransientOperator<T, DIM>::~TransientOperator() {
  */
 template <class T, int DIM>
 void TransientOperator<T, DIM>::set_ODE_solver(const TimeScheme::value& ode_solver) {
-  // TODO(cci) faire un template?
+  this->time_scheme_ = ode_solver;
   switch (ode_solver) {
     case TimeScheme::EulerExplicit: {
       this->ode_solver_ = std::make_shared<mfem::ForwardEulerSolver>();
@@ -266,6 +266,8 @@ void TransientOperator<T, DIM>::solve(std::vector<std::unique_ptr<mfem::Vector>>
   //// Call ODE solver
   this->current_time_ = current_time;
   this->current_dt_ = current_time_step;
+  // Time step of the coefficients (average in time of the AverageCoefficient objects)
+  this->set_time_step_coefficients(current_time_step);
   this->newton_iterations_ = -1;
   // Throws TimeStepFailure if a nonlinear solve fails (see ImplicitSolve): vect_unk is then left
   // unchanged

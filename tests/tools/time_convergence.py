@@ -48,6 +48,8 @@ def main():
                         help="expected orders checked by --check, e.g. \"BDF2:2\"")
     parser.add_argument("-o", "--output", type=str, default="time_convergence_output",
                         help="basename of the output files (.csv, .png)")
+    parser.add_argument("--label", type=str, default="MMS",
+                        help="kind of reference solution shown in the title of the figure")
     args = parser.parse_args()
 
     expected = {k.strip(): float(v) for k, v in
@@ -100,7 +102,7 @@ def main():
                     print(f"  -> note: slope above the expected order {expected[scheme]} "
                           "(pre-asymptotic regime)")
 
-    plt.title(f"Time convergence study (MMS, {args.problemName})")
+    plt.title(f"Time convergence study ({args.label}, {args.problemName})")
     plt.xlabel(r"Time step $\delta t$")
     plt.ylabel(r"$L_2$ error at $t_f$")
     plt.legend()

@@ -266,6 +266,8 @@ double AdvectionBoundaryNLFormIntegrator<VARS>::evaluate_at_ip(
 
 /**
  * @brief Assemble the boundary residual: R_r = ( (v.n)^+ u_c + (v.n)^- u_in, psi_r ).
+ *
+ * Theta-scheme: u_c = theta u_c + (1 - theta) u_c_old, u_in evaluated at t^{n + theta}.
  */
 template <class VARS>
 void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementVector(
@@ -282,6 +284,7 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementVector(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  this->set_theta_time();
   const bool by_element = this->values_at_points(el, Tr, ir, elfun, true);
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
@@ -290,18 +293,21 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementVector(
     if (w_vn == 0.0) {
       continue;  // wall
     }
-    // Outflow: interior value; inflow: imposed value
-    double advected = this->u_values_[this->var_blk_];
+    // Outflow: interior value (theta u + (1 - theta) u_old); inflow: imposed value
+    const auto var = static_cast<std::size_t>(this->var_blk_);
+    const double u_old = this->u_values_[var + static_cast<std::size_t>(nb)];
+    double advected = this->theta_ * this->u_values_[var] + (1. - this->theta_) * u_old;
     if (w_vn < 0.0) {
       advected = by_element ? this->inflow_at_points_.value(q)
                             : this->eval_coefficient(this->inflow_, u, aux);
     }
     elvect[this->row_blk_]->Add(w_vn * advected, this->shape_[this->row_blk_]);
   }
+  this->restore_time();
 }
 
 /**
- * @brief Assemble the boundary Jacobian: J_rc = ( (v.n)^+ phi_c, psi_r ).
+ * @brief Assemble the boundary Jacobian: J_rc = theta ( (v.n)^+ phi_c, psi_r ).
  *
  * Only block (r, c) is non-zero, but all blocks are sized and reset (no stale contribution
  * from other integrators).
@@ -330,7 +336,30 @@ void AdvectionBoundaryNLFormIntegrator<VARS>::AssembleElementGrad(
     if (w_vn <= 0.0) {
       continue;  // wall or inflow: no dependence on the unknowns
     }
-    mfem::AddMult_a_VWt(w_vn, this->shape_[this->row_blk_], this->shape_[this->var_blk_],
-                        *elmats(this->row_blk_, this->var_blk_));
+    mfem::AddMult_a_VWt(w_vn * this->theta_, this->shape_[this->row_blk_],
+                        this->shape_[this->var_blk_], *elmats(this->row_blk_, this->var_blk_));
   }
+}
+
+/**
+ * @brief Theta-scheme: time of the inflow coefficient set to t - (1 - theta) dt (t^{n + theta}),
+ * t being its current time (time of the step). Nothing for theta = 1.
+ *
+ * @remark The inflow coefficient may be shared with other integrators: its time is restored by
+ * restore_time() after the evaluation.
+ */
+template <class VARS>
+void AdvectionBoundaryNLFormIntegrator<VARS>::set_theta_time() {
+  if (this->theta_ == 1.) return;
+  this->inflow_time_ = this->inflow_.get_time();
+  this->inflow_.set_time(this->inflow_time_ - (1. - this->theta_) * this->get_physical_time_step());
+}
+
+/**
+ * @brief Restore the time of the inflow coefficient changed by set_theta_time()
+ */
+template <class VARS>
+void AdvectionBoundaryNLFormIntegrator<VARS>::restore_time() {
+  if (this->theta_ == 1.) return;
+  this->inflow_.set_time(this->inflow_time_);
 }

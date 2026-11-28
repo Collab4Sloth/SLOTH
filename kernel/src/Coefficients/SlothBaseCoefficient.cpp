@@ -367,6 +367,20 @@ bool SlothBaseCoefficient::is_file() const { return this->scheme_ == Scheme::Fil
 void SlothBaseCoefficient::set_time(double time) { this->coefficient_->set_time(time); }
 
 /**
+ * @brief Time of the coefficient (0 if it has no underlying function)
+ */
+double SlothBaseCoefficient::get_time() const {
+  return this->coefficient_ != nullptr ? this->coefficient_->get_time() : 0.;
+}
+
+/**
+ * @brief Time step of the current step (see FunctionCoefficient::set_time_step)
+ */
+void SlothBaseCoefficient::set_time_step(double dt) {
+  if (this->coefficient_ != nullptr) this->coefficient_->set_time_step(dt);
+}
+
+/**
  * @brief Indicates whether the coefficient depends on the spatial coordinates
  */
 bool SlothBaseCoefficient::uses_coordinates() const {

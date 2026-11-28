@@ -3,9 +3,9 @@ execute_process(COMMAND ${Python3_EXECUTABLE} ${BUILD_SCRIPT_DIR}/GenerateCoeffi
 
 create_test("AllenCahn2DPeriodictest3_bdf2" "AllenCahn2DPeriodictest3_bdf2" FALSE "2D EXE AC" 1)
 configure_file(${CMAKE_SOURCE_DIR}/tests/tools/time_convergence.py ${CMAKE_CURRENT_BINARY_DIR}/time_convergence.py COPYONLY)
-# Observed orders in time: EulerImplicit 1, BDF2 2
+# Observed orders in time: EulerImplicit 1, BDF2 2, CrankNicolson (theta = 1/2 + AVF) 2
 add_test(NAME CheckAllenCahn2DPeriodictest3_bdf2TimeConvergence
-         COMMAND ${Python3_EXECUTABLE} time_convergence.py --check
+         COMMAND ${Python3_EXECUTABLE} time_convergence.py --check --expected "EulerImplicit:1,BDF2:2,CrankNicolson:2"
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set_tests_properties(CheckAllenCahn2DPeriodictest3_bdf2TimeConvergence PROPERTIES
                      DEPENDS AllenCahn2DPeriodictest3_bdf2 LABELS "2D AC")

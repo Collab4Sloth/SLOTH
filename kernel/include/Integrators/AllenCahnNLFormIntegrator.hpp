@@ -88,6 +88,15 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   std::vector<CoefficientAtPoints> energy_at_points_;
   mfem::Vector grad_u_mob_, g_mob_;  ///< work vectors of add_mobility_derivative
 
+  // Theta-scheme (theta != 1): dofs of theta u + (1 - theta) u_old on the current element, used
+  // in the gradient term
+  std::vector<mfem::Vector> theta_dofs_;
+  mfem::Vector uold_dofs_;  ///< work vector: element dofs of u_old
+  void prepare_theta_dofs(mfem::ElementTransformation& Tr,
+                          const mfem::Array<const mfem::Vector*>& elfun);
+  const mfem::Vector& gradient_term_dofs(const mfem::Array<const mfem::Vector*>& elfun,
+                                         const int blk) const;
+
   // Variational free energy
   bool variational_ = false;  ///< FreeEnergy of the first block variational
   /// Variational free energy isotropic and not explicit: classic assembly with kappa_b
@@ -129,6 +138,8 @@ class AllenCahnNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
+  /// Theta-scheme on the gradient term (isotropic gradient energy)
+  bool supports_theta() const override { return true; }
   AllenCahnNLFormIntegrator(Geometry geometry, const double time_step,
                             const std::vector<mfem::ParGridFunction>& u_old,
                             const std::vector<mfem::ParGridFunction>& aux_old,

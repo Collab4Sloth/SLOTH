@@ -226,6 +226,7 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementVector(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  this->set_theta_time();
   const bool at_points = this->source_terms_at_points(el, Tr, ir, elfun, SlothNLBase::CoefValue);
 
   for (int q = 0; q < ir.GetNPoints(); ++q) {
@@ -238,6 +239,7 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementVector(
       elvect[b]->Add(-s * weight, this->shape_[b]);
     }
   }
+  this->restore_time();
 }
 
 /**
@@ -275,6 +277,7 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementGrad(
   const std::span<const double> u(this->u_values_);
   const std::span<const double> aux(this->aux_values_);
   const mfem::IntegrationRule& ir = get_integration_rule(el, Tr);
+  this->set_theta_time();
   const bool at_points =
       this->source_terms_at_points(el, Tr, ir, elfun, SlothNLBase::CoefFirstDerivative);
 
@@ -297,4 +300,35 @@ void SourceTermNLFormIntegrator<VARS>::AssembleElementGrad(
       }
     }
   }
+  this->restore_time();
+}
+
+/**
+ * @brief Theta-scheme: time of the source terms set to t - (1 - theta) dt (t^{n + theta}), t
+ * being their current time (time of the step). Nothing for theta = 1.
+ *
+ * @remark The source terms may be shared with other integrators: their time is restored by
+ * restore_time() after the evaluation.
+ */
+template <class VARS>
+void SourceTermNLFormIntegrator<VARS>::set_theta_time() {
+  this->saved_times_.clear();
+  if (this->theta_ == 1.) return;
+  const double shift = (1. - this->theta_) * this->get_physical_time_step();
+  for (std::size_t b = 0; b < this->source_term_.size(); ++b) {
+    const double t = this->source_term_[b].get_time();
+    this->saved_times_.push_back(t);
+    this->source_term_[b].set_time(t - shift);
+  }
+}
+
+/**
+ * @brief Restore the time of the source terms changed by set_theta_time()
+ */
+template <class VARS>
+void SourceTermNLFormIntegrator<VARS>::restore_time() {
+  for (std::size_t b = 0; b < this->saved_times_.size(); ++b) {
+    this->source_term_[b].set_time(this->saved_times_[b]);
+  }
+  this->saved_times_.clear();
 }

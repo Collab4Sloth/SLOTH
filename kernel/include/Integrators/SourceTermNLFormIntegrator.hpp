@@ -82,6 +82,12 @@ class SourceTermNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   static const mfem::IntegrationRule& get_integration_rule(
       const mfem::Array<const mfem::FiniteElement*>& el, const mfem::ElementTransformation& Tr);
 
+  /// Theta-scheme: the source terms are evaluated at t - (1 - theta) dt, t being the time of the
+  /// step (end of the step for implicit Euler), then their time is restored
+  std::vector<double> saved_times_;
+  void set_theta_time();
+  void restore_time();
+
  protected:
   Coefficients source_term_;          ///< one source term per block (positional)
   std::vector<bool> has_derivative_;  ///< per block: df/du may be non-zero
@@ -94,6 +100,8 @@ class SourceTermNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
+  /// Theta-scheme: source terms evaluated at the time t^{n + theta}
+  bool supports_theta() const override { return true; }
   SourceTermNLFormIntegrator(Geometry geometry, const double time_step,
                              const std::vector<mfem::ParGridFunction>& u_old,
                              const std::vector<mfem::ParGridFunction>& aux_old,

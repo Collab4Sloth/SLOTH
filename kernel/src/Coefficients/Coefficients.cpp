@@ -111,3 +111,13 @@ void Coefficients::set_time(double time) {
     coef.set_time(time);
   }
 }
+
+/**
+ * @brief Set the time step of the current step for all the coefficients
+ * (see FunctionCoefficient::set_time_step)
+ */
+void Coefficients::set_time_step(double dt) {
+  for (auto& coef : vect_coefficients_) {
+    coef.set_time_step(dt);
+  }
+}

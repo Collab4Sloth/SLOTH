@@ -2,7 +2,8 @@
  * @file main.cpp
  * @author Clément Introïni (clement.introini@cea.fr)
  * @copyright CEA (C) 2026
- * @brief MMS convergence test in time for Allen-Cahn (periodic square): implicit Euler vs BDF2.
+ * @brief MMS convergence test in time for Allen-Cahn (periodic square): implicit Euler vs BDF2 vs
+ * Crank-Nicolson.
  *
  * Transient variant of AllenCahn/2D_periodic/test3 (steady MMS):
  *   phi(x, y, t) = g(t) sin^2(2x) cos^2(3y),   g(t) = 1 + sin(2 pi t) / 2,
@@ -13,7 +14,10 @@
  *
  * Fixed mesh: Q3, 48 x 48 (to use a coarser mesh than with Q2)
  * Time step divided by 2 from 0.1 to 0.0125.
- * Expected slopes of the L2 error on phi at t = 1 :  EulerImplicit: 1, BDF2: 2
+ * Crank-Nicolson: theta-scheme with theta = 1/2 (parameters "AllenCahn.theta" and
+ * "SourceTerm.theta") and average vector field of the free energy (AverageCoefficient, Gauss rule
+ * exact for the cubic derivative of W).
+ * Expected slopes of the L2 error on phi at t = 1 :  EulerImplicit: 1, BDF2: 2, CrankNicolson: 2
  *
  * @version 0.1
  * @date 2026-10-29
@@ -52,11 +56,21 @@ int main(int argc, char* argv[]) {
   // ##############################
   //  Time schemes and time steps
   // ##############################
-  const std::vector<std::pair<std::string, TimeScheme::value>> vect_scheme{
-      {"EulerImplicit", TimeScheme::EulerImplicit}, {"BDF2", TimeScheme::BDF2}};
+  // Name (folder Saves_<name>_dt_<dt>), time scheme, theta of the theta-scheme, average vector
+  // field of the free energy
+  struct TimeSchemeCase {
+    std::string name;
+    TimeScheme::value scheme;
+    double theta;
+    bool avf;
+  };
+  const std::vector<TimeSchemeCase> vect_scheme{
+      {"EulerImplicit", TimeScheme::EulerImplicit, 1., false},
+      {"BDF2", TimeScheme::BDF2, 1., false},
+      {"CrankNicolson", TimeScheme::EulerImplicit, 0.5, true}};
   const std::vector<double> vect_dt{0.1, 0.05, 0.025, 0.0125};
 
-  for (const auto& [scheme_name, scheme] : vect_scheme) {
+  for (const auto& [scheme_name, scheme, theta, avf] : vect_scheme) {
     for (const auto dt : vect_dt) {
       //---------------------------------------
       // Profiling start
@@ -81,10 +95,16 @@ int main(int argc, char* argv[]) {
       const double lambda = 1.;
       const double omega = 1.;
       Coefficient grad_energy(Glossary::GradEnergy, Scheme::Implicit, GradientEnergy(lambda));
-      Coefficient double_well_imp(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
+      // Free energy: implicit, or average vector field over [phi^n, phi^{n+1}] (W' cubic: Gauss
+      // rule of order 3)
+      W w(omega);
+      Coefficient double_well_imp =
+          avf ? Coefficient(Glossary::FreeEnergy, Scheme::SemiImplicit,
+                            AverageCoefficient(&w, QuadRule::gauss(3), Average::Gradient))
+              : Coefficient(Glossary::FreeEnergy, Scheme::Implicit, W(omega));
       Coefficient capillary(Glossary::Capillary, lambda);
       Coefficient mobility(Glossary::Mobility, mob);
-      // Source term evaluated at the time of the step (t^{n+1} for both schemes)
+      // Source term evaluated at the time of the step (t^{n+1}), at t^{n+1/2} for Crank-Nicolson
       Coefficient source(Glossary::SourceTerm, Scheme::Explicit, SourceCoefficient());
       Coefficients coef_ac(double_well_imp, capillary, mobility, grad_energy, source);
 
@@ -123,11 +143,21 @@ int main(int argc, char* argv[]) {
       //     operators     //
       // ####################
       std::vector<SPA*> spatials{&spatial};
-      TransientOPE oper(spatials, {"AllenCahn", "SourceTerm"}, scheme, "TimeDerivative");
+      // Theta-scheme (theta = 1: implicit Euler): Allen-Cahn and source term (t^{n + theta})
+      // Crank-Nicolson from the first step (no implicit Euler first step): same results as the
+      // references
+      const auto theta_params =
+          Parameters(Parameter("AllenCahn.theta", theta), Parameter("SourceTerm.theta", theta),
+                     Parameter("theta_implicit_first_step", false));
+      TransientOPE oper(spatials, {"AllenCahn", "SourceTerm"}, theta_params, scheme,
+                        "TimeDerivative");
+      // Crank-Nicolson: residual floor (round-off) above 1e-12 at the smallest time steps, where
+      // the initial residual is small: absolute tolerance 1e-11
+      const double abs_tol = theta < 1. ? 1.e-11 : 1.e-12;
       oper.overload_nl_solver(
           NLSolverType::NEWTON,
           Parameters(Parameter("description", "Newton solver "), Parameter("print_level", 1),
-                     Parameter("rel_tol", 1.e-10), Parameter("abs_tol", 1.e-12)));
+                     Parameter("rel_tol", 1.e-10), Parameter("abs_tol", abs_tol)));
       oper.overload_solver(HypreSolverType::HYPRE_GMRES,
                            Parameters(Parameter("tol", 1.e-12), Parameter("kDim", 100)));
       oper.overload_preconditioner(HyprePreconditionerType::HYPRE_ILU,

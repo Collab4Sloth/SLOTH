@@ -123,6 +123,8 @@ class AdvectionNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
 
  public:
   void init() override;
+  /// Theta-scheme on the advected unknown: theta u + (1 - theta) u_old (velocity unchanged)
+  bool supports_theta() const override { return true; }
   AdvectionNLFormIntegrator(Geometry geometry, const double time_step,
                             const std::vector<mfem::ParGridFunction>& u_old,
                             const std::vector<mfem::ParGridFunction>& aux_old,

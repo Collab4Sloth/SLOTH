@@ -98,8 +98,77 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_nlfi_ptr(
                                   "' could not be built.";
   MFEM_VERIFY(rhs_nlfi != nullptr, verify_msg.c_str());
   rhs_nlfi->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
+
+  // Theta-scheme of the integrator: parameter "<integrator name>.theta" (default: 1)
+  rhs_nlfi->set_theta(this->integrator_theta(integrator_name<Variables<T, DIM>>(nlfi)));
+
   rhs_nlfi->init();
   return rhs_nlfi;
+}
+
+/**
+ * @brief Weight of the theta-scheme of an integrator: parameter "<integrator>.theta" (default: 1)
+ *
+ * First time step with theta = 1 (implicit Euler: damping of the initial condition), unless the
+ * parameter "theta_implicit_first_step" is false.
+ *
+ * @tparam T
+ * @tparam DIM
+ * @param integrator Name of the integrator
+ * @return theta in [0, 1]
+ */
+template <class T, int DIM>
+double OperatorBase<T, DIM>::integrator_theta(const std::string& integrator) const {
+  const double theta =
+      this->params_.template get_param_value_or_default<double>(integrator + ".theta", 1.);
+  MFEM_VERIFY(theta == 1. || this->allows_theta(),
+              "OperatorBase: parameter '" + integrator +
+                  ".theta' different from 1: the theta-scheme is only available with the time "
+                  "scheme EulerImplicit.");
+  const bool implicit_first_step =
+      this->params_.template get_param_value_or_default<bool>("theta_implicit_first_step", true);
+  if (implicit_first_step && this->current_time_ == this->initial_time_) return 1.;
+  return theta;
+}
+
+/**
+ * @brief Set the time step of the current step for all the coefficients (average in time of the
+ * AverageCoefficient objects, see FunctionCoefficient::set_time_step)
+ *
+ * @tparam T
+ * @tparam DIM
+ * @param dt Time step of the current step
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::set_time_step_coefficients(double dt) {
+  for (auto& coefs : this->coefficients_) {
+    coefs.set_time_step(dt);
+  }
+}
+
+/**
+ * @brief Check the parameters "<integrator name>.theta": each one must refer to an integrator of
+ * the operator (a misspelt name would be silently ignored otherwise)
+ *
+ * @tparam T
+ * @tparam DIM
+ */
+template <class T, int DIM>
+void OperatorBase<T, DIM>::check_theta_parameters() const {
+  const std::string suffix = ".theta";
+  for (const auto& p : this->params_.get_vector()) {
+    const std::string& key = p.get_name();
+    if (key.size() <= suffix.size() ||
+        key.compare(key.size() - suffix.size(), suffix.size(), suffix) != 0) {
+      continue;
+    }
+    const std::string name = key.substr(0, key.size() - suffix.size());
+    const bool found = std::any_of(
+        this->rhs_integrators_.begin(), this->rhs_integrators_.end(),
+        [&name](const auto& entry) { return integrator_name<Variables<T, DIM>>(entry) == name; });
+    MFEM_VERIFY(found, "OperatorBase: parameter '" + key + "': no integrator '" + name +
+                           "' in the operator.");
+  }
 }
 
 /**
@@ -140,6 +209,14 @@ SlothNLFormIntegrator<Variables<T, DIM>>* OperatorBase<T, DIM>::set_bdr_nlfi_ptr
   const Parameters& all_params = this->params_ - this->default_p_;
   auto bdr_nlfi = this->get_bdr_integrator(dt, nlfi, vun, vauxn, all_params, block, bdr_id);
   bdr_nlfi->set_physical_time_step(this->current_dt_ > 0. ? this->current_dt_ : dt);
+
+  // Theta-scheme of the inflow/outflow terms: theta of the volume advection integrator
+  // ("Advection.theta" or "SplitAdvection.theta", default: 1)
+  if (nlfi == "AdvectionBoundary" || nlfi == "AdvectionBoundaryCH") {
+    bdr_nlfi->set_theta(
+        this->integrator_theta(nlfi == "AdvectionBoundaryCH" ? "SplitAdvection" : "Advection"));
+  }
+
   bdr_nlfi->init();
   return bdr_nlfi;
 }
@@ -270,6 +347,7 @@ OperatorBase<T, DIM>::OperatorBase(
   // Sizes above are those of the current mesh: a later mesh change (e.g. pre-refinement by the
   // AMR of another Problem, before initialize()) is detected by mesh_has_changed()
   this->record_fes_sequence();
+  this->check_theta_parameters();
 }
 
 /**
@@ -281,10 +359,11 @@ OperatorBase<T, DIM>::OperatorBase(
  * @param vars
  */
 template <class T, int DIM>
-void OperatorBase<T, DIM>::initialize([[maybe_unused]] const double& initial_time, const double dt,
+void OperatorBase<T, DIM>::initialize(const double& initial_time, const double dt,
                                       Variables<T, DIM>& vars,
                                       std::vector<Variables<T, DIM>*> auxvars) {
   Catch_Time_Section("OperatorBase::initialize");
+  this->initial_time_ = initial_time;
 
   this->auxvariables_ = auxvars;
   const auto nvars = vars.get_variables_number();

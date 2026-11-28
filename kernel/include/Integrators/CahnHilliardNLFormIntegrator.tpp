@@ -192,6 +192,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  this->prepare_theta_dofs(Tr, elfun, 1);
 
   //
   // Block 0 R(phi)=mu - w' + div lambda grad phi
@@ -229,7 +230,8 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementVector(
         weight_coef *= AxiCylindricalCoefficient().Eval(Tr, ip);
       }
       el[blk]->CalcPhysDShape(Tr, gradPsi);
-      gradPsi.MultTranspose(*elfun[blk], gradU);
+      // phi = theta phi + (1 - theta) phi_old in the gradient term (theta-scheme)
+      gradPsi.MultTranspose(this->gradient_term_dofs(elfun, blk), gradU);
 
       gradU *= -weight_coef * this->lambda_at_points_.value(i);
       gradPsi.AddMult(gradU, *elvect[blk]);
@@ -306,6 +308,7 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
   this->prepare_element_values(
       el, Tr, elfun, this->vaux_gf_,
       mfem::IntRules.Get(el[0]->GetGeomType(), 2 * el[0]->GetOrder() + Tr.OrderW()));
+  this->prepare_theta_dofs(Tr, elfun, 1);
 
   // Block 0  0 dR(phi)dphi = d(mu - w' + div lambda grad phi)/dphi
   {
@@ -341,7 +344,8 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
 
       el[blk]->CalcPhysDShape(Tr, gradPsi);
 
-      const double coef_lambda = this->lambda_at_points_.value(i);
+      // Gradient term: weight theta of the theta-scheme
+      const double coef_lambda = this->lambda_at_points_.value(i) * this->theta_;
 
       AddMult_a_AAt(-weight_coef * coef_lambda, gradPsi, *elmats(blk, blk));
 
@@ -460,6 +464,50 @@ void CahnHilliardNLFormIntegrator<VARS>::AssembleElementGrad(
   }
 }
 
+/**
+ * @brief Theta-scheme: dofs of theta c + (1 - theta) c_old on the current element for the n
+ * concentration blocks (nothing for theta = 1)
+ *
+ * The theta-scheme applies to the gradient term of the equation of mu only, for a classic or an
+ * isotropic variational free energy. The chemical potentials are not interpolated.
+ *
+ * @param Tr Element transformation
+ * @param elfun Values of the dofs of the blocks
+ * @param n Number of concentration blocks (1 for the classic form: phi)
+ */
+template <class VARS>
+void CahnHilliardNLFormIntegrator<VARS>::prepare_theta_dofs(
+    mfem::ElementTransformation& Tr, const mfem::Array<const mfem::Vector*>& elfun, const int n) {
+  if (this->theta_ == 1.) return;
+  MFEM_VERIFY(!this->variational_ || this->isotropic_,
+              "Error in " + this->integrator_name_ +
+                  ": the theta-scheme requires an isotropic gradient energy.");
+  MFEM_VERIFY(this->u_old_.size() >= static_cast<std::size_t>(n),
+              "Error in " + this->integrator_name_ +
+                  ": the theta-scheme requires the values at the beginning of the time step.");
+  this->theta_dofs_.resize(static_cast<std::size_t>(n));
+  for (int blk = 0; blk < n; ++blk) {
+    const auto b = static_cast<std::size_t>(blk);
+    const mfem::Vector& c = *elfun[blk];
+    this->u_old_[b].GetElementDofValues(Tr.ElementNo, this->uold_dofs_);
+    MFEM_VERIFY(this->uold_dofs_.Size() == c.Size(),
+                "Error in " + this->integrator_name_ +
+                    ": c and c_old must be on the same finite element space.");
+    this->theta_dofs_[b].SetSize(c.Size());
+    add(this->theta_, c, 1. - this->theta_, this->uold_dofs_, this->theta_dofs_[b]);
+  }
+}
+
+/**
+ * @brief Dofs used in the gradient term of the concentration block blk: c (theta = 1),
+ * theta c + (1 - theta) c_old otherwise (see prepare_theta_dofs)
+ */
+template <class VARS>
+const mfem::Vector& CahnHilliardNLFormIntegrator<VARS>::gradient_term_dofs(
+    const mfem::Array<const mfem::Vector*>& elfun, const int blk) const {
+  return this->theta_ == 1. ? *elfun[blk] : this->theta_dofs_[static_cast<std::size_t>(blk)];
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // Variational free energy: n concentrations c_i (blocks 0..n-1) and n potentials mu_i (blocks
 // n..2n-1)
@@ -525,6 +573,7 @@ void CahnHilliardNLFormIntegrator<VARS>::variational_element_vector(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
   this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  this->prepare_theta_dofs(Tr, elfun, n);
   this->variational_at_points(*this->free_energy, n, this->isotropic_, fe, Tr, *ir, elfun,
                               this->vaux_gf_, false, this->energy_);
   this->potential_mobility_at_points(fe, Tr, *ir, elfun, n, false);
@@ -552,7 +601,7 @@ void CahnHilliardNLFormIntegrator<VARS>::variational_element_vector(
                                      *elvect[blk]);
         continue;
       }
-      gradPsi.MultTranspose(*elfun[blk], gradU);
+      gradPsi.MultTranspose(this->gradient_term_dofs(elfun, blk), gradU);
       gradU *= -weight_coef * kappa[i * n + blk];
       gradPsi.AddMult(gradU, *elvect[blk]);
 
@@ -616,6 +665,7 @@ void CahnHilliardNLFormIntegrator<VARS>::variational_element_grad(
   const mfem::IntegrationRule* ir =
       &mfem::IntRules.Get(fe.GetGeomType(), 2 * fe.GetOrder() + Tr.OrderW());
   this->prepare_element_values(el, Tr, elfun, this->vaux_gf_, *ir);
+  this->prepare_theta_dofs(Tr, elfun, n);
   this->variational_at_points(*this->free_energy, n, this->isotropic_, fe, Tr, *ir, elfun,
                               this->vaux_gf_, true, this->energy_);
   this->potential_mobility_at_points(fe, Tr, *ir, elfun, n, true);
@@ -644,7 +694,7 @@ void CahnHilliardNLFormIntegrator<VARS>::variational_element_grad(
         continue;
       }
 
-      const double coef_lambda = kappa[i * n + blk];
+      const double coef_lambda = kappa[i * n + blk] * this->theta_;
       AddMult_a_AAt(-weight_coef * coef_lambda, gradPsi, *elmats(blk, blk));
 
       for (int jblk = 0; jblk < n && d2f_dvar2 != nullptr; ++jblk) {

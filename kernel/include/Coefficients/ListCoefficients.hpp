@@ -25,6 +25,7 @@
  */
 #pragma once
 
+#include "Coefficients/AverageCoefficient.hpp"
 #include "Coefficients/AxiCylindricalCoefficient.hpp"
 #include "Coefficients/CommonCoefficients.hpp"
 #include "Coefficients/FileCoefficient.hpp"

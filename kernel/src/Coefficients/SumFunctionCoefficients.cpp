@@ -220,6 +220,17 @@ void SumCoefficient::set_time(double time) {
 }
 
 /**
+ * @brief Set the time step for all FunctionCoefficients
+ *
+ * @param dt Time step of the current step
+ */
+void SumCoefficient::set_time_step(double dt) {
+  for (auto* coef : vect_coefficients_) {
+    coef->set_time_step(dt);
+  }
+}
+
+/**
  * @brief True if at least one FunctionCoefficient depends on the spatial coordinates
  */
 bool SumCoefficient::uses_coordinates() const {

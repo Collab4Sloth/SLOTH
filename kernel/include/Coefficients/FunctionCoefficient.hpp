@@ -101,6 +101,9 @@ class FunctionCoefficient {
                       std::optional<int> dimension = std::nullopt);
 
   virtual void set_time(double time);
+  /// Time step of the current step (used by AverageCoefficient: average in time over the step).
+  /// Nothing by default.
+  virtual void set_time_step([[maybe_unused]] double dt) {}
   double get_time() const;
 
   /// True if the expression depends on the spatial coordinates ("coordinates" in the JSON file)

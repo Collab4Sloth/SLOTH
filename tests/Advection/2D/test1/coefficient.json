@@ -1,0 +1,24 @@
+[
+    {
+        "expression": "1",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "class_name": "VelocityX",
+        "outputfile": "Coefficient"
+    },
+    {
+        "expression": "0",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "class_name": "VelocityY",
+        "outputfile": "Coefficient"
+    },
+    {
+        "expression": "(1 - tanh((x - x0 - t)/w))/2",
+        "variables": "phi",
+        "coordinates": "x,y",
+        "constants": "(t:T),(x0:0.25),(w:0.1)",
+        "class_name": "InflowCoefficient",
+        "outputfile": "Coefficient"
+    }
+]

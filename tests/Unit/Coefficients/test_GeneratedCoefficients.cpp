@@ -26,12 +26,14 @@
 #include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <span>
 #include <stdexcept>
 #include <vector>
 
+#include "Coefficients/AverageCoefficient.hpp"
 #include "Coefficients/Coefficients.hpp"
 #include "Coefficients/EvalAtPoints.hpp"
 #include "Coefficients/ProductFunctionCoefficients.hpp"
@@ -625,4 +627,115 @@ TEST_CASE("Generated coefficients: variational coefficient in a Coefficient",
   CHECK_FALSE(a.eval_variational_batch(1, values, explicit_values, auxiliary_values, gradients,
                                        explicit_gradients, auxiliary_gradients, coordinates,
                                        outputs));
+}
+
+// -----------------------------------------------------------------------------
+// AverageCoefficient on a generated coefficient (FunctionB): discrete gradient of a function of
+// several variables and evaluation by batch (see also test_AverageCoefficient.cpp)
+// -----------------------------------------------------------------------------
+namespace {
+/// Matcher: |value - expected| <= t * max(1, |expected|)
+auto average_near(const double expected, const double t = 1.e-12) {
+  return WithinAbs(expected, t * std::max(1., std::abs(expected)));
+}
+
+/**
+ * @brief Checks the derivatives of c with respect to u_{n+1} (explicit values xn fixed) against
+ * centred finite differences (first derivatives in Value mode only, see
+ * test_AverageCoefficient.cpp)
+ */
+void check_average_derivatives(AverageCoefficient& c, const std::vector<double>& x,
+                               const std::vector<double>& xn) {
+  const double h = 1.e-5;
+  const std::vector<double> aux;
+  const auto n = static_cast<int>(x.size());
+  auto shifted = [&](int k, double dx) {
+    std::vector<double> y = x;
+    y[static_cast<std::size_t>(k)] += dx;
+    return y;
+  };
+  for (int i = 0; i < n; ++i) {
+    CAPTURE(i);
+    if (c.average() == Average::Value) {
+      const double fd =
+          (c.eval_f(shifted(i, h), xn, aux, n) - c.eval_f(shifted(i, -h), xn, aux, n)) / (2. * h);
+      CHECK_THAT(c.eval_gradient(i, x, xn, aux, n), average_near(fd, 1.e-6));
+    }
+    for (int j = 0; j < n; ++j) {
+      CAPTURE(j);
+      const double fd2 = (c.eval_gradient(i, shifted(j, h), xn, aux, n) -
+                          c.eval_gradient(i, shifted(j, -h), xn, aux, n)) /
+                         (2. * h);
+      CHECK_THAT(c.eval_hessian(i, j, x, xn, aux, n), average_near(fd2, 1.e-6));
+    }
+  }
+}
+}  // namespace
+
+TEST_CASE("AverageCoefficient: discrete gradient of a function of several variables",
+          "[Coefficients][Average]") {
+  // FunctionB = 2 x^2 + 30 x y + 0.1 x y z: gradient of degree 2 (Gauss rule of order 2)
+  FunctionB fb;
+  AverageCoefficient c(&fb, QuadRule::gauss(2), Average::Gradient);
+  const std::vector<double> u{0.4, -1.2, 2.5}, un{-0.3, 0.8, 1.1}, aux;
+  double work = 0.;
+  for (int i = 0; i < 3; ++i) {
+    work += c.eval_gradient(i, u, un, aux, 3) * (u[i] - un[i]);
+  }
+  CHECK_THAT(work, average_near(fb.eval_f(u, 3) - fb.eval_f(un, 3)));
+  check_average_derivatives(c, u, un);
+}
+
+// -----------------------------------------------------------------------------
+// Evaluation by batch: same outputs as the point by point evaluation
+// -----------------------------------------------------------------------------
+TEST_CASE("AverageCoefficient: evaluation by batch", "[Coefficients][Average]") {
+  constexpr int npts = 4;
+  constexpr int n = 3;
+  FunctionB fb;
+  const auto average = GENERATE(Average::Value, Average::Gradient);
+  const int order = GENERATE(1, 2, 4);
+  CAPTURE(order);
+  AverageCoefficient c(&fb, QuadRule::gauss(order), average);
+  REQUIRE(c.batch_nb_variables() == n);
+
+  mfem::Vector values(n * npts), explicit_values(n * npts), none;
+  for (int q = 0; q < npts; ++q) {
+    values(n * q) = 0.5 + q;
+    values(n * q + 1) = -1. + 0.7 * q;
+    values(n * q + 2) = 2. - 0.3 * q;
+    explicit_values(n * q) = 0.2 - 0.1 * q;
+    explicit_values(n * q + 1) = 0.4 * q;
+    explicit_values(n * q + 2) = 1.5 + 0.2 * q;
+  }
+  mfem::Vector F(npts), gradient(n * npts), hessian(n * n * npts);
+  REQUIRE(c.eval_batch(npts, values, explicit_values, none, none, &F, &gradient, &hessian));
+  F.HostRead();
+  gradient.HostRead();
+  hessian.HostRead();
+  values.HostRead();
+  explicit_values.HostRead();
+
+  const std::vector<double> aux;
+  for (int q = 0; q < npts; ++q) {
+    CAPTURE(q);
+    const std::span<const double> x(values.GetData() + n * q, n);
+    const std::span<const double> xn(explicit_values.GetData() + n * q, n);
+    CHECK_THAT(F(q), average_near(c.eval_f(x, xn, aux, n)));
+    for (int i = 0; i < n; ++i) {
+      CAPTURE(i);
+      CHECK_THAT(gradient(n * q + i), average_near(c.eval_gradient(i, x, xn, aux, n)));
+      for (int j = 0; j < n; ++j) {
+        CAPTURE(j);
+        CHECK_THAT(hessian((q * n + i) * n + j), average_near(c.eval_hessian(i, j, x, xn, aux, n)));
+      }
+    }
+  }
+
+  SECTION("explicit values required") {
+    SLOTH_CHECK_MFEM_ERROR(c.eval_batch(npts, values, none, none, none, &F, &gradient, &hessian));
+  }
+  SECTION("outputs not requested") {
+    CHECK(c.eval_batch(npts, values, explicit_values, none, none, nullptr, &gradient, nullptr));
+  }
 }

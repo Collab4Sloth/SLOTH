@@ -101,6 +101,9 @@ class AdvectionBoundaryNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
   VelocityField velocity_;
   Coefficient inflow_;
   bool needs_aux_{false};
+  double inflow_time_{0.};  ///< time of the inflow coefficient saved by set_theta_time()
+  void set_theta_time();
+  void restore_time();
 
   void get_coefficients() override;
 
@@ -122,6 +125,8 @@ class AdvectionBoundaryNLFormIntegrator : public SlothNLFormIntegrator<VARS> {
                                     const unsigned int block, const unsigned int bdr_id);
 
   void init() override;
+  /// Theta-scheme: outflow with theta u + (1 - theta) u_old, inflow value at t^{n + theta}
+  bool supports_theta() const override { return true; }
 
   void AssembleElementVector(const mfem::Array<const mfem::FiniteElement*>& el,
                              mfem::ElementTransformation& Tr,

@@ -100,6 +100,7 @@ class OperatorBase : public mfem::Operator {
 
   double current_dt_;
   double current_time_;
+  double initial_time_{0.};  ///< initial time (see initialize), first step of the theta-scheme
   // Largest number of Newton iterations over the stages of the last time-step (-1: no Newton
   // solve, e.g. explicit schemes)
   int newton_iterations_{-1};
@@ -115,6 +116,13 @@ class OperatorBase : public mfem::Operator {
   bool mesh_has_changed() const;
   virtual bool sync_with_mesh();
   std::vector<mfem::Vector> get_auxvars_unknowns() const;
+
+  /// True if the time scheme of the operator allows the theta-scheme in its integrators
+  /// (parameter "<integrator name>.theta" different from 1): implicit Euler only
+  virtual bool allows_theta() const { return false; }
+  void check_theta_parameters() const;
+  double integrator_theta(const std::string& integrator) const;
+  void set_time_step_coefficients(double dt);
 
   void build_rhs_nonlinear_form(const double dt, const std::vector<mfem::Vector>& u);
   void SetNewtonAlgorithm(mfem::Operator* oper);
